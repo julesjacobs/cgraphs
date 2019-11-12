@@ -1,0 +1,327 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Separation logic: reasoning about imperative programs
+\end_layout
+
+\begin_layout Author
+Jules Jacobs
+\end_layout
+
+\begin_layout Standard
+We want to reason about programs using pre- and postconditions, which are
+ predicates 
+\begin_inset Formula $P:State\rightarrow Prop$
+\end_inset
+
+ over the state of the progam (
+\begin_inset Formula $Prop$
+\end_inset
+
+ is the type of truth values, classically you can think of 
+\begin_inset Formula $Prop$
+\end_inset
+
+ as 
+\begin_inset Formula $Bool$
+\end_inset
+
+).
+ The state of the program may be a (partial) mapping 
+\begin_inset Formula $s:Loc\rightarrow Val$
+\end_inset
+
+ from variables or (memory) locations to values.
+ A program 
+\begin_inset Formula $f:State\rightarrow State$
+\end_inset
+
+ transforms an input state to an output state.
+ 
+\end_layout
+
+\begin_layout Standard
+Define 
+\begin_inset Formula $iProp:=State\rightarrow Prop$
+\end_inset
+
+ to be predicates over program states.
+ We can define logical connectives on 
+\begin_inset Formula $P,Q:iProp$
+\end_inset
+
+ by lifting them pointwise:
+\begin_inset Formula 
+\begin{align*}
+P\wedge Q & :=\lambda s.\,P(s)\wedge Q(s)\\
+P\vee Q & :=\lambda s.\,P(s)\vee Q(s)\\
+P\implies Q & :=\lambda s.\,P(s)\implies Q(s)\\
+P\iff Q & :=\lambda s.\,P(s)\iff Q(s)
+\end{align*}
+
+\end_inset
+
+We also have an embedding of 
+\begin_inset Formula $p:Prop$
+\end_inset
+
+ into 
+\begin_inset Formula $iProp$
+\end_inset
+
+ as constant predicates:
+\begin_inset Formula 
+\begin{align*}
+\left\lceil p\right\rceil  & :=\lambda s.\,p
+\end{align*}
+
+\end_inset
+
+And for indexed 
+\begin_inset Formula $iProps$
+\end_inset
+
+ 
+\begin_inset Formula $P:T\rightarrow iProp$
+\end_inset
+
+ we have forall and exists:
+\begin_inset Formula 
+\begin{align*}
+\forall x:T.\,P(x) & :=\lambda s.\,\forall x:T.\,P(x)(s)\\
+\exists x:T.\,P(x) & :=\lambda s.\,\exists x:T.\,P(x)(s)
+\end{align*}
+
+\end_inset
+
+Furthermore, we have the points-to predicate 
+\begin_inset Formula $(l\mapsto v)$
+\end_inset
+
+ which says that the location 
+\begin_inset Formula $l$
+\end_inset
+
+ contains value 
+\begin_inset Formula $v$
+\end_inset
+
+:
+\begin_inset Formula 
+\begin{align*}
+(l\mapsto v) & :=\lambda s.\,s(l)=v
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A Hoare triple 
+\begin_inset Formula $\{P\}\,f\,\{Q\}$
+\end_inset
+
+ asserts that if 
+\begin_inset Formula $P$
+\end_inset
+
+ holds at the input state, and we run program 
+\begin_inset Formula $f$
+\end_inset
+
+, then 
+\begin_inset Formula $Q$
+\end_inset
+
+ holds at the resulting state:
+\begin_inset Formula 
+\begin{align*}
+\{P\}\,f\,\{Q\} & :=\forall s.\,P(s)\implies Q(f(s))
+\end{align*}
+
+\end_inset
+
+This could have been written as 
+\begin_inset Formula $\forall s.\,(P\implies Q\circ f)(s)$
+\end_inset
+
+ using function composition and the 
+\begin_inset Formula $\implies$
+\end_inset
+
+ connective on 
+\begin_inset Formula $iProp$
+\end_inset
+
+.
+ This motivates the definitions
+\begin_inset Formula 
+\begin{align*}
+P\,\text{\textbf{always holds}} & :=\forall s.\,P(s)\\
+\mathbf{wp}\,f\,\{Q\} & :=Q\circ f
+\end{align*}
+
+\end_inset
+
+where 
+\begin_inset Formula $wp$
+\end_inset
+
+ stands for 
+\begin_inset Quotes eld
+\end_inset
+
+weakest precondition
+\begin_inset Quotes erd
+\end_inset
+
+, because the predicate 
+\begin_inset Formula $Q\circ f$
+\end_inset
+
+ reprents the weakest precondition that must hold of the state 
+\begin_inset Formula $s$
+\end_inset
+
+ for us to be able to establish the postcondition 
+\begin_inset Formula $Q$
+\end_inset
+
+ after running 
+\begin_inset Formula $f$
+\end_inset
+
+ on 
+\begin_inset Formula $s$
+\end_inset
+
+.
+ We like this definition because 
+\begin_inset Formula $wp\,f\,\{Q\}$
+\end_inset
+
+ is an 
+\begin_inset Formula $iProp$
+\end_inset
+
+, and thus fits neatly into this framework designed for reasoning about
+ 
+\begin_inset Formula $iProps$
+\end_inset
+
+.
+ We can now alternatively define Hoare triples as
+\begin_inset Formula 
+\begin{align*}
+\{P\}\,f\,\{Q\} & :=(P\implies\mathbf{wp}\,f\,\{Q\})\,\text{\textbf{always holds}}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Todo:
+\end_layout
+
+\begin_layout Itemize
+Start by describing Hoare triples intuitively, then present this as a way
+ to interpret syntax in pre- and postconditions formally.
+\end_layout
+
+\begin_layout Itemize
+Motivate step indexing and Lob by proving partial correctness of while loops
+\end_layout
+
+\begin_layout Itemize
+Motivate and transition to doing programs via small step operational semantics
+ rather than predicate transformers
+\end_layout
+
+\begin_layout Itemize
+Motivatate star and magic wand
+\end_layout
+
+\begin_layout Itemize
+Concurrency
+\end_layout
+
+\end_body
+\end_document

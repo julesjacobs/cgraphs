@@ -179,7 +179,7 @@ Notion of adding and removing a lock from
 \begin_inset Formula $L$
 \end_inset
 
- (possibly plus some other data that describe the manner in which it gets
+ (possibly plus some other data that descript the manner in which it gets
  added/removed)
 \end_layout
 
