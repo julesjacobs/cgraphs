@@ -79,7 +79,7 @@
 Partial order for deadlock freedom
 \end_layout
 
-\begin_layout Author
+\begin_layout Title
 Jules Jacobs
 \end_layout
 
@@ -208,58 +208,14 @@ es/deadlocks.pdf) says that a subset of threads is in deadlock if each thread
 \end_layout
 
 \begin_layout Standard
-For each resource r we have a notion of which threads have access to it,
- that is, a set 
-\begin_inset Formula $A(r)$
-\end_inset
-
- that tells us which threads may unclock 
-\begin_inset Formula $r$
-\end_inset
-
-.
- A program is in a deadlock if there is a set 
-\begin_inset Formula $D$
-\end_inset
-
- of threads that are all waiting on resources 
-\begin_inset Formula $r_{i}$
-\end_inset
-
-, and for each of those resources the set of threads that have access to
- it is a subset of 
-\begin_inset Formula $D$
-\end_inset
-
-.
+For each resource we have a notion of which threads have access to it.
+ A program is in a deadlock if there is a set D of threads that are all
+ waiting on resources, and for each of those resources the set of threads
+ that have access to it is a subset of D.
 \end_layout
 
 \begin_layout Standard
-To get the notion from the literature, we say that 
-\begin_inset Formula $A(l)$
-\end_inset
 
- is the singleton set of the thread that has locked 
-\begin_inset Formula $l$
-\end_inset
-
-, or the emtpy set if 
-\begin_inset Formula $l$
-\end_inset
-
- is not locked.
-\end_layout
-
-\begin_layout Standard
-To get Bart & Jafar's notion, we say that 
-\begin_inset Formula $A(l)$
-\end_inset
-
- is the set of all threads for every lock 
-\begin_inset Formula $l$
-\end_inset
-
-.
 \end_layout
 
 \end_body

@@ -1,0 +1,11 @@
+
+*.aux
+*.glob
+*.v#
+*.vo
+*.crashcoqide
+*.d
+*.coq
+*.conf
+*.cache
+.DS_Store
