@@ -19,3 +19,4 @@ theories/program_logic/ectx_language.v
 theories/program_logic/ectxi_language.v
 theories/program_logic/ectx_lifting.v
 theories/bi/weakestpre.v
+theories/heap_lang/lang.v

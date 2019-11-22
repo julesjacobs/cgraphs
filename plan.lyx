@@ -91,26 +91,6 @@ Read Bart's papers
 Read literature to find definitions of deadlocks
 \end_layout
 
-\begin_deeper
-\begin_layout Enumerate
-Keep track of which locks are held by which threads
-\end_layout
-
-\begin_layout Enumerate
-Keep track of which lock a thread is waiting on
-\end_layout
-
-\begin_layout Enumerate
-There can't be a subset of threads, such that each thread is waiting on
- a lock held by that subset
-\end_layout
-
-\begin_layout Enumerate
-Formalise deadlocks in terms of those sets, not only in terms of an order
- on individual locks
-\end_layout
-
-\end_deeper
 \begin_layout Enumerate
 Figure out an abstract version of partial order relation that still ensures
  deadlock freedom
