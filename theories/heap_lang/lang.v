@@ -104,6 +104,7 @@ Inductive expr :=
   | Store (e1 : expr) (e2 : expr)
   | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
   | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *)
+  | WAS (e1 : expr) (e2 : expr) (e3 : expr) (* Wait-and-set *)
   (* Prophecy *)
   | NewProph
   | Resolve (e0 : expr) (e1 : expr) (e2 : expr) (* wrapped expr, proph, val *)
@@ -238,6 +239,8 @@ Proof.
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
      | CmpXchg e0 e1 e2, CmpXchg e0' e1' e2' =>
         cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
+     | WAS e0 e1 e2, WAS e0' e1' e2' =>
+        cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
      | FAA e1 e2, FAA e1' e2' =>
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
      | NewProph, NewProph => left _
@@ -322,6 +325,7 @@ Proof.
      | FAA e1 e2 => GenNode 17 [go e1; go e2]
      | NewProph => GenNode 18 []
      | Resolve e0 e1 e2 => GenNode 19 [go e0; go e1; go e2]
+     | WAS e0 e1 e2 => GenNode 20 [go e0; go e1; go e2]
      end
    with gov v :=
      match v with
@@ -357,6 +361,7 @@ Proof.
      | GenNode 17 [e1; e2] => FAA (go e1) (go e2)
      | GenNode 18 [] => NewProph
      | GenNode 19 [e0; e1; e2] => Resolve (go e0) (go e1) (go e2)
+     | GenNode 20 [e0; e1; e2] => WAS (go e0) (go e1) (go e2)
      | _ => Val $ LitV LitUnit (* dummy *)
      end
    with gov v :=
@@ -371,7 +376,7 @@ Proof.
    for go).
  refine (inj_countable' enc dec _).
  refine (fix go (e : expr) {struct e} := _ with gov (v : val) {struct v} := _ for go).
- - destruct e as [v| | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
+ - destruct e as [v| | | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
      [exact (gov v)|done..].
  - destruct v; by f_equal.
 Qed.
@@ -476,6 +481,7 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | Load e => Load (subst x v e)
   | Store e1 e2 => Store (subst x v e1) (subst x v e2)
   | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2)
+  | WAS e0 e1 e2 => WAS (subst x v e0) (subst x v e1) (subst x v e2)
   | FAA e1 e2 => FAA (subst x v e1) (subst x v e2)
   | NewProph => NewProph
   | Resolve ex e1 e2 => Resolve (subst x v ex) (subst x v e1) (subst x v e2)
@@ -652,6 +658,16 @@ Inductive head_step : expr → state → list observation → expr → state →
      head_step (CmpXchg (Val $ LitV $ LitLoc l) (Val v1) (Val v2)) σ
                []
                (Val $ PairV vl (LitV $ LitBool b)) (if b then state_upd_heap <[l:=v2]> σ else σ)
+               []
+  | WAS l v1 v2 vl σ b :
+     σ.(heap) !! l = Some vl →
+     (* Crucially, this compares the same way as [EqOp]! *)
+     vals_compare_safe vl v1 →
+     b = bool_decide (vl = v1) →
+     head_step (CmpXchg (Val $ LitV $ LitLoc l) (Val v1) (Val v2)) σ
+               []
+               (if b then (Val $ LitV LitUnit) else (CmpXchg (Val $ LitV $ LitLoc l) (Val v1) (Val v2)))
+               (if b then state_upd_heap <[l:=v2]> σ else σ)
                []
   | FaaS l i1 i2 σ :
      σ.(heap) !! l = Some (LitV (LitInt i1)) →
