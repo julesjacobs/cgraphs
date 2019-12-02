@@ -17,6 +17,7 @@ Section ectx_language_mixin.
   Context (comp_ectx : ectx → ectx → ectx).
   Context (fill : ectx → expr → expr).
   Context (head_step : expr → state → list observation → expr → state → list expr → Prop).
+  Context (head_waiting : expr → state → Prop).
 
   Record EctxLanguageMixin := {
     mixin_to_of_val v : to_val (of_val v) = Some v;
@@ -28,6 +29,9 @@ Section ectx_language_mixin.
     mixin_fill_comp K1 K2 e : fill K1 (fill K2 e) = fill (comp_ectx K1 K2) e;
     mixin_fill_inj K : Inj (=) (=) (fill K);
     mixin_fill_val K e : is_Some (to_val (fill K e)) → is_Some (to_val e);
+
+    mixin_val_waiting e σ : head_waiting e σ  → to_val e = None;
+    mixin_fill_waiting K e σ : head_waiting (fill K e) σ → to_val e = None → head_waiting e σ;
 
     mixin_step_by_val K K' e1 e1' σ1 κ e2 σ2 efs :
       fill K e1 = fill K' e1' →
@@ -56,18 +60,20 @@ Structure ectxLanguage := EctxLanguage {
   comp_ectx : ectx → ectx → ectx;
   fill : ectx → expr → expr;
   head_step : expr → state → list observation → expr → state → list expr → Prop;
+  head_waiting : expr → state → Prop;
 
   ectx_language_mixin :
-    EctxLanguageMixin of_val to_val empty_ectx comp_ectx fill head_step
+    EctxLanguageMixin of_val to_val empty_ectx comp_ectx fill head_step head_waiting;
 }.
 
-Arguments EctxLanguage {_ _ _ _ _ _ _ _ _ _ _} _.
+Arguments EctxLanguage {_ _ _ _ _ _ _ _ _ _ _ _} _.
 Arguments of_val {_} _%V.
 Arguments to_val {_} _%E.
 Arguments empty_ectx {_}.
 Arguments comp_ectx {_} _ _.
 Arguments fill {_} _ _%E.
 Arguments head_step {_} _%E _ _ _%E _ _.
+Arguments head_waiting {_} _ _ .
 
 (* From an ectx_language, we can construct a language. *)
 Section ectx_language.
@@ -87,6 +93,10 @@ Section ectx_language.
   Proof. apply ectx_language_mixin. Qed.
   Lemma fill_val K e : is_Some (to_val (fill K e)) → is_Some (to_val e).
   Proof. apply ectx_language_mixin. Qed.
+  Lemma val_waiting e σ : head_waiting e σ  → to_val e = None.
+  Proof. apply ectx_language_mixin. Qed.
+  Lemma fill_waiting K e σ : head_waiting (fill K e) σ → to_val e = None → head_waiting e σ.
+  Proof. apply ectx_language_mixin. Qed.
   Lemma step_by_val K K' e1 e1' σ1 κ e2 σ2 efs :
     fill K e1 = fill K' e1' →
     to_val e1 = None →
@@ -104,7 +114,7 @@ Section ectx_language.
   Definition head_irreducible (e : expr Λ) (σ : state Λ) :=
     ∀ κ e' σ' efs, ¬head_step e σ κ e' σ' efs.
   Definition head_stuck (e : expr Λ) (σ : state Λ) :=
-    to_val e = None ∧ head_irreducible e σ.
+    to_val e = None ∧ head_irreducible e σ ∧ ¬ head_waiting e σ.
 
   (* All non-value redexes are at the root.  In other words, all sub-redexes are
      values. *)
@@ -121,13 +131,14 @@ Section ectx_language.
     head_step e1 σ1 κ e2 σ2 efs → prim_step (fill K e1) σ1 κ (fill K e2) σ2 efs.
   Proof. econstructor; eauto. Qed.
 
-  Definition ectx_lang_mixin : LanguageMixin of_val to_val prim_step.
+  Definition ectx_lang_mixin : LanguageMixin of_val to_val prim_step head_waiting.
   Proof.
     split.
     - apply ectx_language_mixin.
     - apply ectx_language_mixin.
     - intros ?????? [??? -> -> ?%val_head_stuck].
       apply eq_None_not_Some. by intros ?%fill_val%eq_None_not_Some.
+    - apply ectx_language_mixin.
   Qed.
 
   Canonical Structure ectx_lang : language := Language ectx_lang_mixin.
@@ -201,8 +212,11 @@ Section ectx_language.
   Lemma head_stuck_stuck e σ :
     head_stuck e σ → sub_redexes_are_values e → stuck e σ.
   Proof.
-    intros [] ?. split; first done.
-    by apply prim_head_irreducible.
+    intros (?&?&Hw) ?.
+    split; first done.
+    split.
+    - by apply prim_head_irreducible.
+    - by contradict Hw.
   Qed.
 
   Lemma ectx_language_atomic a e :
@@ -251,6 +265,7 @@ Section ectx_language.
       rewrite -fill_comp in Heq1; apply (inj (fill _)) in Heq1.
       exists (fill K' e2''); rewrite -fill_comp; split; auto.
       econstructor; eauto.
+    - intros. apply (fill_waiting K); auto.
   Qed.
 
   Record pure_head_step (e1 e2 : expr Λ) := {
@@ -284,6 +299,6 @@ work.
 Note that this trick no longer works when we switch to canonical projections
 because then the pattern match [let '...] will be desugared into projections. *)
 Definition LanguageOfEctx (Λ : ectxLanguage) : language :=
-  let '@EctxLanguage E V C St K of_val to_val empty comp fill head mix := Λ in
-  @Language E V St K of_val to_val _
-    (@ectx_lang_mixin (@EctxLanguage E V C St K of_val to_val empty comp fill head mix)).
+  let '@EctxLanguage E V C St K of_val to_val empty comp fill head waiting mix := Λ in
+  @Language E V St K of_val to_val _ _
+    (@ectx_lang_mixin (@EctxLanguage E V C St K of_val to_val empty comp fill head _ mix)).

@@ -9,11 +9,13 @@ Section language_mixin.
      use in the definition of weakest preconditions to predict future
      observations and assert correctness of the predictions. *)
   Context (prim_step : expr → state → list observation → expr → state → list expr → Prop).
+  Context (waiting : expr → state → Prop).
 
   Record LanguageMixin := {
     mixin_to_of_val v : to_val (of_val v) = Some v;
     mixin_of_to_val e v : to_val e = Some v → of_val v = e;
-    mixin_val_stuck e σ κ e' σ' efs : prim_step e σ κ e' σ' efs → to_val e = None
+    mixin_val_stuck e σ κ e' σ' efs : prim_step e σ κ e' σ' efs → to_val e = None;
+    mixin_val_waiting e σ : waiting e σ  → to_val e = None;
   }.
 End language_mixin.
 
@@ -25,17 +27,19 @@ Structure language := Language {
   of_val : val → expr;
   to_val : expr → option val;
   prim_step : expr → state → list observation → expr → state → list expr → Prop;
-  language_mixin : LanguageMixin of_val to_val prim_step
+  waiting : expr → state → Prop;
+  language_mixin : LanguageMixin of_val to_val prim_step waiting;
 }.
 Delimit Scope expr_scope with E.
 Delimit Scope val_scope with V.
 Bind Scope expr_scope with expr.
 Bind Scope val_scope with val.
 
-Arguments Language {_ _ _ _ _ _ _} _.
+Arguments Language {_ _ _ _ _ _ _ _} _.
 Arguments of_val {_} _.
 Arguments to_val {_} _.
 Arguments prim_step {_} _ _ _ _ _ _.
+Arguments waiting {_} _ _.
 
 Canonical Structure stateO Λ := leibnizO (state Λ).
 Canonical Structure valO Λ := leibnizO (val Λ).
@@ -51,7 +55,11 @@ Class LanguageCtx {Λ : language} (K : expr Λ → expr Λ) := {
     prim_step (K e1) σ1 κ (K e2) σ2 efs;
   fill_step_inv e1' σ1 κ e2 σ2 efs :
     to_val e1' = None → prim_step (K e1') σ1 κ e2 σ2 efs →
-    ∃ e2', e2 = K e2' ∧ prim_step e1' σ1 κ e2' σ2 efs
+    ∃ e2', e2 = K e2' ∧ prim_step e1' σ1 κ e2' σ2 efs;
+  fill_waiting e σ :
+    to_val e = None →
+    waiting (K e) σ →
+    waiting e σ
 }.
 
 Instance language_ctx_id Λ : LanguageCtx (@id (expr Λ)).
@@ -70,6 +78,8 @@ Section language.
   Proof. apply language_mixin. Qed.
   Lemma val_stuck e σ κ e' σ' efs : prim_step e σ κ e' σ' efs → to_val e = None.
   Proof. apply language_mixin. Qed.
+  Lemma val_waiting e σ : waiting e σ  → to_val e = None.
+  Proof. apply language_mixin. Qed.
 
   Definition reducible (e : expr Λ) (σ : state Λ) :=
     ∃ κ e' σ' efs, prim_step e σ κ e' σ' efs.
@@ -79,9 +89,9 @@ Section language.
   Definition irreducible (e : expr Λ) (σ : state Λ) :=
     ∀ κ e' σ' efs, ¬prim_step e σ κ e' σ' efs.
   Definition stuck (e : expr Λ) (σ : state Λ) :=
-    to_val e = None ∧ irreducible e σ.
+    to_val e = None ∧ irreducible e σ ∧ ¬ waiting e σ.
   Definition not_stuck (e : expr Λ) (σ : state Λ) :=
-    is_Some (to_val e) ∨ reducible e σ.
+    is_Some (to_val e) ∨ reducible e σ ∨ waiting e σ.
 
   (* [Atomic WeaklyAtomic]: This (weak) form of atomicity is enough to open
      invariants when WP ensures safety, i.e., programs never can get stuck.  We
@@ -170,7 +180,7 @@ Section language.
 
   Lemma stuck_fill `{!@LanguageCtx Λ K} e σ :
     stuck e σ → stuck (K e) σ.
-  Proof. intros [??]. split. by apply fill_not_val. by apply irreducible_fill. Qed.
+  Proof. unfold stuck. naive_solver auto using fill_not_val, irreducible_fill, fill_waiting. Qed.
 
   Lemma step_Permutation (t1 t1' t2 : list (expr Λ)) κ σ1 σ2 :
     t1 ≡ₚ t1' → step (t1,σ1) κ (t2,σ2) → ∃ t2', t2 ≡ₚ t2' ∧ step (t1',σ1) κ (t2',σ2).
@@ -239,10 +249,12 @@ Section language.
     not_stuck (K e) σ → not_stuck e σ.
   Proof.
     rewrite /not_stuck /reducible /=.
-    intros [[? HK]|(?&?&?&?&Hstp)]; simpl in *.
+    intros [[? HK]|[(?&?&?&?&Hstp)|w]]; simpl in *.
     - left. apply not_eq_None_Some; intros ?%fill_not_val; simplify_eq.
     - destruct (to_val e) eqn:?; first by left; eauto.
       apply fill_step_inv in Hstp; naive_solver.
+    - destruct (to_val e) eqn:E. left. eauto.
+      right. right. apply fill_waiting; auto.
   Qed.
 
   (* We do not make this an instance because it is awfully general. *)

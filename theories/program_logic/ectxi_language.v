@@ -32,6 +32,7 @@ Section ectxi_language_mixin.
   Context (to_val : expr → option val).
   Context (fill_item : ectx_item → expr → expr).
   Context (head_step : expr → state → list observation → expr → state → list expr → Prop).
+  Context (head_waiting : expr → state → Prop).
 
   Record EctxiLanguageMixin := {
     mixin_to_of_val v : to_val (of_val v) = Some v;
@@ -43,6 +44,9 @@ Section ectxi_language_mixin.
     mixin_fill_item_no_val_inj Ki1 Ki2 e1 e2 :
       to_val e1 = None → to_val e2 = None →
       fill_item Ki1 e1 = fill_item Ki2 e2 → Ki1 = Ki2;
+
+    mixin_val_waiting e σ : head_waiting e σ  → to_val e = None;
+    mixin_fill_item_waiting K e σ : head_waiting (fill_item K e) σ → to_val e = None → head_waiting e σ;
 
     mixin_head_ctx_step_val Ki e σ1 κ e2 σ2 efs :
       head_step (fill_item Ki e) σ1 κ e2 σ2 efs → is_Some (to_val e);
@@ -60,16 +64,18 @@ Structure ectxiLanguage := EctxiLanguage {
   to_val : expr → option val;
   fill_item : ectx_item → expr → expr;
   head_step : expr → state → list observation → expr → state → list expr → Prop;
+  head_waiting : expr → state → Prop;
 
   ectxi_language_mixin :
-    EctxiLanguageMixin of_val to_val fill_item head_step
+    EctxiLanguageMixin of_val to_val fill_item head_step head_waiting
 }.
 
-Arguments EctxiLanguage {_ _ _ _ _ _ _ _ _} _.
+Arguments EctxiLanguage {_ _ _ _ _ _ _ _ _ _} _.
 Arguments of_val {_} _%V.
 Arguments to_val {_} _%E.
 Arguments fill_item {_} _ _%E.
 Arguments head_step {_} _%E _ _ _%E _ _.
+Arguments head_waiting {_} _ _ .
 
 Section ectxi_language.
   Context {Λ : ectxiLanguage}.
@@ -88,14 +94,19 @@ Section ectxi_language.
   Lemma head_ctx_step_val Ki e σ1 κ e2 σ2 efs :
     head_step (fill_item Ki e) σ1 κ e2 σ2 efs → is_Some (to_val e).
   Proof. apply ectxi_language_mixin. Qed.
+  Lemma fill_item_waiting K e σ : head_waiting (fill_item K e) σ → to_val e = None → head_waiting e σ.
+  Proof. apply ectxi_language_mixin. Qed.
 
   Definition fill (K : ectx) (e : expr Λ) : expr Λ := foldl (flip fill_item) e K.
 
   Lemma fill_app (K1 K2 : ectx) e : fill (K1 ++ K2) e = fill K2 (fill K1 e).
   Proof. apply foldl_app. Qed.
 
+  Lemma fill_item_not_val Ki e : to_val e = None → to_val (fill_item Ki e) = None.
+  Proof. rewrite !eq_None_not_Some. eauto using fill_item_val. Qed.
+
   Definition ectxi_lang_ectx_mixin :
-    EctxLanguageMixin of_val to_val [] (flip (++)) fill head_step.
+    EctxLanguageMixin of_val to_val [] (flip (++)) fill head_step head_waiting.
   Proof.
     assert (fill_val : ∀ K e, is_Some (to_val (fill K e)) → is_Some (to_val e)).
     { intros K. induction K as [|Ki K IH]=> e //=. by intros ?%IH%fill_item_val. }
@@ -109,6 +120,9 @@ Section ectxi_language.
     - intros K1 K2 e. by rewrite /fill /= foldl_app.
     - intros K; induction K as [|Ki K IH]; rewrite /Inj; naive_solver.
     - done.
+    - apply ectxi_language_mixin.
+    - intros K; induction K as [|Ki K IH]; simpl in *;
+        eauto using fill_item_waiting, fill_item_not_val.
     - intros K K' e1 κ e1' σ1 e2 σ2 efs Hfill Hred Hstep; revert K' Hfill.
       induction K as [|Ki K IH] using rev_ind=> /= K' Hfill; eauto using app_nil_r.
       destruct K' as [|Ki' K' _] using @rev_ind; simplify_eq/=.
@@ -127,6 +141,7 @@ Section ectxi_language.
   Qed.
 
   Canonical Structure ectxi_lang_ectx := EctxLanguage ectxi_lang_ectx_mixin.
+
   Canonical Structure ectxi_lang := LanguageOfEctx ectxi_lang_ectx.
 
   Lemma fill_not_val K e : to_val e = None → to_val (fill K e) = None.
@@ -151,6 +166,6 @@ Coercion ectxi_lang_ectx : ectxiLanguage >-> ectxLanguage.
 Coercion ectxi_lang : ectxiLanguage >-> language.
 
 Definition EctxLanguageOfEctxi (Λ : ectxiLanguage) : ectxLanguage :=
-  let '@EctxiLanguage E V C St K of_val to_val fill head mix := Λ in
-  @EctxLanguage E V (list C) St K of_val to_val _ _ _ _
-    (@ectxi_lang_ectx_mixin (@EctxiLanguage E V C St K of_val to_val fill head mix)).
+  let '@EctxiLanguage E V C St K of_val to_val fill head waiting mix := Λ in
+  @EctxLanguage E V (list C) St K of_val to_val _ _ _ _ _
+    (@ectxi_lang_ectx_mixin (@EctxiLanguage E V C St K of_val to_val fill head waiting mix)).
