@@ -165,7 +165,7 @@ Record adequate {Λ} (s : stuckness) (e1 : expr Λ) (σ1 : state Λ)
   adequate_not_stuck t2 σ2 e2 :
    s = NotStuck →
    rtc erased_step ([e1], σ1) (t2, σ2) →
-   e2 ∈ t2 → not_stuck e2 σ2
+   e2 ∈ t2 → not_stuck e2 σ2 ∨ waiting e2 σ2
 }.
 
 Lemma adequate_alt {Λ} s e1 σ1 (φ : val Λ → state Λ → Prop) :

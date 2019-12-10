@@ -32,6 +32,8 @@ Section ectx_language_mixin.
 
     mixin_val_waiting e σ : head_waiting e σ  → to_val e = None;
     mixin_fill_waiting K e σ : head_waiting (fill K e) σ → to_val e = None → head_waiting e σ;
+    mixin_waiting_fill K e σ : head_waiting e σ → head_waiting (fill K e) σ;
+
 
     mixin_step_by_val K K' e1 e1' σ1 κ e2 σ2 efs :
       fill K e1 = fill K' e1' →
@@ -96,6 +98,8 @@ Section ectx_language.
   Lemma val_waiting e σ : head_waiting e σ  → to_val e = None.
   Proof. apply ectx_language_mixin. Qed.
   Lemma fill_waiting K e σ : head_waiting (fill K e) σ → to_val e = None → head_waiting e σ.
+  Proof. apply ectx_language_mixin. Qed.
+  Lemma waiting_fill K e σ : head_waiting e σ → head_waiting (fill K e) σ.
   Proof. apply ectx_language_mixin. Qed.
   Lemma step_by_val K K' e1 e1' σ1 κ e2 σ2 efs :
     fill K e1 = fill K' e1' →
@@ -266,6 +270,7 @@ Section ectx_language.
       exists (fill K' e2''); rewrite -fill_comp; split; auto.
       econstructor; eauto.
     - intros. apply (fill_waiting K); auto.
+    - intros. Locate fill_waiting. Locate waiting_fill. apply (waiting_fill K); auto.
   Qed.
 
   Record pure_head_step (e1 e2 : expr Λ) := {

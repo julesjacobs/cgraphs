@@ -59,7 +59,10 @@ Class LanguageCtx {Λ : language} (K : expr Λ → expr Λ) := {
   fill_waiting e σ :
     to_val e = None →
     waiting (K e) σ →
-    waiting e σ
+    waiting e σ;
+  waiting_fill e σ :
+    waiting e σ →
+    waiting (K e) σ;
 }.
 
 Instance language_ctx_id Λ : LanguageCtx (@id (expr Λ)).
@@ -107,7 +110,9 @@ Section language.
   Class Atomic (a : atomicity) (e : expr Λ) : Prop :=
     atomic σ e' κ σ' efs :
       prim_step e σ κ e' σ' efs →
-      if a is WeaklyAtomic then irreducible e' σ' else is_Some (to_val e').
+      if a is WeaklyAtomic
+      then irreducible e' σ' ∧ ¬waiting e' σ'
+      else is_Some (to_val e').
 
   Inductive step (ρ1 : cfg Λ) (κ : list (observation Λ)) (ρ2 : cfg Λ) : Prop :=
     | step_atomic e1 σ1 e2 σ2 efs t1 t2 :
@@ -146,6 +151,8 @@ Section language.
   Proof. unfold reducible, irreducible. naive_solver. Qed.
   Lemma reducible_not_val e σ : reducible e σ → to_val e = None.
   Proof. intros (?&?&?&?&?); eauto using val_stuck. Qed.
+  Lemma waiting_not_val e σ : waiting e σ → to_val e = None.
+  Proof. eauto using val_waiting. Qed.
   Lemma reducible_no_obs_reducible e σ : reducible_no_obs e σ → reducible e σ.
   Proof. intros (?&?&?&?); eexists; eauto. Qed.
   Lemma val_irreducible e σ : is_Some (to_val e) → irreducible e σ.
@@ -160,7 +167,11 @@ Section language.
 
   Lemma strongly_atomic_atomic e a :
     Atomic StronglyAtomic e → Atomic a e.
-  Proof. unfold Atomic. destruct a; eauto using val_irreducible. Qed.
+  Proof. unfold Atomic. destruct a; first done.
+  intros Hat σ e' κ σ' efs Hstep. split; first by eauto using val_irreducible.
+  intros Hwait. apply Hat in Hstep. apply waiting_not_val in Hwait.
+  destruct Hstep; naive_solver.
+  Qed.
 
   Lemma reducible_fill `{!@LanguageCtx Λ K} e σ :
     to_val e = None → reducible (K e) σ → reducible e σ.

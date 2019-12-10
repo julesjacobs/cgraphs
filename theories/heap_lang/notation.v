@@ -1,5 +1,5 @@
-From iris.program_logic Require Import language.
-From iris.heap_lang Require Export lang.
+From diris.program_logic Require Import language.
+From diris.heap_lang Require Export lang.
 Set Default Proof Using "Type".
 
 Delimit Scope expr_scope with E.

@@ -104,7 +104,7 @@ Inductive expr :=
   | Store (e1 : expr) (e2 : expr)
   | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
   | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *)
-  | WAS (e1 : expr) (e2 : expr) (e3 : expr) (* Wait-and-set *)
+  | WAS (e1 : expr) (e2 : expr) (e3 : expr) (* Wait-and-set (blocking) *)
   (* Prophecy *)
   | NewProph
   | Resolve (e0 : expr) (e1 : expr) (e2 : expr) (* wrapped expr, proph, val *)

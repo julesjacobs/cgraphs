@@ -47,6 +47,7 @@ Section ectxi_language_mixin.
 
     mixin_val_waiting e σ : head_waiting e σ  → to_val e = None;
     mixin_fill_item_waiting K e σ : head_waiting (fill_item K e) σ → to_val e = None → head_waiting e σ;
+    mixin_waiting_fill_item K e σ : head_waiting e σ → head_waiting (fill_item K e) σ;
 
     mixin_head_ctx_step_val Ki e σ1 κ e2 σ2 efs :
       head_step (fill_item Ki e) σ1 κ e2 σ2 efs → is_Some (to_val e);
@@ -96,6 +97,9 @@ Section ectxi_language.
   Proof. apply ectxi_language_mixin. Qed.
   Lemma fill_item_waiting K e σ : head_waiting (fill_item K e) σ → to_val e = None → head_waiting e σ.
   Proof. apply ectxi_language_mixin. Qed.
+  Lemma waiting_fill_item K e σ : head_waiting e σ → head_waiting (fill_item K e) σ.
+  Proof. apply ectxi_language_mixin. Qed.
+
 
   Definition fill (K : ectx) (e : expr Λ) : expr Λ := foldl (flip fill_item) e K.
 
@@ -123,6 +127,8 @@ Section ectxi_language.
     - apply ectxi_language_mixin.
     - intros K; induction K as [|Ki K IH]; simpl in *;
         eauto using fill_item_waiting, fill_item_not_val.
+    - intros K; induction K as [|Ki K IH]; simpl in *;
+      eauto using waiting_fill_item.
     - intros K K' e1 κ e1' σ1 e2 σ2 efs Hfill Hred Hstep; revert K' Hfill.
       induction K as [|Ki K IH] using rev_ind=> /= K' Hfill; eauto using app_nil_r.
       destruct K' as [|Ki' K' _] using @rev_ind; simplify_eq/=.

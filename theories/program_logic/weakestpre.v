@@ -14,7 +14,7 @@ Class irisG (Λ : language) (Σ : gFunctors) := IrisG {
   step of reduction. Here [Λstate] is the global state, [list Λobservation] are
   the remaining observations, and [nat] is the number of forked-off threads
   (not the total number of threads, which is one higher because there is always
-  a main thread). *)
+  a main thread). *) 
   state_interp : state Λ → list (observation Λ) → nat → iProp Σ;
 
   (** A fixed postcondition for any forked-off thread. For most languages, e.g.
@@ -31,7 +31,7 @@ Definition wp_pre `{!irisG Λ Σ} (s : stuckness)
   | Some v => |={E}=> Φ v
   | None => ∀ σ1 κ κs n,
      state_interp σ1 (κ ++ κs) n ={E,∅}=∗
-       ⌜if s is NotStuck then reducible e1 σ1 else True⌝ ∗
+       ⌜if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else True⌝ ∗
        ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={∅,∅,E}▷=∗
          state_interp σ2 κs (length efs + n) ∗
          wp E e2 Φ ∗
@@ -132,12 +132,13 @@ Proof.
   iMod "H" as "(Hσ & H & Hefs)". destruct s.
   - rewrite !wp_unfold /wp_pre. destruct (to_val e2) as [v2|] eqn:He2.
     + iDestruct "H" as ">> $". by iFrame.
-    + iMod ("H" $! _ [] with "[$]") as "[H _]". iDestruct "H" as %(? & ? & ? & ? & ?).
-      by edestruct (atomic _ _ _ _ _ Hstep).
+    + iMod ("H" $! _ [] with "[$]") as "[H _]". iDestruct "H" as "[H|H]". 
+      * iDestruct "H" as %(? & ? & ? & ? & ?). by edestruct (atomic _ _ _ _ _ Hstep).
+      * admit.  
   - destruct (atomic _ _ _ _ _ Hstep) as [v <-%of_to_val].
     iMod (wp_value_inv' with "H") as ">H".
     iModIntro. iFrame "Hσ Hefs". by iApply wp_value'.
-Qed.
+Admitted.
 
 Lemma wp_step_fupd s E1 E2 e P Φ :
   to_val e = None → E2 ⊆ E1 →
@@ -161,7 +162,9 @@ Proof.
   rewrite wp_unfold /wp_pre fill_not_val //.
   iIntros (σ1 κ κs n) "Hσ". iMod ("H" with "[$]") as "[% H]". iModIntro; iSplit.
   { iPureIntro. destruct s; last done.
-    unfold reducible in *. naive_solver eauto using fill_step. }
+    unfold reducible in *. destruct H.
+    - naive_solver eauto using fill_step.
+    - right. Locate waiting. Locate LanguageCtx. destruct LanguageCtx0. eauto. }
   iIntros (e2 σ2 efs Hstep).
   destruct (fill_step_inv e σ1 κ e2 σ2 efs) as (e2'&->&?); auto.
   iMod ("H" $! e2' σ2 efs with "[//]") as "H". iIntros "!>!>".
@@ -177,7 +180,7 @@ Proof.
   { apply of_to_val in He as <-. by rewrite !wp_unfold /wp_pre. }
   rewrite fill_not_val //.
   iIntros (σ1 κ κs n) "Hσ". iMod ("H" with "[$]") as "[% H]". iModIntro; iSplit.
-  { destruct s; eauto using reducible_fill. }
+  { destruct s; naive_solver eauto using reducible_fill, waiting_fill, fill_waiting. }
   iIntros (e2 σ2 efs Hstep).
   iMod ("H" $! (K e2) σ2 efs with "[]") as "H"; [by eauto using fill_step|].
   iIntros "!>!>". iMod "H" as "(Hσ & H & Hefs)".

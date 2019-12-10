@@ -16,7 +16,7 @@ Hint Resolve reducible_no_obs_reducible : core.
 Lemma wp_lift_step_fupd s E Φ e1 :
   to_val e1 = None →
   (∀ σ1 κ κs n, state_interp σ1 (κ ++ κs) n ={E,∅}=∗
-    ⌜if s is NotStuck then reducible e1 σ1 else True⌝ ∗
+    ⌜if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else True⌝ ∗
     ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={∅,∅,E}▷=∗
       state_interp σ2 κs (length efs + n) ∗
       WP e2 @ s; E {{ Φ }} ∗
@@ -35,14 +35,16 @@ Lemma wp_lift_stuck E Φ e :
 Proof.
   rewrite wp_unfold /wp_pre=>->. iIntros "H" (σ1 κ κs n) "Hσ".
   iMod ("H" with "Hσ") as %[? Hirr]. iModIntro. iSplit; first done.
-  iIntros (e2 σ2 efs ?). by case: (Hirr κ e2 σ2 efs).
+  iIntros (e2 σ2 efs ?). 
+  destruct Hirr as [Hirr H1].
+  by case: (Hirr κ e2 σ2 efs).
 Qed.
 
 (** Derived lifting lemmas. *)
 Lemma wp_lift_step s E Φ e1 :
   to_val e1 = None →
   (∀ σ1 κ κs n, state_interp σ1 (κ ++ κs) n ={E,∅}=∗
-    ⌜if s is NotStuck then reducible e1 σ1 else True⌝ ∗
+    ⌜if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else True⌝ ∗
     ▷ ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={∅,E}=∗
       state_interp σ2 κs (length efs + n) ∗
       WP e2 @ s; E {{ Φ }} ∗
@@ -54,13 +56,14 @@ Proof.
 Qed.
 
 Lemma wp_lift_pure_step_no_fork `{!Inhabited (state Λ)} s E E' Φ e1 :
-  (∀ σ1, if s is NotStuck then reducible e1 σ1 else to_val e1 = None) →
+  (∀ σ1, if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else to_val e1 = None) →
   (∀ κ σ1 e2 σ2 efs, prim_step e1 σ1 κ e2 σ2 efs → κ = [] ∧ σ2 = σ1 ∧ efs = []) →
   (|={E,E'}▷=> ∀ κ e2 efs σ, ⌜prim_step e1 σ κ e2 σ efs⌝ → WP e2 @ s; E {{ Φ }})
   ⊢ WP e1 @ s; E {{ Φ }}.
 Proof.
   iIntros (Hsafe Hstep) "H". iApply wp_lift_step.
-  { specialize (Hsafe inhabitant). destruct s; eauto using reducible_not_val. }
+  { specialize (Hsafe inhabitant).
+    destruct s; naive_solver eauto using reducible_not_val, waiting_not_val. }
   iIntros (σ1 κ κs n) "Hσ". iMod "H".
   iMod fupd_intro_mask' as "Hclose"; last iModIntro; first by set_solver. iSplit.
   { iPureIntro. destruct s; done. }
@@ -85,7 +88,7 @@ Qed.
 Lemma wp_lift_atomic_step_fupd {s E1 E2 Φ} e1 :
   to_val e1 = None →
   (∀ σ1 κ κs n, state_interp σ1 (κ ++ κs) n ={E1}=∗
-    ⌜if s is NotStuck then reducible e1 σ1 else True⌝ ∗
+    ⌜if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else True⌝ ∗
     ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={E1,E2}▷=∗
       state_interp σ2 κs (length efs + n) ∗
       from_option Φ False (to_val e2) ∗
@@ -107,7 +110,7 @@ Qed.
 Lemma wp_lift_atomic_step {s E Φ} e1 :
   to_val e1 = None →
   (∀ σ1 κ κs n, state_interp σ1 (κ ++ κs) n ={E}=∗
-    ⌜if s is NotStuck then reducible e1 σ1 else True⌝ ∗
+    ⌜if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else True⌝ ∗
     ▷ ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={E}=∗
       state_interp σ2 κs (length efs + n) ∗
       from_option Φ False (to_val e2) ∗
@@ -121,7 +124,7 @@ Proof.
 Qed.
 
 Lemma wp_lift_pure_det_step_no_fork `{!Inhabited (state Λ)} {s E E' Φ} e1 e2 :
-  (∀ σ1, if s is NotStuck then reducible e1 σ1 else to_val e1 = None) →
+  (∀ σ1, if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else to_val e1 = None) →
   (∀ σ1 κ e2' σ2 efs', prim_step e1 σ1 κ e2' σ2 efs' →
     κ = [] ∧ σ2 = σ1 ∧ e2' = e2 ∧ efs' = []) →
   (|={E,E'}▷=> WP e2 @ s; E {{ Φ }}) ⊢ WP e1 @ s; E {{ Φ }}.
