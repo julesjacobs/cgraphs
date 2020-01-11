@@ -715,8 +715,23 @@ Proof. revert κ e2. induction Ki; inversion_clear 1; simplify_option_eq; eauto.
 Lemma val_waiting e σ : head_waiting e σ  → to_val e = None.
 Proof. by destruct 1. Qed.
 
+Lemma head_ctx_waiting_val Ki e σ1 :
+      head_waiting (fill_item Ki e) σ1 → is_Some (to_val e).
+Proof. induction Ki; inversion_clear 1; simplify_option_eq; eauto. Qed.
+
+Lemma head_step_waiting e1 σ1 κ e2 σ2 efs :
+  head_step e1 σ1 κ e2 σ2 efs → head_waiting e1 σ1 → False.
+Proof.
+  destruct 1; inversion 1; simplify_eq.
+Qed.
+
 Lemma fill_item_waiting K e σ : head_waiting (fill_item K e) σ → to_val e = None → head_waiting e σ.
 Proof. destruct K; simpl; by inversion 1. Qed.
+
+(*
+Lemma waiting_fill_item K e σ : head_waiting e σ → head_waiting (fill_item K e) σ.
+Proof. destruct K; simpl. destruct K; simpl; by inversion 1. Qed.
+*)
 
 Lemma fill_item_no_val_inj Ki1 Ki2 e1 e2 :
   to_val e1 = None → to_val e2 = None →
@@ -742,8 +757,8 @@ Proof. constructor. apply is_fresh. Qed.
 
 Lemma heap_lang_mixin : EctxiLanguageMixin of_val to_val fill_item head_step head_waiting.
 Proof.
-  split; apply _ || eauto using to_of_val, of_to_val, val_head_stuck,
-    fill_item_val, fill_item_no_val_inj, head_ctx_step_val, val_waiting, fill_item_waiting.
+  split; apply _ || eauto using to_of_val, of_to_val, val_head_stuck, 
+    fill_item_val, fill_item_no_val_inj, head_ctx_step_val, val_waiting, head_ctx_waiting_val, head_step_waiting.
 Qed.
 End heap_lang.
 

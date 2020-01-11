@@ -82,7 +82,7 @@ Lemma wptp_strong_adequacy Φ κs' s n e1 t1 κs t2 σ1 σ2 :
   WP e1 @ s; ⊤ {{ Φ }} -∗
   wptp s t1 ={⊤,∅}▷=∗^(S n) ∃ e2 t2',
     ⌜ t2 = e2 :: t2' ⌝ ∗
-    ⌜ ∀ e2, s = NotStuck → e2 ∈ t2 → (is_Some (to_val e2) ∨ reducible e2 σ2) ⌝ ∗
+    ⌜ ∀ e2, s = NotStuck → e2 ∈ t2 → (is_Some (to_val e2) ∨ reducible e2 σ2 ∨ waiting e2 σ2) ⌝ ∗
     state_interp σ2 κs' (length t2') ∗
     from_option Φ True (to_val e2) ∗
     ([∗ list] v ∈ omap to_val t2', fork_post v).
@@ -92,7 +92,7 @@ Proof.
   iApply (step_fupdN_wand with "Hwp").
   iDestruct 1 as (e2' t2' ?) "(Hσ & Hwp & Ht)"; simplify_eq/=.
   iMod (fupd_plain_keep_l ⊤
-    ⌜ ∀ e2, s = NotStuck → e2 ∈ (e2' :: t2') → (is_Some (to_val e2) ∨ reducible e2 σ2) ⌝%I
+    ⌜ ∀ e2, s = NotStuck → e2 ∈ (e2' :: t2') → (is_Some (to_val e2) ∨ reducible e2 σ2 ∨ waiting e2 σ2) ⌝%I
     (state_interp σ2 κs' (length t2') ∗ WP e2' @ s; ⊤ {{ v, Φ v }} ∗ wptp s t2')%I
     with "[$Hσ $Hwp $Ht]") as "(Hsafe&Hσ&Hwp&Hvs)".
   { iIntros "(Hσ & Hwp & Ht)" (e' -> He').
@@ -127,7 +127,7 @@ Theorem wp_strong_adequacy Σ Λ `{!invPreG Σ} e1 σ1 n κs t2 σ2 φ :
          ⌜ t2 = e2 :: t2' ⌝ -∗
          (* If this is a stuck-free triple (i.e. [s = NotStuck]), then all
          threads in [t2] are either done (a value) or reducible *)
-         ⌜ ∀ e2, s = NotStuck → e2 ∈ t2 → (is_Some (to_val e2) ∨ reducible e2 σ2) ⌝ -∗
+         ⌜ ∀ e2, s = NotStuck → e2 ∈ t2 → (is_Some (to_val e2) ∨ reducible e2 σ2 ∨ waiting e2 σ2) ⌝ -∗
          (* The state interpretation holds for [σ2] *)
          stateI σ2 [] (length t2') -∗
          (* If the main thread is done, its post-condition [Φ] holds *)
@@ -172,9 +172,10 @@ Lemma adequate_alt {Λ} s e1 σ1 (φ : val Λ → state Λ → Prop) :
   adequate s e1 σ1 φ ↔ ∀ t2 σ2,
     rtc erased_step ([e1], σ1) (t2, σ2) →
       (∀ v2 t2', t2 = of_val v2 :: t2' → φ v2 σ2) ∧
-      (∀ e2, s = NotStuck → e2 ∈ t2 → not_stuck e2 σ2).
+      (∀ e2, s = NotStuck → e2 ∈ t2 → not_stuck e2 σ2 ∨ waiting e2 σ2).
 Proof. split. intros []; naive_solver. constructor; naive_solver. Qed.
 
+(*
 Theorem adequate_tp_safe {Λ} (e1 : expr Λ) t2 σ1 σ2 φ :
   adequate NotStuck e1 σ1 φ →
   rtc erased_step ([e1], σ1) (t2, σ2) →
@@ -188,7 +189,7 @@ Proof.
   { exfalso. eauto. }
   destruct (elem_of_list_split t2 e2) as (t2'&t2''&->); auto.
   right; exists (t2' ++ e3 :: t2'' ++ efs), σ3, κ; econstructor; eauto.
-Qed.
+Qed.*)
 
 Corollary wp_adequacy Σ Λ `{!invPreG Σ} s e σ φ :
   (∀ `{Hinv : !invG Σ} κs,
@@ -204,7 +205,8 @@ Proof.
   iMod Hwp as (stateI fork_post) "[Hσ Hwp]".
   iExists s, (λ σ κs _, stateI σ κs), (λ v, ⌜φ v⌝%I), fork_post.
   iIntros "{$Hσ $Hwp} !>" (e2 t2' -> ?) "_ H _".
-  iApply fupd_mask_weaken; [done|]. iSplit; [|done].
+  iApply fupd_mask_weaken; [done|]. 
+  unfold not_stuck; iSplit; [|auto].
   iIntros (v2 t2'' [= -> <-]). by rewrite to_of_val.
 Qed.
 

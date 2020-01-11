@@ -10,7 +10,7 @@ Section language_mixin.
      observations and assert correctness of the predictions. *)
   Context (prim_step : expr → state → list observation → expr → state → list expr → Prop).
   Context (waiting : expr → state → Prop).
-
+  
   Record LanguageMixin := {
     mixin_to_of_val v : to_val (of_val v) = Some v;
     mixin_of_to_val e v : to_val e = Some v → of_val v = e;

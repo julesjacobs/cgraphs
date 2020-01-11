@@ -132,13 +132,14 @@ Proof.
   iMod "H" as "(Hσ & H & Hefs)". destruct s.
   - rewrite !wp_unfold /wp_pre. destruct (to_val e2) as [v2|] eqn:He2.
     + iDestruct "H" as ">> $". by iFrame.
-    + iMod ("H" $! _ [] with "[$]") as "[H _]". iDestruct "H" as "[H|H]". 
-      * iDestruct "H" as %(? & ? & ? & ? & ?). by edestruct (atomic _ _ _ _ _ Hstep).
-      * admit.  
+    + iMod ("H" $! _ [] with "[$]") as "[H _]". iDestruct "H" as %[H|H]. 
+      * destruct H as (? & ? & ? & ? & ?). apply atomic in Hstep as [? ?].
+        edestruct H0. eauto.
+      * apply atomic in Hstep as [? ?]. done.
   - destruct (atomic _ _ _ _ _ Hstep) as [v <-%of_to_val].
     iMod (wp_value_inv' with "H") as ">H".
     iModIntro. iFrame "Hσ Hefs". by iApply wp_value'.
-Admitted.
+Qed.
 
 Lemma wp_step_fupd s E1 E2 e P Φ :
   to_val e = None → E2 ⊆ E1 →
@@ -164,7 +165,7 @@ Proof.
   { iPureIntro. destruct s; last done.
     unfold reducible in *. destruct H.
     - naive_solver eauto using fill_step.
-    - right. Locate waiting. Locate LanguageCtx. destruct LanguageCtx0. eauto. }
+    - right. destruct LanguageCtx0. eauto. }
   iIntros (e2 σ2 efs Hstep).
   destruct (fill_step_inv e σ1 κ e2 σ2 efs) as (e2'&->&?); auto.
   iMod ("H" $! e2' σ2 efs with "[//]") as "H". iIntros "!>!>".

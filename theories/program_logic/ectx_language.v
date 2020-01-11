@@ -1,5 +1,5 @@
 (** An axiomatization of evaluation-context based languages, including a proof
-    that this gives rise to a "language" in the Iris sense. *)
+that this gives rise to a "language" in the Iris sense. *)
 From iris.algebra Require Export base.
 From diris.program_logic Require Import language.
 Set Default Proof Using "Type".
@@ -31,9 +31,10 @@ Section ectx_language_mixin.
     mixin_fill_val K e : is_Some (to_val (fill K e)) → is_Some (to_val e);
 
     mixin_val_waiting e σ : head_waiting e σ  → to_val e = None;
+    (*
     mixin_fill_waiting K e σ : head_waiting (fill K e) σ → to_val e = None → head_waiting e σ;
     mixin_waiting_fill K e σ : head_waiting e σ → head_waiting (fill K e) σ;
-
+*)
 
     mixin_step_by_val K K' e1 e1' σ1 κ e2 σ2 efs :
       fill K e1 = fill K' e1' →
@@ -41,11 +42,23 @@ Section ectx_language_mixin.
       head_step e1' σ1 κ e2 σ2 efs →
       ∃ K'', K' = comp_ectx K K'';
 
+    mixin_waiting_by_val K K' e1 e1' σ1 :
+      fill K e1 = fill K' e1' →
+      to_val e1 = None →
+      head_waiting e1' σ1 →
+      ∃ K'', K' = comp_ectx K K'';
+
     (* If [fill K e] takes a head step, then either [e] is a value or [K] is
-       the empty evaluation context. In other words, if [e] is not a value then
-       there cannot be another redex position elsewhere in [fill K e]. *)
+        the empty evaluation context. In other words, if [e] is not a value then
+        there cannot be another redex position elsewhere in [fill K e]. *)
     mixin_head_ctx_step_val K e σ1 κ e2 σ2 efs :
       head_step (fill K e) σ1 κ e2 σ2 efs → is_Some (to_val e) ∨ K = empty_ectx;
+
+    mixin_head_ctx_waiting_val K e σ1 :
+      head_waiting (fill K e) σ1 → is_Some (to_val e) ∨ K = empty_ectx;
+    
+    mixin_head_step_waiting e1 σ1 κ e2 σ2 efs :
+      head_step e1 σ1 κ e2 σ2 efs → head_waiting e1 σ1 → False;
   }.
 End ectx_language_mixin.
 
@@ -97,18 +110,33 @@ Section ectx_language.
   Proof. apply ectx_language_mixin. Qed.
   Lemma val_waiting e σ : head_waiting e σ  → to_val e = None.
   Proof. apply ectx_language_mixin. Qed.
+  (*
   Lemma fill_waiting K e σ : head_waiting (fill K e) σ → to_val e = None → head_waiting e σ.
   Proof. apply ectx_language_mixin. Qed.
   Lemma waiting_fill K e σ : head_waiting e σ → head_waiting (fill K e) σ.
   Proof. apply ectx_language_mixin. Qed.
+  *)
   Lemma step_by_val K K' e1 e1' σ1 κ e2 σ2 efs :
     fill K e1 = fill K' e1' →
     to_val e1 = None →
     head_step e1' σ1 κ e2 σ2 efs →
     ∃ K'', K' = comp_ectx K K''.
   Proof. apply ectx_language_mixin. Qed.
+  Lemma waiting_by_val K K' e1 e1' σ1 :
+    fill K e1 = fill K' e1' →
+    to_val e1 = None →
+    head_waiting e1' σ1 →
+    ∃ K'', K' = comp_ectx K K''.
+  Proof. apply ectx_language_mixin. Qed.
   Lemma head_ctx_step_val K e σ1 κ e2 σ2 efs :
     head_step (fill K e) σ1 κ e2 σ2 efs → is_Some (to_val e) ∨ K = empty_ectx.
+  Proof. apply ectx_language_mixin. Qed.
+  Lemma head_ctx_waiting_val K e σ1 :
+  head_waiting (fill K e) σ1 → is_Some (to_val e) ∨ K = empty_ectx.
+  Proof. apply ectx_language_mixin. Qed.
+
+  Lemma head_step_waiting e1 σ1 κ e2 σ2 efs :
+    head_step e1 σ1 κ e2 σ2 efs → head_waiting e1 σ1 → False.
   Proof. apply ectx_language_mixin. Qed.
 
   Definition head_reducible (e : expr Λ) (σ : state Λ) :=
@@ -121,7 +149,7 @@ Section ectx_language.
     to_val e = None ∧ head_irreducible e σ ∧ ¬ head_waiting e σ.
 
   (* All non-value redexes are at the root.  In other words, all sub-redexes are
-     values. *)
+      values. *)
   Definition sub_redexes_are_values (e : expr Λ) :=
     ∀ K e', e = fill K e' → to_val e' = None → K = empty_ectx.
 
@@ -135,14 +163,27 @@ Section ectx_language.
     head_step e1 σ1 κ e2 σ2 efs → prim_step (fill K e1) σ1 κ (fill K e2) σ2 efs.
   Proof. econstructor; eauto. Qed.
 
-  Definition ectx_lang_mixin : LanguageMixin of_val to_val prim_step head_waiting.
+
+  Inductive waiting (e : expr Λ) (σ : state Λ) : Prop :=
+    Ectx_waiting K e' :
+      e = fill K e' →
+      head_waiting e' σ → waiting e σ.
+
+  Lemma Ectx_waiting' K e σ :
+    head_waiting e σ → waiting (fill K e) σ.
+  Proof. econstructor; eauto. Qed.
+
+  Lemma fill_not_val K e : to_val e = None → to_val (fill K e) = None.
+  Proof. rewrite !eq_None_not_Some. eauto using fill_val. Qed.
+
+  Definition ectx_lang_mixin : LanguageMixin of_val to_val prim_step waiting.
   Proof.
     split.
     - apply ectx_language_mixin.
     - apply ectx_language_mixin.
     - intros ?????? [??? -> -> ?%val_head_stuck].
       apply eq_None_not_Some. by intros ?%fill_val%eq_None_not_Some.
-    - apply ectx_language_mixin.
+    - destruct 1. subst. eauto using fill_not_val, val_waiting.
   Qed.
 
   Canonical Structure ectx_lang : language := Language ectx_lang_mixin.
@@ -150,11 +191,10 @@ Section ectx_language.
   Definition head_atomic (a : atomicity) (e : expr Λ) : Prop :=
     ∀ σ κ e' σ' efs,
       head_step e σ κ e' σ' efs →
-      if a is WeaklyAtomic then irreducible e' σ' else is_Some (to_val e').
+      if a is WeaklyAtomic then irreducible e' σ' ∧ ¬ waiting e' σ' else is_Some (to_val e').
 
   (* Some lemmas about this language *)
-  Lemma fill_not_val K e : to_val e = None → to_val (fill K e) = None.
-  Proof. rewrite !eq_None_not_Some. eauto using fill_val. Qed.
+
 
   Lemma head_prim_step e1 σ1 κ e2 σ2 efs :
     head_step e1 σ1 κ e2 σ2 efs → prim_step e1 σ1 κ e2 σ2 efs.
@@ -187,6 +227,8 @@ Section ectx_language.
   Qed.
   Lemma head_prim_reducible e σ : head_reducible e σ → reducible e σ.
   Proof. intros (κ&e'&σ'&efs&?). eexists κ, e', σ', efs. by apply head_prim_step. Qed.
+  Lemma head_prim_waiting e σ : head_waiting e σ → waiting e σ.
+  Proof. intros. eapply Ectx_waiting; eauto. by erewrite fill_empty. Qed.
   Lemma head_prim_fill_reducible e K σ :
     head_reducible e σ → reducible (fill K e) σ.
   Proof. intro. by apply fill_reducible, head_prim_reducible. Qed.
@@ -220,7 +262,10 @@ Section ectx_language.
     split; first done.
     split.
     - by apply prim_head_irreducible.
-    - by contradict Hw.
+    - contradict Hw. destruct Hw. subst.
+      rewrite (_ : K = empty_ectx).
+      + by rewrite fill_empty.
+      + eauto using val_waiting.
   Qed.
 
   Lemma ectx_language_atomic a e :
@@ -257,6 +302,38 @@ Section ectx_language.
     by simplify_eq; rewrite fill_empty.
   Qed.
 
+  Lemma head_waiting_prim_step e1 σ1 κ e2 σ2 efs :
+    head_waiting e1 σ1 →
+    prim_step e1 σ1 κ e2 σ2 efs →
+    False.
+  Proof.
+    intros Hw [??? -> -> Hs].
+    apply head_ctx_waiting_val in Hw as Hq.
+    destruct Hq.
+    - apply val_head_stuck in Hs. destruct H. simplify_eq.
+    - simplify_eq. rewrite fill_empty in Hw.
+      eapply head_step_waiting; eauto.
+  Qed.
+
+  Lemma waiting_prim_step e1 σ1 κ e2 σ2 efs :
+    waiting e1 σ1 →
+    prim_step e1 σ1 κ e2 σ2 efs →
+    False.
+  Proof.
+    intros [?? -> ?] [???? -> ?].
+    pose proof H as H2.
+    eapply waiting_by_val in H2 as [K' Keq]; [| by symmetry | by eapply val_head_stuck].
+    simplify_eq.
+    rewrite<- fill_comp in H0.
+    apply fill_inj in H0.
+    simplify_eq.
+    clear -H H1.
+    apply head_ctx_step_val in H1 as Hq.
+    destruct Hq.
+    - apply val_waiting in H. destruct H0. simplify_eq.
+    - simplify_eq. rewrite fill_empty in H1. eapply head_step_waiting; eauto.
+  Qed.
+  
   (* Every evaluation context is a context. *)
   Global Instance ectx_lang_ctx K : LanguageCtx (fill K).
   Proof.
@@ -269,8 +346,14 @@ Section ectx_language.
       rewrite -fill_comp in Heq1; apply (inj (fill _)) in Heq1.
       exists (fill K' e2''); rewrite -fill_comp; split; auto.
       econstructor; eauto.
-    - intros. apply (fill_waiting K); auto.
-    - intros. Locate fill_waiting. Locate waiting_fill. apply (waiting_fill K); auto.
+    - intros. destruct H0.
+      destruct (waiting_by_val K K0 e e' σ) as [K'->]; [eassumption..|].
+      apply Ectx_waiting with K' e'.
+      apply (inj (fill K)).
+      + rewrite fill_comp. done.
+      + done.
+    - destruct 1. subst. rewrite fill_comp.
+      apply Ectx_waiting'. done.
   Qed.
 
   Record pure_head_step (e1 e2 : expr Λ) := {

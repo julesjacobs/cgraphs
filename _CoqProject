@@ -10,6 +10,7 @@
 -arg -w -arg -undeclared-scope
 # We have ambiguous paths and so far it is not even clear what they are (https://gitlab.mpi-sws.org/iris/iris/issues/240).
 -arg -w -arg -ambiguous-paths
+-arg -native-compiler -arg no
 
 theories/program_logic/language.v
 theories/bi/weakestpre.v
@@ -21,4 +22,8 @@ theories/program_logic/ectx_language.v
 theories/program_logic/ectxi_language.v
 theories/program_logic/ectx_lifting.v
 theories/heap_lang/lang.v
+theories/heap_lang/tactics.v
 theories/heap_lang/notation.v
+theories/heap_lang/lifting.v
+theorems/program_logic/adequacy.v
+theorems/heap_lang/adequacy.v

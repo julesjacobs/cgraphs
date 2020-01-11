@@ -1,11 +1,10 @@
 From diris.heap_lang Require Export notation.
-From iris.proofmode Require Export tactics.
-From iris.heap_lang Require Import proofmode.
-
-
 Set Default Proof Using "Type".
+Definition new_lock1 : val := λ: <>, ref #false.
+Definition new_lock6 : val := λ: <>, ref #false.
+Definition new_lock7 : val := λ: <>, ref #false.
+Definition new_lock3 : val := λ: <>, ref #false.
 
-Definition new_lock : val := λ: <>, ref #false.
 Definition lock : val := λ: "x", WAS "x" #false #true.
 Definition unlock : val := λ: "x", "x" <- #true.
 
