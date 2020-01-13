@@ -25,5 +25,7 @@ theories/heap_lang/lang.v
 theories/heap_lang/tactics.v
 theories/heap_lang/notation.v
 theories/heap_lang/lifting.v
-theorems/program_logic/adequacy.v
-theorems/heap_lang/adequacy.v
+theories/program_logic/adequacy.v
+theories/heap_lang/array.v
+theories/heap_lang/proofmode.v
+theories/heap_lang/adequacy.v

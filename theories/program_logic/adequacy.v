@@ -176,6 +176,8 @@ Lemma adequate_alt {Λ} s e1 σ1 (φ : val Λ → state Λ → Prop) :
 Proof. split. intros []; naive_solver. constructor; naive_solver. Qed.
 
 (*
+  This should hold in deadlock free iris.
+  
 Theorem adequate_tp_safe {Λ} (e1 : expr Λ) t2 σ1 σ2 φ :
   adequate NotStuck e1 σ1 φ →
   rtc erased_step ([e1], σ1) (t2, σ2) →

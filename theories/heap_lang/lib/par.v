@@ -1,5 +1,5 @@
-From iris.heap_lang Require Import proofmode notation.
-From iris.heap_lang Require Export spawn.
+From diris.heap_lang Require Import proofmode notation.
+From diris.heap_lang Require Export spawn.
 Set Default Proof Using "Type".
 Import uPred.
 

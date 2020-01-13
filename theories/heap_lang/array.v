@@ -1,8 +1,8 @@
 From stdpp Require Import fin_maps.
 From iris.proofmode Require Import tactics.
-From iris.program_logic Require Export weakestpre.
-From iris.heap_lang Require Export lifting.
-From iris.heap_lang Require Import tactics notation.
+From diris.program_logic Require Export weakestpre.
+From diris.heap_lang Require Export lifting.
+From diris.heap_lang Require Import tactics notation.
 Set Default Proof Using "Type".
 
 (** This file defines the [array] connective, a version of [mapsto] that works
@@ -94,17 +94,6 @@ Proof.
   iDestruct (big_sepL_sep with "Hlm") as "[Hl $]".
   by iApply mapsto_seq_array.
 Qed.
-Lemma twp_allocN s E v n :
-  0 < n →
-  [[{ True }]] AllocN (Val $ LitV $ LitInt $ n) (Val v) @ s; E
-  [[{ l, RET LitV (LitLoc l); l ↦∗ replicate (Z.to_nat n) v ∗
-         [∗ list] i ∈ seq 0 (Z.to_nat n), meta_token (l +ₗ (i : nat)) ⊤ }]].
-Proof.
-  iIntros (Hzs Φ) "_ HΦ". iApply twp_allocN_seq; [done..|].
-  iIntros (l) "Hlm". iApply "HΦ".
-  iDestruct (big_sepL_sep with "Hlm") as "[Hl $]".
-  by iApply mapsto_seq_array.
-Qed.
 
 Lemma wp_allocN_vec s E v n :
   0 < n →
@@ -114,16 +103,6 @@ Lemma wp_allocN_vec s E v n :
          [∗ list] i ∈ seq 0 (Z.to_nat n), meta_token (l +ₗ (i : nat)) ⊤ }}}.
 Proof.
   iIntros (Hzs Φ) "_ HΦ". iApply wp_allocN; [ lia | done | .. ]. iNext.
-  iIntros (l) "[Hl Hm]". iApply "HΦ". rewrite vec_to_list_replicate. iFrame.
-Qed.
-Lemma twp_allocN_vec s E v n :
-  0 < n →
-  [[{ True }]]
-    AllocN #n v @ s ; E
-  [[{ l, RET #l; l ↦∗ vreplicate (Z.to_nat n) v ∗
-         [∗ list] i ∈ seq 0 (Z.to_nat n), meta_token (l +ₗ (i : nat)) ⊤ }]].
-Proof.
-  iIntros (Hzs Φ) "_ HΦ". iApply twp_allocN; [ lia | done | .. ].
   iIntros (l) "[Hl Hm]". iApply "HΦ". rewrite vec_to_list_replicate. iFrame.
 Qed.
 

@@ -1,7 +1,7 @@
 From iris.base_logic Require Export invariants.
 From iris.program_logic Require Export weakestpre.
-From iris.heap_lang Require Export lang proofmode notation.
-From iris.heap_lang.lib Require Export nondet_bool.
+From diris.heap_lang Require Export lang proofmode notation.
+From diris.heap_lang.lib Require Export nondet_bool.
 
 (** The clairvoyant coin predicts all the values that it will
 *non-deterministically* choose throughout the execution of the

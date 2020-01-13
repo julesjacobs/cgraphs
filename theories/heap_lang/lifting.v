@@ -103,6 +103,8 @@ Instance store_atomic s v1 v2 : Atomic s (Store (Val v1) (Val v2)).
 Proof. solve_atomic. Qed.
 Instance cmpxchg_atomic s v0 v1 v2 : Atomic s (CmpXchg (Val v0) (Val v1) (Val v2)).
 Proof. solve_atomic. Qed.
+Instance was_atomic s v0 v1 v2 : Atomic s (WAS (Val v0) (Val v1) (Val v2)).
+Proof. solve_atomic. Qed.
 Instance faa_atomic s v1 v2 : Atomic s (FAA (Val v1) (Val v2)).
 Proof. solve_atomic. Qed.
 

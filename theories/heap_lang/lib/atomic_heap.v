@@ -1,8 +1,8 @@
 From iris.bi.lib Require Import fractional.
 From iris.proofmode Require Import tactics.
 From iris.program_logic Require Export atomic.
-From iris.heap_lang Require Export lifting notation.
-From iris.heap_lang Require Import proofmode.
+From diris.heap_lang Require Export lifting notation.
+From diris.heap_lang Require Import proofmode.
 Set Default Proof Using "Type".
 
 (** A general logically atomic interface for a heap. *)
