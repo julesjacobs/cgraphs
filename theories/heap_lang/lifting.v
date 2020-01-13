@@ -319,6 +319,7 @@ Proof.
   iModIntro. iSplit=>//. iFrame. by iApply "HΦ".
 Qed.
 
+(* 
 Lemma wp_was_suc s E l v1 v2 v' :
   v' = v1 → vals_compare_safe v' v1 →
   {{{ ▷ l ↦ v' }}} WAS (Val $ LitV $ LitLoc l) (Val v1) (Val v2) @ s; E
@@ -343,7 +344,7 @@ Proof.
   { iPureIntro. right. eapply (Ectx_waiting _ _ [] (WAS #l v1 v2)); first done.
     eapply WasW; done. }
   iNext; iIntros (v2' σ2 efs Hstep); inv_head_step.
-Qed.
+Qed. *)
 
 Lemma wp_was s E l v' v1 v2 :
   vals_compare_safe v' v1 →
@@ -360,6 +361,26 @@ Proof.
   iNext. iIntros (v2' σ2 efs  Hstep); inv_head_step.
   iMod (@gen_heap_update with "Hσ Hl") as "[$ Hl]".
   iModIntro. iSplit=>//. iFrame. iApply "HΦ". iFrame. done.
+Qed.
+
+Lemma wp_was_suc s E l v1 v2 v' :
+  v' = v1 → vals_compare_safe v' v1 →
+  {{{ ▷ l ↦ v' }}} WAS (Val $ LitV $ LitLoc l) (Val v1) (Val v2) @ s; E
+  {{{ RET #(); l ↦ v2 }}}.
+Proof.
+  iIntros (???) "H Post".
+  iApply (wp_was with "H"); auto.
+  iNext. iIntros "[_?]". iApply "Post". iFrame.
+Qed.
+
+Lemma wp_was_fail s E l v' v1 v2 :
+  v' ≠ v1 → vals_compare_safe v' v1 →
+  {{{ ▷ l ↦ v' }}} WAS (Val $ LitV $ LitLoc l) (Val v1) (Val v2) @ s; E
+  {{{ RET #(); False }}}.
+Proof.
+  iIntros (???) "H _".
+  iApply (wp_was with "H"); auto.
+  iNext. iIntros "[%_]". simplify_eq.
 Qed.
 
 Lemma wp_faa s E l i1 i2 :
