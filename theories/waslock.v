@@ -32,7 +32,7 @@ Section proof.
     wp_lam.
     iInv lockN as (b) "[Hl HR]" "Hclose".
     wp_apply (wp_was with "Hl").
-    - naive_solver.
+    - by left.
     - iIntros "[% Hl]". iMod ("Hclose" with "[Hl]") as "_".
       { iNext. iExists true. iFrame. }
       iApply "HΦ". simplify_eq. iModIntro. iFrame.
