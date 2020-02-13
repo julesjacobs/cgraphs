@@ -14,7 +14,7 @@ Implicit Types P Q : iProp Σ.
 Implicit Types Φ : val Λ → iProp Σ.
 Implicit Types Φs : list (val Λ → iProp Σ).
 
-Notation wptp s j t := ([∗ list] i ↦ ef ∈ t, WP ef @ (s,j+i); ⊤ {{ fork_post }})%I.
+Notation wptp s j t := ([∗ list] i ↦ ef ∈ t, WP ef @ (s,j+i); ⊤ {{ fork_post (j+i) }})%I.
 
 Lemma wp_step s i e1 σ1 κ κs e2 σ2 efs es Φ :
   es !! i = Some e1 →
@@ -97,7 +97,7 @@ Lemma wptp_strong_adequacy Φ κs' s n e1 t1 κs t2 σ1 σ2 :
     ⌜ ∀ e2, s = NotStuck → e2 ∈ t2 → not_stuck e2 σ2 ⌝ ∗
     state_interp σ2 κs' t2 ∗
     from_option Φ True (to_val e2) ∗
-    ([∗ list] e ∈ t2', from_option fork_post True (to_val e)).
+    ([∗ list] i ↦ e ∈ t2', from_option (fork_post (1+i)) True (to_val e)).
 Proof.
   iIntros (Hstep) "Hσ He Ht". rewrite Nat_iter_S_r.
   iDestruct (wptp_steps with "Hσ He Ht") as "Hwp"; first done.
@@ -133,7 +133,8 @@ Theorem wp_strong_adequacy Σ Λ `{!invPreG Σ} e1 σ1 n κs t2 σ2 φ :
      (|={⊤}=> ∃
          (s: stuckness)
          (stateI : state Λ → list (observation Λ) → list (expr Λ) → iProp Σ)
-         (Φ fork_post : val Λ → iProp Σ),
+         (Φ : val Λ → iProp Σ)
+         (fork_post : nat → val Λ → iProp Σ),
        let _ : irisG Λ Σ := IrisG _ _ Hinv stateI fork_post in
        stateI σ1 κs [e1] ∗
        WP e1 @ (s,0); ⊤ {{ Φ }} ∗
@@ -148,7 +149,7 @@ Theorem wp_strong_adequacy Σ Λ `{!invPreG Σ} e1 σ1 n κs t2 σ2 φ :
          (* If the main thread is done, its post-condition [Φ] holds *)
          from_option Φ True (to_val e2) -∗
          (* For all threads that are done, their postcondition [fork_post] holds. *)
-         ([∗ list] e ∈ t2', from_option fork_post True (to_val e)) -∗
+         ([∗ list] i ↦ e ∈ t2', from_option (fork_post (1+i)) True (to_val e)) -∗
          (* Under all these assumptions, and while opening all invariants, we
          can conclude [φ] in the logic. After opening all required invariants,
          one can use [fupd_intro_mask'] or [fupd_mask_weaken] to introduce the
@@ -212,7 +213,7 @@ Corollary wp_adequacy Σ Λ `{!invPreG Σ} s e σ φ :
   (∀ `{Hinv : !invG Σ} κs,
      (|={⊤}=> ∃
          (stateI : state Λ → list (observation Λ) → iProp Σ)
-         (fork_post : val Λ → iProp Σ),
+         (fork_post : nat → val Λ → iProp Σ),
        let _ : irisG Λ Σ := IrisG _ _ Hinv (λ σ κs _, stateI σ κs) fork_post in
        stateI σ κs ∗ WP e @ (s,0); ⊤ {{ v, ⌜φ v⌝ }})%I) →
   adequate s e σ (λ v _, φ v).
@@ -231,7 +232,7 @@ Corollary wp_invariance Σ Λ `{!invPreG Σ} s e1 σ1 t2 σ2 φ :
   (∀ `{Hinv : !invG Σ} κs,
      (|={⊤}=> ∃
          (stateI : state Λ → list (observation Λ) → list (expr Λ) → iProp Σ)
-         (fork_post : val Λ → iProp Σ),
+         (fork_post : nat → val Λ → iProp Σ),
        let _ : irisG Λ Σ := IrisG _ _ Hinv stateI fork_post in
        stateI σ1 κs [e1] ∗ WP e1 @ (s,0); ⊤ {{ _, True }} ∗
        (stateI σ2 [] t2 -∗ ∃ E, |={⊤,E}=> ⌜φ⌝))%I) →
