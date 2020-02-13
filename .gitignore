@@ -9,3 +9,5 @@
 *.conf
 *.cache
 .DS_Store
+*.vok
+*.vos

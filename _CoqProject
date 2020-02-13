@@ -13,19 +13,19 @@
 -arg -native-compiler -arg no
 
 theories/program_logic/language.v
+theories/program_logic/ectx_language.v
 theories/bi/weakestpre.v
 theories/program_logic/weakestpre.v
 #theories/program_logic/adequacy.v
 theories/program_logic/lifting.v
-theories/program_logic/notation.v
-theories/program_logic/ectx_language.v
-theories/program_logic/ectxi_language.v
 theories/program_logic/ectx_lifting.v
+theories/program_logic/ectxi_language.v
+theories/program_logic/adequacy.v
+theories/program_logic/notation.v
 theories/heap_lang/lang.v
 theories/heap_lang/tactics.v
 theories/heap_lang/notation.v
 theories/heap_lang/lifting.v
-theories/program_logic/adequacy.v
 theories/heap_lang/array.v
 theories/heap_lang/proofmode.v
 theories/heap_lang/adequacy.v

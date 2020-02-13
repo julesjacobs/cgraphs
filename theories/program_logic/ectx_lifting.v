@@ -20,7 +20,7 @@ Lemma wp_lift_head_step_fupd {s E Φ} e1 :
   (∀ σ1 κ κs n, state_interp σ1 (κ ++ κs) n ={E,∅}=∗
     ⌜head_reducible e1 σ1 ∨ head_waiting e1 σ1⌝ ∗
     ∀ e2 σ2 efs, ⌜head_step e1 σ1 κ e2 σ2 efs⌝ ={∅,∅,E}▷=∗
-      state_interp σ2 κs (length efs + n) ∗
+      state_interp σ2 κs (n ++ efs) ∗
       WP e2 @ s; E {{ Φ }} ∗
       [∗ list] ef ∈ efs, WP ef @ s; ⊤ {{ fork_post }})
   ⊢ WP e1 @ s; E {{ Φ }}.
@@ -43,7 +43,7 @@ Lemma wp_lift_head_step {s E Φ} e1 :
   (∀ σ1 κ κs n, state_interp σ1 (κ ++ κs) n ={E,∅}=∗
     ⌜head_reducible e1 σ1 ∨ head_waiting e1 σ1⌝ ∗
     ▷ ∀ e2 σ2 efs, ⌜head_step e1 σ1 κ e2 σ2 efs⌝ ={∅,E}=∗
-      state_interp σ2 κs (length efs + n) ∗
+      state_interp σ2 κs (n ++ efs) ∗
       WP e2 @ s; E {{ Φ }} ∗
       [∗ list] ef ∈ efs, WP ef @ s; ⊤ {{ fork_post }})
   ⊢ WP e1 @ s; E {{ Φ }}.
@@ -78,7 +78,7 @@ Lemma wp_lift_atomic_head_step_fupd {s E1 E2 Φ} e1 :
   (∀ σ1 κ κs n, state_interp σ1 (κ ++ κs) n ={E1}=∗
     ⌜head_reducible e1 σ1 ∨ head_waiting e1 σ1⌝ ∗
     ∀ e2 σ2 efs, ⌜head_step e1 σ1 κ e2 σ2 efs⌝ ={E1,E2}▷=∗
-      state_interp σ2 κs (length efs + n) ∗
+      state_interp σ2 κs (n ++ efs) ∗
       from_option Φ False (to_val e2) ∗
       [∗ list] ef ∈ efs, WP ef @ s; ⊤ {{ fork_post }})
   ⊢ WP e1 @ s; E1 {{ Φ }}.
@@ -102,7 +102,7 @@ Lemma wp_lift_atomic_head_step_fupd {s E1 E2 Φ} e1 :
   (∀ σ1 κ κs n, state_interp σ1 (κ ++ κs) n ={E1}=∗
     ⌜head_reducible e1 σ1 ∨ waiting e1 σ1⌝ ∗
     ∀ e2 σ2 efs, ⌜head_step e1 σ1 κ e2 σ2 efs⌝ ={E1,E2}▷=∗
-      state_interp σ2 κs (length efs + n) ∗
+      state_interp σ2 κs (n ++ efs) ∗
       from_option Φ False (to_val e2) ∗
       [∗ list] ef ∈ efs, WP ef @ s; ⊤ {{ fork_post }})
   ⊢ WP e1 @ s; E1 {{ Φ }}.
@@ -119,7 +119,7 @@ Lemma wp_lift_atomic_head_step {s E Φ} e1 :
   (∀ σ1 κ κs n, state_interp σ1 (κ ++ κs) n ={E}=∗
     ⌜head_reducible e1 σ1 ∨ waiting e1 σ1⌝ ∗
     ▷ ∀ e2 σ2 efs, ⌜head_step e1 σ1 κ e2 σ2 efs⌝ ={E}=∗
-      state_interp σ2 κs (length efs + n) ∗
+      state_interp σ2 κs (n ++ efs) ∗
       from_option Φ False (to_val e2) ∗
       [∗ list] ef ∈ efs, WP ef @ s; ⊤ {{ fork_post }})
   ⊢ WP e1 @ s; E {{ Φ }}.
@@ -148,7 +148,7 @@ Proof.
  iMod ("H" $! σ1 with "Hσ1") as "[$ H]"; iModIntro.
   iIntros (v2 σ2 efs Hstep).
   iMod ("H" $! v2 σ2 efs with "[# //]") as "H".
-  iIntros "!> !>". iMod "H" as "(-> & ? & ?) /=". by iFrame.
+  iIntros "!> !>". iMod "H" as "(-> & ? & ?) /=". rewrite app_nil_r. by iFrame.
 Qed.
 
 Lemma wp_lift_atomic_head_step_no_fork {s E Φ} e1 :
@@ -162,7 +162,7 @@ Proof.
   iIntros (?) "H". iApply wp_lift_atomic_head_step; eauto.
   iIntros (σ1 κ κs Qs) "Hσ1". iMod ("H" $! σ1 with "Hσ1") as "[$ H]"; iModIntro.
   iNext; iIntros (v2 σ2 efs Hstep).
-  iMod ("H" $! v2 σ2 efs with "[//]") as "(-> & ? & ?) /=". by iFrame.
+  iMod ("H" $! v2 σ2 efs with "[//]") as "(-> & ? & ?) /=". rewrite app_nil_r. by iFrame.
 Qed.
 
 Lemma wp_lift_pure_det_head_step_no_fork {s E E' Φ} e1 e2 :
