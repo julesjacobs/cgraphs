@@ -1,51 +1,34 @@
 From iris.proofmode Require Import tactics.
 
-Fixpoint evalp (x : Z) (p : list Z) : Z :=
-  match p with
-  | [] => 0
-  | a :: p' => a * x ^ (length p') + evalp x p'
-  end%Z.
-
-Fixpoint zero (p : list Z) :=
-  match p with
-  | [] => True
-  | a :: p' => a = 0 /\ zero p'
+Ltac dorew :=
+  match goal with
+  | x : _ |- _ => (rewrite x; clear x) || (rewrite -x; clear x)
   end.
 
+Hint Extern 100 => dorew : rewrite.
 
-Lemma zero_if_ext_zero p :
-  (forall n, evalp n p = 0) -> zero p.
-Proof.
-  induction p; first done. simpl.
-  intros. assert (a=0); last (subst;auto). clear IHp.
-  
-Qed.
+Definition cnat := forall X, (X -> X) -> X -> X.
+Definition zero : cnat := fun _ f x => x.
+Definition succ (n : cnat) : cnat := fun _ f x => f (n _ f x).
+Definition plus (n m : cnat) : cnat := fun _ f x => n _ f (m _ f x).
+Definition mult (n m : cnat) : cnat := fun _ f => n _ (m _ f).
+Definition exp (n m : cnat) : cnat := fun _ => m _ (n _).
 
-Lemma zero_if_ext_zero' (p : list nat) :
-  (forall n, evalp n p = 0) -> (forall i a, p !! i = Some a -> a=0).
-Proof.
-  intros. specialize (H 1).
-  induction p; first done.
-  intros.
-  intros. assert (a=0);[|subst;simpl;auto].
-  specialize (H 1). simpl in H. rewrite Nat.pow_1_l in H. lia.
-Qed.
+Definition succ' (n : cnat) : cnat := fun _ f => f ∘ n _ f.
+Definition plus' (n m : cnat) : cnat := fun _ f => n _ f ∘ m _ f.
 
-Lemma foo (P : nat -> Prop) :
-  (forall n, (forall m, m < n -> P m) -> P n) -> (forall n m, m < n -> P m).
-Proof.
-    intros H n. induction n.
-    - lia.
-    - intros. apply H. intros. apply IHn. lia.
-Qed.
+Definition one := succ zero.
+Definition two := succ one.
+Definition three := succ two.
 
-Lemma bar (P : nat -> Prop) :
-  (forall n, (forall m, m < n -> P m) -> P n) -> (forall n, P n).
-Proof.
-  intros. apply H. induction n.
-  - lia.
-  - intros. apply H. intros. apply IHn. lia.
-Qed.
+Example ex1 : plus' zero zero = zero. reflexivity. Qed.
+Example ex2 : plus' zero one = one. reflexivity. Qed.
+Example ex3 : plus' one zero = one. reflexivity. Qed.
+Example ex4 : plus' one one = two. reflexivity. Qed.
+Example ex5 : plus' two zero = two. reflexivity. Qed.
+Example ex6 : plus' zero two = two. reflexivity. Qed.
+Example ex7 : plus' one two = three. reflexivity. Qed.
+Example ex8 : plus' two one = three. reflexivity. Qed.
 
 Ltac doind :=
   match goal with
@@ -60,27 +43,20 @@ Proof.
     eauto with induction lia.
 Qed.
 
-Ltac dorew :=
-  match goal with
-  | x : _ |- _ => rewrite x || rewrite<- x
-  end.
-
-Hint Extern 100 => dorew : rewrite.
-
 Inductive N : Type := Z : N | S : N -> N.
 
-Fixpoint plus a b :=
+Fixpoint add a b :=
   match a with
   | Z => b
-  | S a' => S (plus a' b)
+  | S a' => S (add a' b)
   end.
 
-Lemma plus_comm : forall a b, plus a b = plus b a.
+Lemma add_comm : forall a b, add a b = add b a.
 Proof.
   eauto 7 with induction rewrite.
 Qed.
 
-Lemma plus_assoc : forall a b c, plus (plus a b) c = plus a (plus b c).
+Lemma add_assoc : forall a b c, add (add a b) c = add a (add b c).
 Proof.
   eauto with induction rewrite.
 Qed.
@@ -93,10 +69,8 @@ Proof.
   unfold p1_id. intros. apply H. auto.
 Qed.
 
-Definition cnat := forall t:Prop, t -> (t -> t) -> t.
-
-Definition cZ : cnat := fun t z f => z.
-Definition cS (n : cnat) : cnat := fun t z f => f (n t z f).
+Definition cZ : cnat := fun t f z => z.
+Definition cS (n : cnat) : cnat := fun t f z => f (n t f z).
 
 Definition p2_nat f g := 
   forall a b, forall R : a -> b -> Prop,

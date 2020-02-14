@@ -20,7 +20,7 @@ Lemma wp_lift_step_fupd s i E Φ e1 :
     ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={∅,∅,E}▷=∗
       state_interp σ2 κs ((<[i := fill K e2]> es) ++ efs) ∗
       WP e2 @ (s,i); E {{ Φ }} ∗
-      [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post }})
+      [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post (length es + i) }})
   ⊢ WP e1 @ (s,i); E {{ Φ }}.
 Proof.
   rewrite wp_unfold /wp_pre=>->. iIntros "H" (σ1 κ κs es K) "Hf Hσ".
@@ -48,7 +48,7 @@ Lemma wp_lift_step s i E Φ e1 :
     ▷ ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={∅,E}=∗
       state_interp σ2 κs ((<[i := fill K e2]> es) ++ efs) ∗
       WP e2 @ (s,i); E {{ Φ }} ∗
-      [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post }})
+      [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post (length es + i) }})
   ⊢ WP e1 @ (s,i); E {{ Φ }}.
 Proof.
   iIntros (?) "H". iApply wp_lift_step_fupd; [done|]. iIntros (?????) "Hσ".
@@ -93,7 +93,7 @@ Lemma wp_lift_atomic_step_fupd {s i E1 E2 Φ} e1 :
     ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={E1,E2}▷=∗
       state_interp σ2 κs ((<[i := fill K e2]> es) ++ efs) ∗
       from_option Φ False (to_val e2) ∗
-      [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post }})
+      [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post (length es + i) }})
   ⊢ WP e1 @ (s,i); E1 {{ Φ }}.
 Proof.
   iIntros (?) "H".
@@ -115,7 +115,7 @@ Lemma wp_lift_atomic_step {s i E Φ} e1 :
     ▷ ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={E}=∗
       state_interp σ2 κs ((<[i := fill K e2]> es) ++ efs) ∗
       from_option Φ False (to_val e2) ∗
-      [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post }})
+      [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post (length es + i) }})
   ⊢ WP e1 @ (s,i); E {{ Φ }}.
 Proof.
   iIntros (?) "H". iApply wp_lift_atomic_step_fupd; [done|].
@@ -124,22 +124,22 @@ Proof.
   by iApply "H".
 Qed.
 
-Lemma wp_lift_pure_det_step_no_fork `{!Inhabited (state Λ)} {s E E' Φ} e1 e2 :
+Lemma wp_lift_pure_det_step_no_fork `{!Inhabited (state Λ)} {s i E E' Φ} e1 e2 :
   (∀ σ1, if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else to_val e1 = None) →
   (∀ σ1 κ e2' σ2 efs', prim_step e1 σ1 κ e2' σ2 efs' →
     κ = [] ∧ σ2 = σ1 ∧ e2' = e2 ∧ efs' = []) →
-  (|={E,E'}▷=> WP e2 @ s; E {{ Φ }}) ⊢ WP e1 @ s; E {{ Φ }}.
+  (|={E,E'}▷=> WP e2 @ (s,i); E {{ Φ }}) ⊢ WP e1 @ (s,i); E {{ Φ }}.
 Proof.
-  iIntros (? Hpuredet) "H". iApply (wp_lift_pure_step_no_fork s E E'); try done.
+  iIntros (? Hpuredet) "H". iApply (wp_lift_pure_step_no_fork s i E E'); try done.
   { naive_solver. }
   iApply (step_fupd_wand with "H"); iIntros "H".
   iIntros (κ e' efs' σ (_&?&->&?)%Hpuredet); auto.
 Qed.
 
-Lemma wp_pure_step_fupd `{!Inhabited (state Λ)} s E E' e1 e2 φ n Φ :
+Lemma wp_pure_step_fupd `{!Inhabited (state Λ)} s i E E' e1 e2 φ n Φ :
   PureExec φ n e1 e2 →
   φ →
-  (|={E,E'}▷=>^n WP e2 @ s; E {{ Φ }}) ⊢ WP e1 @ s; E {{ Φ }}.
+  (|={E,E'}▷=>^n WP e2 @ (s,i); E {{ Φ }}) ⊢ WP e1 @ (s,i); E {{ Φ }}.
 Proof.
   iIntros (Hexec Hφ) "Hwp". specialize (Hexec Hφ).
   iInduction Hexec as [e|n e1 e2 e3 [Hsafe ?]] "IH"; simpl; first done.
@@ -149,10 +149,10 @@ Proof.
   - by iApply (step_fupd_wand with "Hwp").
 Qed.
 
-Lemma wp_pure_step_later `{!Inhabited (state Λ)} s E e1 e2 φ n Φ :
+Lemma wp_pure_step_later `{!Inhabited (state Λ)} s i E e1 e2 φ n Φ :
   PureExec φ n e1 e2 →
   φ →
-  ▷^n WP e2 @ s; E {{ Φ }} ⊢ WP e1 @ s; E {{ Φ }}.
+  ▷^n WP e2 @ (s,i); E {{ Φ }} ⊢ WP e1 @ (s,i); E {{ Φ }}.
 Proof.
   intros Hexec ?. rewrite -wp_pure_step_fupd //. clear Hexec.
   induction n as [|n IH]; by rewrite //= -step_fupd_intro // IH.
