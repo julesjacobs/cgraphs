@@ -166,7 +166,7 @@ Proof.
   iIntros (σ1 κ κs Qs ?) "Hσ1". iMod ("H" $! σ1 with "Hσ1") as "[$ H]"; iModIntro.
   iNext; iIntros (v2 σ2 efs Hstep).
   iMod ("H" $! v2 σ2 efs with "[//]") as "(-> & ? & ?) /=". rewrite app_nil_r.
-   (* by iFrame. *)
+  (* by iFrame. *)
 Admitted.
 
 Lemma wp_lift_pure_det_head_step_no_fork {s i E E' Φ} e1 e2 :
