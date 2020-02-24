@@ -11,6 +11,175 @@ From diris.heap_lang Require Import notation.
 From diris.heap_lang Require Import tactics.
 
 
+From iris.proofmode Require Import tactics.
+From diris.program_logic Require Export ectx_language weakestpre lifting.
+(*
+
+Define:
+1. l ↦ v for lock memory locations
+2. Obs_i O for obligations
+3. is_lock l R
+4. locked l
+5. state_interp
+6. fork_post
+
+Monoids:
+M1 = auth (gmap loc (agree nat))         for the l ↦ o, keeping track of lock numbers
+M2 = auth (gmap nat (excl (gset nat)))   for the Obs_i O
+M3 = auth (gmap loc (agree ▷iProp))      for the is_lock l R
+M4 = auth (gmap loc (excl bool))         for the locked l
+
+◯●
+
+l ↦ v       := own γ1 (◯{l := to_agree v})
+Obs i O     := own γ2 (◯{i := to_excl O})
+is_lock l R := own γ3 (◯{l := to_agree R})
+locked l    := own γ4 (◯{l := to_excl true})
+
+Definition state_interp σ es :=
+  ∃L : gmap loc (nat * iProp * bool) (T : list (gset nat * option loc)),
+    own γ1 (●f1 L) * own γ2 (●f2 T) * own γ3 (●f3 L) * own γ4 (●f4 L) *
+    ([* list] i↦e ∈ es, W σ e l * l < O).
+
+Definition W σ e lo :=
+  match lo with
+  | None => ¬ waiting e σ
+  | Some l => ∃K, e = fill K (WAS l false true)
+  end.
+
+o < O := forall o', o' ∈ O -> o < o'
+
+WP rules:
+1. newlock
+2. aquire
+3. release
+4. fork
+
+R * (forall l, is_lock l R * l ↦ o -* Φ l)
+------------------------------------------
+WP_i newlock () { Φ }
+
+
+is_lock l R * l ↦ o * Obs_i O * o < O * (Obs_i (O + {o}) * R * locked l -* Φ ())
+--------------------------------------------------------------------------------
+WP_i acquire l { Φ }
+
+
+is_lock l R * l ↦ o * locked l * R * Obs_i O * (Obs_i (O - {o}) -* Φ ())
+------------------------------------------------------------------------
+WP release l { Φ }
+
+
+Obs_i (O + O') * (forall j, Obs_j O -* WP_j e { Obs_j empty }) * (Obs_i O' -* Φ ())
+-----------------------------------------------------------------------------------
+WP_i fork e { Φ }
+
+###########################################################################################################
+###########################################################################################################
+
+Is it a good idea to merge M1 and M2 and the predicate is_lock l R and l ↦ o into is_lock l R o? (probably)
+Perhaps even merge the locked boolean state? (probably not)
+
+Then the system becomes:
+
+Monoids:
+M1 = auth (gmap loc (agree (nat * ▷iProp))       for the is_lock l R o
+M2 = auth (gmap nat (excl (gset nat)))           for the Obs_i O
+M3 = auth (gmap loc (excl bool))                 for the locked l
+
+◯●
+
+is_lock l R o := own γ1 (◯{l := to_agree (R,o)})
+Obs i O       := own γ2 (◯{i := to_excl O})
+locked l      := own γ3 (◯{l := to_excl true})
+
+Definition state_interp σ es :=
+  ∃L : gmap loc (iProp * nat * bool) (T : list (gset nat * option loc)),
+    own γ1 (●(f1 L, f2 L)) * own γ2 (●f2 T) * own γ3 (●f3 L) *
+    ([* list] i↦e ∈ es, W σ e l * l < O).
+
+Definition W σ e lo :=
+  match lo with
+  | None => ¬ waiting e σ
+  | Some l => ∃K, e = fill K (WAS l false true)
+  end.
+
+o < O := forall o', o' ∈ O -> o < o'
+
+WP rules:
+1. newlock
+2. aquire
+3. release
+4. fork
+
+R * (forall l, is_lock l R o -* Φ l)
+------------------------------------
+WP_i newlock () { Φ }
+
+
+is_lock l R o * Obs_i O * o < O * (Obs_i (O + {o}) * R * locked l -* Φ ())
+--------------------------------------------------------------------------
+WP_i acquire l { Φ }
+
+
+is_lock l R o * locked l * R * Obs_i O * (Obs_i (O - {o}) -* Φ ())
+------------------------------------------------------------------
+WP release l { Φ }
+
+
+Obs_i (O + O') * (forall j, Obs_j O -* WP_j e { Obs_j empty }) * (Obs_i O' -* Φ ())
+-----------------------------------------------------------------------------------
+WP_i fork e { Φ }
+
+###########################################################################################################
+
+Proof of deadlock freedom given state_interp σ es.
+
+* Deadlock freedom means that either all threads have terminated with a value, or there is a thread that can take a step (i.e. is not waiting).
+* Threads are only allowed to acquire locks with a lock number that's higher (??? modify the above, matters when we use nats) than the locks that
+  it has already acquired.
+* The thread that can definitely make a step is the thread that has acquired the highest lock number n, because suppose it's trying to do an acquire:
+  1. The lock that it's trying to acquire must have a higher number than the locks that it has acquired.
+  2. In particular, it's higher than n.
+  3. But n was the highest acquired lock in the whole system.
+  4. Therefore the lock that it's trying to acquire has not been acquired by anyone else.
+  5. Hence the acquire succeeds without blocking, so it can take a step.
+  If it is not trying to do an acquire then Iris' adequacy gives us that it can take a step.
+
+###########################################################################################################
+
+Extra step insertion for pre-WAS.
+
+This is required due to a problem with pure steps. A pure step can step to a WAS, and at that point we must establish state_interp, hence we must
+know that it's not waiting. However, the rule for pure steps cannot establish this. Therefore we add an additional step in front of WAS that pure
+steps can safely step to. To prove that step we need to establish that the WAS is safe to step to.
+
+*)
+
+From iris.algebra Require Import auth.
+
+
+Class lockG (Σ : gFunctors) : Set := WsatG {
+  inv_inG :> inG Σ (authR (gmapUR positive (agreeR (laterO (iPrePropO Σ)))));
+  enabled_inG :> inG Σ coPset_disjR;
+  disabled_inG :> inG Σ (gset_disjR positive);
+  invariant_name : gname;
+  enabled_name : gname;
+  disabled_name : gname;
+}.
+
+Definition invΣ : gFunctors :=
+  #[GFunctor (authRF (gmapURF positive (agreeRF (laterOF idOF))));
+    GFunctor coPset_disjUR;
+    GFunctor (gset_disjUR positive)].
+
+Class invPreG (Σ : gFunctors) : Set := WsatPreG {
+  inv_inPreG :> inG Σ (authR (gmapUR positive (agreeR (laterO (iPrePropO Σ)))));
+  enabled_inPreG :> inG Σ coPset_disjR;
+  disabled_inPreG :> inG Σ (gset_disjR positive);
+}.
+
+
 Class heapG Σ := HeapG {
   heapG_invG : invG Σ;
   heapG_gen_heapG :> gen_heapG loc val Σ;
@@ -204,7 +373,7 @@ Implicit Types l : loc.
 
 (** Fork: Not using Texan triples to avoid some unnecessary [True] *)
 Lemma wp_fork s E e Φ :
-  ▷ WP e @ s; ⊤ {{ _, True }} -∗ ▷ Φ (LitV LitUnit) -∗ WP Fork e @ s; E {{ Φ }}.  
+  ▷ WP e @ s; ⊤ {{ _, True }} -∗ ▷ Φ (LitV LitUnit) -∗ WP Fork e @ s; E {{ Φ }}.
 Proof.
   iIntros "He HΦ /=". iApply wp_lift_atomic_head_step; [done|].
   iIntros (σ1 κ κs n) "Hσ !>"; iSplit; first by eauto.
@@ -218,7 +387,7 @@ Lemma heap_array_to_seq_meta l vs (n : nat) :
   length vs = n →
   ([∗ map] l' ↦ _ ∈ heap_array l vs, meta_token l' ⊤) -∗
   [∗ list] i ∈ seq 0 n, meta_token (l +ₗ (i : nat)) ⊤.
-Proof. 
+Proof.
   iIntros (<-) "Hvs". iInduction vs as [|v vs] "IH" forall (l)=> //=.
   rewrite big_opM_union; last first.
   { apply map_disjoint_spec=> l' v1 v2 /lookup_singleton_Some [-> _].
@@ -319,7 +488,7 @@ Proof.
   iModIntro. iSplit=>//. iFrame. by iApply "HΦ".
 Qed.
 
-(* 
+(*
 Lemma wp_was_suc s E l v1 v2 v' :
   v' = v1 → vals_compare_safe v' v1 →
   {{{ ▷ l ↦ v' }}} WAS (Val $ LitV $ LitLoc l) (Val v1) (Val v2) @ s; E
