@@ -35,7 +35,7 @@ Lemma wp_lift_stuck E Φ e i :
 Proof.
   rewrite wp_unfold /wp_pre=>->. iIntros "H" (σ1 κ κs es K) "Hf Hσ".
   iMod ("H" with "Hσ") as %[? Hirr]. iModIntro. iSplit; first done.
-  iIntros (e2 σ2 efs ?). 
+  iIntros (e2 σ2 efs ?).
   destruct Hirr as [Hirr H1].
   by case: (Hirr κ e2 σ2 efs).
 Qed.
