@@ -150,8 +150,7 @@ Proof.
  iMod ("H" $! σ1 with "Hσ1") as "[$ H]"; iModIntro.
   iIntros (v2 σ2 efs Hstep).
   iMod ("H" $! v2 σ2 efs with "[# //]") as "H".
-  iIntros "!> !>". iMod "H" as "(-> & ? & ?) /=". rewrite app_nil_r.
-  (* by iFrame. *)
+  iIntros "!> !>". iMod "H" as "(-> & ? & ?) /=". rewrite app_nil_r. iFrame.
 Admitted.
 
 Lemma wp_lift_atomic_head_step_no_fork {s i E Φ} e1 :
@@ -165,8 +164,7 @@ Proof.
   iIntros (?) "H". iApply wp_lift_atomic_head_step; eauto.
   iIntros (σ1 κ κs Qs ?) "Hσ1". iMod ("H" $! σ1 with "Hσ1") as "[$ H]"; iModIntro.
   iNext; iIntros (v2 σ2 efs Hstep).
-  iMod ("H" $! v2 σ2 efs with "[//]") as "(-> & ? & ?) /=". rewrite app_nil_r.
-  (* by iFrame. *)
+  iMod ("H" $! v2 σ2 efs with "[//]") as "(-> & ? & ?) /=". rewrite app_nil_r. iFrame.
 Admitted.
 
 Lemma wp_lift_pure_det_head_step_no_fork {s i E E' Φ} e1 e2 :
