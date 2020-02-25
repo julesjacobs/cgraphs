@@ -16,7 +16,6 @@ Hint Resolve (reducible_not_val _ inhabitant) : core.
 Hint Resolve head_stuck_stuck : core.
 
 
-(* TODO: fix indices, see lifting.v for analogous *)
 Lemma wp_lift_head_step_fupd {s i E Φ} e1 :
   to_val e1 = None →
   (∀ σ1 κ κs es K, state_interp σ1 (κ ++ κs) es ={E,∅}=∗
