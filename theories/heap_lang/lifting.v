@@ -1,18 +1,18 @@
 From stdpp Require Import fin_maps.
 From iris.proofmode Require Import tactics.
-From iris.algebra Require Import auth gmap.
+From iris.algebra Require Import auth gmap excl.
 From iris.base_logic Require Export gen_heap.
 From iris.base_logic.lib Require Export proph_map.
 From diris.program_logic Require Export weakestpre.
 From diris.program_logic Require Import ectx_lifting.
 From diris.heap_lang Require Export lang.
 Set Default Proof Using "Type".
-From diris.heap_lang Require Import notation.
-From diris.heap_lang Require Import tactics.
+(* From diris.heap_lang Require Import notation. *)
+(* From diris.heap_lang Require Import tactics. *)
 
 
-From iris.proofmode Require Import tactics.
-From diris.program_logic Require Export ectx_language weakestpre lifting.
+(* From iris.proofmode Require Import tactics. *)
+(* From diris.program_logic Require Export ectx_language weakestpre lifting. *)
 (*
 
 Define:
@@ -156,29 +156,26 @@ steps can safely step to. To prove that step we need to establish that the WAS i
 
 *)
 
-From iris.algebra Require Import auth.
+From iris.algebra Require Import auth gset gmap agree namespace_map.
+From stdpp Require Export namespaces.
+From iris.base_logic.lib Require Export own.
 
 
-Class lockG (Σ : gFunctors) : Set := WsatG {
-  inv_inG :> inG Σ (authR (gmapUR positive (agreeR (laterO (iPrePropO Σ)))));
-  enabled_inG :> inG Σ coPset_disjR;
-  disabled_inG :> inG Σ (gset_disjR positive);
-  invariant_name : gname;
-  enabled_name : gname;
-  disabled_name : gname;
+Class deadlockG Σ := DeadlockG {
+  deadlockM1_inG :> inG Σ (authUR (gmapUR loc (agreeR (leibnizO nat))));
+  deadlockM2_inG :> inG Σ (authUR (gmapUR nat (exclR (gsetR (leibnizO nat)))));
+  deadlockM3_inG :> inG Σ (authUR (gmapUR loc (agreeR (laterO (iPrePropO Σ)))));
+  deadlockM4_inG :> inG Σ (authUR (gmapUR loc (exclR (leibnizO bool))));
 }.
 
-Definition invΣ : gFunctors :=
-  #[GFunctor (authRF (gmapURF positive (agreeRF (laterOF idOF))));
-    GFunctor coPset_disjUR;
-    GFunctor (gset_disjUR positive)].
+Definition deadlockΣ : gFunctors :=
+  #[GFunctor (authRF (gmapURF loc (agreeRF (leibnizO nat))));
+    GFunctor (authRF (gmapURF nat (exclRF (gsetR (leibnizO nat)))));
+    GFunctor (authRF (gmapURF loc (agreeRF (laterOF idOF))));
+    GFunctor (authRF (gmapURF loc (exclRF (leibnizO bool))))].
 
-Class invPreG (Σ : gFunctors) : Set := WsatPreG {
-  inv_inPreG :> inG Σ (authR (gmapUR positive (agreeR (laterO (iPrePropO Σ)))));
-  enabled_inPreG :> inG Σ coPset_disjR;
-  disabled_inPreG :> inG Σ (gset_disjR positive);
-}.
-
+Instance subG_deadlockΣ {Σ} : subG deadlockΣ Σ → deadlockG Σ.
+Proof. solve_inG. Qed.
 
 Class heapG Σ := HeapG {
   heapG_invG : invG Σ;
