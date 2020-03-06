@@ -7,6 +7,7 @@ From diris.program_logic Require Export weakestpre.
 From diris.program_logic Require Import ectx_lifting.
 From diris.heap_lang Require Export lang.
 Set Default Proof Using "Type".
+
 (* From diris.heap_lang Require Import notation. *)
 (* From diris.heap_lang Require Import tactics. *)
 
@@ -156,26 +157,82 @@ steps can safely step to. To prove that step we need to establish that the WAS i
 
 *)
 
-From iris.algebra Require Import auth gset gmap agree namespace_map.
+From iris.algebra Require Import auth gset gmap excl agree namespace_map.
 From stdpp Require Export namespaces.
 From iris.base_logic.lib Require Export own.
 
 
-Class deadlockG Σ := DeadlockG {
-  deadlockM1_inG :> inG Σ (authUR (gmapUR loc (agreeR (leibnizO nat))));
-  deadlockM2_inG :> inG Σ (authUR (gmapUR nat (exclR (gsetR (leibnizO nat)))));
-  deadlockM3_inG :> inG Σ (authUR (gmapUR loc (agreeR (laterO (iPrePropO Σ)))));
-  deadlockM4_inG :> inG Σ (authUR (gmapUR loc (exclR (leibnizO bool))));
+Class deadlockPreG Σ := DeadlockPreG {
+  deadlockM1_inG :> inG Σ (authR (gmapUR loc (agreeR natO)));
+  deadlockM2_inG :> inG Σ (authR (gmapUR nat (exclR (gsetR natO))));
+  deadlockM3_inG :> inG Σ (authR (gmapUR loc (agreeR (laterO (iPrePropO Σ)))));
+  deadlockM4_inG :> inG Σ (authR (gmapUR loc (exclR boolO)));
 }.
 
-Definition deadlockΣ : gFunctors :=
-  #[GFunctor (authRF (gmapURF loc (agreeRF (leibnizO nat))));
-    GFunctor (authRF (gmapURF nat (exclRF (gsetR (leibnizO nat)))));
-    GFunctor (authRF (gmapURF loc (agreeRF (laterOF idOF))));
-    GFunctor (authRF (gmapURF loc (exclRF (leibnizO bool))))].
+Class deadlockG Σ := DeadlockG {
+  deadlock_PreG :> deadlockPreG Σ;
+  γ1 : gname;
+  γ2 : gname;
+  γ3 : gname;
+  γ4 : gname
+}.
 
-Instance subG_deadlockΣ {Σ} : subG deadlockΣ Σ → deadlockG Σ.
+Arguments γ1 {_} _ : assert.
+Arguments γ3 {_} _ : assert.
+Arguments γ2 {_} _ : assert.
+Arguments γ4 {_} _ : assert.
+
+Definition deadlockΣ : gFunctors :=
+  #[GFunctor (authRF (gmapURF loc (agreeRF natO)));
+    GFunctor (authRF (gmapURF nat (exclRF (gsetR natO))));
+    GFunctor (authRF (gmapURF loc (agreeRF (laterOF idOF))));
+    GFunctor (authRF (gmapURF loc (exclRF boolO)))].
+
+Instance subG_deadlockΣ {Σ} : subG deadlockΣ Σ → deadlockPreG Σ.
 Proof. solve_inG. Qed.
+
+Section definitions.
+  Context `{dG : !deadlockG Σ}.
+
+  Definition lock_mapsto (l:loc) (v:nat) : iProp Σ :=
+    own (γ1 dG) (◯ {[ l := to_agree v ]}).
+
+  Definition obs (i:nat) (O:gset nat) : iProp Σ :=
+    own (γ2 dG) (◯{[ i := Excl O ]}).
+
+  Definition is_lock (l:loc) (R:iProp Σ) : iProp Σ :=
+    own (γ3 dG) (◯ {[ l := to_agree (Next (iProp_unfold R)) ]}).
+
+  Definition locked (l:loc) : iProp Σ :=
+    own (γ4 dG) (◯{[ l := Excl true ]}).
+
+  Definition less_obs (o:nat) (O:gset nat) :=
+    ∀ o', o' ∈ O -> o < o'.
+
+  Definition f1 : gmap loc (iProp Σ * nat * bool) → gmap loc (agree (later (iPrePropO Σ))) :=
+    fmap (λ '(R,_,_),  to_agree (Next (iProp_unfold R))).
+  Definition f2 : gmap loc (iProp Σ * nat * bool) → gmap loc (agree nat) :=
+    fmap (λ '(_,n,_),  to_agree n).
+  Definition f3 : gmap loc (iProp Σ * nat * bool) → gmap loc (excl bool) :=
+    fmap (λ '(_,_,b),  Excl b).
+
+  Definition W (σ:state) (e:expr) (lo:option loc) :=
+    match lo with
+    | None => ¬ waiting e σ
+    | Some l => ∃K, e = fill K (WAS (Val (LitV (LitLoc l))) (Val (LitV (LitBool false)))
+                                    (Val (LitV (LitBool true))))
+    end.
+
+  Definition state_interp (σ : state) (es : list expr) : iProp Σ :=
+    (∃L : gmap loc (iProp Σ * nat * bool), ∃T : list (gset nat * option loc),
+      own (γ1 dG) (● f1 L) ∗
+      own (γ2 dG) (● f2 L) ∗
+      own (γ3 dG) (● f3 L) ∗
+      ([∗ list] i↦e;t ∈ es;T, ⌜∃ (n:nat) (i:loc) R b, L !! i = Some (R,n,b) /\ W σ e (t.2) /\ less_obs n (t.1)⌝))%I.
+
+  Definition fork_post (t_id:nat) : iProp Σ :=
+    own (γ2 dG) (◯{[ t_id := Excl empty ]}).
+End definitions.
 
 Class heapG Σ := HeapG {
   heapG_invG : invG Σ;
@@ -367,6 +424,14 @@ Implicit Types efs : list expr.
 Implicit Types σ : state.
 Implicit Types v : val.
 Implicit Types l : loc.
+
+
+Lemma wp_newlock s E v :
+  {{{ True }}} Alloc (Val $ LitV $ LitBool false) @ s; E {{{ l, RET LitV (LitLoc l); l ↦ v ∗ meta_token l ⊤ }}}.
+Proof.
+  iIntros (Φ) "_ HΦ". iApply wp_allocN_seq; auto with lia.
+  iIntros "!>" (l) "/= (? & _)". rewrite loc_add_0. iApply "HΦ"; iFrame.
+Qed.
 
 (** Fork: Not using Texan triples to avoid some unnecessary [True] *)
 Lemma wp_fork s E e Φ :
