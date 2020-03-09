@@ -163,24 +163,24 @@ From iris.base_logic.lib Require Export own.
 
 
 Class deadlockPreG Σ := DeadlockPreG {
-  deadlockM1_inG :> inG Σ (authR (gmapUR loc (agreeR natO)));
-  deadlockM2_inG :> inG Σ (authR (gmapUR nat (exclR (gsetR natO))));
-  deadlockM3_inG :> inG Σ (authR (gmapUR loc (agreeR (laterO (iPrePropO Σ)))));
-  deadlockM4_inG :> inG Σ (authR (gmapUR loc (exclR boolO)));
+  deadlock_locknum_inG :> inG Σ (authR (gmapUR loc (agreeR natO)));
+  deadlock_obs_inG :> inG Σ (authR (gmapUR nat (exclR (gsetR natO))));
+  deadlock_lockres_inG :> inG Σ (authR (gmapUR loc (agreeR (laterO (iPrePropO Σ)))));
+  deadlock_locked_inG :> inG Σ (authR (gmapUR loc (exclR boolO)));
 }.
 
 Class deadlockG Σ := DeadlockG {
   deadlock_PreG :> deadlockPreG Σ;
-  γ1 : gname;
-  γ2 : gname;
-  γ3 : gname;
-  γ4 : gname
+  locknum_γ : gname;
+  obs_γ : gname;
+  lockres_γ : gname;
+  locked_γ : gname
 }.
 
-Arguments γ1 {_} _ : assert.
-Arguments γ3 {_} _ : assert.
-Arguments γ2 {_} _ : assert.
-Arguments γ4 {_} _ : assert.
+Arguments locknum_γ {_} _ : assert.
+Arguments obs_γ {_} _ : assert.
+Arguments lockres_γ {_} _ : assert.
+Arguments locked_γ {_} _ : assert.
 
 Definition deadlockΣ : gFunctors :=
   #[GFunctor (authRF (gmapURF loc (agreeRF natO)));
@@ -195,52 +195,62 @@ Section definitions.
   Context `{dG : !deadlockG Σ}.
 
   Definition lock_mapsto (l:loc) (v:nat) : iProp Σ :=
-    own (γ1 dG) (◯ {[ l := to_agree v ]}).
+    own (locknum_γ dG) (◯ {[ l := to_agree v ]}).
 
   Definition obs (i:nat) (O:gset nat) : iProp Σ :=
-    own (γ2 dG) (◯{[ i := Excl O ]}).
+    own (obs_γ dG) (◯{[ i := Excl O ]}).
 
   Definition is_lock (l:loc) (R:iProp Σ) : iProp Σ :=
-    own (γ3 dG) (◯ {[ l := to_agree (Next (iProp_unfold R)) ]}).
+    own (lockres_γ dG) (◯ {[ l := to_agree (Next (iProp_unfold R)) ]}).
 
   Definition locked (l:loc) : iProp Σ :=
-    own (γ4 dG) (◯{[ l := Excl true ]}).
+    own (locked_γ dG) (◯{[ l := Excl true ]}).
 
   Definition less_obs (o:nat) (O:gset nat) :=
     ∀ o', o' ∈ O -> o < o'.
 
-  Definition f1 : gmap loc (iProp Σ * nat * bool) → gmap loc (agree (later (iPrePropO Σ))) :=
-    fmap (λ '(R,_,_),  to_agree (Next (iProp_unfold R))).
-  Definition f2 : gmap loc (iProp Σ * nat * bool) → gmap loc (agree nat) :=
+  Definition f_locknum : gmap loc (iProp Σ * nat * bool) → gmap loc (agree nat) :=
     fmap (λ '(_,n,_),  to_agree n).
-  Definition f3 : gmap loc (iProp Σ * nat * bool) → gmap loc (excl bool) :=
+  Definition f_lockres : gmap loc (iProp Σ * nat * bool) → gmap loc (agree (later (iPrePropO Σ))) :=
+    fmap (λ '(R,_,_),  to_agree (Next (iProp_unfold R))).
+  Definition f_locked : gmap loc (iProp Σ * nat * bool) → gmap loc (excl bool) :=
     fmap (λ '(_,_,b),  Excl b).
+  Definition f_obs : list (gset nat * option loc) → gmap nat (excl (gset nat)) :=
+    λ l, fmap (λ '(obs,l), Excl obs) (map_seq 0 l).
 
-  Definition W (σ:state) (e:expr) (lo:option loc) :=
+  Definition W (σ:state) (e:expr) (lo:option loc) : Prop :=
     match lo with
     | None => ¬ waiting e σ
-    | Some l => ∃K, e = fill K (WAS (Val (LitV (LitLoc l))) (Val (LitV (LitBool false)))
-                                    (Val (LitV (LitBool true))))
+    | Some l => ∃ K, e = fill K (WAS (Val (LitV (LitLoc l))) (Val (LitV (LitBool false)))
+                                     (Val (LitV (LitBool true))))
     end.
 
   Definition state_interp (σ : state) (es : list expr) : iProp Σ :=
-    (∃L : gmap loc (iProp Σ * nat * bool), ∃T : list (gset nat * option loc),
-      own (γ1 dG) (● f1 L) ∗
-      own (γ2 dG) (● f2 L) ∗
-      own (γ3 dG) (● f3 L) ∗
-      ([∗ list] i↦e;t ∈ es;T, ⌜∃ (n:nat) (i:loc) R b, L !! i = Some (R,n,b) /\ W σ e (t.2) /\ less_obs n (t.1)⌝))%I.
+    (∃ (L : gmap loc (iProp Σ * nat * bool)) (T : list (gset nat * option loc)),
+      own (locknum_γ dG) (● f_locknum L) ∗
+      own (lockres_γ dG) (● f_lockres L) ∗
+      own (locked_γ dG) (● f_locked L) ∗
+      own (obs_γ dG) (● f_obs T) ∗
+      ⌜ Forall2 (λ e '(obs,lockstate),
+          W σ e lockstate ∧
+          (* For each thread, if it's waiting on l, the locknum of l is less than its obs *)
+          ∀ l, lockstate = Some l -> ∃ R n b, L !! l = Some (R,n,b) ∧ less_obs n obs) es T ⌝)%I.
 
-  Definition fork_post (t_id:nat) : iProp Σ :=
-    own (γ2 dG) (◯{[ t_id := Excl empty ]}).
+  Definition fork_post (t_id:nat) : iProp Σ := obs t_id ∅.
+
+  Instance state_interp_context_invariant K : LanguageCtxInterp K.
+
+    (* TODO Jules: Add extra pre-state to WAS operational semantics *)
+
 End definitions.
 
 Class heapG Σ := HeapG {
+  heapG_deadlockG :> deadlockG Σ;
   heapG_invG : invG Σ;
   heapG_gen_heapG :> gen_heapG loc val Σ;
   heapG_proph_mapG :> proph_mapG proph_id (val * val) Σ
 }.
-
-Instance heapG_irisG `{!heapG Σ} : irisG heap_lang Σ := {
+Instance heapG_irisG `{!heapG Σ} : irisG heap_ectx_lang Σ := {
   iris_invG := heapG_invG;
   state_interp σ κs _ :=
     (gen_heap_ctx σ.(heap) ∗ proph_map_ctx κs σ.(used_proph_id))%I;
