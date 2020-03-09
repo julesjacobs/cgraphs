@@ -15,15 +15,15 @@ Hint Resolve reducible_no_obs_reducible : core.
 
 Lemma wp_lift_step_fupd s i E Φ e1 :
   to_val e1 = None →
-  (∀ σ1 κ κs es K, state_interp σ1 (κ ++ κs) es ={E,∅}=∗
+  (∀ σ1 κ κs es, state_interp σ1 (κ ++ κs) es ={E,∅}=∗
     ⌜if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else True⌝ ∗
     ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={∅,∅,E}▷=∗
-      state_interp σ2 κs ((<[i := fill K e2]> es) ++ efs) ∗
+      state_interp σ2 κs ((<[i := e2]> es) ++ efs) ∗
       WP e2 @ (s,i); E {{ Φ }} ∗
       [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post (length es + i) }})
   ⊢ WP e1 @ (s,i); E {{ Φ }}.
 Proof.
-  rewrite wp_unfold /wp_pre=>->. iIntros "H" (σ1 κ κs es K) "Hf Hσ".
+  rewrite wp_unfold /wp_pre=>->. iIntros "H" (σ1 κ κs es) "Hf Hσ".
   iMod ("H" with "Hσ") as "(%&H)". iModIntro. iSplit. by destruct s.
   iIntros (????). iApply "H". eauto.
 Qed.
@@ -33,7 +33,7 @@ Lemma wp_lift_stuck E Φ e i :
   (∀ σ κs es, state_interp σ κs es ={E,∅}=∗ ⌜stuck e σ⌝)
   ⊢ WP e @ (MaybeStuck,i); E {{ Φ }}.
 Proof.
-  rewrite wp_unfold /wp_pre=>->. iIntros "H" (σ1 κ κs es K) "Hf Hσ".
+  rewrite wp_unfold /wp_pre=>->. iIntros "H" (σ1 κ κs es) "Hf Hσ".
   iMod ("H" with "Hσ") as %[? Hirr]. iModIntro. iSplit; first done.
   iIntros (e2 σ2 efs ?).
   destruct Hirr as [Hirr H1].
@@ -43,15 +43,15 @@ Qed.
 (** Derived lifting lemmas. *)
 Lemma wp_lift_step s i E Φ e1 :
   to_val e1 = None →
-  (∀ σ1 κ κs es K, state_interp σ1 (κ ++ κs) es ={E,∅}=∗
+  (∀ σ1 κ κs es, state_interp σ1 (κ ++ κs) es ={E,∅}=∗
     ⌜if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else True⌝ ∗
     ▷ ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={∅,E}=∗
-      state_interp σ2 κs ((<[i := fill K e2]> es) ++ efs) ∗
+      state_interp σ2 κs ((<[i := e2]> es) ++ efs) ∗
       WP e2 @ (s,i); E {{ Φ }} ∗
       [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post (length es + i) }})
   ⊢ WP e1 @ (s,i); E {{ Φ }}.
 Proof.
-  iIntros (?) "H". iApply wp_lift_step_fupd; [done|]. iIntros (?????) "Hσ".
+  iIntros (?) "H". iApply wp_lift_step_fupd; [done|]. iIntros (????) "Hσ".
   iMod ("H" with "Hσ") as "[$ H]". iIntros "!> * % !> !>". by iApply "H".
 Qed.
 
@@ -64,14 +64,14 @@ Proof.
   iIntros (Hsafe Hstep) "H". iApply wp_lift_step.
   { specialize (Hsafe inhabitant).
     destruct s; naive_solver eauto using reducible_not_val, waiting_not_val. }
-  iIntros (σ1 κ κs es K) "Hσ". iMod "H".
+  iIntros (σ1 κ κs es) "Hσ". iMod "H".
   iMod fupd_intro_mask' as "Hclose"; last iModIntro; first by set_solver. iSplit.
   { iPureIntro. destruct s; done. }
   iNext. iIntros (e2 σ2 efs ?).
   destruct (Hstep κ σ1 e2 σ2 efs) as (-> & <- & ->); auto.
   iMod "Hclose" as "_". iMod "H". iModIntro.
   iDestruct ("H" with "[//]") as "H". simpl. rewrite app_nil_r. iFrame.
-  
+
 Admitted.
 
 Lemma wp_lift_pure_stuck `{!Inhabited (state Λ)} E Φ e i :
@@ -88,16 +88,16 @@ Qed.
    use the generic lemmas here. *)
 Lemma wp_lift_atomic_step_fupd {s i E1 E2 Φ} e1 :
   to_val e1 = None →
-  (∀ σ1 κ κs es K, state_interp σ1 (κ ++ κs) es ={E1}=∗
+  (∀ σ1 κ κs es, state_interp σ1 (κ ++ κs) es ={E1}=∗
     ⌜if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else True⌝ ∗
     ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={E1,E2}▷=∗
-      state_interp σ2 κs ((<[i := fill K e2]> es) ++ efs) ∗
+      state_interp σ2 κs ((<[i := e2]> es) ++ efs) ∗
       from_option Φ False (to_val e2) ∗
       [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post (length es + i) }})
   ⊢ WP e1 @ (s,i); E1 {{ Φ }}.
 Proof.
   iIntros (?) "H".
-  iApply (wp_lift_step_fupd s i E1 _ e1) =>//; iIntros (σ1 κ κs es K) "Hσ1".
+  iApply (wp_lift_step_fupd s i E1 _ e1) =>//; iIntros (σ1 κ κs es) "Hσ1".
   iMod ("H" $! σ1 with "Hσ1") as "[$ H]".
   iMod (fupd_intro_mask' E1 ∅) as "Hclose"; first set_solver.
   iIntros "!>" (e2 σ2 efs ?). iMod "Hclose" as "_".
@@ -110,16 +110,16 @@ Qed.
 
 Lemma wp_lift_atomic_step {s i E Φ} e1 :
   to_val e1 = None →
-  (∀ σ1 κ κs es K, state_interp σ1 (κ ++ κs) es ={E}=∗
+  (∀ σ1 κ κs es, state_interp σ1 (κ ++ κs) es ={E}=∗
     ⌜if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else True⌝ ∗
     ▷ ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={E}=∗
-      state_interp σ2 κs ((<[i := fill K e2]> es) ++ efs) ∗
+      state_interp σ2 κs ((<[i := e2]> es) ++ efs) ∗
       from_option Φ False (to_val e2) ∗
       [∗ list] i ↦ ef ∈ efs, WP ef @ (s,length es + i); ⊤ {{ fork_post (length es + i) }})
   ⊢ WP e1 @ (s,i); E {{ Φ }}.
 Proof.
   iIntros (?) "H". iApply wp_lift_atomic_step_fupd; [done|].
-  iIntros (?????) "?". iMod ("H" with "[$]") as "[$ H]".
+  iIntros (????) "?". iMod ("H" with "[$]") as "[$ H]".
   iIntros "!> *". iIntros (Hstep) "!> !>".
   by iApply "H".
 Qed.
