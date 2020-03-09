@@ -24,10 +24,9 @@ Lemma wp_step s i e1 σ1 κ κs e2 σ2 efs es Φ :
 Proof.
   rewrite {1}wp_unfold /wp_pre. iIntros (??) "Hσ H".
   rewrite (val_stuck e1 σ1 κ e2 σ2 efs) //.
-  iMod ("H" $! σ1 _ _ _ empty_ectx with "[%] Hσ") as "(_ & H)".
-  { by rewrite fill_empty. }
+  iMod ("H" $! σ1 _ _ _ with "[%] Hσ") as "(_ & H)".
+  { done. }
   iMod ("H" $! e2 σ2 efs with "[//]") as "H".
-  rewrite fill_empty.
   by iIntros "!> !>".
 Qed.
 
@@ -45,7 +44,7 @@ Proof.
     iIntros "!>". iFrame.
   - iExists e, (t1' ++ e2' :: t2' ++ efs); iSplitR; first eauto.
     iFrame "He". iDestruct "Ht" as "(Ht1 & He1 & Ht2)".
-    iModIntro. iMod (wp_step with "Hσ He1") as "H". 
+    iModIntro. iMod (wp_step with "Hσ He1") as "H".
     { by rewrite Nat.add_0_r /= lookup_app_r // Nat.sub_diag. }
     { done. }
     iIntros "!> !>". iMod "H" as "(Hσ & He2 & Hefs)". iIntros "!>".
@@ -82,8 +81,8 @@ Lemma wp_not_stuck κs es e σ Φ i :
 Proof.
   rewrite wp_unfold /wp_pre /not_stuck. iIntros (?) "Hσ H".
   destruct (to_val e) as [v|] eqn:?; first by eauto.
-  iSpecialize ("H" $! σ [] κs _ empty_ectx with "[%] Hσ").
-  { by rewrite fill_empty. }
+  iSpecialize ("H" $! σ [] κs _ with "[%] Hσ").
+  { done. }
   rewrite sep_elim_l.
   iMod (fupd_plain_mask with "H") as %?; eauto.
 Qed.
@@ -193,7 +192,7 @@ Proof. split. intros []; naive_solver. constructor; naive_solver. Qed.
 
 (*
   This should hold in deadlock free iris.
-  
+
 Theorem adequate_tp_safe {Λ} (e1 : expr Λ) t2 σ1 σ2 φ :
   adequate NotStuck e1 σ1 φ →
   rtc erased_step ([e1], σ1) (t2, σ2) →
@@ -223,7 +222,7 @@ Proof.
   iMod Hwp as (stateI fork_post) "[Hσ Hwp]".
   iExists s, (λ σ κs _, stateI σ κs), (λ v, ⌜φ v⌝%I), fork_post.
   iIntros "{$Hσ $Hwp} !>" (e2 t2' -> ?) "_ H _".
-  iApply fupd_mask_weaken; [done|]. 
+  iApply fupd_mask_weaken; [done|].
   unfold not_stuck; iSplit; [|auto].
   iIntros (v2 t2'' [= -> <-]). by rewrite to_of_val.
 Qed.
