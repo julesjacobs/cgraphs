@@ -1,7 +1,6 @@
 From iris.proofmode Require Import base tactics classes.
 From iris.base_logic.lib Require Export fancy_updates.
 From diris.program_logic Require Export language.
-From diris.program_logic Require Export ectx_language.
 
 (* FIXME: If we import iris.bi.weakestpre earlier texan triples do not
    get pretty-printed correctly. *)
@@ -9,14 +8,14 @@ From diris.bi Require Export weakestpre.
 Set Default Proof Using "Type".
 Import uPred.
 
-Class irisG (Λ : ectxLanguage) (Σ : gFunctors) := IrisG {
+Class irisG (Λ : language) (Σ : gFunctors) := IrisG {
   iris_invG :> invG Σ;
 
   (** The state interpretation is an invariant that should hold in between each
   step of reduction. Here [Λstate] is the global state, [list Λobservation] are
   the remaining observations, and [nat] is the number of forked-off threads
   (not the total number of threads, which is one higher because there is always
-  a main thread). *) 
+  a main thread). *)
   state_interp : state Λ → list (observation Λ) → list (expr Λ) → iProp Σ;
 
   (** A fixed postcondition for any forked-off thread. For most languages, e.g.
@@ -26,18 +25,21 @@ Class irisG (Λ : ectxLanguage) (Σ : gFunctors) := IrisG {
 }.
 Global Opaque iris_invG.
 
+Class LanguageCtxInterp `{irisG Λ Σ} (K : expr Λ → expr Λ) :=
+  state_interp_fill σ κs es i e : is_Some (es !! i) →
+    state_interp σ κs (<[i:=e]> es) ⊣⊢ state_interp σ κs (<[i:=K e]> es).
 
 Definition wp_pre `{!irisG Λ Σ} (s : stuckness)
     (wp : nat -d> coPset -d> expr Λ -d> (val Λ -d> iPropO Σ) -d> iPropO Σ) :
     nat -d> coPset -d> expr Λ -d> (val Λ -d> iPropO Σ) -d> iPropO Σ := λ tid E e1 Φ,
   match to_val e1 with
   | Some v => |={E}=> Φ v
-  | None => ∀ σ1 κ κs es K,
-     ⌜ es !! tid = Some (fill K e1) ⌝ -∗
+  | None => ∀ σ1 κ κs es,
+     ⌜ es !! tid = Some e1 ⌝ -∗
      state_interp σ1 (κ ++ κs) es ={E,∅}=∗
        ⌜if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else True⌝ ∗
        ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={∅,∅,E}▷=∗
-         state_interp σ2 κs ((<[tid := fill K e2]> es) ++ efs) ∗
+         state_interp σ2 κs ((<[tid := e2]> es) ++ efs) ∗
          wp tid E e2 Φ ∗
          [∗ list] i ↦ ef ∈ efs, wp (length es + i) ⊤ ef (fork_post (length es + i))
   end%I.
@@ -65,7 +67,7 @@ Implicit Types e : expr Λ.
 (* Weakest pre *)
 Lemma wp_unfold s i E e Φ :
   WP e @ (s,i); E {{ Φ }} ⊣⊢ wp_pre s (fun k => wp (PROP:=iProp Σ)  (s,k)) i E e Φ.
-Proof. rewrite wp_eq. unfold wp_def. simpl. 
+Proof. rewrite wp_eq. unfold wp_def. simpl.
   rewrite (_ : (λ k : nat, fixpoint (wp_pre s) k) = fixpoint (wp_pre s)); last done.
   apply (fixpoint_unfold (wp_pre s)).
 Qed.
@@ -78,7 +80,7 @@ Proof.
   (* FIXME: figure out a way to properly automate this proof *)
   (* FIXME: reflexivity, as being called many times by f_equiv and f_contractive
   is very slow here *)
-  do 27 (f_contractive || f_equiv). apply IH; first lia.
+  do 25 (f_contractive || f_equiv). apply IH; first lia.
   intros v. eapply dist_le; eauto with lia.
 Qed.
 Global Instance wp_proper s i E e :
@@ -107,7 +109,7 @@ Proof.
   rewrite !wp_unfold /wp_pre.
   destruct (to_val e) as [v|] eqn:?.
   { iApply ("HΦ" with "[> -]"). by iApply (fupd_mask_mono E1 _). }
-  iIntros (σ1 κ κs es K ?) "Hσ". iMod (fupd_intro_mask' E2 E1) as "Hclose"; first done.
+  iIntros (σ1 κ κs es ?) "Hσ". iMod (fupd_intro_mask' E2 E1) as "Hclose"; first done.
   iMod ("H" with "[//] [$]") as "[% H]".
   iModIntro. iSplit; [by destruct s1, s2|]. iIntros (e2 σ2 efs Hstep).
   iMod ("H" with "[//]") as "H". iIntros "!> !>".
@@ -122,7 +124,7 @@ Lemma fupd_wp s i E e Φ : (|={E}=> WP e @ (s,i); E {{ Φ }}) ⊢ WP e @ (s,i); 
 Proof.
   rewrite wp_unfold /wp_pre. iIntros "H". destruct (to_val e) as [v|] eqn:?.
   { by iMod "H". }
-  iIntros (σ1 κ κs es K ?) "Hσ1". iMod "H". by iApply "H".
+  iIntros (σ1 κ κs es ?) "Hσ1". iMod "H". by iApply "H".
 Qed.
 Lemma wp_fupd s i E e Φ : WP e @ (s,i); E {{ v, |={E}=> Φ v }} ⊢ WP e @ (s,i); E {{ Φ }}.
 Proof. iIntros "H". iApply (wp_strong_mono s s i E with "H"); auto. Qed.
@@ -133,15 +135,15 @@ Proof.
   iIntros "H". rewrite !wp_unfold /wp_pre.
   destruct (to_val e) as [v|] eqn:He.
   { by iDestruct "H" as ">>> $". }
-  iIntros (σ1 κ κs es K ?) "Hσ". iMod "H". iMod ("H" $! σ1 with "[//] Hσ") as "[$ H]".
+  iIntros (σ1 κ κs es ?) "Hσ". iMod "H". iMod ("H" $! σ1 with "[//] Hσ") as "[$ H]".
   iModIntro. iIntros (e2 σ2 efs Hstep).
   iMod ("H" with "[//]") as "H". iIntros "!>!>".
   iMod "H" as "(Hσ & H & Hefs)". destruct s.
   - rewrite !wp_unfold /wp_pre. destruct (to_val e2) as [v2|] eqn:He2.
     + iDestruct "H" as ">> $". by iFrame.
-    + iMod ("H" $! _ [] with "[%] [$]") as "[H _]". 
+    + iMod ("H" $! _ [] with "[%] [$]") as "[H _]".
       { apply lookup_app_l_Some. apply list_lookup_insert. by eapply lookup_lt_Some. }
-      iDestruct "H" as %[H|H]. 
+      iDestruct "H" as %[H|H].
       * destruct H as (? & ? & ? & ? & ?). apply atomic in Hstep as [? ?].
         edestruct H0. eauto.
       * apply atomic in Hstep as [? ?]. done.
@@ -155,7 +157,7 @@ Lemma wp_step_fupd s i E1 E2 e P Φ :
   (|={E1,E2}▷=> P) -∗ WP e @ (s,i); E2 {{ v, P ={E1}=∗ Φ v }} -∗ WP e @ (s,i); E1 {{ Φ }}.
 Proof.
   rewrite !wp_unfold /wp_pre. iIntros (-> ?) "HR H".
-  iIntros (σ1 κ κs es K ?) "Hσ". iMod "HR". iMod ("H" with "[//] [$]") as "[$ H]".
+  iIntros (σ1 κ κs es ?) "Hσ". iMod "HR". iMod ("H" with "[//] [$]") as "[$ H]".
   iIntros "!>" (e2 σ2 efs Hstep). iMod ("H" $! e2 σ2 efs with "[% //]") as "H".
   iIntros "!>!>". iMod "H" as "(Hσ & H & Hefs)".
   iMod "HR". iModIntro. iFrame "Hσ Hefs".
@@ -163,23 +165,35 @@ Proof.
   iIntros (v) "H". by iApply "H".
 Qed.
 
-Lemma wp_bind K s i E e Φ :
-  WP e @ (s,i); E {{ v, WP fill K (of_val v) @ (s,i); E {{ Φ }} }} ⊢ WP fill K e @ (s,i); E {{ Φ }}.
+Lemma wp_bind K `{!LanguageCtx K, !LanguageCtxInterp K} s i E e Φ :
+  WP e @ (s,i); E {{ v, WP K (of_val v) @ (s,i); E {{ Φ }} }} ⊢ WP K e @ (s,i); E {{ Φ }}.
 Proof.
   iIntros "H". iLöb as "IH" forall (E e i Φ). rewrite wp_unfold /wp_pre.
   destruct (to_val e) as [v|] eqn:He.
   { apply of_to_val in He as <-. by iApply fupd_wp. }
   rewrite wp_unfold /wp_pre fill_not_val //.
-  iIntros (σ1 κ κs es K' ?) "Hσ". rewrite fill_comp in a. iMod ("H" with "[//] [$]") as "[% H]".
+  iIntros (σ1 κ κs es Hes) "Hσ". iMod ("H" $! σ1 κ κs (<[i:=e]> es) with "[%] [Hσ]") as "[% H]".
+  { rewrite list_lookup_insert; eauto using lookup_lt_Some. }
+  { rewrite state_interp_fill; [|eauto].
+    rewrite list_insert_id; [iFrame|done]. }
   iModIntro; iSplit.
   { iPureIntro. destruct s; last done. destruct H.
-    - left. eauto using fill_reducible.
+    - left. unfold reducible in *. naive_solver eauto using fill_step.
     - right. apply waiting_fill. exact H. }
   iIntros (e2 σ2 efs Hstep).
   destruct (fill_step_inv e σ1 κ e2 σ2 efs) as (e2'&->&?); [done..|].
   iMod ("H" $! e2' σ2 efs with "[//]") as "H". iIntros "!>!>".
   iMod "H" as "(Hσ & H & Hefs)".
-  iModIntro. rewrite fill_comp. iFrame "Hσ Hefs". by iApply "IH".
+  iModIntro. iSplitL "Hσ".
+  - rewrite -!insert_app_l; [|rewrite ?insert_length; by eapply lookup_lt_Some..].
+    rewrite state_interp_fill.
+    { by rewrite list_insert_insert. }
+    rewrite list_lookup_insert; eauto.
+    rewrite app_length.
+    apply lookup_lt_Some in Hes.
+    lia.
+  - iSplitL "H". { by iApply "IH". }
+    rewrite insert_length. iFrame.
 Qed.
 
 (* No longer holds!  *)
@@ -208,7 +222,6 @@ Lemma wp_stuck_mono s1 s2 i E e Φ :
   s1 ⊑ s2 → WP e @ (s1,i); E {{ Φ }} ⊢ WP e @ (s2,i); E {{ Φ }}.
 Proof. iIntros (?) "H". iApply (wp_strong_mono with "H"); auto. Qed.
 
-(* Jules TODO *)
 Lemma wp_stuck_weaken s i E e Φ :
   WP e @ (s,i); E {{ Φ }} ⊢ WP e @ (MaybeStuck,i); E {{ Φ }}.
 Proof. apply wp_stuck_mono. by destruct s. Qed.
