@@ -104,6 +104,7 @@ Inductive expr :=
   | Store (e1 : expr) (e2 : expr)
   | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
   | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *)
+  | PreWAS (e1 : expr) (e2 : expr) (e3 : expr) (* Wait-and-set (blocking) *)
   | WAS (e1 : expr) (e2 : expr) (e3 : expr) (* Wait-and-set (blocking) *)
   (* Prophecy *)
   | NewProph
@@ -239,6 +240,8 @@ Proof.
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
      | CmpXchg e0 e1 e2, CmpXchg e0' e1' e2' =>
         cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
+     | PreWAS e0 e1 e2, PreWAS e0' e1' e2' =>
+        cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
      | WAS e0 e1 e2, WAS e0' e1' e2' =>
         cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
      | FAA e1 e2, FAA e1' e2' =>
@@ -325,7 +328,8 @@ Proof.
      | FAA e1 e2 => GenNode 17 [go e1; go e2]
      | NewProph => GenNode 18 []
      | Resolve e0 e1 e2 => GenNode 19 [go e0; go e1; go e2]
-     | WAS e0 e1 e2 => GenNode 20 [go e0; go e1; go e2]
+     | PreWAS e0 e1 e2 => GenNode 20 [go e0; go e1; go e2]
+     | WAS e0 e1 e2 => GenNode 21 [go e0; go e1; go e2]
      end
    with gov v :=
      match v with
@@ -361,7 +365,8 @@ Proof.
      | GenNode 17 [e1; e2] => FAA (go e1) (go e2)
      | GenNode 18 [] => NewProph
      | GenNode 19 [e0; e1; e2] => Resolve (go e0) (go e1) (go e2)
-     | GenNode 20 [e0; e1; e2] => WAS (go e0) (go e1) (go e2)
+     | GenNode 20 [e0; e1; e2] => PreWAS (go e0) (go e1) (go e2)
+     | GenNode 21 [e0; e1; e2] => WAS (go e0) (go e1) (go e2)
      | _ => Val $ LitV LitUnit (* dummy *)
      end
    with gov v :=
@@ -376,7 +381,7 @@ Proof.
    for go).
  refine (inj_countable' enc dec _).
  refine (fix go (e : expr) {struct e} := _ with gov (v : val) {struct v} := _ for go).
- - destruct e as [v| | | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
+ - destruct e as [v| | | | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
      [exact (gov v)|done..].
  - destruct v; by f_equal.
 Qed.
@@ -457,9 +462,9 @@ Fixpoint fill_item (Ki : ectx_item) (e : expr) : expr :=
   | CmpXchgRCtx e0 e1 => CmpXchg e0 e1 e
   | FaaLCtx v2 => FAA e (Val v2)
   | FaaRCtx e1 => FAA e1 e
-  | WasLCtx v1 v2 => WAS e (Val v1) (Val v2)
-  | WasMCtx e0 v2 => WAS e0 e (Val v2)
-  | WasRCtx e0 e1 => WAS e0 e1 e
+  | WasLCtx v1 v2 => PreWAS e (Val v1) (Val v2)
+  | WasMCtx e0 v2 => PreWAS e0 e (Val v2)
+  | WasRCtx e0 e1 => PreWAS e0 e1 e
   | ResolveLCtx K v1 v2 => Resolve (fill_item K e) (Val v1) (Val v2)
   | ResolveMCtx ex v2 => Resolve ex e (Val v2)
   | ResolveRCtx ex e1 => Resolve ex e1 e
@@ -487,6 +492,7 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | Load e => Load (subst x v e)
   | Store e1 e2 => Store (subst x v e1) (subst x v e2)
   | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2)
+  | PreWAS e0 e1 e2 => WAS (subst x v e0) (subst x v e1) (subst x v e2)
   | WAS e0 e1 e2 => WAS (subst x v e0) (subst x v e1) (subst x v e2)
   | FAA e1 e2 => FAA (subst x v e1) (subst x v e2)
   | NewProph => NewProph
@@ -608,7 +614,7 @@ Proof.
   rewrite right_id insert_union_singleton_l. done.
 Qed.
 
-Inductive head_step : expr → state → list observation → expr → state → list expr → Prop := 
+Inductive head_step : expr → state → list observation → expr → state → list expr → Prop :=
   | RecS f x e σ :
      head_step (Rec f x e) σ [] (Val $ RecV f x e) σ []
   | PairS v1 v2 σ :
@@ -668,7 +674,7 @@ Inductive head_step : expr → state → list observation → expr → state →
   | WasS l v1 v2 σ :
      σ.(heap) !! l = Some v1 →
      (* Crucially, this compares the same way as [EqOp]! *)
-     vals_compare_safe v1 v1 → 
+     vals_compare_safe v1 v1 →
      head_step (WAS (Val $ LitV $ LitLoc l) (Val v1) (Val v2)) σ
                []
                (Val $ LitV LitUnit)
@@ -725,13 +731,8 @@ Proof.
   destruct 1; inversion 1; simplify_eq.
 Qed.
 
-Lemma fill_item_waiting K e σ : head_waiting (fill_item K e) σ → to_val e = None → head_waiting e σ.
+Lemma fill_item_waiting K e σ : head_waiting (fill_item K e) σ → head_waiting e σ.
 Proof. destruct K; simpl; by inversion 1. Qed.
-
-(*
-Lemma waiting_fill_item K e σ : head_waiting e σ → head_waiting (fill_item K e) σ.
-Proof. destruct K; simpl. destruct K; simpl; by inversion 1. Qed.
-*)
 
 Lemma fill_item_no_val_inj Ki1 Ki2 e1 e2 :
   to_val e1 = None → to_val e2 = None →
@@ -757,7 +758,7 @@ Proof. constructor. apply is_fresh. Qed.
 
 Lemma heap_lang_mixin : EctxiLanguageMixin of_val to_val fill_item head_step head_waiting.
 Proof.
-  split; apply _ || eauto using to_of_val, of_to_val, val_head_stuck, 
+  split; apply _ || eauto using to_of_val, of_to_val, val_head_stuck,
     fill_item_val, fill_item_no_val_inj, head_ctx_step_val, val_waiting, head_ctx_waiting_val, head_step_waiting.
 Qed.
 End heap_lang.
