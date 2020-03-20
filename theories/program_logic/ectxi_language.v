@@ -52,7 +52,7 @@ Section ectxi_language_mixin.
     *)
     mixin_head_ctx_step_val Ki e σ1 κ e2 σ2 efs :
       head_step (fill_item Ki e) σ1 κ e2 σ2 efs → is_Some (to_val e);
-    
+
     mixin_head_ctx_waiting_val Ki e σ1 :
       head_waiting (fill_item Ki e) σ1 → is_Some (to_val e);
 
@@ -111,7 +111,7 @@ Section ectxi_language.
   Lemma head_step_waiting e1 σ1 κ e2 σ2 efs :
     head_step e1 σ1 κ e2 σ2 efs → head_waiting e1 σ1 → False.
   Proof. apply ectxi_language_mixin. Qed.
-  
+
   (*
   Lemma fill_item_waiting K e σ : head_waiting (fill_item K e) σ → to_val e = None → head_waiting e σ.
   Proof. apply ectxi_language_mixin. Qed.
@@ -176,7 +176,7 @@ Section ectxi_language.
       intros ?%head_ctx_waiting_val; eauto using fill_val.
     - apply head_step_waiting.
   Qed.
-  
+
   Canonical Structure ectxi_lang_ectx := EctxLanguage ectxi_lang_ectx_mixin.
 
   Canonical Structure ectxi_lang := LanguageOfEctx ectxi_lang_ectx.

@@ -107,6 +107,14 @@ Definition W σ e lo :=
 
 o < O := forall o', o' ∈ O -> o < o'
 
+Definition legally_waiting (t_id : nat) (e : expr) (σ : heap) :=
+  ∃ l O o R,
+    ⌜ e = (WAS (Val (LitV (LitLoc l))) (Val (LitV (LitBool false)))
+                                       (Val (LitV (LitBool true))) ⌝ *
+    Obs t_id O * is_lock l R o * less_obs o O.
+
+  exists O, obs i O -* less_obs
+
 WP rules:
 1. newlock
 2. aquire
@@ -225,22 +233,66 @@ Section definitions.
                                      (Val (LitV (LitBool true))))
     end.
 
+  (* For each thread, if it's waiting on l, the locknum of l is less than its obs *)
+  Definition deadlock_thread_inv
+      (σ:state) (e:expr) (lockstate:option loc) (obs:gset nat)
+      (L:gmap loc (iProp Σ * nat * bool)) :=
+    match lockstate with
+    | None => ¬ waiting e σ
+    | Some l =>
+      ∃ R n b, L !! l = Some (R,n,b) ∧ less_obs n obs ∧
+      ∃ K, e = fill K (WAS (Val (LitV (LitLoc l)))
+                           (Val (LitV (LitBool false)))
+                           (Val (LitV (LitBool true))))
+    end.
+
+
+
+  (* TODO: add that each locked lock is in some thread's obs. *)
+  Definition deadlock_inv (σ:state) (es:list expr)
+      (T : list (gset nat * option loc)) (L:gmap loc (iProp Σ * nat * bool)) :=
+    Forall2 (λ e '(obs,lockstate), deadlock_thread_inv σ e lockstate obs L) es T.
+
   Definition state_interp (σ : state) (es : list expr) : iProp Σ :=
     (∃ (L : gmap loc (iProp Σ * nat * bool)) (T : list (gset nat * option loc)),
+      ⌜ deadlock_inv σ es T L ⌝ ∗
       own (locknum_γ dG) (● f_locknum L) ∗
       own (lockres_γ dG) (● f_lockres L) ∗
       own (locked_γ dG) (● f_locked L) ∗
-      own (obs_γ dG) (● f_obs T) ∗
-      ⌜ Forall2 (λ e '(obs,lockstate),
-          W σ e lockstate ∧
-          (* For each thread, if it's waiting on l, the locknum of l is less than its obs *)
-          ∀ l, lockstate = Some l -> ∃ R n b, L !! l = Some (R,n,b) ∧ less_obs n obs) es T ⌝)%I.
+      own (obs_γ dG) (● f_obs T))%I.
 
-  Definition fork_post (t_id:nat) : iProp Σ := obs t_id ∅.
+  Definition legally_waiting (t_id : nat) (e : expr) :=
+    ∃ l O o R,
+      ⌜ e = (WAS (Val (LitV (LitLoc l))) (Val (LitV (LitBool false)))
+                                         (Val (LitV (LitBool true))) ⌝ *
+      Obs t_id O * is_lock l R o * less_obs o O.
 
-  Instance state_interp_context_invariant K : LanguageCtxInterp K.
+  Definition fork_post (t_id:nat) (v:val) : iProp Σ := obs t_id ∅.
 
-    (* TODO Jules: Add extra pre-state to WAS operational semantics *)
+  Lemma deadlock_inv_no_deadlock
+    (σ:state) (es:list expr)
+    (T: list (gset nat * option loc))
+    (L:gmap loc (iProp Σ * nat * bool)) :
+    deadlock_inv σ es T L → es ≠ [] → ∃ n e, es !! n = Some e ∧ ¬ waiting e σ.
+  Proof.
+    intros H Hemp. unfold deadlock_inv in H.
+    destruct (decide (Exists (λ '(obs,lockstate), lockstate = None) T)).
+    + apply Exists_exists in e as [[obs lockstate] [Hin e]]. subst.
+      apply elem_of_list_lookup_1 in Hin as [i Hin].
+      exists i.
+      destruct (es !! i) eqn:E.
+      - exists e. split; first done.
+        by eapply Forall2_lookup_lr in H;[|done..].
+      - apply Forall2_length in H.
+        apply lookup_lt_Some in Hin.
+        rewrite -H in Hin.
+        eapply lookup_lt_is_Some_2 in Hin. destruct Hin as [? Hin].
+        rewrite E in Hin. simplify_eq.
+    + exfalso.
+      rewrite<- Forall_Exists_neg in n.
+  Admitted.
+
+  (* TODO Jules: Add extra pre-state to WAS operational semantics *)
 
 End definitions.
 
@@ -252,10 +304,110 @@ Class heapG Σ := HeapG {
 }.
 Instance heapG_irisG `{!heapG Σ} : irisG heap_ectx_lang Σ := {
   iris_invG := heapG_invG;
-  state_interp σ κs _ :=
-    (gen_heap_ctx σ.(heap) ∗ proph_map_ctx κs σ.(used_proph_id))%I;
-  fork_post _ := True%I;
+  state_interp σ κs es :=
+    (gen_heap_ctx σ.(heap) ∗ proph_map_ctx κs σ.(used_proph_id) ∗ state_interp σ es)%I;
+  fork_post := fork_post;
 }.
+
+Lemma Forall2_insert_l {A B} (P : A → B → Prop) (l : list A) (k : list B) (x : A) (i : nat) :
+    Forall2 P l k → (∀ y, k !! i = Some y → P x y) → Forall2 P (<[i:=x]> l) k.
+Proof.
+  intros Hfa Hy.
+  destruct (k !! i) as [b|] eqn:E.
+  - replace k with (<[i:=b]> k).
+    + eapply Forall2_insert; eauto.
+    + by apply list_insert_id.
+  - rewrite list_insert_ge; first done.
+    apply Forall2_same_length_lookup in Hfa as [-> _].
+    by apply lookup_ge_None_1.
+Qed.
+
+Lemma Forall2_insert_r {A B} (P : A → B → Prop) (l : list A) (k : list B) (x : B) (i : nat) :
+    Forall2 P l k → (∀ y, l !! i = Some y → P y x) → Forall2 P l (<[i:=x]> k).
+Proof.
+  intros Hfa Hy.
+  destruct (l !! i) as [b|] eqn:E.
+  - replace l with (<[i:=b]> l).
+    + eapply Forall2_insert; eauto.
+    + by apply list_insert_id.
+  - rewrite list_insert_ge; first done.
+    apply Forall2_same_length_lookup in Hfa as [<- _].
+    by apply lookup_ge_None_1.
+Qed.
+
+Lemma Forall2_replace_l {A B} (P : A → B → Prop) (l : list A) (k : list B) (x y : A) (i : nat) :
+    (∀ z, P x z → P y z) → Forall2 P (<[i:=x]> l) k → Forall2 P (<[i:=y]> l) k.
+Proof.
+  intros Hy Hfa.
+  apply Forall2_same_length_lookup in Hfa as [Hlen Hfa].
+  apply Forall2_same_length_lookup.
+  split. { rewrite insert_length. by rewrite insert_length in Hlen. }
+  intros i' x' y' Hx' Hy'.
+  destruct (decide (i = i')).
+  + subst.
+    assert (i' < length l).
+    { apply lookup_lt_Some in Hy'.
+      by rewrite -Hlen insert_length in Hy'. }
+    rewrite list_lookup_insert in Hx'; last done.
+    simplify_eq. apply Hy. apply (Hfa i'); last done.
+    by apply list_lookup_insert.
+  + rewrite list_lookup_insert_ne in Hx'; last done.
+    apply (Hfa i'); last done.
+    by rewrite list_lookup_insert_ne.
+Qed.
+
+Section st_interp_ctx_inv.
+  Context `{!heapG Σ}.
+
+  Global Instance state_interp_context_invariant (K : list ectx_item)
+    : LanguageCtxInterp (fill K).
+  Proof.
+    split.
+    - simpl. intros σ κs es i e Hesi.
+      iIntros "($ & $ & Hsi)".
+      iDestruct "Hsi" as (L T Hinv) "(Hlocknum & Hlockres & Hlocked & Hobs)".
+      iExists L, T. iFrame. iPureIntro.
+      unfold deadlock_inv in *.
+      eapply Forall2_replace_l; last by eauto.
+      intros [obs lockstate] HTi.
+      clear Hinv.
+      unfold deadlock_thread_inv in *.
+      destruct lockstate as [l|].
+      + destruct HTi as [R [n [b HH]]].
+        exists R,n,b. destruct HH as [? [??]].
+        do 2 (split; first by eauto).
+        destruct H1 as [K' ->].
+        exists (K' ++ K). by rewrite fill_app.
+      + contradict HTi.
+        eapply (fill_waiting (K:= fill K)); last done.
+        admit.
+    - intros σ κs es i e Hesi Hval.
+      iIntros "(? & ? & Hsi)". iFrame.
+      iDestruct "Hsi" as (L T) "(% & Hlocknum & Hlockres & Hlocked & Hobs)".
+      iExists L. iExists T. iFrame. iPureIntro.
+      unfold deadlock_inv in *.
+      eapply Forall2_replace_l; last by eauto.
+      intros [obs lockstate] HTi.
+      unfold deadlock_thread_inv in *.
+      destruct lockstate as [l|].
+      + destruct HTi as [R [n [b HH]]].
+        exists R,n,b. destruct HH as [? [??]].
+        do 2 (split; first by eauto).
+        destruct H2 as [K' H2].
+        assert (H2' := H2).
+        eapply step_by_val in H2.
+        { destruct H2 as [K'' H2].
+          exists K''. subst.
+          simpl in H2'.
+          rewrite fill_app in H2'.
+          apply fill_inj in H2'.
+          auto. }
+        { auto. }
+        { admit. }
+      + contradict HTi.
+        by eapply (waiting_fill (K:= fill K)).
+  Admitted.
+End st_interp_ctx_inv.
 
 (** Override the notations so that scopes and coercions work out *)
 Notation "l ↦{ q } v" := (mapsto (L:=loc) (V:=val) l q v%V)

@@ -71,7 +71,6 @@ Proof.
   destruct (Hstep κ σ1 e2 σ2 efs) as (-> & <- & ->); auto.
   iMod "Hclose" as "_". iMod "H". iModIntro.
   iDestruct ("H" with "[//]") as "H". simpl. rewrite app_nil_r. iFrame.
-
 Admitted.
 
 Lemma wp_lift_pure_stuck `{!Inhabited (state Λ)} E Φ e i :

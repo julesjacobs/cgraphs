@@ -10,7 +10,7 @@ Section language_mixin.
      observations and assert correctness of the predictions. *)
   Context (prim_step : expr → state → list observation → expr → state → list expr → Prop).
   Context (waiting : expr → state → Prop).
-  
+
   Record LanguageMixin := {
     mixin_to_of_val v : to_val (of_val v) = Some v;
     mixin_of_to_val e v : to_val e = Some v → of_val v = e;
@@ -111,7 +111,7 @@ Section language.
     atomic σ e' κ σ' efs :
       prim_step e σ κ e' σ' efs →
       if a is WeaklyAtomic
-      then irreducible e' σ' ∧ ¬waiting e' σ'
+      then irreducible e' σ'
       else is_Some (to_val e').
 
   Inductive step (ρ1 : cfg Λ) (κ : list (observation Λ)) (ρ2 : cfg Λ) : Prop :=
@@ -168,9 +168,8 @@ Section language.
   Lemma strongly_atomic_atomic e a :
     Atomic StronglyAtomic e → Atomic a e.
   Proof. unfold Atomic. destruct a; first done.
-  intros Hat σ e' κ σ' efs Hstep. split; first by eauto using val_irreducible.
-  intros Hwait. apply Hat in Hstep. apply waiting_not_val in Hwait.
-  destruct Hstep; naive_solver.
+  intros Hat σ e' κ σ' efs Hstep.
+  by eauto using val_irreducible.
   Qed.
 
   Lemma reducible_fill `{!@LanguageCtx Λ K} e σ :
@@ -313,6 +312,7 @@ Section language.
    or, there is an [i] such that [i]th thread does not participate in the
    pure steps between [t1] and [t3] and [t2] corresponds to taking a step in
    the [i]th thread starting from [t1]. *)
+
   Lemma erased_step_pure_step_tp t1 σ1 t2 σ2 t3 :
     erased_step (t1, σ1) (t2, σ2) →
     pure_steps_tp t1 t3 →

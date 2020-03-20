@@ -34,7 +34,7 @@ Section ectx_language_mixin.
     (*
     mixin_fill_waiting K e σ : head_waiting (fill K e) σ → to_val e = None → head_waiting e σ;
     mixin_waiting_fill K e σ : head_waiting e σ → head_waiting (fill K e) σ;
-*)
+    *)
 
     mixin_step_by_val K K' e1 e1' σ1 κ e2 σ2 efs :
       fill K e1 = fill K' e1' →
@@ -42,6 +42,10 @@ Section ectx_language_mixin.
       head_step e1' σ1 κ e2 σ2 efs →
       ∃ K'', K' = comp_ectx K K'';
 
+    (*
+    fill K (Val v) = fill K' (WAS ...) ->
+    ∃ K'', K' = comp_ectx K K''
+    *)
     mixin_waiting_by_val K K' e1 e1' σ1 :
       fill K e1 = fill K' e1' →
       to_val e1 = None →
@@ -56,7 +60,7 @@ Section ectx_language_mixin.
 
     mixin_head_ctx_waiting_val K e σ1 :
       head_waiting (fill K e) σ1 → is_Some (to_val e) ∨ K = empty_ectx;
-    
+
     mixin_head_step_waiting e1 σ1 κ e2 σ2 efs :
       head_step e1 σ1 κ e2 σ2 efs → head_waiting e1 σ1 → False;
   }.
@@ -333,7 +337,7 @@ Section ectx_language.
     - apply val_waiting in H. destruct H0. simplify_eq.
     - simplify_eq. rewrite fill_empty in H1. eapply head_step_waiting; eauto.
   Qed.
-  
+
   (* Every evaluation context is a context. *)
   Global Instance ectx_lang_ctx K : LanguageCtx (fill K).
   Proof.
@@ -346,12 +350,12 @@ Section ectx_language.
       rewrite -fill_comp in Heq1; apply (inj (fill _)) in Heq1.
       exists (fill K' e2''); rewrite -fill_comp; split; auto.
       econstructor; eauto.
-    - intros. destruct H0.
-      destruct (waiting_by_val K K0 e e' σ) as [K'->]; [eassumption..|].
-      apply Ectx_waiting with K' e'.
-      apply (inj (fill K)).
-      + rewrite fill_comp. done.
-      + done.
+    - intros ?? Hv Hw. destruct Hw.
+      assert (H' := H).
+      eapply waiting_by_val in H as [H ->]; eauto.
+      rewrite -fill_comp in H'.
+      apply (inj (fill K)) in H'.
+      by econstructor.
     - destruct 1. subst. rewrite fill_comp.
       apply Ectx_waiting'. done.
   Qed.

@@ -75,16 +75,19 @@ Proof.
   by iApply (IH with "Hσ He Ht").
 Qed.
 
+Definition not_stuck_waiting tid e σ :=
+  (⌜is_Some (to_val e) ∨ reducible e σ⌝ ∨ legally_waiting tid e σ)%I.
+
 Lemma wp_not_stuck κs es e σ Φ i :
   es !! i = Some e ->
-  state_interp σ κs es -∗ WP e @ (NotStuck,i); ⊤ {{ Φ }} ={⊤}=∗ ⌜not_stuck e σ⌝.
+  state_interp σ κs es -∗
+  WP e @ (NotStuck,i); ⊤ {{ Φ }} ={⊤,∅}=∗
+  not_stuck_waiting i e σ ∗ |={⊤,∅}=> state_interp σ κs es.
 Proof.
-  rewrite wp_unfold /wp_pre /not_stuck. iIntros (?) "Hσ H".
-  destruct (to_val e) as [v|] eqn:?; first by eauto.
-  iSpecialize ("H" $! σ [] κs _ with "[%] Hσ").
-  { done. }
-  rewrite sep_elim_l.
-  iMod (fupd_plain_mask with "H") as %?; eauto.
+  rewrite wp_unfold /wp_pre /not_stuck_waiting. iIntros (?) "Hσ H".
+  destruct (to_val e) as [v|] eqn:?.
+  { iMod (fupd_intro_mask' ⊤ ∅); eauto 6. }
+  iMod ("H" $! σ [] κs _ with "[//] Hσ") as "[[%|H] _]"; eauto.
 Qed.
 
 Lemma wptp_strong_adequacy Φ κs' s n e1 t1 κs t2 σ1 σ2 :
@@ -93,7 +96,9 @@ Lemma wptp_strong_adequacy Φ κs' s n e1 t1 κs t2 σ1 σ2 :
   WP e1 @ (s,0); ⊤ {{ Φ }} -∗
   wptp s 1 t1 ={⊤,∅}▷=∗^(S n) ∃ e2 t2',
     ⌜ t2 = e2 :: t2' ⌝ ∗
-    ⌜ ∀ e2, s = NotStuck → e2 ∈ t2 → not_stuck e2 σ2 ⌝ ∗
+    (∀ i e, ⌜t2 !! i = Some e⌝ -∗
+      ⌜s = NotStuck⌝ ={⊤,∅}=∗
+      not_stuck_waiting i e σ2) ∗
     state_interp σ2 κs' t2 ∗
     from_option Φ True (to_val e2) ∗
     ([∗ list] i ↦ e ∈ t2', from_option (fork_post (1+i)) True (to_val e)).
@@ -102,11 +107,17 @@ Proof.
   iDestruct (wptp_steps with "Hσ He Ht") as "Hwp"; first done.
   iApply (step_fupdN_wand with "Hwp").
   iDestruct 1 as (e2' t2' ?) "(Hσ & Hwp & Ht)"; simplify_eq/=.
+  Check ((e2' :: t2') !! 0).
+
   iMod (fupd_plain_keep_l ⊤
-    ⌜ ∀ e2, s = NotStuck → e2 ∈ (e2' :: t2') → not_stuck e2 σ2 ⌝%I
+    (∀ (i : nat) (e : expr Λ), ⌜(e2' :: t2') !! i = Some e⌝ -∗ ⌜s = NotStuck⌝ ={⊤,∅}=∗ not_stuck_waiting i e σ2)%I
     (state_interp σ2 κs' (e2' :: t2') ∗ WP e2' @ (s,0); ⊤ {{ v, Φ v }} ∗ wptp s 1 t2')%I
     with "[$Hσ $Hwp $Ht]") as "(Hsafe&Hσ&Hwp&Hvs)".
-  { iIntros "(Hσ & Hwp & Ht)" (e' -> He').
+  { iIntros "(Hσ & Hwp & Ht)".
+    iModIntro.
+    iIntros (i e He' ->).
+    destruct i as [|i].
+    - simpl in He'.
     apply elem_of_cons in He' as [<-|(t1''&t2''&->)%elem_of_list_split].
     - iMod (wp_not_stuck with "Hσ Hwp") as "$"; auto.
     - iDestruct "Ht" as "(_ & He' & _)". rewrite Nat.add_0_r /=.

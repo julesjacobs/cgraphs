@@ -1,5 +1,59 @@
 From iris.proofmode Require Import tactics.
 
+Check list_ind.
+
+Lemma ind_10 P : P 0 -> (forall n, P n -> P (S n)) -> P 10.
+Proof.
+  generalize 10.
+  intros n P0 PS.
+  induction n; auto.
+
+  intros Z I.
+  do 10 apply I.
+  apply Z.
+Qed.
+
+Fixpoint sum l acc :=
+  match l with
+  | [] => acc
+  | x :: l => sum l (x + acc)
+  end.
+
+Lemma lemma x l acc : sum l (x + acc) = sum l acc + x.
+Proof.
+  revert acc.
+  induction l.
+  - simpl. lia.
+  - simpl. intros. rewrite<- IHl. simpl.
+    apply f_equal. lia.
+Qed.
+
+Inductive expr :=
+  | ENat : nat -> expr
+  | EPlus : expr -> expr -> expr
+  | EMult : expr -> expr -> expr.
+
+Fixpoint eval (e : expr) : nat :=
+  match e with
+  | ENat n => n
+  | EPlus e1 e2 => eval e1 + eval e2
+  | EMult e1 e2 => eval e1 * eval e2
+  end.
+
+Fixpoint double (e : expr) : expr :=
+  match e with
+  | ENat n => ENat (2*n)
+  | EPlus e1 e2 => EPlus (double e1) (double e2)
+  | EMult e1 e2 => EMult e1 (double e2)
+  end.
+
+Theorem eval_double e :
+  eval (double e) = 2 * eval e.
+Proof.
+  induction e.
+  - reflexivity.
+  - simpl.
+
 Inductive af {X} (R : X -> X -> Prop) : Prop :=
   | full : (forall x y : X, R x y) -> af R
   | tail : (forall x, af (fun y z => R y z \/ R x y)) -> af R.

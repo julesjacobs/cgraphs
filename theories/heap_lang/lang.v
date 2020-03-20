@@ -6,8 +6,8 @@ From iris.heap_lang Require Export locations.
 Set Default Proof Using "Type".
 
 (** heap_lang.  A fairly simple language used for common Iris examples.
-
 - This is a right-to-left evaluated language, like CakeML and OCaml.  The reason
+
   for this is that it makes curried functions usable: Given a WP for [f a b], we
   know that any effects [f] might have to not matter until after *both* [a] and
   [b] are evaluated.  With left-to-right evaluation, that triple is basically
