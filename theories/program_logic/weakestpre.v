@@ -8,28 +8,33 @@ From diris.bi Require Export weakestpre.
 Set Default Proof Using "Type".
 Import uPred.
 
-Class irisG (Λ : language) (Σ : gFunctors) := IrisG {
+Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
   iris_invG :> invG Σ;
 
+  abstract_state : Type;
   (** The state interpretation is an invariant that should hold in between each
   step of reduction. Here [Λstate] is the global state, [list Λobservation] are
   the remaining observations, and [nat] is the number of forked-off threads
   (not the total number of threads, which is one higher because there is always
   a main thread). *)
-  state_interp : state Λ → list (observation Λ) → list (expr Λ) → iProp Σ;
+  state_interp : abstract_state → state Λ → list (observation Λ) → list (expr Λ) → iProp Σ;
 
   (** The legal_state predicate holds of every state, even those that cannot step.
   e.g. legal_state s e σ :=
     ⌜if s is NotStuck then reducible e σ ∨ waiting e σ else True⌝   *)
-  legally_waiting : nat → expr Λ → state Λ → iProp Σ;
+  state_valid : abstract_state → A → Prop;
 
   (** A fixed postcondition for any forked-off thread. For most languages, e.g.
   heap_lang, this will simply be [True]. However, it is useful if one wants to
   keep track of resources precisely, as in e.g. Iron. *)
   fork_post : nat → val Λ → iProp Σ;
+
+  tid_get : A → nat → Prop;
+  tid_upd : nat → A → A;
 }.
 Global Opaque iris_invG.
 
+(*
 Class LanguageCtxInterp `{!irisG Λ Σ} (K : expr Λ → expr Λ) := {
   state_interp_fill_l σ κs es i e :
     is_Some (es !! i) →
@@ -41,40 +46,40 @@ Class LanguageCtxInterp `{!irisG Λ Σ} (K : expr Λ → expr Λ) := {
   legally_waiting_fill i e K σ :
     legally_waiting i e σ  ⊢ legally_waiting i (K e) σ
 }.
+*)
 
-Definition wp_pre `{!irisG Λ Σ} (s : stuckness)
-    (wp : nat -d> coPset -d> expr Λ -d> (val Λ -d> iPropO Σ) -d> iPropO Σ) :
-    nat -d> coPset -d> expr Λ -d> (val Λ -d> iPropO Σ) -d> iPropO Σ := λ tid E e1 Φ,
+Definition wp_pre `{!irisG Λ Σ A}
+    (wp : A -d> coPset -d> expr Λ -d> (val Λ -d> iPropO Σ) -d> iPropO Σ) :
+    A -d> coPset -d> expr Λ -d> (val Λ -d> iPropO Σ) -d> iPropO Σ := λ x E e1 Φ,
   match to_val e1 with
   | Some v => |={E}=> Φ v
-  | None => ∀ σ1 κ κs es,
-     ⌜ es !! tid = Some e1 ⌝ -∗
-     state_interp σ1 (κ ++ κs) es ={E,∅}=∗
-       (if s is NotStuck
-       then (⌜reducible e1 σ1⌝ ∨ legally_waiting tid e1 σ1) ∗
-            |={∅,E}=> state_interp σ1 (κ ++ κs) es
-       else True) ∧
-       ∀ e2 σ2 efs, ⌜prim_step e1 σ1 κ e2 σ2 efs⌝ ={∅,∅,E}▷=∗
-         state_interp σ2 κs ((<[tid := e2]> es) ++ efs) ∗
-         wp tid E e2 Φ ∗
-         [∗ list] i ↦ ef ∈ efs, wp (length es + i) ⊤ ef (fork_post (length es + i))
+  | None => ∀ ζ σ1 κ κs es tid,
+     ⌜ tid_get x tid ⌝ -∗
+     state_interp ζ σ1 (κ ++ κs) es ={E,∅}=∗
+       ⌜ state_valid ζ x ⌝ ∧
+       ∀ e2 σ2 efs,
+         ⌜ prim_step e1 σ1 κ e2 σ2 efs ⌝ ={∅,∅,E}▷=∗
+         state_interp ζ σ2 κs (<[tid:=e2]> es ++ efs) ∗
+         wp x E e2 Φ ∗
+         [∗ list] i ↦ ef ∈ efs,
+           wp (tid_upd (i + length es) x) ⊤ ef (fork_post (i + length es))
   end%I.
 
-Local Instance wp_pre_contractive `{!irisG Λ Σ} s : Contractive (wp_pre s).
+Local Instance wp_pre_contractive `{!irisG Λ Σ A} : Contractive wp_pre.
 Proof.
   rewrite /wp_pre=> n wp wp' Hwp tid E e1 Φ.
   repeat (f_contractive || f_equiv); apply Hwp.
 Qed.
 
-Definition wp_def `{!irisG Λ Σ} (si : stuckness * nat) :
-  coPset → expr Λ → (val Λ → iProp Σ) → iProp Σ := fixpoint (wp_pre si.1) si.2.
-Definition wp_aux `{!irisG Λ Σ} : seal (@wp_def Λ Σ _). by eexists. Qed.
-Instance wp' `{!irisG Λ Σ} : Wp Λ (iProp Σ) (stuckness * nat) := wp_aux.(unseal).
-Definition wp_eq `{!irisG Λ Σ} : wp = @wp_def Λ Σ _ := wp_aux.(seal_eq).
+Definition wp_def `{!irisG Λ Σ A} :
+  A → coPset → expr Λ → (val Λ → iProp Σ) → iProp Σ := fixpoint (wp_pre).
+Definition wp_aux `{!irisG Λ Σ A} : seal (@wp_def Λ Σ A _). by eexists. Qed.
+Instance wp' `{!irisG Λ Σ A} : Wp Λ (iProp Σ) A := wp_aux.(unseal).
+Definition wp_eq `{!irisG Λ Σ A} : wp = @wp_def Λ Σ A _ := wp_aux.(seal_eq).
 
 Section wp.
-Context `{!irisG Λ Σ}.
-Implicit Types s : stuckness.
+Context `{!irisG Λ Σ ξ}.
+Implicit Types x : ξ.
 Implicit Types P : iProp Σ.
 Implicit Types Φ : val Λ → iProp Σ.
 Implicit Types v : val Λ.
@@ -83,7 +88,8 @@ Implicit Types e : expr Λ.
 (* Weakest pre *)
 Lemma wp_unfold s i E e Φ :
   WP e @ (s,i); E {{ Φ }} ⊣⊢ wp_pre s (fun k => wp (PROP:=iProp Σ)  (s,k)) i E e Φ.
-Proof. rewrite wp_eq. unfold wp_def. simpl.
+Proof.
+  rewrite wp_eq. unfold wp_def. simpl.
   rewrite (_ : (λ k : nat, fixpoint (wp_pre s) k) = fixpoint (wp_pre s)); last done.
   apply (fixpoint_unfold (wp_pre s)).
 Qed.
@@ -154,7 +160,7 @@ Proof. iIntros "H". iApply (wp_strong_mono s s i E with "H"); auto. Qed.
 
 
 Lemma wp_atomic s i E1 E2 e Φ `{!Atomic StronglyAtomic e} :
-(|={E1,E2}=> WP e @ (s,i); E2 {{ v, |={E2,E1}=> Φ v }}) ⊢ WP e @ (s,i); E1 {{ Φ }}.
+  (|={E1,E2}=> WP e @ (s,i); E2 {{ v, |={E2,E1}=> Φ v }}) ⊢ WP e @ (s,i); E1 {{ Φ }}.
 Proof.
   iIntros "H". rewrite !wp_unfold /wp_pre.
   destruct (to_val e) as [v|] eqn:He.
@@ -165,7 +171,7 @@ Proof.
   { destruct s; last done.
     iDestruct "QQ" as "[[Hrw Hsi] _]".
     iSplitL "Hrw"; first done.
-    iMod "Hsi".
+    iMod "Hsi". 
     admit. }
   iDestruct "QQ" as "[_ H]".
   iIntros (e2 σ2 efs Hstep).
