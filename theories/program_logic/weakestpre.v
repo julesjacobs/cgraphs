@@ -223,11 +223,11 @@ Qed.
 Lemma wp_bind K `{!LanguageCtx K, !LanguageCtxInterp K} s E e Φ :
   WP e @ s; E {{ v, WP K (of_val v) @ s; E {{ Φ }} }} ⊢ WP K e @ s; E {{ Φ }}.
 Proof.
-  iIntros "H". iLöb as "IH" forall (E e i Φ). rewrite wp_unfold /wp_pre.
+  iIntros "H". iLöb as "IH" forall (E e Φ). rewrite wp_unfold /wp_pre.
   destruct (to_val e) as [v|] eqn:He.
   { apply of_to_val in He as <-. by iApply fupd_wp. }
   rewrite wp_unfold /wp_pre fill_not_val //.
-  iIntros (σ1 κ κs es Hes) "Hσ". iMod ("H" $! σ1 κ κs (<[i:=e]> es) with "[%] [Hσ]") as "QQ".
+  iIntros (x σ1 κ κs es Hes) "% Hsi". iMod ("H" $! σ1 κ κs (<[i:=e]> es) with "[%] [Hσ]") as "QQ".
   { rewrite list_lookup_insert; eauto using lookup_lt_Some. }
   { iApply state_interp_fill_r; [eauto..|].
     rewrite list_insert_id; [iFrame|done]. }
