@@ -63,10 +63,6 @@ Definition wp_pre `{!irisG Λ Σ A}
            wp (tid_set (i + length es) x) ⊤ ef (fork_post (i + length es))
   end%I.
 
-(*
-
-*)
-
 Local Instance wp_pre_contractive `{!irisG Λ Σ A} : Contractive wp_pre.
 Proof.
   rewrite /wp_pre=> n wp wp' Hwp tid E e1 Φ.
