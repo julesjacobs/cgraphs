@@ -219,10 +219,11 @@ Proof.
   - iDestruct "Hσ" as (ζ') "Hsi".
     iExists ζ'.
     Check insert_app_l.
-    assert (i < length es). { admit. }
-    rewrite -!insert_app_l; [|try rewrite insert_length; eauto..].
-    rewrite !list_insert_insert.
-    iApply state_interp_fill_l. iFrame.
+    destruct (decide (i < length es)).
+    + rewrite -!insert_app_l; [|try rewrite insert_length; eauto..].
+      rewrite !list_insert_insert.
+      iApply state_interp_fill_l. iFrame.
+    + rewrite !list_insert_ge; eauto with lia.
   - iSplitL "H". { by iApply "IH". }
     rewrite insert_length. iFrame.
 Admitted.
