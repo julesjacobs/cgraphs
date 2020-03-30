@@ -8,7 +8,7 @@ Import uPred.
 (** This file contains the adequacy statements of the Iris program logic. First
 we prove a number of auxiliary results. *)
 Section adequacy.
-Context `{!irisG Λ Σ}.
+Context `{!irisG Λ Σ ξ}.
 Implicit Types e : expr Λ.
 Implicit Types P Q : iProp Σ.
 Implicit Types Φ : val Λ → iProp Σ.
@@ -16,11 +16,11 @@ Implicit Types Φs : list (val Λ → iProp Σ).
 
 Notation wptp s j t := ([∗ list] i ↦ ef ∈ t, WP ef @ (s,j+i); ⊤ {{ fork_post (j+i) }})%I.
 
-Lemma wp_step s i e1 σ1 κ κs e2 σ2 efs es Φ :
+Lemma wp_step s i e1 ζ σ1 κ κs e2 σ2 efs es Φ :
   es !! i = Some e1 →
   prim_step e1 σ1 κ e2 σ2 efs →
-  state_interp σ1 (κ ++ κs) es -∗ WP e1 @ (s,i); ⊤ {{ Φ }} ={⊤,∅}▷=∗
-  state_interp σ2 κs (<[i:=e2]> es ++ efs) ∗ WP e2 @ (s,i); ⊤ {{ Φ }} ∗ wptp s (length es) efs.
+  state_interp ζ σ1 (κ ++ κs) es -∗ WP e1 @ (s,i); ⊤ {{ Φ }} ={⊤,∅}▷=∗
+  ∃ ζ', state_interp ζ' σ2 κs (<[i:=e2]> es ++ efs) ∗ WP e2 @ s; ⊤ {{ Φ }} ∗ wptp s (length es) efs.
 Proof.
   rewrite {1}wp_unfold /wp_pre. iIntros (??) "Hσ H".
   rewrite (val_stuck e1 σ1 κ e2 σ2 efs) //.
