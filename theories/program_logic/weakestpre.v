@@ -52,7 +52,7 @@ Definition wp_pre `{!irisG Λ Σ A}
   match to_val e1 with
   | Some v => |={E}=> Φ v
   | None => ∀ ζ σ1 κ κs es tid,
-     ⌜ tid_get x tid ⌝ -∗
+     ⌜ tid_get x tid ∧ es !! tid = Some e1 ⌝ -∗
      state_interp ζ σ1 (κ ++ κs) es ={E,∅}=∗
        ⌜ state_valid ζ x ⌝ ∧
        ∀ e2 σ2 efs,
@@ -204,10 +204,12 @@ Proof.
   destruct (to_val e) as [v|] eqn:He.
   { apply of_to_val in He as <-. by iApply fupd_wp. }
   rewrite wp_unfold /wp_pre fill_not_val //.
-  iIntros (x σ1 κ κs es i) "% Hsi". iMod ("H" $! x σ1 κ κs (<[i:=e]> es) with "[//] [Hsi]") as "QQ".
-  { admit. }
-  (* { iApply state_interp_fill_r; [eauto..|].
-    rewrite list_insert_id; [iFrame|done]. } *)
+  iIntros (x σ1 κ κs es i) "% Hsi". destruct a as [Htid Hes].
+  iMod ("H" $! x σ1 κ κs (<[i:=e]> es) with "[%] [Hsi]") as "QQ".
+  { split; first done.
+    rewrite list_lookup_insert; eauto using lookup_lt_Some. }
+  { iApply state_interp_fill_r; [done|].
+    by rewrite list_insert_id. }
   iModIntro; iSplit.
   { iDestruct "QQ" as "[H _]". iFrame. }
   iIntros (e2 σ2 efs Hstep).
@@ -218,7 +220,6 @@ Proof.
   iModIntro. iSplitL "Hσ".
   - iDestruct "Hσ" as (ζ') "Hsi".
     iExists ζ'.
-    Check insert_app_l.
     destruct (decide (i < length es)).
     + rewrite -!insert_app_l; [|try rewrite insert_length; eauto..].
       rewrite !list_insert_insert.
@@ -226,7 +227,7 @@ Proof.
     + rewrite !list_insert_ge; eauto with lia.
   - iSplitL "H". { by iApply "IH". }
     rewrite insert_length. iFrame.
-Admitted.
+Qed.
 
 (* No longer holds!  *)
 (* Lemma wp_bind_inv K `{!LanguageCtx K} s E e Φ :
