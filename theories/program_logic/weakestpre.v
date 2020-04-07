@@ -21,7 +21,7 @@ Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
   state_interp : abstract_state → state Λ → list (observation Λ) → list (expr Λ) → iProp Σ;
 
   (** The legal_state predicate holds of every state, even those that cannot step.
-  e.g. legal_state s e σ :=
+  e.g. state_valid s e σ :=
     ⌜if s is NotStuck then reducible e σ ∨ waiting e σ else True⌝   *)
   state_valid : abstract_state → state Λ → A → expr Λ → Prop;
 
@@ -32,6 +32,9 @@ Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
 
   tid_get : A → nat → Prop;
   tid_set : nat → A → A;
+
+  tid_func s i i' : tid_get s i → tid_get s i' → i = i';
+  tid_set_get s i i' : tid_get (tid_set i s) i' → i = i';
 }.
 Global Opaque iris_invG.
 
@@ -43,23 +46,24 @@ Class LanguageCtxInterp `{!irisG Λ Σ ζ} (K : expr Λ → expr Λ) := {
     state_interp ζ σ κs (<[i:=K e]> es) ⊢ state_interp ζ σ κs (<[i:=e]> es);
 
   state_valid_fill_l ζ σ x e : state_valid ζ σ x e → state_valid ζ σ x (K e);
+
 }.
 
 Definition wp_pre `{!irisG Λ Σ A}
     (wp : A -d> coPset -d> expr Λ -d> (val Λ -d> iPropO Σ) -d> iPropO Σ) :
-    A -d> coPset -d> expr Λ -d> (val Λ -d> iPropO Σ) -d> iPropO Σ := λ x E e1 Φ,
+    A -d> coPset -d> expr Λ -d> (val Λ -d> iPropO Σ) -d> iPropO Σ := λ s E e1 Φ,
   match to_val e1 with
   | Some v => |={E}=> Φ v
   | None => ∀ ζ σ1 κ κs es tid,
-     ⌜ tid_get x tid ∧ es !! tid = Some e1 ⌝ -∗
+     ⌜ tid_get s tid ∧ es !! tid = Some e1 ⌝ -∗
      state_interp ζ σ1 (κ ++ κs) es ={E,∅}=∗
-       ⌜ state_valid ζ σ1 x e1 ⌝ ∧
+       ⌜ state_valid ζ σ1 s e1 ⌝ ∧
        ∀ e2 σ2 efs,
          ⌜ prim_step e1 σ1 κ e2 σ2 efs ⌝ ={∅,∅,E}▷=∗
          ∃ ζ', state_interp ζ' σ2 κs (<[tid:=e2]> es ++ efs) ∗
-          wp x E e2 Φ ∗
+          wp s E e2 Φ ∗
           [∗ list] i ↦ ef ∈ efs,
-            wp (tid_set (i + length es) x) ⊤ ef (fork_post (i + length es))
+            wp (tid_set (i + length es) s) ⊤ ef (fork_post (i + length es))
   end%I.
 
 Local Instance wp_pre_contractive `{!irisG Λ Σ A} : Contractive wp_pre.
@@ -213,8 +217,7 @@ Proof.
   iMod ("H" $! e2' σ2 efs with "[//]") as "H". iIntros "!>!>".
   iMod "H" as (ζ') "(Hσ & H & Hefs)".
   iModIntro. iExists ζ'. iSplitL "Hσ".
-  - iDestruct "Hσ" as "Hsi".
-    destruct (decide (i < length es)).
+  - destruct (decide (i < length es)).
     + rewrite -!insert_app_l; [|try rewrite insert_length; eauto..].
       rewrite !list_insert_insert.
       iApply state_interp_fill_l. iFrame.

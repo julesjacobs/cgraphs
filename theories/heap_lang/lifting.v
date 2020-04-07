@@ -16,6 +16,32 @@ Set Default Proof Using "Type".
 (* From diris.program_logic Require Export ectx_language weakestpre lifting. *)
 (*
 
+Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
+  iris_invG :> invG Σ;
+
+  abstract_state : Type;
+
+  (** The state interpretation is an invariant that should hold in between each
+  step of reduction. Here [Λstate] is the global state, [list Λobservation] are
+  the remaining observations, and [nat] is the number of forked-off threads
+  (not the total number of threads, which is one higher because there is always
+  a main thread). *)
+  state_interp : abstract_state → state Λ → list (observation Λ) → list (expr Λ) → iProp Σ;
+
+  (** The legal_state predicate holds of every state, even those that cannot step.
+  e.g. state_valid s e σ :=
+    ⌜if s is NotStuck then reducible e σ ∨ waiting e σ else True⌝   *)
+  state_valid : abstract_state → state Λ → A → expr Λ → Prop;
+
+  (** A fixed postcondition for any forked-off thread. For most languages, e.g.
+  heap_lang, this will simply be [True]. However, it is useful if one wants to
+  keep track of resources precisely, as in e.g. Iron. *)
+  fork_post : nat → val Λ → iProp Σ;
+
+  tid_get : A → nat → Prop;
+  tid_set : nat → A → A;
+}.
+
 Define:
 1. l ↦ v for lock memory locations
 2. Obs_i O for obligations
@@ -24,64 +50,7 @@ Define:
 5. state_interp
 6. fork_post
 
-Monoids:
-M1 = auth (gmap loc (agree nat))         for the l ↦ o, keeping track of lock numbers
-M2 = auth (gmap nat (excl (gset nat)))   for the Obs_i O
-M3 = auth (gmap loc (agree ▷iProp))      for the is_lock l R
-M4 = auth (gmap loc (excl bool))         for the locked l
 
-◯●
-
-l ↦ v       := own γ1 (◯{l := to_agree v})
-Obs i O     := own γ2 (◯{i := to_excl O})
-is_lock l R := own γ3 (◯{l := to_agree R})
-locked l    := own γ4 (◯{l := to_excl true})
-
-Definition state_interp σ es :=
-  ∃L : gmap loc (nat * iProp * bool) (T : list (gset nat * option loc)),
-    own γ1 (●f1 L) * own γ2 (●f2 T) * own γ3 (●f3 L) * own γ4 (●f4 L) *
-    ([* list] i↦e ∈ es, W σ e l * l < O).
-
-Definition W σ e lo :=
-  match lo with
-  | None => ¬ waiting e σ
-  | Some l => ∃K, e = fill K (WAS l false true)
-  end.
-
-o < O := forall o', o' ∈ O -> o < o'
-
-WP rules:
-1. newlock
-2. aquire
-3. release
-4. fork
-
-R * (forall l, is_lock l R * l ↦ o -* Φ l)
-------------------------------------------
-WP_i newlock () { Φ }
-
-
-is_lock l R * l ↦ o * Obs_i O * o < O * (Obs_i (O + {o}) * R * locked l -* Φ ())
---------------------------------------------------------------------------------
-WP_i acquire l { Φ }
-
-
-is_lock l R * l ↦ o * locked l * R * Obs_i O * (Obs_i (O - {o}) -* Φ ())
-------------------------------------------------------------------------
-WP release l { Φ }
-
-
-Obs_i (O + O') * (forall j, Obs_j O -* WP_j e { Obs_j empty }) * (Obs_i O' -* Φ ())
------------------------------------------------------------------------------------
-WP_i fork e { Φ }
-
-###########################################################################################################
-###########################################################################################################
-
-Is it a good idea to merge M1 and M2 and the predicate is_lock l R and l ↦ o into is_lock l R o? (probably)
-Perhaps even merge the locked boolean state? (probably not)
-
-Then the system becomes:
 
 Monoids:
 M1 = auth (gmap loc (agree (nat * ▷iProp))       for the is_lock l R o
@@ -94,32 +63,46 @@ is_lock l R o := own γ1 (◯{l := to_agree (R,o)})
 Obs i O       := own γ2 (◯{i := to_excl O})
 locked l      := own γ3 (◯{l := to_excl true})
 
-Definition state_interp σ es :=
-  ∃L : gmap loc (iProp * nat * bool) (T : list (gset nat * option loc)),
-    own γ1 (●(f1 L, f2 L)) * own γ2 (●f2 T) * own γ3 (●f3 L) *
-    ([* list] i↦e ∈ es, W σ e l * l < O).
 
-Definition W σ e lo :=
-  match lo with
-  | None => ¬ waiting e σ
-  | Some l => ∃K, e = fill K (WAS l false true)
+abstract_state := gmap loc (nat * iProp * bool) * (list (gset nat * option loc))
+
+
+Definition state_interp (L,T) σ κs es :=
+    own γ1 (●f12 L) * own γ2 (●f1 T) * own γ3 (●f3 L) *
+    ∀ l o R b, L !! l = Some (o,R,true) → ∃ i O ls, T !! i = Some (O,ls) ∧ l ∈ O
+
+
+Definition state_valid (L,T) σ (s,i) e :=
+  match T !! i with
+  | Some (O,lockstate) =>
+    match lockstate with
+    | Some l => (∃K, e = fill K (WAS l false true)) ∧
+                ∃ o R b, L !! l = Some (o,R,b) ∧ o < O
+    | None => reducible e σ
+    end
+  | None => False
   end.
+
+Definition tid_get (s,i) j := i=j.
+Definition tid_set (s,i) j := (s,j).
 
 o < O := forall o', o' ∈ O -> o < o'
 
-Definition legally_waiting (t_id : nat) (e : expr) (σ : heap) :=
-  ∃ l O o R,
-    ⌜ e = (WAS (Val (LitV (LitLoc l))) (Val (LitV (LitBool false)))
-                                       (Val (LitV (LitBool true))) ⌝ *
-    Obs t_id O * is_lock l R o * less_obs o O.
+The final result that we want to get is that if there exist (L,T) such that
+1. state_valid (L,T) σ (s,i) e holds for all threads i
+2. state_interp (L,T) σ κs es holds for the machine state
+Then either (a) all threads as values or (b) there is a thread that can take a step.
 
-  exists O, obs i O -* less_obs
+Deadlock freedom proof sketch:
+==============================
+We first check if all threads are values, if so, success.
+We then look at the thread that are not values. If the lockstate of one of the threads is None, then it is reducible, so success.
+If the lockstate of all the non-value threads is Some, we need to show that one of the locks is not locked, and therefore the WAS can step.
+I claim that the WAS of the lock with lowest number can step. Suppose to the contrary that it cannot step, then thread i is waiting on some lock l with number o, with L !! l = Some(o,R,true) where the true means that the lock is indeed locked.
+Then there is a thread i' with obs O' and lockstate ls' that has l in its obligations, so o ∈ O'.
+By the previous assumption, ls' = Some l' with number o'. Then by state_valid of i', we have o' < O'. By the assumption that o was the lowest, o <= o'.
+So we have simultaneously o < O' and o ∈ O. Contradiction.
 
-WP rules:
-1. newlock
-2. aquire
-3. release
-4. fork
 
 R * (forall l, is_lock l R o -* Φ l)
 ------------------------------------
@@ -139,29 +122,6 @@ WP release l { Φ }
 Obs_i (O + O') * (forall j, Obs_j O -* WP_j e { Obs_j empty }) * (Obs_i O' -* Φ ())
 -----------------------------------------------------------------------------------
 WP_i fork e { Φ }
-
-###########################################################################################################
-
-Proof of deadlock freedom given state_interp σ es.
-
-* Deadlock freedom means that either all threads have terminated with a value, or there is a thread that can take a step (i.e. is not waiting).
-* Threads are only allowed to acquire locks with a lock number that's higher (??? modify the above, matters when we use nats) than the locks that
-  it has already acquired.
-* The thread that can definitely make a step is the thread that has acquired the highest lock number n, because suppose it's trying to do an acquire:
-  1. The lock that it's trying to acquire must have a higher number than the locks that it has acquired.
-  2. In particular, it's higher than n.
-  3. But n was the highest acquired lock in the whole system.
-  4. Therefore the lock that it's trying to acquire has not been acquired by anyone else.
-  5. Hence the acquire succeeds without blocking, so it can take a step.
-  If it is not trying to do an acquire then Iris' adequacy gives us that it can take a step.
-
-###########################################################################################################
-
-Extra step insertion for pre-WAS.
-
-This is required due to a problem with pure steps. A pure step can step to a WAS, and at that point we must establish state_interp, hence we must
-know that it's not waiting. However, the rule for pure steps cannot establish this. Therefore we add an additional step in front of WAS that pure
-steps can safely step to. To prove that step we need to establish that the WAS is safe to step to.
 
 *)
 

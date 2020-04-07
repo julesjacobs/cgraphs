@@ -195,7 +195,7 @@ Section ectx_language.
   Definition head_atomic (a : atomicity) (e : expr Λ) : Prop :=
     ∀ σ κ e' σ' efs,
       head_step e σ κ e' σ' efs →
-      if a is WeaklyAtomic then irreducible e' σ' ∧ ¬ waiting e' σ' else is_Some (to_val e').
+      if a is WeaklyAtomic then irreducible e' σ' else is_Some (to_val e').
 
   (* Some lemmas about this language *)
 

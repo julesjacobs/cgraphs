@@ -4,7 +4,7 @@ From diris.program_logic Require Export ectx_language weakestpre lifting.
 Set Default Proof Using "Type".
 
 Section wp.
-Context {Λ : ectxLanguage} `{!irisG Λ Σ} {Hinh : Inhabited (state Λ)}.
+Context {Λ : ectxLanguage} `{!irisG Λ Σ ζ} {Hinh : Inhabited (state Λ)}.
 Implicit Types s : stuckness.
 Implicit Types P : iProp Σ.
 Implicit Types Φ : val Λ → iProp Σ.
