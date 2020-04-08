@@ -115,6 +115,7 @@ Proof.
   - iIntros (σ κs n) "_". by iMod (fupd_intro_mask' E ∅) as "_"; first set_solver.
 Qed. *)
 
+
 (* Atomic steps don't need any mask-changing business here, one can
    use the generic lemmas here. *)
 Lemma wp_lift_atomic_step_fupd {s i E1 E2 Φ} e1 :
@@ -161,13 +162,14 @@ Proof.
   by iApply "H".
 Qed. *)
 
-Lemma wp_lift_pure_det_step_no_fork `{!Inhabited (state Λ)} {s i E E' Φ} e1 e2 :
-  (∀ σ1, if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else to_val e1 = None) →
+Lemma wp_lift_pure_det_step_no_fork `{!Inhabited (state Λ)} {s E E' Φ} e1 e2 :
+  to_val e1 = None →
+  (∀ ζ σ1, state_valid ζ σ1 s e1) →
   (∀ σ1 κ e2' σ2 efs', prim_step e1 σ1 κ e2' σ2 efs' →
     κ = [] ∧ σ2 = σ1 ∧ e2' = e2 ∧ efs' = []) →
-  (|={E,E'}▷=> WP e2 @ (s,i); E {{ Φ }}) ⊢ WP e1 @ (s,i); E {{ Φ }}.
+  (|={E,E'}▷=> WP e2 @ s; E {{ Φ }}) ⊢ WP e1 @ s; E {{ Φ }}.
 Proof.
-  iIntros (? Hpuredet) "H". iApply (wp_lift_pure_step_no_fork s i E E'); try done.
+  iIntros (?? Hpuredet) "H". iApply (wp_lift_pure_step_no_fork s E E'); try done.
   { naive_solver. }
   iApply (step_fupd_wand with "H"); iIntros "H".
   iIntros (κ e' efs' σ (_&?&->&?)%Hpuredet); auto.
