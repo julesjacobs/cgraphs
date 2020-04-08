@@ -33,6 +33,7 @@ Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
   tid_get : A → nat → Prop;
   tid_set : nat → A → A;
 
+  tid_exists s : ∃ i, tid_get s i;
   tid_func s i i' : tid_get s i → tid_get s i' → i = i';
   tid_set_get s i i' : tid_get (tid_set i s) i' → i = i';
 }.

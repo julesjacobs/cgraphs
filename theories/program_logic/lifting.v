@@ -161,16 +161,38 @@ Proof.
   by iApply "H".
 Qed. *)
 
+(*
+Lemma wp_lift_pure_step_no_fork `{!Inhabited (state Λ)} s E E' Φ e1 :
+  to_val e1 = None →
+  (∀ ζ σ1, state_valid ζ σ1 s e1) →
+  (∀ κ κs σ1 e2 σ2 efs es i  ζ, tid_get s i → prim_step e1 σ1 κ e2 σ2 efs → κ = [] ∧ σ2 = σ1 ∧ efs = [] ∧
+    (state_interp ζ σ1 κs (<[i:=e1]> es) ⊢ state_interp ζ σ2 κs (<[i:=e2]> es))) →
+  (|={E,E'}▷=> ∀ κ e2 efs σ, ⌜prim_step e1 σ κ e2 σ efs⌝ → WP e2 @ s; E {{ Φ }})
+  ⊢ WP e1 @ s; E {{ Φ }}.
+Proof.
+
 Lemma wp_lift_pure_det_step_no_fork `{!Inhabited (state Λ)} {s i E E' Φ} e1 e2 :
   (∀ σ1, if s is NotStuck then reducible e1 σ1 ∨ waiting e1 σ1 else to_val e1 = None) →
   (∀ σ1 κ e2' σ2 efs', prim_step e1 σ1 κ e2' σ2 efs' →
     κ = [] ∧ σ2 = σ1 ∧ e2' = e2 ∧ efs' = []) →
   (|={E,E'}▷=> WP e2 @ (s,i); E {{ Φ }}) ⊢ WP e1 @ (s,i); E {{ Φ }}.
 Proof.
-  iIntros (? Hpuredet) "H". iApply (wp_lift_pure_step_no_fork s i E E'); try done.
-  { naive_solver. }
+  *)
+
+Lemma wp_lift_pure_det_step_no_fork `{!Inhabited (state Λ)} {s E E' Φ} e1 e2 :
+  to_val e1 = None →
+  (∀ ζ σ1, state_valid ζ σ1 s e1) →
+  (∀ κ σ1 e2' σ2 efs',  prim_step e1 σ1 κ e2' σ2 efs' →
+    κ = [] ∧ σ2 = σ1 ∧ e2' = e2 ∧ efs' = [] ∧
+    (∀ κs es i ζ, tid_get s i → state_interp ζ σ1 κs (<[i:=e1]> es) ⊢ state_interp ζ σ2 κs (<[i:=e2]> es))) →
+  (|={E,E'}▷=> WP e2 @ s; E {{ Φ }}) ⊢ WP e1 @ s; E {{ Φ }}.
+Proof.
+  iIntros (?? Hpuredet) "H". iApply (wp_lift_pure_step_no_fork s E E'); try done.
+  { intros. edestruct Hpuredet as (? & ? & ? & ? & ?); eauto. subst. eauto. }
   iApply (step_fupd_wand with "H"); iIntros "H".
-  iIntros (κ e' efs' σ (_&?&->&?)%Hpuredet); auto.
+  iIntros (κ e' efs' σ Hps).
+  pose proof (tid_exists s) as [i Htid].
+  eapply Hpuredet in Hps as (? & ? & -> & ?). done.
 Qed.
 
 Lemma wp_pure_step_fupd `{!Inhabited (state Λ)} s i E E' e1 e2 φ n Φ :
