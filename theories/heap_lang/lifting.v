@@ -29,9 +29,9 @@ Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
   state_interp : abstract_state → state Λ → list (observation Λ) → list (expr Λ) → iProp Σ;
 
   (** The legal_state predicate holds of every state, even those that cannot step.
-  e.g. state_valid s e σ :=
+  e.g. stuck_valid s e σ :=
     ⌜if s is NotStuck then reducible e σ ∨ waiting e σ else True⌝   *)
-  state_valid : abstract_state → state Λ → A → expr Λ → Prop;
+  stuck_valid : abstract_state → state Λ → A → expr Λ → Prop;
 
   (** A fixed postcondition for any forked-off thread. For most languages, e.g.
   heap_lang, this will simply be [True]. However, it is useful if one wants to
@@ -68,20 +68,17 @@ abstract_state := gmap loc (nat * iProp * bool) * (list (gset nat * option loc))
 
 
 Definition state_interp (L,T) σ κs es :=
-    own γ1 (●f12 L) * own γ2 (●f1 T) * own γ3 (●f3 L) *
-    ∀ l o R b, L !! l = Some (o,R,true) → ∃ i O ls, T !! i = Some (O,ls) ∧ l ∈ O
+  ⌜ length es = length T ∧
+    ∀ l o R b, L !! l = Some (o,R,true) → ∃ tid O ls, T !! tid = Some O ∧ l ∈ O ⌝ ∗
+  own γ1 (●f12 L) * own γ2 (●f1 T) * own γ3 (●f3 L) *
 
 
-Definition state_valid (L,T) σ (s,i) e :=
-  match T !! i with
-  | Some (O,lockstate) =>
-    match lockstate with
-    | Some l => (∃K, e = fill K (WAS l false true)) ∧
-                ∃ o R b, L !! l = Some (o,R,b) ∧ o < O
-    | None => reducible e σ
-    end
-  | None => False
-  end.
+Definition stuck_valid (L,T) σ (s,tid) e :=
+  ∃ K l O,
+    e = fill K (WAS l false true) ∧
+    T !! tid = Some O ∧
+    ∃ o R b, L !! l = Some (o,R,b) ∧ o < O.
+
 
 Definition tid_get (s,i) j := i=j.
 Definition tid_set (s,i) j := (s,j).
@@ -89,7 +86,7 @@ Definition tid_set (s,i) j := (s,j).
 o < O := forall o', o' ∈ O -> o < o'
 
 The final result that we want to get is that if there exist (L,T) such that
-1. state_valid (L,T) σ (s,i) e holds for all threads i
+1. stuck_valid (L,T) σ (s,i) e holds for all threads i
 2. state_interp (L,T) σ κs es holds for the machine state
 Then either (a) all threads as values or (b) there is a thread that can take a step.
 
@@ -100,7 +97,7 @@ We then look at the thread that are not values. If the lockstate of one of the t
 If the lockstate of all the non-value threads is Some, we need to show that one of the locks is not locked, and therefore the WAS can step.
 I claim that the WAS of the lock with lowest number can step. Suppose to the contrary that it cannot step, then thread i is waiting on some lock l with number o, with L !! l = Some(o,R,true) where the true means that the lock is indeed locked.
 Then there is a thread i' with obs O' and lockstate ls' that has l in its obligations, so o ∈ O'.
-By the previous assumption, ls' = Some l' with number o'. Then by state_valid of i', we have o' < O'. By the assumption that o was the lowest, o <= o'.
+By the previous assumption, ls' = Some l' with number o'. Then by stuck_valid of i', we have o' < O'. By the assumption that o was the lowest, o <= o'.
 So we have simultaneously o < O' and o ∈ O. Contradiction.
 
 
@@ -183,8 +180,8 @@ Section definitions.
     fmap (λ '(R,_,_),  to_agree (Next (iProp_unfold R))).
   Definition f_locked : gmap loc (iProp Σ * nat * bool) → gmap loc (excl bool) :=
     fmap (λ '(_,_,b),  Excl b).
-  Definition f_obs : list (gset nat * option loc) → gmap nat (excl (gset nat)) :=
-    λ l, fmap (λ '(obs,l), Excl obs) (map_seq 0 l).
+  Definition f_obs : list (gset nat) → gmap nat (excl (gset nat)) :=
+    λ l, fmap Excl (map_seq 0 l).
 
   Definition W (σ:state) (e:expr) (lo:option loc) : Prop :=
     match lo with

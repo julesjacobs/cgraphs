@@ -1,6 +1,6 @@
 From iris.proofmode Require Import base tactics classes.
 From iris.base_logic.lib Require Export fancy_updates.
-From diris.program_logic Require Export language.
+From iris.program_logic Require Export language.
 
 (* FIXME: If we import iris.bi.weakestpre earlier texan triples do not
    get pretty-printed correctly. *)
@@ -21,9 +21,9 @@ Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
   state_interp : abstract_state → state Λ → list (observation Λ) → list (expr Λ) → iProp Σ;
 
   (** The legal_state predicate holds of every state, even those that cannot step.
-  e.g. state_valid s e σ :=
+  e.g. stuck_valid s e σ :=
     ⌜if s is NotStuck then reducible e σ ∨ waiting e σ else True⌝   *)
-  state_valid : abstract_state → state Λ → A → expr Λ → Prop;
+  stuck_valid : abstract_state → state Λ → A → expr Λ → Prop;
 
   (** A fixed postcondition for any forked-off thread. For most languages, e.g.
   heap_lang, this will simply be [True]. However, it is useful if one wants to
@@ -32,12 +32,10 @@ Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
 
   tid_get : A → nat → Prop;
   tid_set : nat → A → A;
-
-  tid_exists s : ∃ i, tid_get s i;
-  tid_func s i i' : tid_get s i → tid_get s i' → i = i';
-  tid_set_get s i i' : tid_get (tid_set i s) i' → i = i';
 }.
 Global Opaque iris_invG.
+
+Hint Extern 10 (?x = ?y) => destruct x : opt_valid.
 
 Class LanguageCtxInterp `{!irisG Λ Σ ζ} (K : expr Λ → expr Λ) := {
   state_interp_fill_l ζ σ κs es i e :
@@ -46,8 +44,7 @@ Class LanguageCtxInterp `{!irisG Λ Σ ζ} (K : expr Λ → expr Λ) := {
     to_val e = None →
     state_interp ζ σ κs (<[i:=K e]> es) ⊢ state_interp ζ σ κs (<[i:=e]> es);
 
-  state_valid_fill_l ζ σ x e : state_valid ζ σ x e → state_valid ζ σ x (K e);
-
+  stuck_valid_fill_l ζ σ x e : stuck_valid ζ σ x e → stuck_valid ζ σ x (K e);
 }.
 
 Definition wp_pre `{!irisG Λ Σ A}
@@ -58,7 +55,7 @@ Definition wp_pre `{!irisG Λ Σ A}
   | None => ∀ ζ σ1 κ κs es tid,
      ⌜ tid_get s tid ∧ es !! tid = Some e1 ⌝ -∗
      state_interp ζ σ1 (κ ++ κs) es ={E,∅}=∗
-       ⌜ state_valid ζ σ1 s e1 ⌝ ∧
+       ⌜ reducible e1 σ1 ∨ stuck_valid ζ σ1 s e1 ⌝ ∧
        ∀ e2 σ2 efs,
          ⌜ prim_step e1 σ1 κ e2 σ2 efs ⌝ ={∅,∅,E}▷=∗
          ∃ ζ', state_interp ζ' σ2 κs (<[tid:=e2]> es ++ efs) ∗
@@ -197,6 +194,10 @@ Proof.
   iIntros (v) "H". by iApply "H".
 Qed.
 
+Lemma reducible_fill `{!@LanguageCtx Λ K} e σ :
+    reducible e σ → reducible (K e) σ.
+Proof. unfold reducible in *. naive_solver eauto using fill_step. Qed.
+
 Lemma wp_bind K `{!LanguageCtx K, !LanguageCtxInterp K} s E e Φ :
   WP e @ s; E {{ v, WP K (of_val v) @ s; E {{ Φ }} }} ⊢ WP K e @ s; E {{ Φ }}.
 Proof.
@@ -211,7 +212,8 @@ Proof.
   { iApply state_interp_fill_r; [done|].
     by rewrite list_insert_id. }
   iModIntro; iSplit.
-  { iDestruct "QQ" as "[% _]". iPureIntro. by apply state_valid_fill_l. }
+  { iDestruct "QQ" as ([Hred|Hsv]) "_"; iPureIntro;
+    eauto using reducible_fill, stuck_valid_fill_l. }
   iIntros (e2 σ2 efs Hstep).
   destruct (fill_step_inv e σ1 κ e2 σ2 efs) as (e2'&->&?); [done..|].
   iDestruct "QQ" as "[_ H]".
