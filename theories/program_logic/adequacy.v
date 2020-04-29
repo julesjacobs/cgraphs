@@ -14,32 +14,34 @@ Implicit Types P Q : iProp Σ.
 Implicit Types Φ : val Λ → iProp Σ.
 Implicit Types Φs : list (val Λ → iProp Σ).
 
-Notation wptp s j t := ([∗ list] i ↦ ef ∈ t, WP ef @ (s,j+i); ⊤ {{ fork_post (j+i) }})%I.
+Notation wptp s j t := ([∗ list] i ↦ ef ∈ t, WP ef @ (tid_set (i+j) s); ⊤ {{ fork_post (i+j) }})%I.
 
 Lemma wp_step s i e1 ζ σ1 κ κs e2 σ2 efs es Φ :
+  tid_get s i →
   es !! i = Some e1 →
   prim_step e1 σ1 κ e2 σ2 efs →
-  state_interp ζ σ1 (κ ++ κs) es -∗ WP e1 @ (s,i); ⊤ {{ Φ }} ={⊤,∅}▷=∗
+  state_interp ζ σ1 (κ ++ κs) es -∗ WP e1 @ s; ⊤ {{ Φ }} ={⊤,∅}▷=∗
   ∃ ζ', state_interp ζ' σ2 κs (<[i:=e2]> es ++ efs) ∗ WP e2 @ s; ⊤ {{ Φ }} ∗ wptp s (length es) efs.
 Proof.
-  rewrite {1}wp_unfold /wp_pre. iIntros (??) "Hσ H".
+  rewrite {1}wp_unfold /wp_pre. iIntros (???) "Hσ H".
   rewrite (val_stuck e1 σ1 κ e2 σ2 efs) //.
-  iMod ("H" $! σ1 _ _ _ with "[%] Hσ") as "(_ & H)".
+  iMod ("H" $! _ σ1 _ _ _ with "[%] Hσ") as "(_ & H)".
   { done. }
   iMod ("H" $! e2 σ2 efs with "[//]") as "H".
   by iIntros "!> !>".
 Qed.
 
 Lemma wptp_step s e1 t1 t2 κ κs σ1 σ2 Φ :
+  tid_get s 0 →
   step (e1 :: t1,σ1) κ (t2, σ2) →
-  state_interp σ1 (κ ++ κs) (e1 :: t1) -∗ WP e1 @ (s,0); ⊤ {{ Φ }} -∗ wptp s 1 t1 ==∗
+  (∃ ζ, state_interp ζ σ1 (κ ++ κs) (e1 :: t1)) -∗ WP e1 @ s; ⊤ {{ Φ }} -∗ wptp s 1 t1 ==∗
   ∃ e2 t2', ⌜t2 = e2 :: t2'⌝ ∗
-  |={⊤,∅}▷=> state_interp σ2 κs t2 ∗ WP e2 @ (s,0); ⊤ {{ Φ }} ∗ wptp s 1 t2'.
+  |={⊤,∅}▷=> ∃ ζ', state_interp ζ' σ2 κs t2 ∗ WP e2 @ s; ⊤ {{ Φ }} ∗ wptp s 1 t2'.
 Proof.
-  iIntros (Hstep) "Hσ He Ht".
+  iIntros (Htid Hstep) "Hσ He Ht".
   destruct Hstep as [e1' σ1' e2' σ2' efs [|? t1'] t2' ?? Hstep]; simplify_eq/=.
   - iExists e2', (t2' ++ efs). iModIntro. iSplitR; first by eauto.
-    iMod (wp_step with "Hσ He") as "H"; [done..|].
+    iMod (wp_step with "Hσ He") as "H". [done..|].
     iIntros "!> !>". iMod "H" as "(Hσ & He2 & Hefs)".
     iIntros "!>". iFrame.
   - iExists e, (t1' ++ e2' :: t2' ++ efs); iSplitR; first eauto.

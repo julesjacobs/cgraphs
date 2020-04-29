@@ -1,74 +1,3 @@
-Inductive natlist : Type :=
-  | nil : natlist
-  | cons : nat -> natlist -> natlist.
-
-Fixpoint app (l1 l2 : natlist) : natlist :=
-  match l1 with nil => l2 | cons x l1 => cons x (app l1 l2) end.
-
-Fixpoint rev (l : natlist) : natlist :=
-  match l with nil => nil | cons x l => app (rev l) (cons x nil) end.
-
-Inductive palindrome : natlist -> Prop :=
-  | nilp : palindrome nil
-  | consp : forall x xs, palindrome xs -> palindrome (cons x (app xs (cons x nil))).
-
-Lemma consrev l x : cons x (rev l) = rev (app l (cons x nil)).
-Proof.
-  induction l; simpl; auto.
-  rewrite <-IHl; simpl. auto.
-Qed.
-
-Lemma prev l : palindrome l -> rev l = l.
-Proof.
-  induction 1; auto.
-  simpl.
-  rewrite<-consrev.
-  rewrite IHpalindrome.
-  reflexivity.
-Qed.
-
-Definition id := nat.
-
-Inductive expr :=
-| EVar (x : id) : expr
-| ENat (n : nat) : expr
-| EBool (b : bool) : expr
-| ELet (x : id) (e1 e2 : expr) : expr
-| EIf (e1 e2 e3 : expr) : expr.
-
-Inductive val :=
-  | VNat : nat -> val
-  | VBool : bool -> val.
-
-Inductive env :=
-  | env_nil
-  | env_snoc (E : env) (x : id) (v : val) : env.
-
-Fixpoint env_lookup (x : id) (E : env) : option val := None.
-
-Fixpoint interp (E : env) (e : expr) : option val :=
-  match e with
-  | EVar x => env_lookup x E
-  | ENat n => Some (VNat n)
-  | EBool b => Some (VBool b)
-  | ELet x e1 e2 =>
-     match interp E e1 with
-     | Some v1 => interp (env_snoc E x v1) e2
-     | None => None
-     end
-  | EIf e1 e2 e3 =>
-    match interp E e1 with
-    | Some (VBool true) => interp E e2
-    | Some (VBool false) => interp E e3
-    | _ => None
-    end
-  end.
-
-Inductive big_step : expr -> val -> Prop := .
-
-
-Lemma interp_big_step e v : interp env_nil e = Some v <-> big_step e v.
-
 From iris.proofmode Require Import tactics.
 From diris.program_logic Require Export weakestpre.
 Set Default Proof Using "Type".
@@ -263,16 +192,18 @@ Proof.
   iInduction Hexec as [e|n e1 e2 e3 [Hsafe ?]] "IH"; simpl; first done.
   iApply wp_lift_pure_det_step_no_fork;
     eauto using reducible_no_obs_reducible, reducible_not_val.
-  -
-  - eauto.
-  - done.
+  - iIntros (??????).
+    apply pure_step_det in H as (-> & -> & -> & ->).
+    repeat (split; first done).
+    iIntros (?????) "Hsi".
+    admit.
   - by iApply (step_fupd_wand with "Hwp").
-Qed.
+Admitted.
 
-Lemma wp_pure_step_later `{!Inhabited (state Λ)} s i E e1 e2 φ n Φ :
+Lemma wp_pure_step_later `{!Inhabited (state Λ)} s E e1 e2 φ n Φ :
   PureExec φ n e1 e2 →
   φ →
-  ▷^n WP e2 @ (s,i); E {{ Φ }} ⊢ WP e1 @ (s,i); E {{ Φ }}.
+  ▷^n WP e2 @ s; E {{ Φ }} ⊢ WP e1 @ s; E {{ Φ }}.
 Proof.
   intros Hexec ?. rewrite -wp_pure_step_fupd //. clear Hexec.
   induction n as [|n IH]; by rewrite //= -step_fupd_intro // IH.

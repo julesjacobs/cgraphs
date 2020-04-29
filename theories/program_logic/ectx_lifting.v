@@ -1,6 +1,6 @@
 (** Some derived lemmas for ectx-based languages *)
 From iris.proofmode Require Import tactics.
-From iris.program_logic Require Export language.
+From iris.program_logic Require Export ectx_language.
 From diris.program_logic Require Export weakestpre lifting.
 Set Default Proof Using "Type".
 
@@ -12,7 +12,7 @@ Implicit Types Φ : val Λ → iProp Σ.
 Implicit Types v : val Λ.
 Implicit Types e : expr Λ.
 Hint Resolve head_prim_reducible head_reducible_prim_step : core.
-Hint Resolve head_prim_waiting : core.
+(* Hint Resolve head_prim_waiting : core. *)
 Hint Resolve (reducible_not_val _ inhabitant) : core.
 Hint Resolve head_stuck_stuck : core.
 
