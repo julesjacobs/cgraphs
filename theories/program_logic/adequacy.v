@@ -31,125 +31,143 @@ Proof.
   by iIntros "!> !>".
 Qed.
 
-Lemma wptp_step s e1 t1 t2 κ κs σ1 σ2 Φ :
+Lemma wptp_step s e1 t1 t2 κ κs ζ σ1 σ2 Φ :
   tid_get s 0 →
   step (e1 :: t1,σ1) κ (t2, σ2) →
-  (∃ ζ, state_interp ζ σ1 (κ ++ κs) (e1 :: t1)) -∗ WP e1 @ s; ⊤ {{ Φ }} -∗ wptp s 1 t1 ==∗
+  state_interp ζ σ1 (κ ++ κs) (e1 :: t1) -∗ WP e1 @ s; ⊤ {{ Φ }} -∗ wptp s 1 t1 ==∗
   ∃ e2 t2', ⌜t2 = e2 :: t2'⌝ ∗
   |={⊤,∅}▷=> ∃ ζ', state_interp ζ' σ2 κs t2 ∗ WP e2 @ s; ⊤ {{ Φ }} ∗ wptp s 1 t2'.
 Proof.
   iIntros (Htid Hstep) "Hσ He Ht".
   destruct Hstep as [e1' σ1' e2' σ2' efs [|? t1'] t2' ?? Hstep]; simplify_eq/=.
   - iExists e2', (t2' ++ efs). iModIntro. iSplitR; first by eauto.
-    iMod (wp_step with "Hσ He") as "H". [done..|].
-    iIntros "!> !>". iMod "H" as "(Hσ & He2 & Hefs)".
-    iIntros "!>". iFrame.
+    iMod (wp_step with "Hσ He") as "H"; [done..|].
+    iIntros "!> !>". iMod "H" as (ζ') "(Hσ & He2 & Hefs)".
+    iIntros "!>". iExists ζ'. iFrame.
+    iApply (big_sepL_impl with "Hefs").
+    iIntros "!>" (k e' ?). simpl.
+    replace (length t2' + k + 1) with (k + S (length t2')) by lia. auto.
   - iExists e, (t1' ++ e2' :: t2' ++ efs); iSplitR; first eauto.
     iFrame "He". iDestruct "Ht" as "(Ht1 & He1 & Ht2)".
     iModIntro. iMod (wp_step with "Hσ He1") as "H".
-    { by rewrite Nat.add_0_r /= lookup_app_r // Nat.sub_diag. }
+    { rewrite Nat.add_0_r Nat.add_1_r. eapply tid_get_set. }
+    { by rewrite /= lookup_app_r // Nat.sub_diag. }
     { done. }
-    iIntros "!> !>". iMod "H" as "(Hσ & He2 & Hefs)". iIntros "!>".
+    iIntros "!> !>". iMod "H" as (ζ') "(Hσ & He2 & Hefs)". iIntros "!>".
+    iExists ζ'.
     iSplitL "Hσ".
-    { by rewrite Nat.add_0_r /= insert_app_r_alt // Nat.sub_diag /= -assoc_L. }
+    { by rewrite /= insert_app_r_alt // Nat.sub_diag /= -assoc_L. }
     iFrame "Ht1 Ht2 He2". simpl.
     iApply (big_sepL_impl with "Hefs").
-    iModIntro. iIntros.
-    by rewrite !app_length /= !Nat.add_succ_r !Nat.add_assoc /=.
+    iIntros "!>" (k e' ?) "/=".
+    rewrite tid_set_set !app_length /= (Nat.add_comm k)
+      !Nat.add_succ_r !Nat.add_succ_l !Nat.add_0_r !Nat.add_assoc.
+    eauto.
 Qed.
 
-
-Lemma wptp_steps s n e1 t1 κs κs' t2 σ1 σ2 Φ :
+Lemma wptp_steps s n e1 t1 κs κs' t2 ζ σ1 σ2 Φ :
+  tid_get s 0 →
   language.nsteps n (e1 :: t1, σ1) κs (t2, σ2) →
-  state_interp σ1 (κs ++ κs') (e1 :: t1) -∗ WP e1 @ (s,0); ⊤ {{ Φ }} -∗ wptp s 1 t1
+  state_interp ζ σ1 (κs ++ κs') (e1 :: t1) -∗ WP e1 @ s; ⊤ {{ Φ }} -∗ wptp s 1 t1
   ={⊤,∅}▷=∗^n ∃ e2 t2',
     ⌜t2 = e2 :: t2'⌝ ∗
-    state_interp σ2 κs' t2 ∗
-    WP e2 @ (s,0); ⊤ {{ Φ }} ∗ wptp s 1 t2'.
+    ∃ ζ', state_interp ζ' σ2 κs' t2 ∗
+    WP e2 @ s; ⊤ {{ Φ }} ∗ wptp s 1 t2'.
 Proof.
-  revert e1 t1 κs κs' t2 σ1 σ2; simpl.
-  induction n as [|n IH]=> e1 t1 κs κs' t2 σ1 σ2 /=.
+  intros Htid.
+  revert ζ e1 t1 κs κs' t2 σ1 σ2; simpl.
+  induction n as [|n IH]=> ζ e1 t1 κs κs' t2 σ1 σ2 /=.
   { inversion_clear 1; iIntros "???"; iExists e1, t1; iFrame; eauto 10. }
   iIntros (Hsteps) "Hσ He Ht". inversion_clear Hsteps as [|?? [t1' σ1']].
   rewrite -(assoc_L (++)).
-  iMod (wptp_step with "Hσ He Ht") as (e1' t1'' ?) ">H"; first eauto; simplify_eq.
-  iIntros "!> !>". iMod "H" as "(Hσ & He & Ht)". iModIntro.
+  iMod (wptp_step with "Hσ He Ht") as (e1' t1'' ?) ">H"; [by eauto..|]; simplify_eq.
+  iIntros "!> !>". iMod "H" as (ζ') "(Hσ & He & Ht)". iModIntro.
   by iApply (IH with "Hσ He Ht").
 Qed.
 
-Definition not_stuck_waiting tid e σ :=
-  (⌜is_Some (to_val e) ∨ reducible e σ⌝ ∨ legally_waiting tid e σ)%I.
-
-Lemma wp_not_stuck κs es e σ Φ i :
+Lemma wp_not_stuck s κs es ζ e σ Φ i :
+  tid_get s i →
   es !! i = Some e ->
-  state_interp σ κs es -∗
-  WP e @ (NotStuck,i); ⊤ {{ Φ }} ={⊤,∅}=∗
-  not_stuck_waiting i e σ ∗ |={⊤,∅}=> state_interp σ κs es.
+  state_interp ζ σ κs es -∗
+  WP e @ s; ⊤ {{ Φ }} ={⊤}=∗
+  ⌜ not_stuck e σ ∨ stuck_valid ζ σ s e ⌝.
 Proof.
-  rewrite wp_unfold /wp_pre /not_stuck_waiting. iIntros (?) "Hσ H".
-  destruct (to_val e) as [v|] eqn:?.
-  { iMod (fupd_intro_mask' ⊤ ∅); eauto 6. }
-  iMod ("H" $! σ [] κs _ with "[//] Hσ") as "[[%|H] _]"; eauto.
+  rewrite wp_unfold /wp_pre /not_stuck. iIntros (Htid Hesi) "Hσ H".
+  destruct (to_val e) as [v|] eqn:?; first by eauto.
+  iApply fupd_plain_mask.
+  iMod ("H" $! _ σ [] κs _ with "[//] Hσ") as "[[%|%] _]"; eauto.
 Qed.
 
-Lemma wptp_strong_adequacy Φ κs' s n e1 t1 κs t2 σ1 σ2 :
+Lemma wptp_strong_adequacy Φ κs' s n e1 t1 κs t2 ζ σ1 σ2 :
+  tid_get s 0 →
   language.nsteps n (e1 :: t1, σ1) κs (t2, σ2) →
-  state_interp σ1 (κs ++ κs') (e1 :: t1) -∗
-  WP e1 @ (s,0); ⊤ {{ Φ }} -∗
-  wptp s 1 t1 ={⊤,∅}▷=∗^(S n) ∃ e2 t2',
+  state_interp ζ σ1 (κs ++ κs') (e1 :: t1) -∗
+  WP e1 @ s; ⊤ {{ Φ }} -∗
+  wptp s 1 t1 ={⊤,∅}▷=∗^(S n) ∃ ζ' e2 t2',
     ⌜ t2 = e2 :: t2' ⌝ ∗
-    (∀ i e, ⌜t2 !! i = Some e⌝ -∗
-      ⌜s = NotStuck⌝ ={⊤,∅}=∗
-      not_stuck_waiting i e σ2) ∗
-    state_interp σ2 κs' t2 ∗
+    ⌜ ∀ i e, t2 !! i = Some e →
+      not_stuck e σ2 ∨ stuck_valid ζ' σ2 (tid_set i s) e ⌝ ∗
+    state_interp ζ' σ2 κs' t2 ∗
     from_option Φ True (to_val e2) ∗
-    ([∗ list] i ↦ e ∈ t2', from_option (fork_post (1+i)) True (to_val e)).
+    ([∗ list] i ↦ e ∈ t2', from_option (fork_post (S i)) True (to_val e)).
 Proof.
-  iIntros (Hstep) "Hσ He Ht". rewrite Nat_iter_S_r.
-  iDestruct (wptp_steps with "Hσ He Ht") as "Hwp"; first done.
+  iIntros (Htid Hstep) "Hσ He Ht". rewrite Nat_iter_S_r.
+  iDestruct (wptp_steps with "Hσ He Ht") as "Hwp"; [done..|].
   iApply (step_fupdN_wand with "Hwp").
-  iDestruct 1 as (e2' t2' ?) "(Hσ & Hwp & Ht)"; simplify_eq/=.
-  Check ((e2' :: t2') !! 0).
+  iDestruct 1 as (e2' t2' ? ζ') "(Hσ & Hwp & Ht)". simplify_eq/=.
+
+  iExists ζ',e2',t2'.
 
   iMod (fupd_plain_keep_l ⊤
-    (∀ (i : nat) (e : expr Λ), ⌜(e2' :: t2') !! i = Some e⌝ -∗ ⌜s = NotStuck⌝ ={⊤,∅}=∗ not_stuck_waiting i e σ2)%I
-    (state_interp σ2 κs' (e2' :: t2') ∗ WP e2' @ (s,0); ⊤ {{ v, Φ v }} ∗ wptp s 1 t2')%I
+    ⌜ ∀ i e, (e2' :: t2') !! i = Some e →
+    not_stuck e σ2 ∨ stuck_valid ζ' σ2 (tid_set i s) e ⌝%I
+    (state_interp ζ' σ2 κs' (e2' :: t2') ∗ WP e2' @ s; ⊤ {{ v, Φ v }} ∗ wptp s 1 t2')%I
     with "[$Hσ $Hwp $Ht]") as "(Hsafe&Hσ&Hwp&Hvs)".
-  { iIntros "(Hσ & Hwp & Ht)".
-    iModIntro.
-    iIntros (i e He' ->).
-    destruct i as [|i].
-    - simpl in He'.
-    apply elem_of_cons in He' as [<-|(t1''&t2''&->)%elem_of_list_split].
-    - iMod (wp_not_stuck with "Hσ Hwp") as "$"; auto.
-    - iDestruct "Ht" as "(_ & He' & _)". rewrite Nat.add_0_r /=.
-      iApply (wp_not_stuck with "Hσ He'").
-      by rewrite /= lookup_app_r // Nat.sub_diag. }
+  {
+    iIntros "(Hσ & Hwp & Ht)" ([|i] e ?).
+    - simplify_eq/=. rewrite tid_set_id. iMod (wp_not_stuck with "Hσ Hwp") as %[|]; eauto. eauto.
+    - simpl in *.
+      iDestruct (big_sepL_lookup with "Ht") as "H"; eauto.
+      rewrite Nat.add_1_r.
+      iMod (wp_not_stuck with "Hσ H") as %[|]; eauto using tid_get_set.
+  }
   iApply step_fupd_fupd. iApply step_fupd_intro; first done. iNext.
-  iExists _, _. iSplitL ""; first done. iFrame "Hsafe Hσ".
+  iSplitL ""; first done. iFrame "Hsafe Hσ".
   iSplitL "Hwp".
   - destruct (to_val e2') as [v2|] eqn:He2'; last done.
     apply of_to_val in He2' as <-. iApply (wp_value_inv' with "Hwp").
-  - clear Hstep.
-    iApply big_sepL_fupd.
+  - iApply big_sepL_fupd.
     iApply (big_sepL_impl with "Hvs").
-    iIntros "!>" (i e ?) "He /=".
-    destruct (to_val e) as [v|] eqn:He; last by auto.
-    apply of_to_val in He as <-. iApply (wp_value_inv' with "He").
+    iModIntro. iIntros (k e ?) "Hwp".
+    destruct (to_val e) as [v|] eqn:He; eauto.
+    simpl.
+    apply of_to_val in He as <-.
+    rewrite Nat.add_1_r.
+    iMod (wp_value_inv with "Hwp") as "$"; eauto. done.
 Qed.
+
+
+
+
+Record adequacy_args := {
+    s: ξ;
+    abstract_state : Type;
+    stateI : abstract_state → state Λ → list (observation Λ) → list (expr Λ) → iProp Σ;
+    Φ : val Λ → iProp Σ;
+    fork_post : nat → val Λ → iProp Σ;
+}.
+
 End adequacy.
 
+
 (** Iris's generic adequacy result *)
-Theorem wp_strong_adequacy Σ Λ `{!invPreG Σ} e1 σ1 n κs t2 σ2 φ :
+Theorem wp_strong_adequacy Σ Λ ξ `{!invPreG Σ} e1 σ1 n κs t2 σ2 φ :
   (∀ `{Hinv : !invG Σ},
-     (|={⊤}=> ∃
-         (s: stuckness)
-         (stateI : state Λ → list (observation Λ) → list (expr Λ) → iProp Σ)
-         (Φ : val Λ → iProp Σ)
-         (fork_post : nat → val Λ → iProp Σ),
+     (|={⊤}=> ∃ args : adequacy_args,
        let _ : irisG Λ Σ := IrisG _ _ Hinv stateI fork_post in
-       stateI σ1 κs [e1] ∗
-       WP e1 @ (s,0); ⊤ {{ Φ }} ∗
+       stateI ζ σ1 κs [e1] ∗
+       ⌜ tid_get s 0 ⌝ *
+       WP e1 @ s; ⊤ {{ Φ }} ∗
        (∀ e2 t2',
          (* e2 is the final state of the main thread, t2' the rest *)
          ⌜ t2 = e2 :: t2' ⌝ -∗

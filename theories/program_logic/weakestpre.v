@@ -8,11 +8,9 @@ From diris.bi Require Export weakestpre.
 Set Default Proof Using "Type".
 Import uPred.
 
-Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
-  iris_invG :> invG Σ;
 
-  abstract_state : Type;
-
+Class abstract_state_mixin (abstract_state : Type)
+    (Λ : language) (Σ : gFunctors) (A : Type) := AbstractStateMixin {
   (** The state interpretation is an invariant that should hold in between each
   step of reduction. Here [Λstate] is the global state, [list Λobservation] are
   the remaining observations, and [nat] is the number of forked-off threads
@@ -32,6 +30,16 @@ Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
 
   tid_get : A → nat → Prop;
   tid_set : nat → A → A;
+
+  tid_get_set s i : tid_get (tid_set i s) i;
+  tid_set_id s i : tid_get s i → tid_set i s = s;
+  tid_set_set s i j : tid_set j (tid_set i s) = tid_set j s;
+}.
+
+Class irisG (Λ : language) (Σ : gFunctors) (A : Type) := IrisG {
+  iris_invG :> invG Σ;
+  abstract_state : Type;
+  irisG_abstract_state :> abstract_state_mixin abstract_state Λ Σ A
 }.
 Global Opaque iris_invG.
 

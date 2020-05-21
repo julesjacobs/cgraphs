@@ -17,7 +17,7 @@ Lemma wp_lift_step_fupd s E Φ e1 :
   (∀ ζ σ1 κ κs es tid,
      ⌜ tid_get s tid ∧ es !! tid = Some e1 ⌝ -∗
      state_interp ζ σ1 (κ ++ κs) es ={E,∅}=∗
-       ⌜ reducible e1 σ1 ∨ stuck_valid ζ σ1 s e1 ⌝ ∧
+       ⌜ reducible e1 σ1  ∨ stuck_valid ζ σ1 s e1 ⌝ ∧
        ∀ e2 σ2 efs,
          ⌜ prim_step e1 σ1 κ e2 σ2 efs ⌝ ={∅,∅,E}▷=∗
          ∃ ζ', state_interp ζ' σ2 κs (<[tid:=e2]> es ++ efs) ∗
