@@ -45,7 +45,7 @@ with expr :=
     | Fork : expr -> expr
     | Close : expr -> expr.
 
-Definition state := gmap loc (list val).
+Definition heap := gmap loc (list val).
 
 Inductive type :=
     | UnitT : type
@@ -59,7 +59,7 @@ with chan_type :=
     | RecvT : type -> chan_type -> chan_type
     | EndT : chan_type.
 
-Definition env := list (string * type).
+Definition envT := list (string * type).
 
 Fixpoint dual ct :=
     match ct with
@@ -70,156 +70,209 @@ Fixpoint dual ct :=
 
 Definition heapT := gmap chan chan_type.
 
-(* TODO: Add subscripts to vs code latex thing *)
 Definition disj_union (a b c : heapT) := a ##ₘ b ∧ c = a ∪ b.
 
 Inductive val_typed : heapT -> val -> type -> Prop :=
     | Unit_typed :
         val_typed ∅ Unit UnitT
-    | Nat_typed : forall n,
+    | Nat_typed : ∀ n,
         val_typed ∅ (Nat n) NatT
-    | Pair_typed : forall a b aT bT Σ Σ1 Σ2,
+    | Pair_typed : ∀ a b aT bT Σ Σ1 Σ2,
         disj_union Σ Σ1 Σ2 ->
         val_typed Σ1 a aT ->
         val_typed Σ2 b bT ->
         val_typed Σ (Pair a b) (PairT aT bT)
-    | Fun_typed : forall Σ x e a b,
+    | Fun_typed : ∀ Σ x e a b,
         typed Σ [(x,a)] e b ->
         val_typed Σ (Fun x e) (FunT a b)
-    | Chan_typed : forall c ct,
+    | Chan_typed : ∀ c ct,
         val_typed {[ c := ct ]} (Chan c) (ChanT ct)
 
-with typed : heapT -> env -> expr -> type -> Prop :=
-    | Val_typed : forall Σ v t,
+with typed : heapT -> envT -> expr -> type -> Prop :=
+    | Val_typed : ∀ Σ v t,
         val_typed Σ v t ->
         typed Σ [] (Val v) t
-    | Var_typed : forall x t,
+    | Var_typed : ∀ x t,
         typed ∅ [(x,t)] (Var x) t
-    | App_typed : forall Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 t1 t2,
+    | App_typed : ∀ Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 t1 t2,
         disj_union Σ Σ1 Σ2 ->
         Γ ≡ₚ Γ1 ++ Γ2 ->
         typed Σ1 Γ1 e1 (FunT t1 t2) ->
         typed Σ2 Γ2 e2 t1 ->
         typed Σ Γ (App e1 e2) t2
-    | Lam_typed : forall Σ Γ x e t1 t2,
+    | Lam_typed : ∀ Σ Γ x e t1 t2,
+        (* TODO: freshness condition: x not in Γ depending on whether Γ_x is Drop
+            Same condition in Let -> factor freshness predicate is_fresh Γ x
+            x not in Γ : is_fresh Γ x
+            Γ_x is Drop : is_fresh Γ x
+            is_fresh Γ x := match Γ !! x with Some t => is_drop t | None => True end.
+            is_fresh Γ x := from_option is_drop True (Γ !! x)
+            Change envT to be a map.
+        *)
         typed Σ ((x,t1)::Γ) e t2 ->
         typed Σ Γ (Lam x e) (FunT t1 t2)
-    | Send_typed : forall Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 t r,
+    | Send_typed : ∀ Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 t r,
         disj_union Σ Σ1 Σ2 ->
         Γ ≡ₚ Γ1 ++ Γ2 ->
         typed Σ1 Γ e1 (ChanT (SendT t r)) ->
         typed Σ2 Γ e2 t ->
         typed Σ Γ (Send e1 e2) (ChanT r)
-    | Recv_typed : forall Σ Γ e t r,
+    | Recv_typed : ∀ Σ Γ e t r,
         typed Σ Γ e (ChanT (RecvT t r)) ->
         typed Σ Γ (Recv e) (PairT t (ChanT r))
-    | Let_typed : forall Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 t1 t2 x,
+    | Let_typed : ∀ Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 t1 t2 x,
         disj_union Σ Σ1 Σ2 ->
         Γ ≡ₚ Γ1 ++ Γ2 ->
         typed Σ1 Γ1 e1 t1 ->
         typed Σ2 ((x,t1)::Γ2) e2 t2 ->
         typed Σ Γ (Let x e1 e2) t2
-    | If_typed : forall Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 e3 t,
+    (* TODO: LetProd & LetUnit *)
+    (* TODO: Shadowing
+    0. Freshness condition depending on whether the type is Drop
+    1. Barendreght convention, subst renames
+    2. De Bruijn -> no shadowing, but environments more complicated (with options, or maps)
+    3. Explicit environments in op sem -> Hoare logic mismatch
+    4. Subst as a constructor of expr
+    *)
+    | If_typed : ∀ Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 e3 t,
         Γ ≡ₚ Γ1 ++ Γ2 ->
         disj_union Σ Σ1 Σ2 ->
         typed Σ1 Γ1 e1 NatT ->
         typed Σ2 Γ2 e2 t ->
         typed Σ2 Γ2 e3 t ->
         typed Σ Γ (If e1 e2 e3) t
-    | Fork_typed : forall Σ Γ e ct,
+    | Fork_typed : ∀ Σ Γ e ct,
         typed Σ Γ e (FunT (ChanT (dual ct)) UnitT) ->
         typed Σ Γ (Fork e) (ChanT ct)
-    | Close_typed : forall Σ Γ e,
+    | Close_typed : ∀ Σ Γ e,
         typed Σ Γ e (ChanT EndT) ->
         typed Σ Γ (Close e) UnitT.
 
 (* FIXME: implement substitution *)
 Definition subst (x:string) (a:val) (e:expr) : expr := Val Unit.
 
-Inductive head_step : expr -> state -> expr -> state -> Prop :=
-    | App_head_step : forall x e s a,
+Inductive head_step : expr -> heap -> expr -> heap -> Prop :=
+    | App_head_step : ∀ x e s a,
         head_step (App (Val (Fun x e)) (Val a)) s (subst x a e) s
-    | Lam_head_step : forall x e s,
+    | Lam_head_step : ∀ x e s,
         head_step (Lam x e) s (Val (Fun x e)) s
-    | Let_head_step : forall x v e2 s,
-        head_step (Let x (Val v) e2) s (subst x v e2) s
-
-    (* Not clear how to do this... *)
-    | Send_head_step : forall s l1 l2 y buf,
+    | Send_head_step : ∀ s l1 l2 y buf,
         s !! l1 = Some buf ->
         head_step (Send (Val (Chan (l1,l2))) (Val y)) s (Val (Chan (l1,l2))) (<[l1 := y::buf]> s)
-    | Recv_head_step : forall s l1 l2 y buf,
+    | Recv_head_step : ∀ s l1 l2 y buf,
         s !! l2 = Some (y :: buf) ->
         head_step (Recv (Val (Chan (l1,l2)))) s (Val (Pair (Chan (l1,l2)) y)) (<[l2 := buf]> s)
-
-    | If_head_step1 : forall n s e1 e2,
+    | If_head_step1 : ∀ n s e1 e2,
         n ≠ 0 ->
         head_step (If (Val (Nat n)) e1 e2) s e1 s
-    | If_head_step2 : forall s e1 e2,
+    | If_head_step2 : ∀ s e1 e2,
         head_step (If (Val (Nat 0)) e1 e2) s e1 s
-
-    (* TODO: implement these steps *)
-    | LetUnit_head_step : forall e s, head_step e s e s
-    | LetProd_head_step : forall e s, head_step e s e s
-    | Close_step : forall l1 l2 s,
+    | Let_head_step : ∀ x v e s,
+        head_step (Let x (Val v) e) s (subst x v e) s
+    | LetUnit_head_step : ∀ e s,
+        head_step (LetUnit (Val Unit) e) s e s
+    | LetProd_head_step : ∀ x1 x2 v1 v2 e s,
+        head_step (LetProd x1 x2 (Val (Pair v1 v2)) e) s (subst x1 v1 $ subst x2 v2 e) s
+    | Close_step : ∀ l1 l2 s,
         head_step (Close (Val (Chan (l1,l2)))) s (Val Unit) (delete l1 s).
-        (* TODO: check whether it matters that we delete l1 s here *)
+        (* TODO: think about whether it matters that we delete l1 s here *)
+
+Inductive ctx : (expr -> expr) -> Prop :=
+    | Ctx_id : ctx (λ x, x)
+    | Ctx_comp : ∀ k1 k2, ctx k1 -> ctx k2 -> ctx (k1 ∘ k2)
+    | Ctx_App_l : ∀ e, ctx (λ x, App x e)
+    | Ctx_App_r : ∀ v, ctx (λ x, App (Val v) x)
+    | Ctx_Send_l : ∀ e, ctx (λ x, Send x e)
+    | Ctx_Send_r : ∀ v, ctx (λ x, Send (Val v) x)
+    | Ctx_Recv : ctx (λ x, Recv x)
+    | Ctx_Let : ∀ s e, ctx (λ x, Let s x e)
+    | Ctx_LetUnit : ∀ e, ctx (λ x, LetUnit x e)
+    | Ctx_LetProd : ∀ s1 s2 e, ctx (λ x, LetProd s1 s2 x e)
+    | Ctx_If : ∀ e1 e2, ctx (λ x, If x e1 e2)
+    | Ctx_Fork : ctx (λ x, Fork x)
+    | Ctx_Close : ctx (λ x, Close x).
 
 (* We put the fork step here because it needs to spawn a new thread. *)
-(* FIXME step under contexts
-    Build contexts into these rules *)
-Inductive step : list expr -> state -> list expr -> state -> Prop :=
-    | Head_step : forall e1 e2 s1 s2 es i,
+Inductive step : list expr -> heap -> list expr -> heap -> Prop :=
+    | Head_step : ∀ e1 e2 s1 s2 es i k,
+        ctx k ->
         head_step e1 s1 e2 s2 ->
-        es !! i = Some e1 ->
-        step es s1 (<[i := e2]> es) s2
-    | Fork_step : forall (es : list expr) i e (s : state) e1 (l1 l2 : loc),
-        es !! i = Some (Fork e) ->
+        es !! i = Some (k e1) ->
+        step es s1 (<[i := (k e2)]> es) s2
+    | Fork_step : ∀ (es : list expr) i e (s : heap) (l1 l2 : loc) k,
+        ctx k ->
+        es !! i = Some (k $ Fork e) ->
         s !! l1 = None ->
         s !! l2 = None ->
         l1 ≠ l2 ->
-        step e1 s
-            (<[i := Val Unit]> e1 ++ [App e (Val (Chan (l1,l2)))])
+        step es s
+            (<[i := Val (Chan (l2,l1))]> es ++ [App e (Val (Chan (l1,l2)))])
             (<[l1 := []]> $ <[l2 := []]> s).
 
-(* Closure of the step relation; this is used in the theorem statement. *)
-Inductive steps : list expr -> state -> list expr -> state -> Prop :=
-    | Trans_step : forall e1 e2 e3 s1 s2 s3,
+(* Closure of the step relation; this is used in the theorem heapment. *)
+Inductive steps : list expr -> heap -> list expr -> heap -> Prop :=
+    | Trans_step : ∀ e1 e2 e3 s1 s2 s3,
         step e1 s1 e2 s2 ->
         steps e2 s2 e3 s3 ->
         steps e1 s1 e3 s3
-    | Empty_step : forall e1 s1,
+    | Empty_step : ∀ e1 s1,
         steps e1 s1 e1 s1.
 
 Inductive all_values : list expr -> Prop :=
     | AV_nil : all_values []
-    | AV_cons : forall es v, all_values es -> all_values (Val v :: es).
+    | AV_cons : ∀ es v, all_values es -> all_values (Val v :: es).
 
-Definition disjoint (xs : list heapT) := True.
+(* TODO: make into big disjoint union predicate *)
+Definition disjoint (xs : list heapT) :=
+    forall i j h1 h2, i ≠ j ->
+        xs !! i = Some h1 -> xs !! j = Some h2 -> h1 ##ₘ h2.
 
-Definition invariant (es : list expr) (s : state) : Prop :=
+Definition connected (hs : list heapT) (i j : nat) :=
+    ∃ h1 h2 (l1 l2 : loc) (t : chan_type),
+        hs !! i = Some h1 ∧ hs !! j = Some h2 ∧
+        h1 !! (l1,l2) = Some t ∧ h2 !! (l2,l1) = Some (dual t).
+        (* TODO: the things in the buffers *)
+
+Inductive is_undirected_tree (T : nat -> nat -> Prop) : Prop := .
+
+Definition invariant (es : list expr) (s : heap) : Prop :=
 (*
     This invariant should make sure that either all es are values or some e in es can take a step.
-    We need to ensure that the expr and state are well typed.
+    We need to ensure that the expr and heap are well typed.
     And we need to ensure that we have an acyclic connectivity graph.
-    Picture the current state as a graph with threads as vertices.
+    Picture the current heap as a graph with threads as vertices.
     The vertices are connected by channels, so each edge stores a channel.
     A channel consists of a pair of buffers and a channel type for each endpoint.
     The channel types are dual up to what is already stored in the buffer.
     The connectivity graph must be acyclic.
 *)
-    Forall2 (λ Σ e, typed Σ ∅ e UnitT) Σs es ∧ disjoint Σs.
+    ∃ Σs, Forall2 (λ Σ e, typed Σ [] e UnitT) Σs es ∧ disjoint Σs ∧ is_undirected_tree (connected Σs).
+    (* disjoint_union Σs Σ ∧ heap_typed Σ s *)
+(*
+PLAN:
+1. naming/shadowing
+2. safety, invariant
+    ask Stephanie: TAPL for session types?
+3. deadlocks
+*)
+    (*
+    Q: What about the elements already in the buffer?
+       This can mean that one session type is ahead of the other.
+    Q: What about channels that sit in a buffer?
+    *)
     (* TODO: figure out invariant
         * Maintain graph + acyclicity predicate
         * Or maintain Coq tree with tree rotations/surgery
      *)
 
-Theorem invariant_init e : invariant [e] [].
+Theorem invariant_init e : invariant [e] ∅.
+Admitted.
 
 Theorem invariant_step e1 s1 e2 s2 :
     invariant e1 s1 ->
     step e1 s1 e2 s2 ->
     invariant e2 s2.
+Admitted.
 (*
     For steps not involving channels, we need to ensure that they preserve types.
     The interesting steps are fork, send, recv.
@@ -237,8 +290,9 @@ Theorem invariant_step e1 s1 e2 s2 :
 *)
 
 Theorem deadlock_freedom e e1 s1 :
-    steps [e] [] e1 s1 ->
-    all_values e1 ∨ exists e2 s2, step e1 s1 e2 s2.
+    steps [e] ∅ e1 s1 ->
+    all_values e1 ∨ ∃ e2 s2, step e1 s1 e2 s2.
+Admitted.
 (*
     We first check if all threads are values. If so, we return the first disjunct.
     If there is a thread that's not a value, we will start an iterative process.
