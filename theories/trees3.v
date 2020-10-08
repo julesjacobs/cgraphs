@@ -776,16 +776,62 @@ Section graph.
     eapply (Hnut i); eauto using lookup_take_Some.
   Qed.
 
+  Lemma path_drop (g : graph A) (xs : list A) (k : nat) :
+    path g xs -> path g (drop k xs).
+  Proof.
+    intros Hp ??? H1 H2.
+    rewrite lookup_drop in H1.
+    rewrite lookup_drop in H2.
+    rewrite plus_assoc in H2.
+    unfold path in *.
+    eauto.
+  Qed.
+
+  Lemma path_take (g : graph A) (xs : list A) (k : nat) :
+    path g xs -> path g (take k xs).
+  Proof.
+    intros Hp ??? H1 H2.
+    apply lookup_take_Some in H1.
+    apply lookup_take_Some in H2.
+    unfold path in *.
+    eauto.
+  Qed.
+
+  Lemma take_nonempty (xs : list A) (k : nat) :
+    k ≠ 0 -> xs ≠ [] -> take k xs ≠ [].
+  Proof.
+    destruct k, xs; simpl; naive_solver.
+  Qed.
+
+  Lemma drop_nonempty (xs : list A) (i : nat) (a : A) :
+    xs !! i = Some a -> drop i xs ≠ [].
+  Proof.
+    revert xs; induction i; destruct xs; simpl; naive_solver.
+  Qed.
+
   Lemma no_uturn_path_to_cycle (g : graph A) (xs : list A) :
     (∃ i j a, xs !! i = Some a ∧ xs !! j = Some a ∧ i < j) ->
     no_u_turn xs -> path g xs ->
-    ∃ xs' x, no_u_turn ([x] ++ xs' ++ [x]) ∧ path g ([x] ++ xs' ++ [x]).
+    ∃ xs', no_u_turn xs' ∧ path g xs' ∧ xs' !! 0 = xs' !! (length xs' - 1) ∧ xs' ≠ [].
   Proof.
     intros [i [j [a (Hi & Hj & Hij)]]] Hnut Hpath.
-    exists (take (j - i) (drop (i + 1) xs)), a.
+    exists (take (j - i + 1) (drop i xs)).
     split.
-    - intros k x y Hx Hy. admit.
-    - intros k x y Hx Hy. admit.
+    {
+      apply no_u_turn_take. apply no_u_turn_drop. done.
+    }
+    split.
+    {
+      apply path_take. apply path_drop. done.
+    }
+    split.
+    {
+      destruct (take _ _ !! _) eqn:E.
+      - apply lookup_take_Some in E. rewrite lookup_drop in E.
+        admit.
+      - admit.
+    }
+    apply take_nonempty. lia. eapply drop_nonempty. done.
   Admitted.
 
   Lemma no_no_uturn_cycles (g : graph A) (xs : list A) (x : A) :
