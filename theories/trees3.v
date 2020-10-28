@@ -1,4 +1,5 @@
 From stdpp Require Import gmap.
+From Coq Require ssreflect.
 
 Definition lookup_mod `{Inhabited A} (i : Z) (xs : list A) : A :=
   xs !!! (Z.to_nat (i `mod` length xs)).
@@ -70,6 +71,9 @@ Proof.
   rewrite Zmod_small in Heq;[discriminate|lia].
 Qed.
 
+Lemma lookup_rev {A} (xs : list A) (i : nat) a : rev xs !! i = Some a -> xs !! (length xs - S i) = Some a.
+Proof. Admitted.
+
 Definition graph A `{Countable A} := gset (A * A).
 
 Section graph.
@@ -91,6 +95,45 @@ Section graph.
     tree_no_self_loops : no_self_loops g;
     tree_no_cycle xs : ¬cycle g xs;
   }.
+  Definition edge (x y : A) : graph A := {[ (x,y); (y,x) ]}.
+
+  Definition path (g : graph A) (xs : list A) := ∀ i a b, xs !! i = Some a -> xs !! (i+1) = Some b -> (a,b) ∈ g.
+
+  Lemma path_rev (g : graph A) (xs : list A) : undirected g -> path g xs <-> path g (rev xs).
+  Proof. Admitted.
+
+  Lemma path_app (g : graph A) (xs ys : list A) x : path g (xs ++ [x]) -> path g ([x] ++ ys) <-> path g (xs ++ [x] ++ ys).
+  Proof. Admitted.
+
+  Definition connected g a b := ∃ (p : list A), path g ([a] ++ p ++ [b]).
+
+  Lemma connected_sym g a b : undirected g -> connected g a b -> connected g b a.
+  Proof.
+    intros Hu [p Hp]. rewrite path_rev in Hp; eauto.
+    exists (rev p).
+    replace (rev ([a] ++ p ++ [b])) with ([b] ++ rev p ++ [a]) in Hp; eauto.
+    rewrite rev_app_distr. rewrite rev_app_distr; simpl. done.
+  Qed.
+
+  Lemma connected_trans g a b c : connected g a b -> connected g b c -> connected g a c.
+  Proof.
+    intros [p Hp] [q Hq].
+    unfold connected.
+    exists (p ++ [b] ++ q).
+    replace ([a] ++ (p ++ [b] ++ q) ++ [c]) with (([a] ++ p) ++ [b] ++ (q ++ [c])).
+    rewrite<- path_app; eauto.
+    by rewrite !app_assoc.
+  Qed.
+
+  Lemma disconnect_trees g a b : tree g -> (a,b) ∈ g -> ¬ connected (g ∖ edge a b) a b.
+  Proof. Admitted.
+
+  Lemma connect_trees g a b : tree g -> ¬ connected g a b -> tree (g ∪ edge a b).
+  Proof. Admitted.
+
+  Lemma tree_anti_mon g g' : g ⊆ g' -> tree g' -> tree g.
+  Proof. Admitted.
+
   Lemma undirected_empty : undirected ∅.
   Proof. unfold undirected. set_solver. Qed.
   Lemma no_self_loops_empty : no_self_loops ∅.
@@ -107,30 +150,32 @@ Section graph.
   Qed.
   Definition lone (x : A) (g : graph A) :=
     ∀ y, (x,y) ∉ g.
-  Definition graph_singleton (x y : A) : graph A := {[ (x,y); (y,x) ]}.
-  Lemma graph_singleton_elem (x y a b : A) :
-    (a,b) ∈ graph_singleton x y <-> (a = x ∧ b = y) ∨ (a = y) ∧ (b = x).
-  Proof. unfold graph_singleton. set_solver. Qed.
-  Lemma graph_singleton_sym (x y : A) :
-    graph_singleton x y = graph_singleton y x.
-  Proof. unfold graph_singleton. set_solver. Qed.
-  Lemma graph_singleton_elem_1 (x y z : A) :
-    (y,z) ∈ graph_singleton x y → z = x.
-  Proof. unfold graph_singleton. set_solver. Qed.
-  Lemma graph_singleton_elem_2 (x y z : A) :
-    (z,y) ∈ graph_singleton x y → z = x.
-  Proof. unfold graph_singleton. set_solver. Qed.
+
+
+
+  Lemma edge_elem (x y a b : A) :
+    (a,b) ∈ edge x y <-> (a = x ∧ b = y) ∨ (a = y) ∧ (b = x).
+  Proof. unfold edge. set_solver. Qed.
+  Lemma edge_sym (x y : A) :
+    edge x y = edge y x.
+  Proof. unfold edge. set_solver. Qed.
+  Lemma edge_elem_1 (x y z : A) :
+    (y,z) ∈ edge x y → z = x.
+  Proof. unfold edge. set_solver. Qed.
+  Lemma edge_elem_2 (x y z : A) :
+    (z,y) ∈ edge x y → z = x.
+  Proof. unfold edge. set_solver. Qed.
   Lemma undirected_extend (x y : A) (g : graph A) :
-    undirected g → undirected (g ∪ graph_singleton x y).
-  Proof. unfold undirected, graph_singleton. set_solver. Qed.
+    undirected g → undirected (g ∪ edge x y).
+  Proof. unfold undirected, edge. set_solver. Qed.
   Lemma no_self_loops_extend (x y : A) (g : graph A) :
     x ≠ y →
-    no_self_loops g → no_self_loops (g ∪ graph_singleton x y).
-  Proof. unfold no_self_loops, graph_singleton. set_solver. Qed.
+    no_self_loops g → no_self_loops (g ∪ edge x y).
+  Proof. unfold no_self_loops, edge. set_solver. Qed.
   Lemma cycle_extend (x y : A) (g : graph A) xs :
     undirected g →
     x ≠ y → lone y g →
-    cycle (g ∪ graph_singleton x y) xs →
+    cycle (g ∪ edge x y) xs →
     cycle g xs.
   Proof.
     intros Hundir Hneq Hlone [Hlen Hnodup Hcycle].
@@ -144,7 +189,7 @@ Section graph.
         specialize (Hcycle i).
         apply elem_of_union in Hcycle as [].
         - specialize (Hlone (lookup_mod (i+1) xs)). set_solver.
-        - rewrite-> Helem in *. eapply graph_singleton_elem_1; done.
+        - rewrite-> Helem in *. eapply edge_elem_1; done.
       }
       assert (lookup_mod (i-1) xs = x).
       {
@@ -153,7 +198,7 @@ Section graph.
         apply elem_of_union in Hcycle as [].
         - specialize (Hlone (lookup_mod (i-1) xs)).
           unfold undirected in *.  set_solver.
-        - rewrite-> Helem in *. eapply graph_singleton_elem_2; done.
+        - rewrite-> Helem in *. eapply edge_elem_2; done.
       }
       subst. eapply uturn_has_dup; (done || lia).
     }
@@ -161,14 +206,14 @@ Section graph.
     intros i.
     specialize (Hcycle i).
     apply elem_of_union in Hcycle as []; auto.
-    unfold graph_singleton in *.
+    unfold edge in *.
     unfold lookup_edge in *.
     set_solver by eauto using elem_of_list_lookup_mod_r with lia.
   Qed.
 
   Lemma tree_extend (x y : A) (g : graph A) :
     x ≠ y → lone y g →
-    tree g → tree (g ∪ graph_singleton x y).
+    tree g → tree (g ∪ edge x y).
   Proof.
     intros ?? [].
     split; eauto using undirected_extend, no_self_loops_extend.
@@ -178,19 +223,19 @@ Section graph.
 
   Lemma undirected_delete (x y : A) (g : graph A) :
     undirected g ->
-    undirected (g ∖ graph_singleton x y).
+    undirected (g ∖ edge x y).
   Proof.
     intros Hundir a b.
     rewrite !elem_of_difference.
     intros [].
     split.
     - by apply Hundir.
-    - unfold graph_singleton in *. set_solver.
+    - unfold edge in *. set_solver.
   Qed.
 
   Lemma no_self_loops_delete (x y : A) (g : graph A) :
     x ≠ y -> no_self_loops g ->
-    no_self_loops (g ∖ graph_singleton x y).
+    no_self_loops (g ∖ edge x y).
   Proof.
     intros Hneq Hsl a [H1 ?]%elem_of_difference.
     apply Hsl in H1 as [].
@@ -346,7 +391,7 @@ Section graph.
   Qed.
 
   Lemma cycle_edge_unused (g : graph A) (x y : A) (xs : list A) :
-    cycle (g ∪ graph_singleton x y) xs ->
+    cycle (g ∪ edge x y) xs ->
     (∀ i, lookup_edge i xs = (x,y) ∨ lookup_edge i xs = (y,x) -> False) ->
     cycle g xs.
   Proof.
@@ -356,7 +401,7 @@ Section graph.
     destruct cycle_cycle0. done.
     exfalso. apply (Hi i).
     unfold lookup_edge in *.
-    rewrite graph_singleton_elem in *.
+    rewrite edge_elem in *.
     naive_solver.
   Qed.
 
@@ -508,7 +553,7 @@ Section graph.
   Lemma no_cycle_modify (x y z : A) (xs : list A) (g : graph A) :
     x ≠ z -> y ≠ z ->
     tree g -> (x,y) ∈ g -> (x,z) ∈ g ->
-    ¬ cycle (g ∖ graph_singleton x z ∪ graph_singleton y z) xs.
+    ¬ cycle (g ∖ edge x z ∪ edge y z) xs.
   Proof.
     intros Hxneqz Hyneqz [] Hxyg Hxzg Hcycle.
     assert (Decision (∃ i,
@@ -553,7 +598,7 @@ Section graph.
     revert xs x y z.
     cut (∀ (xs : list A) (x y z : A) (i : Z),
       lookup_edge i xs = (z, y)
-      → cycle (g ∖ graph_singleton x z ∪ graph_singleton y z) xs
+      → cycle (g ∖ edge x z ∪ edge y z) xs
       → (x, z) ∈ g
       → (x, y) ∈ g
       → (∀ xs0 : list A, ¬ cycle g xs0)
@@ -574,7 +619,7 @@ Section graph.
     cut (∀ (xs : list A) (x y z : A) (i : Z),
       x ∉ xs
       → lookup_edge i xs = (z, y)
-      → cycle (g ∖ graph_singleton x z ∪ graph_singleton y z) xs
+      → cycle (g ∖ edge x z ∪ edge y z) xs
       → (x, z) ∈ g
       → (x, y) ∈ g
       → (∀ xs0 : list A, ¬ cycle g xs0)
@@ -607,8 +652,8 @@ Section graph.
         rewrite elem_of_union in cycle_cycle0.
         rewrite elem_of_difference in cycle_cycle0.
         destruct cycle_cycle0 as [[]|].
-        * rewrite graph_singleton_elem in *. naive_solver.
-        * rewrite graph_singleton_elem in *.
+        * rewrite edge_elem in *. naive_solver.
+        * rewrite edge_elem in *.
           assert (x = y). naive_solver.
           eapply tree_no_self_loops0. subst. eauto.
       + apply NoDup_delete_mod. done.
@@ -626,7 +671,7 @@ Section graph.
   Lemma tree_modify (x y z : A) (g : graph A) :
     x ≠ z -> y ≠ z ->
     tree g -> (x,y) ∈ g -> (x,z) ∈ g ->
-    tree ((g ∖ graph_singleton x z) ∪ graph_singleton y z).
+    tree ((g ∖ edge x z) ∪ edge y z).
   Proof.
     intros ?? [] ??.
     constructor.
@@ -637,14 +682,14 @@ Section graph.
   Qed.
 
   Lemma tree_delete (x y : A) (g : graph A) :
-    tree g -> tree (g ∖ graph_singleton x y).
+    tree g -> tree (g ∖ edge x y).
   Proof.
     intros []. constructor.
     - intros ???.
       rewrite elem_of_difference in *.
       split.
       + apply tree_undirected0. naive_solver.
-      + unfold graph_singleton in *. set_solver.
+      + unfold edge in *. set_solver.
     - intros ??.
       rewrite elem_of_difference in H1.
       eapply tree_no_self_loops0. naive_solver.
@@ -812,7 +857,7 @@ Section graph.
   Lemma no_uturn_path_to_cycle (g : graph A) (xs : list A) :
     (∃ i j a, xs !! i = Some a ∧ xs !! j = Some a ∧ i < j) ->
     no_u_turn xs -> path g xs ->
-    ∃ xs', no_u_turn xs' ∧ path g xs' ∧ xs' !! 0 = xs' !! (length xs' - 1) ∧ xs' ≠ [].
+    ∃ xs', no_u_turn xs' ∧ path g xs' ∧ xs' !! 0 = xs' !! (length xs' - 1) ∧ length xs' >= 2.
   Proof.
     intros [i [j [a (Hi & Hj & Hij)]]] Hnut Hpath.
     exists (take (j - i + 1) (drop i xs)).
@@ -826,13 +871,35 @@ Section graph.
     }
     split.
     {
-      destruct (take _ _ !! _) eqn:E.
-      - apply lookup_take_Some in E. rewrite lookup_drop in E.
-        admit.
-      - admit.
+      rewrite lookup_take; [|lia].
+      rewrite lookup_take; [|rewrite take_length, drop_length; lia].
+      rewrite lookup_drop.
+      rewrite lookup_drop.
+      replace (i+0) with i by lia.
+      rewrite Hi.
+      rewrite take_length, drop_length.
+      replace (i + ((j - i + 1) `min` (length xs - i) - 1)) with j.
+      { by rewrite Hj. }
+      assert (j - i + 1 <= length xs - i). {
+        apply lookup_lt_Some in Hj. lia.
+      }
+      lia.
     }
-    apply take_nonempty. lia. eapply drop_nonempty. done.
-  Admitted.
+    rewrite take_length. rewrite drop_length.
+    apply lookup_lt_Some in Hi.
+    apply lookup_lt_Some in Hj. lia.
+  Qed.
+
+  Lemma drop_take_app (xs : list A) n :
+    xs = take n xs ++ drop n xs.
+  Proof.
+    revert n; induction xs; simpl; intros.
+    - destruct n; simpl; done.
+    - destruct n; simpl; try done.
+      f_equiv. eauto.
+  Qed.
+
+  Lemma no_u_turn_path_to_NoDup_path.
 
   Lemma no_no_uturn_cycles (g : graph A) (xs : list A) (x : A) :
     tree g -> path g ([x] ++ xs ++ [x]) ->
