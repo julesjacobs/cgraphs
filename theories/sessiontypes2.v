@@ -1,24 +1,13 @@
-(* tid := nat
-obj : Type
-obj := loc * loc
-
-blocked : tid → option obj
-safe : obj → option tid
-
-(∃ t, blocked t = Some w) → is_Some (safe w)
-safe w = Some t → blocked t ≠ Some w
-blocked t = None → reducible (es !! i) *)
-
 From iris.proofmode Require Import base tactics classes.
 
-Definition loc := nat.
+Definition chan := nat.
 
 (*
-We have a heap of channel buffers indexed by loc's (e.g. natural numbers).
+We have a heap of channel buffers indexed by chan's (e.g. natural numbers).
 We represent a channel as a natural number and a boolean for the polarity of the endpoint
 Each party will put its messages in one buffer and read from the other
 *)
-Definition chan := (loc * bool)%type.
+Definition endpoint := (chan * bool)%type.
 
 (*
 We have a lambda calculus-based language with natural numbers, closures, and unit.
@@ -29,7 +18,7 @@ Inductive val :=
     | Nat : nat -> val
     | Pair : val -> val -> val
     | Fun : string -> expr -> val
-    | Chan : chan -> val
+    | Chan : endpoint-> val
 
 with expr :=
     | Val : val -> expr
@@ -68,21 +57,18 @@ Fixpoint dual ct :=
     | RecvT c ct => SendT c (dual ct)
     end.
 
-Definition heapT := gmap chan chan_type.
-
-Definition disj_union {A B : Type} `{EqDecision A, Countable A}
-  (a b c : gmap A B) := b ##ₘ c ∧ a = b ∪ c.
+Definition heapT := gmap endpoint chan_type.
 
 Inductive val_typed : heapT -> val -> type -> Prop :=
     | Unit_typed :
         val_typed ∅ Unit UnitT
     | Nat_typed : ∀ n,
         val_typed ∅ (Nat n) NatT
-    | Pair_typed : ∀ a b aT bT Σ Σ1 Σ2,
-        disj_union Σ Σ1 Σ2 ->
+    | Pair_typed : ∀ a b aT bT Σ1 Σ2,
+        Σ1 ##ₘ Σ2 ->
         val_typed Σ1 a aT ->
         val_typed Σ2 b bT ->
-        val_typed Σ (Pair a b) (PairT aT bT)
+        val_typed (Σ1 ∪ Σ2) (Pair a b) (PairT aT bT)
     | Fun_typed : ∀ Σ x e a b,
         typed Σ {[ x := a ]} e b ->
         val_typed Σ (Fun x e) (FunT a b)
@@ -95,53 +81,54 @@ with typed : heapT -> envT -> expr -> type -> Prop :=
         typed Σ ∅ (Val v) t
     | Var_typed : ∀ x t,
         typed ∅ {[ x := t ]} (Var x) t
-    | App_typed : ∀ Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 t1 t2,
-        disj_union Σ Σ1 Σ2 ->
-        disj_union Γ Γ1 Γ2 ->
+    | App_typed : ∀ Σ1 Σ2 Γ1 Γ2 e1 e2 t1 t2,
+        Σ1 ##ₘ Σ2 ->
+        Γ1 ##ₘ Γ2 ->
         typed Σ1 Γ1 e1 (FunT t1 t2) ->
         typed Σ2 Γ2 e2 t1 ->
-        typed Σ Γ (App e1 e2) t2
-    | Lam_typed : ∀ Σ Γ Γ' x e t1 t2,
-        disj_union Γ' Γ {[ x := t1 ]} ->
-        typed Σ Γ' e t2 ->
+        typed (Σ1 ∪ Σ2) (Γ1 ∪ Γ2) (App e1 e2) t2
+    | Lam_typed : ∀ Σ Γ x e t1 t2,
+        Γ !! x = None ->
+        typed Σ (Γ ∪ {[ x := t1 ]}) e t2 ->
         typed Σ Γ (Lam x e) (FunT t1 t2)
-    | Send_typed : ∀ Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 t r,
-        disj_union Σ Σ1 Σ2 ->
-        disj_union Γ Γ1 Γ2 ->
+    | Send_typed : ∀ Σ1 Σ2 Γ1 Γ2 e1 e2 t r,
+        Σ1 ##ₘ Σ2 ->
+        Γ1 ##ₘ Γ2 ->
         typed Σ1 Γ1 e1 (ChanT (SendT t r)) ->
         typed Σ2 Γ2 e2 t ->
-        typed Σ Γ (Send e1 e2) (ChanT r)
+        typed (Σ1 ∪ Σ2) (Γ1 ∪ Γ2) (Send e1 e2) (ChanT r)
     | Recv_typed : ∀ Σ Γ e t r,
         typed Σ Γ e (ChanT (RecvT t r)) ->
         typed Σ Γ (Recv e) (PairT t (ChanT r))
-    | Let_typed : ∀ Σ Σ1 Σ2 Γ Γ1 Γ2 Γ2' e1 e2 t1 t2 x,
-        disj_union Σ Σ1 Σ2 ->
-        disj_union Γ Γ1 Γ2 ->
-        disj_union Γ2' Γ2 {[ x := t1 ]} ->
+    | Let_typed : ∀ Σ1 Σ2 Γ1 Γ2 e1 e2 t1 t2 x,
+        Σ1 ##ₘ Σ2 ->
+        Γ1 ##ₘ Γ2 ->
+        Γ2 !! x = None ->
         typed Σ1 Γ1 e1 t1 ->
-        typed Σ2 Γ2' e2 t2 ->
-        typed Σ Γ (Let x e1 e2) t2
-    | LetUnit_typed : ∀ Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 t,
-        disj_union Σ Σ1 Σ2 ->
-        disj_union Γ Γ1 Γ2 ->
+        typed Σ2 (Γ2 ∪ {[ x := t1 ]}) e2 t2 ->
+        typed (Σ1 ∪ Σ2) (Γ1 ∪ Γ2) (Let x e1 e2) t2
+    | LetUnit_typed : ∀ Σ1 Σ2 Γ1 Γ2 e1 e2 t,
+        Σ1 ##ₘ Σ2 ->
+        Γ1 ##ₘ Γ2 ->
         typed Σ1 Γ1 e1 UnitT ->
         typed Σ2 Γ2 e2 t ->
-        typed Σ Γ (LetUnit e1 e2) t
-    | LetProd_typed : ∀ Σ Σ1 Σ2 Γ Γ1 Γ2 Γ2' e1 e2 t11 t12 t2 x1 x2,
-        disj_union Σ Σ1 Σ2 ->
-        disj_union Γ Γ1 Γ2 ->
+        typed (Σ1 ∪ Σ2) (Γ1 ∪ Γ2) (LetUnit e1 e2) t
+    | LetProd_typed : ∀ Σ1 Σ2 Γ1 Γ2 e1 e2 t11 t12 t2 x1 x2,
+        Σ1 ##ₘ Σ2 ->
+        Γ1 ##ₘ Γ2 ->
         x1 ≠ x2 ->
-        disj_union Γ2' Γ2 (<[ x1 := t11 ]> {[ x2 := t12 ]}) ->
+        Γ2 !! x1 = None ->
+        Γ2 !! x2 = None ->
         typed Σ1 Γ1 e1 (PairT t11 t12) ->
-        typed Σ2 Γ2' e2 t2 ->
-        typed Σ Γ (LetProd x1 x2 e1 e2) t2
-    | If_typed : ∀ Σ Σ1 Σ2 Γ Γ1 Γ2 e1 e2 e3 t,
-        disj_union Σ Σ1 Σ2 ->
-        disj_union Γ Γ1 Γ2 ->
+        typed Σ2 (Γ2 ∪ {[ x1 := t11 ]} ∪ {[ x2 := t12 ]}) e2 t2 ->
+        typed (Σ1 ∪ Σ2) (Γ1 ∪ Γ2) (LetProd x1 x2 e1 e2) t2
+    | If_typed : ∀ Σ1 Σ2 Γ1 Γ2 e1 e2 e3 t,
+        Σ1 ##ₘ Σ2 ->
+        Γ1 ##ₘ Γ2 ->
         typed Σ1 Γ1 e1 NatT ->
         typed Σ2 Γ2 e2 t ->
         typed Σ2 Γ2 e3 t ->
-        typed Σ Γ (If e1 e2 e3) t
+        typed (Σ1 ∪ Σ2) (Γ1 ∪ Γ2) (If e1 e2 e3) t
     | Fork_typed : ∀ Σ Γ e ct,
         typed Σ Γ e (FunT (ChanT (dual ct)) UnitT) ->
         typed Σ Γ (Fork e) (ChanT ct)
@@ -166,19 +153,183 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   | Close e1 => Close (subst x a e1)
   end.
 
-Definition lookup_recv (h : heap) (c : chan) : option (list val) :=
+Lemma typed_no_var_subst e Γ Σ t x v :
+  Γ !! x = None ->
+  typed Σ Γ e t ->
+  subst x v e = e.
+Proof.
+  intros Heq Ht.
+  induction Ht; simpl; try case_decide; simplify_eq;
+  eauto; first simplify_map_eq; f_equal/=;
+  try (apply lookup_union_None in Heq as []; eauto);
+  try eapply IHHt2; try eapply IHHt; eauto;
+  rewrite !lookup_union !lookup_singleton_ne; eauto;
+  rewrite ?Heq ?H4 ?H6; eauto.
+Qed.
+
+Lemma lookup_union_Some' `{Countable K} {V} (A B : gmap K V) x v :
+  A ##ₘ B ->
+  (A ∪ B) !! x = Some v ->
+  (A !! x = Some v ∧ B !! x = None) ∨ (B !! x = Some v ∧ A !! x = None).
+Proof.
+  intros Hdisj Hl.
+  apply lookup_union_Some in Hl as []; eauto; [left | right]; split; eauto;
+  rewrite ->map_disjoint_alt in Hdisj; specialize (Hdisj x);
+  destruct (A !! x); naive_solver.
+Qed.
+
+Lemma send_to_l `{Countable K} {V} (A X Y : gmap K V) :
+  A ##ₘ X ->
+  A ∪ (X ∪ Y) = (A ∪ X) ∪ Y.
+Proof.
+  intros Hdisj.
+  by rewrite !assoc.
+Qed.
+
+Lemma send_to_r `{Countable K} {V} (A X Y : gmap K V) :
+  A ##ₘ X ->
+  A ∪ (X ∪ Y) = X ∪ (A ∪ Y).
+Proof.
+  intros Hdisj.
+  rewrite !assoc.
+  rewrite (map_union_comm A); solve_map_disjoint.
+Qed.
+
+Lemma subst_typed Σv Σe Γ e eT v vT x :
+  Σv ##ₘ Σe ->
+  Γ !! x = Some vT ->
+  val_typed Σv v vT ->
+  typed Σe Γ e eT ->
+  typed (Σv ∪ Σe) (delete x Γ) (subst x v e) eT.
+Proof.
+  intros DΣ DΓ Hv Ht. induction Ht; simpl.
+  - apply lookup_empty_Some in DΓ as [].
+  - apply lookup_singleton_Some in DΓ as [-> ->].
+    rewrite delete_singleton. rewrite decide_True; eauto.
+    rewrite right_id. by constructor.
+  - apply lookup_union_Some' in DΓ as [[]|[]]; last done.
+    + erewrite (typed_no_var_subst e2); eauto.
+      rewrite delete_union (delete_notin Γ2); eauto.
+      rewrite send_to_l; last solve_map_disjoint.
+      econstructor; eauto; solve_map_disjoint.
+    + erewrite (typed_no_var_subst e1); eauto.
+      rewrite delete_union (delete_notin Γ1); eauto.
+      rewrite send_to_r; last solve_map_disjoint.
+      econstructor; eauto; solve_map_disjoint.
+  - assert (x ≠ x0) by naive_solver.
+    rewrite decide_False; last done.
+    rewrite delete_union in IHHt.
+    rewrite delete_singleton_ne in IHHt; last done.
+    econstructor.
+    + rewrite lookup_delete_ne; done.
+    + eapply IHHt; first solve_map_disjoint.
+      by apply lookup_union_Some_l.
+  - apply lookup_union_Some' in DΓ as [[]|[]]; last done.
+    + erewrite (typed_no_var_subst e2); eauto.
+      rewrite delete_union (delete_notin Γ2); eauto.
+      rewrite send_to_l; last solve_map_disjoint.
+      econstructor; eauto; solve_map_disjoint.
+    + erewrite (typed_no_var_subst e1); eauto.
+      rewrite delete_union (delete_notin Γ1); eauto.
+      rewrite send_to_r; last solve_map_disjoint.
+      econstructor; eauto; solve_map_disjoint.
+  - econstructor; eauto.
+  - apply lookup_union_Some' in DΓ as [[]|[]]; last done.
+    + (* Goes to e1 *)
+      case_decide.
+      * (* Shadowing: var that is being substituted is
+           the same as the var in the let *)
+        symmetry in H4. subst.
+        rewrite delete_union (delete_notin Γ2); eauto.
+        rewrite send_to_l; last solve_map_disjoint.
+      econstructor; eauto; solve_map_disjoint.
+      * erewrite (typed_no_var_subst e2); last eauto.
+        2: { apply lookup_union_None; eauto.
+          split; eauto.
+          apply lookup_singleton_ne; done. }
+      rewrite delete_union (delete_notin Γ2); eauto.
+      rewrite send_to_l; last solve_map_disjoint.
+      econstructor; eauto; solve_map_disjoint.
+    + (* Goes to e2 *)
+      erewrite (typed_no_var_subst e1); eauto.
+      assert (x ≠ x0) by naive_solver.
+      rewrite decide_False; eauto.
+      rewrite delete_union (delete_notin Γ1); eauto.
+      rewrite send_to_r; last solve_map_disjoint.
+      econstructor; eauto; try solve_map_disjoint.
+      * rewrite lookup_delete_ne; eauto.
+      * rewrite delete_union in IHHt2. rewrite delete_singleton_ne in IHHt2; eauto.
+        eapply IHHt2; try solve_map_disjoint.
+        by apply lookup_union_Some_l.
+  - apply lookup_union_Some' in DΓ as [[]|[]]; last done.
+    + erewrite (typed_no_var_subst e2); eauto.
+      rewrite delete_union (delete_notin Γ2); eauto.
+      rewrite send_to_l; last solve_map_disjoint.
+      econstructor; eauto; solve_map_disjoint.
+    + erewrite (typed_no_var_subst e1); eauto.
+      rewrite delete_union (delete_notin Γ1); eauto.
+      rewrite send_to_r; last solve_map_disjoint.
+      econstructor; eauto; solve_map_disjoint.
+  - apply lookup_union_Some' in DΓ as [[]|[]]; last done.
+    + (* Goes to e1 *)
+      case_decide.
+      * (* Shadowing: var that is being substituted is
+          the same as the var in the let *)
+        symmetry in H4. subst.
+        rewrite delete_union (delete_notin Γ2); eauto.
+        rewrite send_to_l; last solve_map_disjoint.
+        econstructor; eauto; solve_map_disjoint.
+      * erewrite (typed_no_var_subst e2); last eauto.
+        2: {
+          apply lookup_union_None. split.
+          - apply lookup_union_None. split; eauto.
+            apply lookup_singleton_ne; eauto.
+          - apply lookup_singleton_ne; eauto.
+        }
+        rewrite delete_union (delete_notin Γ2); eauto.
+        rewrite send_to_l; last solve_map_disjoint.
+        econstructor; eauto; solve_map_disjoint.
+    + (* Goes to e2 *)
+      erewrite (typed_no_var_subst e1); eauto.
+      assert (x ≠ x1) by naive_solver.
+      assert (x ≠ x2) by naive_solver.
+      rewrite decide_False; last naive_solver.
+      rewrite delete_union (delete_notin Γ1); eauto.
+      rewrite send_to_r; last solve_map_disjoint.
+      econstructor; eauto; try solve_map_disjoint.
+      * rewrite lookup_delete_ne; eauto.
+      * rewrite lookup_delete_ne; eauto.
+      * rewrite !delete_union in IHHt2. rewrite !delete_singleton_ne in IHHt2; eauto.
+        eapply IHHt2; try solve_map_disjoint.
+        apply lookup_union_Some_l.
+        apply lookup_union_Some_l. done.
+  - apply lookup_union_Some' in DΓ as [[]|[]]; last done.
+    + erewrite (typed_no_var_subst e2); eauto.
+      erewrite (typed_no_var_subst e3); eauto.
+      rewrite delete_union (delete_notin Γ2); eauto.
+      rewrite send_to_l; last solve_map_disjoint.
+      econstructor; eauto; try solve_map_disjoint.
+    + erewrite (typed_no_var_subst e1); eauto.
+      rewrite delete_union (delete_notin Γ1); eauto.
+      rewrite send_to_r; last solve_map_disjoint.
+      econstructor; eauto; solve_map_disjoint.
+  - econstructor; eauto.
+  - econstructor; eauto.
+Qed.
+
+Definition lookup_recv (h : heap) (c : endpoint) : option (list val) :=
   h !! c.1 ≫= λ '(x,y), Some (if c.2 then x else y).
 
-Definition lookup_send (h : heap) (c : chan) : option (list val) :=
+Definition lookup_send (h : heap) (c : endpoint) : option (list val) :=
   h !! c.1 ≫= λ '(x,y), Some (if c.2 then y else x).
 
-Definition set_recv (h : heap) (c : chan) (buf : list val) : heap :=
+Definition set_recv (h : heap) (c : endpoint) (buf : list val) : heap :=
   let (l,b) := c in
   match h !! l with
   | Some (x,y) => <[ l := if b then (buf,y) else (x,buf) ]> h
   | None => h
   end.
-Definition set_send (h : heap) (c : chan) (buf : list val) : heap :=
+Definition set_send (h : heap) (c : endpoint) (buf : list val) : heap :=
   let (l,b) := c in
   match h !! l with
   | Some (x,y) => <[ l := if b then (x,buf) else (buf,y) ]> h
@@ -319,29 +470,24 @@ Inductive all_values : list expr -> Prop :=
     | AV_cons : ∀ es v, all_values es -> all_values (Val v :: es).
     (* TODO: add case for waiting on Recv on an empty buffer for now *)
 
+(* TODO: rethink bufs_typed and the invariant *)
+
 Definition disjoint (xs : list heapT) :=
     forall i j h1 h2, i ≠ j ->
         xs !! i = Some h1 -> xs !! j = Some h2 -> h1 ##ₘ h2.
 
-Fixpoint disjoint_union {A B : Type} `{Countable A}
-                        (x : gmap A B) (ys : list (gmap A B)) :=
-    match ys with
-    | [] => x = ∅
-    | y::ys' => ∃ x', disj_union x x' y ∧ disjoint_union x' ys'
-    end.
-
 Inductive bufs_typed : heapT * list val * chan_type -> heapT * list val * chan_type -> Prop :=
   | BT_emp : ∀ ct, bufs_typed (∅, [], ct) (∅, [], dual ct)
-  | BT_consL : ∀ Σ Σ1 Σ2 v vT vs ct c,
-    disj_union Σ Σ1 Σ2 ->
+  | BT_consL : ∀ Σ1 Σ2 v vT vs ct c,
+    Σ1 ##ₘ Σ2 ->
     val_typed Σ1 v vT ->
     bufs_typed (Σ2, vs, ct) (∅, [], c) ->
-    bufs_typed (Σ, v::vs, ct) (∅, [], RecvT vT c)
-  | BT_consR : ∀ Σ Σ1 Σ2 v vT vs ct c,
-    disj_union Σ Σ1 Σ2 ->
+    bufs_typed (Σ1 ∪ Σ2, v::vs, ct) (∅, [], RecvT vT c)
+  | BT_consR : ∀ Σ1 Σ2 v vT vs ct c,
+    Σ1 ##ₘ Σ2 ->
     val_typed Σ1 v vT ->
     bufs_typed (∅, [], c) (Σ2, vs, ct) ->
-    bufs_typed (∅, [], RecvT vT c) (Σ, v::vs, ct).
+    bufs_typed (∅, [], RecvT vT c) (Σ1 ∪ Σ2, v::vs, ct).
 
 Definition invariant (es : list expr) (h : heap) : Prop :=
   ∃ (Σ : heapT) (Σs : list heapT) (Σh1 Σh2 : list heapT),
@@ -369,168 +515,6 @@ Proof.
   - repeat (split;eauto). intros.
     by apply lookup_empty_Some in H.
 Qed.
-
-Lemma disj_union_positive {A B : Type} `{Countable A} (x y : gmap A B) : disj_union ∅ x y -> x = ∅ ∧ y = ∅.
-Proof.
-  unfold disj_union.
-  intros [Hd Hu]. symmetry in Hu. split.
-  - by apply map_positive_l in Hu.
-  - by rewrite map_union_comm in Hu; first apply map_positive_l in Hu.
-Qed.
-
-Lemma disj_union_empty_r {A B : Type} `{Countable A} (x y : gmap A B) : disj_union x y ∅ <-> x = y.
-Proof.
-  unfold disj_union.
-  rewrite right_id; split.
-  - naive_solver.
-  - intros H'. split; auto. apply map_disjoint_empty_r.
-Qed.
-
-Lemma disj_union_sym {A B : Type} `{Countable A} (x y z : gmap A B) : disj_union x y z <-> disj_union x z y.
-Proof.
-  unfold disj_union. split; intros []; split; try (symmetry; done); subst; rewrite map_union_comm; eauto.
-Qed.
-
-Lemma disj_union_singleton_r {A B : Type} `{Countable A} (x : gmap A B) k v k' v' :
-  disj_union {[k := v]} x {[k' := v']} -> x = ∅ ∧ k = k' ∧ v = v'.
-Proof.
-  intros [Hd Hx]. pose proof (f_equal (.!! k') Hx); simplify_map_eq.
-  split; [|done]. apply map_empty; intros k''. apply eq_None_not_Some; intros [y ?].
-  apply (f_equal (.!! k'')) in Hx; simplify_map_eq.
-Qed.
-
-(* Lemma disj_union_singleton_case {A B : Type} `{Countable A} {Γ' Γ Γ1 Γ2 : gmap A B} {x vT} :
-  disj_union Γ' Γ {[x := vT]} ->
-  disj_union Γ' Γ1 Γ2 ->
-  (∃ Γ1', disj_union Γ1 Γ1' {[ x := vT ]}) ∨ (∃ Γ2', disj_union Γ2 Γ2' {[ x:= vT ]}).
-Proof.
-Admitted.
-*)
-
-Lemma disj_union_assoc_l {A B : Type} `{Countable A} {Σ123 Σ23 Σ1 Σ2 Σ3 : gmap A B} :
-  disj_union Σ123 Σ1 Σ23 ->
-  disj_union Σ23 Σ2 Σ3 ->
-  disj_union Σ123 (Σ1 ∪ Σ2) Σ3.
-Proof.
-Admitted.
-
-Lemma disj_union_assoc_r {A B : Type} `{Countable A} {Σ123 Σ23 Σ1 Σ2 Σ3 : gmap A B} :
-  disj_union Σ123 Σ1 Σ23 ->
-  disj_union Σ23 Σ2 Σ3 ->
-  disj_union (Σ1 ∪ Σ2) Σ1 Σ2.
-Proof.
-Admitted.
-
-
-Lemma disj_union_lookup_None_l {A B : Type} `{Countable A} {Γ Γ1 Γ2 : gmap A B} x :
-  disj_union Γ Γ1 Γ2 ->
-  Γ !! x = None ->
-  Γ1 !! x = None.
-Proof.
-  unfold disj_union; intros [? ->] ?. apply lookup_union_None in H1. by destruct H1.
-Qed.
-
-Lemma disj_union_lookup_None_r {A B : Type} `{Countable A} {Γ Γ1 Γ2 : gmap A B} x :
-  disj_union Γ Γ1 Γ2 ->
-  Γ !! x = None ->
-  Γ2 !! x = None.
-Proof.
-  rewrite disj_union_sym. apply disj_union_lookup_None_l.
-Qed.
-
-Lemma typed_no_var_subst e Γ Σ t x v :
-  Γ !! x = None ->
-  typed Σ Γ e t ->
-  subst x v e = e.
-Proof.
-  intros Heq Ht. induction Ht; f_equal/=;
-  eauto using disj_union_lookup_None_l, disj_union_lookup_None_r; case_decide; simplify_map_eq; auto.
-  - f_equal. apply IHHt. destruct H. simplify_map_eq. rewrite lookup_union Heq lookup_singleton_ne; auto.
-  - apply IHHt2. destruct H1. destruct H0. simplify_map_eq. rewrite lookup_union.
-    apply lookup_union_None in Heq. destruct Heq as (_ & ->).
-    rewrite lookup_singleton_ne; auto.
-  - apply IHHt2. destruct H0. destruct H2. simplify_map_eq.
-    rewrite lookup_union. apply lookup_union_None in Heq. destruct Heq as (_ & ->).
-    rewrite lookup_insert_ne; auto. rewrite lookup_singleton_ne; auto.
-Qed.
-
-Lemma disj_union_case {A B : Type} `{Countable A} {Γ Γ0 Γ1 Γ2 : gmap A B} {x v} :
-  disj_union Γ Γ1 Γ2 ->
-  disj_union Γ Γ0 {[x := v]} ->
-  (disj_union Γ1 (delete x Γ1) {[x := v]} ∧ Γ2 !! x = None) ∨
-  (disj_union Γ2 (delete x Γ2) {[x := v]} ∧ Γ1 !! x = None).
-Proof.
-  intros [] []. simplify_map_eq.
-  destruct (Γ1 !! x) eqn:E.
-  - left. split; last eauto using map_disjoint_Some_r.
-    pose proof (f_equal (.!! x) H3). simplify_map_eq. unfold disj_union.
-    rewrite -insert_union_singleton_r; last apply lookup_delete.
-    rewrite insert_delete.
-    rewrite insert_id; auto. split; auto.
-    apply map_disjoint_singleton_r_2.
-    by rewrite lookup_delete.
-  - right. split; auto.
-    pose proof (f_equal (.!! x) H3). simplify_map_eq. unfold disj_union.
-    rewrite -insert_union_singleton_r; last apply lookup_delete.
-    rewrite insert_delete.
-    rewrite insert_id; auto. split; auto.
-    apply map_disjoint_singleton_r_2.
-    by rewrite lookup_delete. apply lookup_union_Some in H1; auto.
-    destruct H1; simplify_eq. auto.
-Qed.
-
-Lemma disj_union_neq {A B : Type} `{Countable A} {Γ Γ' Γ'' : gmap A B} {x1 x2 v1 v2} :
-  disj_union Γ' Γ {[x1 := v1]} ->
-  disj_union Γ'' Γ' {[x2 := v2]} ->
-  x1 ≠ x2 ∧ ∃ Γ2', disj_union Γ2' Γ {[x2 := v2]}.
-Proof.
-  intros [] []. subst. split; first by simplify_map_eq.
-  exists (<[x2 := v2]> Γ).
-  split. solve_map_disjoint. simplify_map_eq. rewrite insert_union_singleton_r; auto.
-Qed.
-
-Lemma subst_typed ΣT Σv Σ ΓT Γ e eT v vT x :
-  disj_union ΣT Σv Σ ->
-  disj_union Γ ΓT {[ x := vT ]} ->
-  val_typed Σv v vT ->
-  typed Σ Γ e eT ->
-  typed ΣT ΓT (subst x v e) eT.
-Proof.
-  intros Ds Dg Hv Ht. revert ΓT ΣT Ds Dg.
-  induction Ht; simpl; intros ΓT ΣT ??.
-  - apply disj_union_positive in Dg as [_ Dg]. apply singleton_non_empty in Dg. by exfalso.
-  - apply disj_union_empty_r in Ds. apply disj_union_singleton_r in Dg as (A & B & C). subst.
-    case_decide; first by constructor. done.
-  - destruct (disj_union_case H0 Dg) as [[]|[]].
-    + erewrite (typed_no_var_subst e2); eauto.
-      econstructor; try eapply IHHt1; last done; last done.
-       eauto.
-       admit.
-    + erewrite (typed_no_var_subst e1); eauto. admit.
-  (*
-  - apply disj_union_positive in Dg as [_ Dg]. apply singleton_non_empty in Dg. by exfalso.
-  - apply disj_union_empty_r in Ds. apply disj_union_singleton_r in Dg as (A & B & C). subst.
-    case_decide; first by constructor. done.
-  - destruct (disj_union_case H0 Dg) as [[]|[]].
-    + erewrite-> (typed_no_var_subst _ _ e2) by done.
-      econstructor; last done; [..|eapply IHHt1]; last done; eauto.
-      * eapply disj_union_assoc_l; eauto.
-      * admit.
-      * admit. (* map reasoning *)
-    + admit. (* symmetric case *)
-  - destruct (disj_union_neq Dg H) as (Heq & Γ1' & Hdisj). rewrite decide_False; last done.
-    econstructor; eauto. eapply IHHt; eauto.
-    destruct H. destruct Dg. destruct Hdisj. subst.
-    split. solve_map_disjoint. rewrite -assoc_L. rewrite (map_union_comm {[x0 := vT]}). rewrite assoc_L. done. solve_map_disjoint.
-  - admit.
-  - constructor. eauto.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - constructor. eauto.
-  - constructor. eauto.
-Admitted. *)
 
 Lemma dual_dual c : dual (dual c) = c.
 Proof.
@@ -655,18 +639,18 @@ Still the same: the (undirected) connectivity graph is acyclic.
 *)
 
 Record connectivity_graph := {
-  thread_outgoing_edges : list (gset loc);
-  channel_outgoing_edges : list (gset loc)
+  thread_outgoing_edges : list (gset chan);
+  channel_outgoing_edges : list (gset chan)
 }.
 
-Fixpoint val_abstract_state (v : val) : gset loc :=
+Fixpoint val_abstract_state (v : val) : gset chan :=
   match v with
   | Unit | Nat _ => ∅
   | Fun _ e => expr_abstract_state e
   | Pair a b => val_abstract_state a ∪ val_abstract_state b
   | Chan (l,_) => {[ l ]}
   end
-with expr_abstract_state (e : expr) : gset loc :=
+with expr_abstract_state (e : expr) : gset chan :=
   match e with
   | Val v => val_abstract_state v
   | Var _ => ∅
@@ -676,7 +660,7 @@ with expr_abstract_state (e : expr) : gset loc :=
   | If a b c => expr_abstract_state a ∪ expr_abstract_state b ∪ expr_abstract_state c
   end.
 
-Definition chan_abstract_state (bufs : list val * list val) : gset loc :=
+Definition chan_abstract_state (bufs : list val * list val) : gset chan :=
   let (buf1,buf2) := bufs in
   union_list ((val_abstract_state <$> buf1) ++ (val_abstract_state <$> buf2)).
 
@@ -684,7 +668,7 @@ Definition compute_abstract_state (es : list expr) (h : heap) : abstract_state :
   (expr_abstract_state <$> es, chan_abstract_state <$> h).
 
 
-Definition node := (nat + loc)%type.
+Definition node := (nat + chan)%type.
 Inductive graph (s : abstract_state) : node -> node -> Prop :=
   | expr_edge : forall E C i o out,
     s = (E,C) -> E !! i = Some out -> o ∈ out -> graph s (inl i) (inr o)

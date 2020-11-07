@@ -1,4 +1,5 @@
 From stdpp Require Import gmap.
+From iris.bi Require Import bi.
 
 Lemma lookup_app_lr {A} (l1 l2 : list A) {i : nat} :
   (l1 ++ l2) !! i = if decide (i < length l1) then l1 !! i else l2 !! (i - length l1).
@@ -26,7 +27,7 @@ Proof.
     exists 0,(S j),x.
     eauto with lia.
   - apply not_Exists_Forall in H2; [|solve_decision].
-    rewrite Forall_forall in H2. simpl in *.
+    rewrite-> Forall_forall in H2. simpl in *.
     assert (x ∈ s).
     { specialize (Hxs 0). naive_solver. }
     assert (∀ i x, xs !! i = Some x -> x ∈ s).
@@ -77,7 +78,7 @@ Qed.
 Lemma in_insert {T} (i : nat) (x a : T) (xs : list T) :
   i ≤ length xs -> (a ∈ insert i x xs <-> a = x ∨ a ∈ xs).
 Proof.
-  revert i; induction xs; intros; destruct i; simpl in *; rewrite ?elem_of_cons, ?IHxs;
+  revert i; induction xs; intros; destruct i; simpl in *; rewrite ->?elem_of_cons, ?IHxs;
   rewrite ?elem_of_cons; naive_solver lia.
 Qed.
 
@@ -121,7 +122,7 @@ Lemma in_delete {A} x i (xs : list A) :
 Proof.
   revert i; induction xs; intros; destruct i; simpl in *;
   eauto; rewrite elem_of_cons; eauto.
-  rewrite elem_of_cons in H.
+  rewrite-> elem_of_cons in H.
   destruct H; eauto.
 Qed.
 
@@ -131,7 +132,7 @@ Proof.
   intro. revert i; induction xs; intros; destruct i; simpl in *; eauto.
   - eapply NoDup_cons_12. done.
   - eapply NoDup_cons_2; eauto using NoDup_cons_12.
-    rewrite list.NoDup_cons in H. intro.
+    rewrite-> list.NoDup_cons in H. intro.
     apply in_delete in H0. naive_solver.
 Qed.
 
@@ -161,9 +162,9 @@ Lemma lookup_reverse {A} i (l : list A) :
 Proof.
   revert i. induction l as [|y l IH]; intros i ?; simplify_eq/=; [done|].
   rewrite reverse_cons. destruct (decide (i = length l)) as [->|].
-  - by rewrite lookup_app_r, reverse_length, Nat.sub_diag
+  - by rewrite ->lookup_app_r, reverse_length, Nat.sub_diag
       by (by rewrite reverse_length).
-  - rewrite lookup_app_l, IH by (rewrite ?reverse_length; lia).
+  - rewrite ->lookup_app_l, IH by (rewrite ?reverse_length; lia).
     by replace (length l - i) with (S (length l - S i)) by lia.
 Qed.
 
@@ -198,4 +199,62 @@ Proof.
   case_decide.
   - rewrite lookup_delete_lt; done.
   - rewrite lookup_delete_ge. done. lia.
+Qed.
+
+Lemma split_first {A} (xs : list A) a :
+  xs !! 0 = Some a -> xs = [a] ++ drop 1 xs.
+Proof.
+  intros. destruct xs; simpl in *; simplify_eq. rewrite drop_0. done.
+Qed.
+
+Lemma last_lookup {A} (xs : list A) :
+  last xs = xs !! (length xs - 1).
+Proof.
+  induction xs; simpl. done.
+  destruct xs; simpl in *. done.
+  rewrite Nat.sub_0_r in IHxs. done.
+Qed.
+
+Lemma split_last {A} (xs : list A) a :
+  last xs = Some a -> xs = take (length xs - 1) xs ++ [a].
+Proof.
+  rewrite last_lookup.
+  intro.
+  assert ([a] = drop (length xs - 1) xs).
+  {
+    induction xs; simpl. simplify_eq.
+    rewrite Nat.sub_0_r.
+    simpl in *. rewrite Nat.sub_0_r in H.
+    destruct xs; simpl in *. simplify_eq. done.
+    rewrite Nat.sub_0_r in IHxs.
+    eauto.
+  }
+  rewrite H0.
+  rewrite take_drop. done.
+Qed.
+
+Lemma last_take {A} i (xs : list A) :
+  i < length xs -> last (take (S i) xs) = xs !! i.
+Proof.
+  intro.
+  rewrite last_lookup.
+  rewrite lookup_take; rewrite take_length.
+  { f_equiv. lia. } lia.
+Qed.
+
+Lemma last_take_Some {A} i (xs : list A) a :
+  xs !! i = Some a -> last (take (S i) xs) = Some a.
+Proof.
+  intro.
+  rewrite last_take; first done.
+  apply lookup_lt_Some in H. done.
+Qed.
+
+Lemma last_drop {A} (xs : list A) i :
+  i < length xs -> last (drop i xs) = last xs.
+Proof.
+  intros Hlt.
+  rewrite !last_lookup.
+  rewrite lookup_drop.
+  f_equiv. rewrite drop_length. lia.
 Qed.

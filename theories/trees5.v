@@ -94,7 +94,8 @@ Section graph.
     intros H1 H2 i x y Hx Hy.
     rewrite !lookup_app_lr in Hx.
     rewrite !lookup_app_lr in Hy.
-    repeat case_decide; simpl in *; try lia; unfold path in *.
+    simpl in *.
+    repeat (case_decide; try lia); unfold path in *.
     - eapply H1; rewrite lookup_app_lr; case_decide; (done || lia).
     - eapply H1; rewrite lookup_app_lr; case_decide; (done || lia).
     - replace (i + 1 - length xs - 1) with (i - length xs) in * by lia.
@@ -392,38 +393,6 @@ Section graph.
     rewrite lookup_drop; rewrite <-?H1, <-?H3; f_equiv; lia.
   Qed.
 
-  Lemma split_first (xs : P) a :
-    xs !! 0 = Some a -> xs = [a] ++ drop 1 xs.
-  Proof.
-    intros. destruct xs; simpl in *; simplify_eq. rewrite drop_0. done.
-  Qed.
-
-  Lemma last_lookup (xs : P) :
-    last xs = xs !! (length xs - 1).
-  Proof.
-    induction xs; simpl. done.
-    destruct xs; simpl in *. done.
-    rewrite Nat.sub_0_r in IHxs. done.
-  Qed.
-
-  Lemma split_last (xs : P) a :
-    last xs = Some a -> xs = take (length xs - 1) xs ++ [a].
-  Proof.
-    rewrite last_lookup.
-    intro.
-    assert ([a] = drop (length xs - 1) xs).
-    {
-      induction xs; simpl. simplify_eq.
-      rewrite Nat.sub_0_r.
-      simpl in *. rewrite Nat.sub_0_r in H1.
-      destruct xs; simpl in *. simplify_eq. done.
-      rewrite Nat.sub_0_r in IHxs.
-      eauto.
-    }
-    rewrite H2.
-    rewrite take_drop. done.
-  Qed.
-
   Lemma connected_alt g a b :
     a≠b ->
       connected g a b <->
@@ -449,32 +418,6 @@ Section graph.
       destruct xs; simpl in *; try lia.
   Qed.
 
-  Lemma last_take i (xs : P) :
-    i < length xs -> last (take (S i) xs) = xs !! i.
-  Proof.
-    intro.
-    rewrite last_lookup.
-    rewrite lookup_take; rewrite take_length.
-    { f_equiv. lia. } lia.
-  Qed.
-
-  Lemma last_take_Some i (xs : P) a :
-    xs !! i = Some a -> last (take (S i) xs) = Some a.
-  Proof.
-    intro.
-    rewrite last_take; first done.
-    apply lookup_lt_Some in H1. done.
-  Qed.
-
-  Lemma last_drop (xs : P) i :
-    i < length xs -> last (drop i xs) = last xs.
-  Proof.
-    intros Hlt.
-    rewrite !last_lookup.
-    rewrite lookup_drop.
-    f_equiv. rewrite drop_length. lia.
-  Qed.
-
   (* Hiding this in a definition is necessary because otherwise the wlog tactic
      will generalize over the Lookup instance.
      This way the wlog tactic can not peek inside the proposition and won't find any
@@ -483,6 +426,21 @@ Section graph.
     ([x] ++ xs ++ [x]) !! i1 = Some a ∧ ([x] ++ xs ++ [x]) !! (i1 + 1) = Some b.
 
   Definition connected0 g a b := (a = b) ∨ connected g a b.
+
+  Lemma path_singleton g b : path g [b].
+  Proof.
+    intros i x y Hx Hy. destruct i; simplify_eq.
+  Qed.
+
+  Lemma connected0_alt g a b :
+    connected0 g a b <->
+    ∃ xs, path g xs ∧ xs !! 0 = Some a ∧ last xs = Some b.
+  Proof.
+    destruct (decide (a = b)).
+    - unfold connected0. split; eauto. intros _. subst.
+      exists [b]. eauto using path_singleton.
+    - unfold connected0. rewrite connected_alt; qed.
+  Qed.
 
   Lemma connected0_sym g a b :
     undirected g -> connected0 g a b -> connected0 g b a.
@@ -499,19 +457,6 @@ Section graph.
     intros []; subst.
     { unfold connected0. eauto. }
     right. eapply connected_trans; done.
-  Qed.
-
-  Lemma connected0_alt g a b :
-    connected0 g a b <->
-    ∃ xs, path g xs ∧ xs !! 0 = Some a ∧ last xs = Some b.
-  Proof.
-    destruct (decide (a=b)).
-    + subst. unfold connected0.
-      split; last qed.
-      intros _. exists [b]. split; last qed.
-      intros i x y Hx Hy.
-      destruct i; qed.
-    + unfold connected0. rewrite connected_alt; last done. qed.
   Qed.
 
   Lemma split_both (xs : P) a :
@@ -1015,6 +960,7 @@ Section graph.
         intros. destruct i; simpl in *; simplify_eq; eauto.
     }
     destruct H1 as (xs & Hpath & Hsize).
+    (* Since the path is longer than the number of vertices, there must be a duplicate vertex in the path *)
     edestruct (pigeon (vertices g) (x::xs)) as (i & j & y & Hi & Hj & Hneq); eauto.
     {
       intros. apply elem_of_list_lookup_2 in H1. eapply fpath_vertices; eauto.
@@ -1026,5 +972,7 @@ Section graph.
       eauto.
     }
     intros Hlt. clear Hneq.
+    (* Duplicate vertex gives a u-turn -> contradiction *)
     eapply tree_no_floops; eauto; done.
   Qed.
+End graph.
