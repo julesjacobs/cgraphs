@@ -69,6 +69,21 @@ Fixpoint insert {T} (i : nat) (x : T) (xs : list T) : list T :=
   | S i',[] => []
   end.
 
+Lemma lookup_insert {A} i j (x : A) xs :
+  i ≤ length xs ->
+  insert i x xs !! j =
+    if decide (j < i) then xs !! j
+    else if decide (j = i) then Some x
+    else xs !! (j - 1).
+Proof.
+  intros Hlen. revert xs j Hlen; induction i;
+  intros xs j Hlen;
+  destruct xs; simpl; destruct j; simpl in *; eauto with lia.
+  - f_equiv. lia.
+  - rewrite IHi; last lia. repeat case_decide; eauto with lia.
+    destruct j; eauto with lia. simpl. f_equiv. lia.
+Qed.
+
 Lemma insert_length {T} (i : nat) (x : T) (xs : list T) :
   i ≤ length xs -> length (insert i x xs) = length xs + 1.
 Proof.
@@ -258,3 +273,99 @@ Proof.
   rewrite lookup_drop.
   f_equiv. rewrite drop_length. lia.
 Qed.
+
+Lemma lookup_update {A} i j (xs : list A) x :
+  (<[ i := x ]> xs) !! j = if decide (i = j ∧ j < length xs) then Some x else xs !! j.
+Proof.
+  revert i j; induction xs; intros i j; destruct i,j; simpl; eauto.
+  - case_decide. lia. done.
+  - rewrite IHxs. clear IHxs. repeat case_decide; eauto with lia.
+Qed.
+
+Section disjoint.
+  Context `{Countable K}.
+  Context {V : Type}.
+
+  Definition disjoint (xs : list (gmap K V)) :=
+    forall i j h1 h2,
+        xs !! i = Some h1 -> xs !! j = Some h2 -> i ≠ j -> h1 ##ₘ h2.
+
+  Lemma disjoint_nil : disjoint [].
+  Proof.
+    intros j1 j2 h1 h2 Hs1 Hs2 Hneq; simplify_eq.
+  Qed.
+
+  Lemma disjoint_singleton g : disjoint [g].
+  Proof.
+    intros [] [] h1 h2 Hs1 Hs2 Hneq; simplify_eq.
+  Qed.
+
+  Lemma disjoint_two g1 g2 : g1 ##ₘ g2 -> disjoint [g1; g2].
+  Proof.
+    intros Hdisj j1 j2 h1 h2 Hs1 Hs2 Hneq.
+    destruct j1; destruct j2; try destruct j1; try destruct j2; try lia; simpl in *;
+    simplify_eq; eauto.
+  Qed.
+
+  Lemma disjoint_cons g gs :
+    (∀ g', g' ∈ gs -> g ##ₘ g') -> disjoint gs -> disjoint (g::gs).
+  Proof.
+    intros Hdisj1 Hdisj2.
+    intros j1 j2 h1 h2 Hs1 Hs2 Hneq.
+    destruct j1; destruct j2; try lia; simpl in *; simplify_eq.
+    - eauto using elem_of_list_lookup_2.
+    - symmetry. eauto using elem_of_list_lookup_2.
+    - unfold disjoint in *. eauto.
+  Qed.
+
+  Lemma disjoint_delete gs i:
+    disjoint gs -> disjoint (delete i gs).
+  Proof.
+    intros Hdisj j1 j2 h1 h2 Hs1 Hs2 Hneq.
+    rewrite lookup_delete_lr in Hs1.
+    rewrite lookup_delete_lr in Hs2.
+    repeat case_decide; simpl in *; unfold disjoint in *; eauto with lia.
+  Qed.
+
+  Lemma disjoint_insert gs g i :
+    (∀ g', g' ∈ gs -> g ##ₘ g') -> disjoint gs -> disjoint (insert i g gs).
+  Proof.
+    destruct (decide (length gs < i)).
+    { rewrite insert_out_of_bounds; eauto with lia. }
+    intros HH Hdisj j1 j2 h1 h2 Hs1 Hs2 Hneq.
+    rewrite lookup_insert in Hs1; last lia.
+    rewrite lookup_insert in Hs2; last lia.
+    repeat case_decide; simpl in *; simplify_eq;
+    unfold disjoint in *;
+    eauto using elem_of_list_lookup_2 with lia; symmetry;
+    eauto using elem_of_list_lookup_2 with lia.
+  Qed.
+
+  Lemma disjoint_update gs g i :
+    (∀ g', g' ∈ gs -> g ##ₘ g') -> disjoint gs -> disjoint (<[ i := g ]> gs).
+  Proof.
+    destruct (decide (length gs <= i)).
+    { rewrite list_insert_ge; eauto with lia. }
+    intros HH Hdisj j1 j2 h1 h2 Hs1 Hs2 Hneq.
+    rewrite lookup_update in Hs1.
+    rewrite lookup_update in Hs2.
+    repeat case_decide; simpl in *; simplify_eq;
+    unfold disjoint in *;
+    eauto using elem_of_list_lookup_2 with lia; symmetry;
+    eauto using elem_of_list_lookup_2 with lia.
+  Qed.
+
+  Lemma disjoint_app_singleton gs g :
+    (∀ g', g' ∈ gs -> g ##ₘ g') -> disjoint gs -> disjoint (gs ++ [g]).
+  Proof.
+    intros HH Hdisj j1 j2 h1 h2 Hs1 Hs2 Hneq.
+    rewrite lookup_app_lr in Hs1.
+    rewrite lookup_app_lr in Hs2.
+    unfold disjoint in *.
+    case_decide; case_decide;
+      try apply lookup_singleton_Some in Hs1 as [];
+      try apply lookup_singleton_Some in Hs2 as []; subst;
+      eauto using elem_of_list_lookup_2 with lia; symmetry;
+      eauto using elem_of_list_lookup_2 with lia.
+  Qed.
+End disjoint.
