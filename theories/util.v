@@ -318,6 +318,28 @@ Section disjoint.
     - unfold disjoint in *. eauto.
   Qed.
 
+  Lemma disjoint_cons_weaken g gs :
+    disjoint (g::gs) -> disjoint gs.
+  Proof.
+    intros Hdisj.
+    intros j1 j2 h1 h2 Hs1 Hs2 Hneq.
+    eapply (Hdisj (S j1) (S j2)); eauto with lia.
+  Qed.
+
+  Lemma disjoint_cons_alt g gs :
+    disjoint (g::gs) <-> Forall (λ g', g ##ₘ g') gs ∧ disjoint gs.
+  Proof.
+    split.
+    - intros Hdisj. split; last by eapply disjoint_cons_weaken.
+      rewrite Forall_forall.
+      intros h Hin.
+      eapply elem_of_list_lookup in Hin as [? ?].
+      eapply (Hdisj 0 (S x)); eauto with lia.
+    - intros [Hfa Hdisj].
+      rewrite ->Forall_forall in Hfa.
+      eapply disjoint_cons; eauto.
+  Qed.
+
   Lemma disjoint_delete gs i:
     disjoint gs -> disjoint (delete i gs).
   Proof.
@@ -342,17 +364,68 @@ Section disjoint.
   Qed.
 
   Lemma disjoint_update gs g i :
-    (∀ g', g' ∈ gs -> g ##ₘ g') -> disjoint gs -> disjoint (<[ i := g ]> gs).
+    (∀ j g', gs !! j = Some g' -> i ≠ j -> g ##ₘ g') ->
+    disjoint gs -> disjoint (<[ i := g ]> gs).
   Proof.
     destruct (decide (length gs <= i)).
     { rewrite list_insert_ge; eauto with lia. }
     intros HH Hdisj j1 j2 h1 h2 Hs1 Hs2 Hneq.
     rewrite lookup_update in Hs1.
     rewrite lookup_update in Hs2.
-    repeat case_decide; simpl in *; simplify_eq;
-    unfold disjoint in *;
-    eauto using elem_of_list_lookup_2 with lia; symmetry;
-    eauto using elem_of_list_lookup_2 with lia.
+    repeat case_decide.
+    - destruct H0,H1. simplify_eq.
+    - destruct H0. simplify_eq. symmetry. eauto.
+    - destruct H1. simplify_eq. eauto.
+    - eauto.
+  Qed.
+
+  Lemma disjoint_weaken gs gs' :
+    gs' ⊆* gs -> disjoint gs -> disjoint gs'.
+  Proof.
+    intros Hsub Hdisj.
+    intros j1 j2 h1 h2 Hs1 Hs2 Hneq.
+    eapply Forall2_lookup_l in Hs1; last done.
+    eapply Forall2_lookup_l in Hs2; last done.
+    destruct Hs1 as (h1' & Hs1 & Hsub1).
+    destruct Hs2 as (h2' & Hs2 & Hsub2).
+    eapply map_disjoint_weaken.
+    - eapply Hdisj; last done; eauto.
+    - done.
+    - done.
+  Qed.
+
+  Lemma sublist_elem_of {A} (x : A) (xs ys : list A) :
+    sublist xs ys -> x ∈ xs -> x ∈ ys.
+  Proof.
+    induction 1; rewrite ?elem_of_cons; naive_solver.
+  Qed.
+
+  Lemma sublist_Forall {A} P (xs ys : list A) :
+    sublist xs ys -> Forall P ys -> Forall P xs.
+  Proof.
+    rewrite !Forall_forall. eauto using sublist_elem_of.
+  Qed.
+
+  Lemma disjoint_sublist gs gs' :
+    sublist gs' gs -> disjoint gs -> disjoint gs'.
+  Proof.
+    intros Hsub Hdisj.
+    induction Hsub.
+    - apply disjoint_nil.
+    - apply disjoint_cons_alt in Hdisj as [].
+      rewrite ->disjoint_cons_alt. split; eauto.
+      eapply sublist_Forall; eauto.
+    - apply IHHsub. eapply disjoint_cons_weaken; eauto.
+  Qed.
+
+  Lemma disjoint_update_sub gs g g' i :
+    gs !! i = Some g -> g' ⊆ g -> disjoint gs -> disjoint (<[i := g']> gs).
+  Proof.
+    intros Hsome Hsub Hdisj.
+    eapply disjoint_update; last done.
+    intros j h Hin Hneq.
+    eapply map_disjoint_weaken_l; last done.
+    eapply Hdisj; eauto.
   Qed.
 
   Lemma disjoint_app_singleton gs g :

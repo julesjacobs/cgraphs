@@ -666,10 +666,10 @@ Proof.
     exists (<[ i := Σ1 ]> threadΣs), chanΣs.
     split.
     {
-      SearchAbout insert app.
-      apply disjoint_update.
-      (* Need lemma about disjoint here *)
-      admit.
+      rewrite <-insert_app_l by (apply lookup_lt_Some in Hsome; done).
+      eapply disjoint_update_sub; last done.
+      - eapply lookup_app_l_Some; eauto.
+      - apply map_union_subseteq_l.
     }
     split.
     {
