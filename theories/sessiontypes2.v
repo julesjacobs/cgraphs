@@ -106,6 +106,17 @@ with typed : heapT -> envT -> expr -> type -> Prop :=
         typed Σ1 Γ1 e1 (FunT t1 t2) ->
         typed Σ2 Γ2 e2 t1 ->
         typed (Σ1 ∪ Σ2) (Γ1 ∪ Γ2) (App e1 e2) t2
+
+  (*| App_typed : ∀ Σ1 Σ2 Γ1 Γ2 e1 e2 t1 t2,
+        Γ1 ##ₘ Γ2 ->
+        typed Γ1 e1 (FunT t1 t2) -∗
+        typed Γ2 e2 t1 -∗
+        typed (Γ1 ∪ Γ2) (App e1 e2) t2
+
+    (P -∗ Q)(Σ) :=
+      ∀ Σ', Σ ##ₘ Σ' -> P(Σ') -> Q(Σ' ∪ Σ)
+  *)
+
     | Lam_typed : ∀ Σ Γ x e t1 t2,
         Γ !! x = None ->
         typed Σ (Γ ∪ {[ x := t1 ]}) e t2 ->
@@ -510,17 +521,30 @@ Proof.
       apply lookup_singleton.
 Qed.
 
-Definition ctx_typed (Σ : heapT) (Γ : envT) (k : expr -> expr) (A : type) (B : type) :=
-    ∀ e Σ' Γ', Σ ##ₘ Σ' -> Γ ##ₘ Γ' -> typed Σ' Γ' e A -> typed (Σ ∪ Σ') (Γ ∪ Γ') (k e) B.
+Definition ctx_typed (Σ : heapT) (Γ : envT) (k : expr -> expr)
+                     (A : type) (B : type) :=
+    ∀ e Σ' Γ',
+      Σ ##ₘ Σ' ->
+      Γ ##ₘ Γ' ->
+      typed Σ' Γ' e A ->
+      typed (Σ ∪ Σ') (Γ ∪ Γ') (k e) B.
 
 Lemma ctx_typed_typed Σ Σ' k A B Γ Γ' e :
-  Σ ##ₘ Σ' -> Γ ##ₘ Γ' -> ctx_typed Σ Γ k A B -> typed Σ' Γ' e A -> typed (Σ ∪ Σ') (Γ ∪ Γ') (k e) B.
+  Σ ##ₘ Σ' ->
+  Γ ##ₘ Γ' ->
+  ctx_typed Σ Γ k A B ->
+  typed Σ' Γ' e A ->
+  typed (Σ ∪ Σ') (Γ ∪ Γ') (k e) B.
 Proof.
   unfold ctx_typed; eauto.
 Qed.
 
 Lemma ctx_typed_compose Σ Σ' Γ Γ' k k' A B C :
-  Σ' ##ₘ Σ -> Γ' ##ₘ Γ -> ctx_typed Σ Γ k A B -> ctx_typed Σ' Γ' k' B C -> ctx_typed (Σ' ∪ Σ) (Γ' ∪ Γ) (k' ∘ k) A C.
+  Σ' ##ₘ Σ ->
+  Γ' ##ₘ Γ ->
+  ctx_typed Σ Γ k A B ->
+  ctx_typed Σ' Γ' k' B C ->
+  ctx_typed (Σ' ∪ Σ) (Γ' ∪ Γ) (k' ∘ k) A C.
 Proof.
   intros Hdisj Hdisj' Hct1 Hct2.
   unfold ctx_typed in *.
@@ -561,6 +585,13 @@ Proof.
   ].
 Qed.
 
+(*
+ctx k -> typed Γ (k e) B -*
+  ∃ Γ1 Γ2 A,
+    Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ∧
+    ctx_typed Γ1 k A B * typed Γ2 e A.
+*)
+
 Lemma typed_ctx_typed Σ Γ B k e :
   ctx k -> typed Σ Γ (k e) B ->
   ∃ Σ1 Σ2 Γ1 Γ2 A,
@@ -595,8 +626,8 @@ Proof.
   intros. apply map_positive_l in H0 as H0'. subst. rewrite left_id in H0. done.
 Qed.
 
-
-Inductive bufs_typed : heapT -> list val * chan_type -> list val * chan_type -> Prop :=
+Inductive bufs_typed : heapT -> list val * chan_type ->
+                                list val * chan_type -> Prop :=
   | BT_emp : ∀ ct, bufs_typed ∅ ([], ct) ([], dual ct)
   | BT_consL : ∀ Σ1 Σ2 v vT vs ct c,
     Σ1 ##ₘ Σ2 ->
@@ -626,6 +657,24 @@ Definition invariant (threads : list expr) (chans : heap) : Prop :=
             (buf2, none_to_end (Σ !! (i,false)))
       ) chanΣs chans (seq 0 (length chans)).
 
+(* Σ : gmap endpoint chan_type *)
+(* Definition invariant
+  (Σ : gmap endpoint chan_type)
+  (threads : list expr)
+  (chans : heap) : jProp :=
+    ([∗ list] t∈threads, typed ∅ t UnitT) ∗
+    ([∗ list] i ↦ '(buf1,buf2)∈chans,
+      bufs_typed
+        (buf1, none_to_end (Σ !! (i,true)))
+        (buf2, none_to_end (Σ !! (i,false))))
+
+Definition invariant'
+  (threads : list expr)
+  (chans : heap) : Prop := ∃ Σ, invariant Σ threads chans Σ
+Definition invariant'
+  (threads : list expr)
+  (chans : heap) : Prop := ∃ Σ, own Σ ⊢ invariant Σ threads chans *)
+
 Lemma preservation es h es' h' :
   invariant es h -> step es h es' h' -> invariant es' h'.
 Proof.
@@ -653,6 +702,7 @@ Proof.
     invc H10.
     invc H8.
     invc H6.
+
     (* Need to get our hands on the bufs typed here *)
     (* Need to get the exists right here, then the rest should be easier *)
     admit.
@@ -660,7 +710,189 @@ Proof.
     invc H5.
     invc H4.
     admit.
-  - invc Htyped.
+  -
+(*
+
+Prop
+iProp := heapT -> Prop
+(P ∧ Q)(h) := P(h) ∧ Q(h)
+(P ∗ Q)(h) :=
+∃ h1 h2,
+    h = h1 ∪ h2 ∧
+    h1 ##ₘ h2 ∧
+    P(h1) ∧ Q(h2)
+
+
+invariant threads chans :=
+  ∃ threadΣ chanΣ, ...
+
+
+
+es !! i = Some (Close (Val (Chan c)))
+invariant' es chans
+---------------------------------------
+invariant' (<[i := Val Unit]> es) chans
+
+
+
+es !! i = Some (Close (Val (Chan c)))
+own Σ ⊢ invariant Σ es chans
+---------------------------------------
+own (delete c Σ) ⊢ invariant (delete c Σ) (<[i := Val Unit]> es) chans
+
+
+
+es !! i = Some (Close (Val (Chan c)))
+own Σ ⊢
+  ([∗ list] t∈es, typed ∅ t UnitT) ∗
+  ([∗ list] i ↦ '(buf1,buf2)∈chans,
+    bufs_typed
+      (buf1, none_to_end (Σ !! (i,true)))
+      (buf2, none_to_end (Σ !! (i,false))))
+---------------------------------------
+own (delete c Σ) ⊢ invariant (delete c Σ) (<[i := Val Unit]> es) chans
+
+
+
+es !! i = Some (Close (Val (Chan c)))
+own Σ ⊢
+  typed ∅ (Close (Val (Chan c))) UnitT ∗
+  ([∗ list] t∈(delete i es), typed ∅ t UnitT) ∗
+  ([∗ list] i ↦ '(buf1,buf2)∈chans,
+    bufs_typed
+      (buf1, none_to_end (Σ !! (i,true)))
+      (buf2, none_to_end (Σ !! (i,false))))
+---------------------------------------
+own (delete c Σ) ⊢ invariant (delete c Σ) (<[i := Val Unit]> es) chans
+
+
+
+es !! i = Some (Close (Val (Chan c)))
+own Σ ⊢
+  val_typed (Chan c) (ChanT EndT) ∗
+  ([∗ list] t∈(delete i es), typed ∅ t UnitT) ∗
+  ([∗ list] i ↦ '(buf1,buf2)∈chans,
+    bufs_typed
+      (buf1, none_to_end (Σ !! (i,true)))
+      (buf2, none_to_end (Σ !! (i,false))))
+---------------------------------------
+own (delete c Σ) ⊢ invariant (delete c Σ) (<[i := Val Unit]> es) chans
+
+
+(own Σ)(Σ') := (Σ' = Σ)
+
+
+es !! i = Some (Close (Val (Chan c)))
+own Σ ⊢
+  own {[ c := EndT ]} ∗
+  ([∗ list] t∈(delete i es), typed ∅ t UnitT) ∗
+  ([∗ list] i ↦ '(buf1,buf2)∈chans,
+    bufs_typed
+      (buf1, none_to_end (Σ !! (i,true)))
+      (buf2, none_to_end (Σ !! (i,false))))
+---------------------------------------
+own (delete c Σ) ⊢ invariant (delete c Σ) (<[i := Val Unit]> es) chans
+
+
+Lemma: (own Σ ⊢ own Σ' ∗ P) -> Σ' ⊆ Σ ∧ (own (Σ ∖ Σ') ⊢ P)
+
+
+es !! i = Some (Close (Val (Chan c)))
+Σ !! c = Some EndT
+own (delete c Σ) ⊢
+  ([∗ list] t∈(delete i es), typed ∅ t UnitT) ∗
+  ([∗ list] i ↦ '(buf1,buf2)∈chans,
+    bufs_typed
+      (buf1, none_to_end (Σ !! (i,true)))
+      (buf2, none_to_end (Σ !! (i,false))))
+---------------------------------------
+own (delete c Σ) ⊢ invariant (delete c Σ) (<[i := Val Unit]> es) chans
+
+
+
+es !! i = Some (Close (Val (Chan c)))
+Σ !! c = Some EndT
+---------------------------------------
+([∗ list] t∈(delete i es), typed ∅ t UnitT) ∗
+  ([∗ list] i ↦ '(buf1,buf2)∈chans,
+    bufs_typed
+      (buf1, none_to_end (Σ !! (i,true)))
+      (buf2, none_to_end (Σ !! (i,false)))) ⊢
+      invariant (delete c Σ) (<[i := Val Unit]> es) chans
+
+
+
+es !! i = Some (Close (Val (Chan c)))
+Σ !! c = Some EndT
+---------------------------------------
+([∗ list] t∈(delete i es), typed ∅ t UnitT)
+([∗ list] i ↦ '(buf1,buf2)∈chans,
+  bufs_typed
+    (buf1, none_to_end (Σ !! (i,true)))
+    (buf2, none_to_end (Σ !! (i,false))))
+---------------------------------------*
+invariant (delete c Σ) (<[i := Val Unit]> es) chans
+
+
+
+es !! i = Some (Close (Val (Chan c)))
+Σ !! c = Some EndT
+---------------------------------------
+([∗ list] t∈(delete i es), typed ∅ t UnitT)
+([∗ list] i ↦ '(buf1,buf2)∈chans,
+  bufs_typed
+    (buf1, none_to_end (Σ !! (i,true)))
+    (buf2, none_to_end (Σ !! (i,false))))
+---------------------------------------*
+invariant (delete c Σ) (<[i := Val Unit]> es) chans
+
+
+1:
+es !! i = Some (Close (Val (Chan c)))
+Σ !! c = Some EndT
+---------------------------------------
+([∗ list] t∈(delete i es), typed ∅ t UnitT)
+---------------------------------------*
+([∗ list] (delete i es), typed ∅ t UnitT) --> iFrame
+
+
+
+2:
+es !! i = Some (Close (Val (Chan c)))
+Σ !! c = Some EndT
+---------------------------------------
+([∗ list] i ↦ '(buf1,buf2)∈chans,
+  bufs_typed
+    (buf1, none_to_end (Σ !! (i,true)))
+    (buf2, none_to_end (Σ !! (i,false))))
+---------------------------------------*
+([∗ list] i ↦ '(buf1,buf2)∈chans,
+  bufs_typed
+    (buf1, none_to_end ((delete c Σ) !! (i,true)))
+    (buf2, none_to_end ((delete c Σ) !! (i,false))))
+
+
+
+2:
+es !! i = Some (Close (Val (Chan c)))
+Σ !! c = Some EndT
+chans !! j = Some (buf1,buf2)
+---------------------------------------
+bufs_typed
+  (buf1, none_to_end (Σ !! (j,true)))
+  (buf2, none_to_end (Σ !! (j,false)))
+---------------------------------------*
+bufs_typed
+  (buf1, none_to_end ((delete c Σ) !! (j,true)))
+  (buf2, none_to_end ((delete c Σ) !! (j,false)))
+
+
+
+c = (j,true)
+c = (j,false)
+c.0 ≠ j
+*)
+    invc Htyped.
     invc H5.
     invc H4.
     exists (<[ i := Σ1 ]> threadΣs), chanΣs.
@@ -685,7 +917,8 @@ Proof.
     }
   - invc Htyped.
     set c := length h.
-    exists (<[ i := Σ1 ∪ {[ (c,true) := ct ]} ]> threadΣs ++ [Σ2 ∪ {[ (c,false) := dual ct ]}]).
+    exists (<[ i := Σ1 ∪ {[ (c,true) := ct ]} ]> threadΣs
+             ++ [Σ2 ∪ {[ (c,false) := dual ct ]}]).
     exists (chanΣs ++ [∅]).
     split.
     {
@@ -714,9 +947,32 @@ Proof.
   - done.
 Qed.
 
-Lemma progress1 Σ e h A :
-  typed Σ ∅ e A -> final e ∨ ∃ e' h' ts, ctx_step e h e' h' ts.
+
+
+Lemma progress1 Σ Γ e h A :
+  Γ = ∅ -> typed Σ Γ e A -> final e ∨ ∃ e' h' ts, ctx_step e h e' h' ts.
 Proof.
+  intros Γemp Htyped.
+  induction Htyped.
+  - left. constructor.
+  - pose proof (f_equal (.!! x) Γemp).
+    simplify_map_eq.
+  - apply map_positive in Γemp as [-> ->].
+    destruct IHHtyped1; eauto.
+    + invc H1.
+      {
+        admit.
+      }
+      {
+        left. admit.
+      }
+    + right. destruct H1 as (e' & h' & ts & Hcs).
+      eexists.
+      exists h'.
+      exists ts.
+      econstructor. constructor. constructor.
+
+
   intros Htyped.
   revert A Σ Htyped; induction e; intros A Σ Htyped.
   - left. constructor.

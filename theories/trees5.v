@@ -23,16 +23,16 @@ Section graph.
   Definition has_u_turn (xs : P) :=
     ∃ i x, xs !! i = Some x ∧ xs !! (i+2) = Some x.
 
-  Record tree (g : G) : Prop := Tree {
-    tree_undirected : undirected g;
-    tree_u_turns : ∀ x xs, path g ([x] ++ xs ++ [x]) -> has_u_turn ([x] ++ xs ++ [x])
+  Record forest (g : G) : Prop := forest {
+    forest_undirected : undirected g;
+    forest_u_turns : ∀ x xs, path g ([x] ++ xs ++ [x]) -> has_u_turn ([x] ++ xs ++ [x])
   }.
 
-  Lemma tree_no_self_loops (g : G) :
-    tree g -> no_self_loops g.
+  Lemma forest_no_self_loops (g : G) :
+    forest g -> no_self_loops g.
   Proof.
-    intros Htree x Hx.
-    destruct (tree_u_turns g Htree x []) as (i & a & H1 & H2).
+    intros Hforest x Hx.
+    destruct (forest_u_turns g Hforest x []) as (i & a & H1 & H2).
     - simpl. intros i a b.
       destruct i; simpl.
       + qed.
@@ -472,14 +472,14 @@ Section graph.
   Qed.
 
   Lemma has_u_turn_alt (g : G) xs x :
-    tree g -> path g xs -> length xs > 1 ->
+    forest g -> path g xs -> length xs > 1 ->
     xs !! 0 = Some x -> last xs = Some x ->
     has_u_turn xs.
   Proof.
-    intros Htree Hpath Hlen H1 H2.
+    intros Hforest Hpath Hlen H1 H2.
     pose proof (split_both xs x Hlen H1 H2).
     rewrite H3. rewrite H3 in Hpath.
-    destruct Htree; eauto.
+    destruct Hforest; eauto.
   Qed.
 
   Lemma has_u_turn_drop xs i :
@@ -501,11 +501,11 @@ Section graph.
   Qed.
 
   Lemma has_u_turn_mid (g : G) xs i1 i2 x :
-    tree g -> path g (drop i1 (take (S i2) xs)) -> i1 < i2 ->
+    forest g -> path g (drop i1 (take (S i2) xs)) -> i1 < i2 ->
     xs !! i1 = Some x -> xs !! i2 = Some x ->
     has_u_turn xs.
   Proof.
-    intros Htree Hpath Hneq H1 H2.
+    intros Hforest Hpath Hneq H1 H2.
     eapply has_u_turn_take.
     eapply has_u_turn_drop.
     eapply (has_u_turn_alt g (drop i1 (take (S i2) xs))); eauto.
@@ -517,15 +517,15 @@ Section graph.
       + rewrite take_length. apply lookup_lt_Some in H2. apply lookup_lt_Some in H1. lia.
   Qed.
 
-  Lemma tree_connect (g : G) (a b : A) :
-    tree g -> ¬ connected0 g a b -> tree (g ∪ edge a b).
+  Lemma forest_connect (g : G) (a b : A) :
+    forest g -> ¬ connected0 g a b -> forest (g ∪ edge a b).
   Proof.
     intros [] Hnconn.
     constructor.
     { intros x y HH.
       apply elem_of_union.
       apply elem_of_union in HH as [].
-      + left. apply tree_undirected0. done.
+      + left. apply forest_undirected0. done.
       + right. apply edge_undirected. done. }
     intros x xs Hpath.
     destruct (find_first_has_edge ([x] ++ xs ++ [x]) a b) as [(i1 & Hi1v & Hi1r)|H1].
@@ -639,7 +639,7 @@ Section graph.
       }
     }
     (* No (a,b)|(b,a) *)
-    apply tree_u_turns0. revert H1 Hpath.
+    apply forest_u_turns0. revert H1 Hpath.
     generalize ([x] ++ xs ++ [x]). intros.
     intros i q r Hq Hr.
     specialize (Hpath i q r).
@@ -651,18 +651,18 @@ Section graph.
     subst; eauto.
   Qed.
 
-  Lemma tree_disconnect (g : G) (a b : A) :
-    tree g -> (a,b) ∈ g -> ¬ connected0 (g ∖ edge a b) a b.
+  Lemma forest_disconnect (g : G) (a b : A) :
+    forest g -> (a,b) ∈ g -> ¬ connected0 (g ∖ edge a b) a b.
   Proof.
     intros [] Hedge [|Hconn].
-    { subst. eapply tree_no_self_loops; try constructor; eauto. }
+    { subst. eapply forest_no_self_loops; try constructor; eauto. }
     destruct Hconn as (xs & Hpath).
     apply connected_no_u_turn in Hpath.
     - destruct Hpath as (xs' & Hpath' & Hnut).
-      pose proof (tree_u_turns0 b ([a] ++ xs')).
+      pose proof (forest_u_turns0 b ([a] ++ xs')).
       destruct H1.
       {
-        simpl. apply path_cons. apply tree_undirected; done. eapply path_delete. done.
+        simpl. apply path_cons. apply forest_undirected; done. eapply path_delete. done.
       }
       destruct H1. destruct H1.
       destruct x; simpl in *.
@@ -671,27 +671,27 @@ Section graph.
         * specialize (Hpath' 0 a b); simpl in *. unfold edge in *. set_solver.
         * specialize (Hpath' 0 a b); simpl in *. unfold edge in *. set_solver.
       + apply Hnut. exists x,x0. split; eauto.
-    - intro. subst. pose proof (tree_no_self_loops g).
+    - intro. subst. pose proof (forest_no_self_loops g).
       cut ((b,b) ∉ g). { intro Q. apply Q. done. }
       apply H1. constructor; done.
   Qed.
 
-  Lemma tree_delete (g : G) (a b : A) :
-    tree g -> tree (g ∖ edge a b).
+  Lemma forest_delete (g : G) (a b : A) :
+    forest g -> forest (g ∖ edge a b).
   Proof.
     intros [].
     constructor.
     - intros x y Hxy.
       rewrite-> elem_of_difference in *.
       destruct Hxy.
-      apply tree_undirected0 in H1.
+      apply forest_undirected0 in H1.
       split; [done|].
       unfold edge in *. set_solver.
     - intros x xs Hpath.
       eauto using path_delete.
   Qed.
 
-  Lemma tree_empty : tree ∅.
+  Lemma forest_empty : forest ∅.
   Proof.
     constructor.
     - intros ???.
@@ -711,12 +711,12 @@ Section graph.
   Definition lone (x : A) (g : graph A) :=
     ∀ y, (x,y) ∉ g.
 
-  Lemma tree_extend (x y : A) (g : graph A) :
+  Lemma forest_extend (x y : A) (g : graph A) :
     x ≠ y → lone y g →
-    tree g → tree (g ∪ edge x y).
+    forest g → forest (g ∪ edge x y).
   Proof.
     intros Hneq Hlone [].
-    apply tree_connect; [done..|].
+    apply forest_connect; [done..|].
     intros [->|[]]; eauto.
     unfold path in *. unfold lone in *.
     destruct (([x] ++ x0 ++ [y]) !! length x0) eqn:E.
@@ -725,7 +725,7 @@ Section graph.
       rewrite app_length in E. lia.
     }
     eapply Hlone.
-    apply tree_undirected0.
+    apply forest_undirected0.
     eapply (H1 (length x0)); [done|].
     replace (length x0 + 1) with (length ([x] ++ x0) + 0); simpl; [|lia].
     rewrite lookup_app_plus. done.
@@ -742,15 +742,15 @@ Section graph.
     rewrite lookup_nil in Ha. simplify_eq.
   Qed.
 
-  Lemma tree_modify (x y z : A) (g : graph A) :
+  Lemma forest_modify (x y z : A) (g : graph A) :
     x ≠ z -> y ≠ z ->
-    tree g -> (x,y) ∈ g -> (x,z) ∈ g ->
-    tree ((g ∖ edge x z) ∪ edge y z).
+    forest g -> (x,y) ∈ g -> (x,z) ∈ g ->
+    forest ((g ∖ edge x z) ∪ edge y z).
   Proof.
-    intros Hxnz Hynz Htree Hxy Hxz.
-    apply tree_connect; try done.
-    - by apply tree_delete.
-    - pose proof (tree_disconnect g x z Htree Hxz) as Hconn.
+    intros Hxnz Hynz Hforest Hxy Hxz.
+    apply forest_connect; try done.
+    - by apply forest_delete.
+    - pose proof (forest_disconnect g x z Hforest Hxz) as Hconn.
       intro Hconn'.
       eapply connected0_trans in Hconn'.
       apply Hconn. exact Hconn'.
@@ -900,12 +900,12 @@ Section graph.
   Qed.
 
 
-  Lemma tree_no_floops (g : G) (f : A -> option A) (x y : A) (xs : P) i j :
-    valid g f -> no_u_turns f -> tree g -> x ∈ vertices g ->
+  Lemma forest_no_floops (g : G) (f : A -> option A) (x y : A) (xs : P) i j :
+    valid g f -> no_u_turns f -> forest g -> x ∈ vertices g ->
     xs !! 0 = Some x -> i < j -> xs !! i = Some y -> xs !! j = Some y ->
     fpath g f xs -> False.
   Proof.
-    intros Hvalid Hnut Htree Hvert Hstart Hle H1 H2 Hfpath.
+    intros Hvalid Hnut Hforest Hvert Hstart Hle H1 H2 Hfpath.
     assert (path g xs).
     { destruct xs; simpl in *; simplify_eq. apply fpath_path in Hfpath; try done. }
     assert (has_u_turn xs).
@@ -915,12 +915,12 @@ Section graph.
     eapply fpaths_no_u_turns; eauto.
   Qed.
 
-  Lemma tree_no_floops' (g : G) (f : A -> option A) (x : A) (xs : P) :
-    valid g f -> no_u_turns f -> tree g -> x ∈ vertices g -> fpath g f ([x] ++ xs ++ [x]) -> False.
+  Lemma forest_no_floops' (g : G) (f : A -> option A) (x : A) (xs : P) :
+    valid g f -> no_u_turns f -> forest g -> x ∈ vertices g -> fpath g f ([x] ++ xs ++ [x]) -> False.
   Proof.
     intros Hvalid Hnut [] Hvert Hfpath.
     apply fpath_path in Hfpath as Hpath; try done.
-    edestruct tree_u_turns0. exact Hpath.
+    edestruct forest_u_turns0. exact Hpath.
     destruct H1 as (y & Hy1 & Hy2).
     unfold fpath in Hfpath.
     destruct (([x] ++ xs ++ [x]) !! (x0 + 1)) eqn:Hymid.
@@ -937,10 +937,10 @@ Section graph.
   Qed.
 
   Lemma search_lemma (g : graph A) (x : A) (f : A -> option A) :
-    tree g -> no_u_turns f -> valid g f ->
+    forest g -> no_u_turns f -> valid g f ->
     x ∈ vertices g -> f (search g x f) = None.
   Proof.
-    intros Htree Huturn Hvalid Hx.
+    intros Hforest Huturn Hvalid Hx.
     (* Suppose f (search g x f) = Some y *)
     destruct (f (search g x f)) eqn:Hss;[|done].
     exfalso.
@@ -973,6 +973,6 @@ Section graph.
     }
     intros Hlt. clear Hneq.
     (* Duplicate vertex gives a u-turn -> contradiction *)
-    eapply tree_no_floops; eauto; done.
+    eapply forest_no_floops; eauto; done.
   Qed.
 End graph.

@@ -4,6 +4,7 @@ In this exercise, we prove the correctness of a spin lock module.
 From iris.base_logic.lib Require Import invariants.
 From iris.heap_lang Require Import proofmode notation.
 
+
 Definition newlock : val := λ: <>,
   ref #false.
 Definition try_acquire : val := λ: "l",
@@ -121,7 +122,7 @@ Section proof.
     iIntros ([]) "Hb".
     - wp_pures. iApply "Post". iFrame.
     - wp_pures. iApply "IH". iNext. iApply "Post".
-  Qed.  
+  Qed.
 
   (** *Exercise*: prove the spec of [release]. At a certain point in this proof,
   you need to open the invariant. For this you can use:
@@ -138,6 +139,6 @@ Section proof.
     iInv lockN as (b) "[Hl _]" "Hclose".
     wp_store. iMod ("Hclose" with "[Hl HR]") as "_".
     - iNext. iExists false. iFrame.
-    - iApply "Post". done. 
+    - iApply "Post". done.
   Qed.
 End proof.

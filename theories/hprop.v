@@ -1,127 +1,134 @@
 From stdpp Require Import gmap.
 From iris.bi Require Import interface.
 From iris.proofmode Require Import tactics.
+Require Import diris.langdef.
+Require Import diris.util.
 
 (** This file constructs a simple non step-indexed linear separation logic as
 predicates over heaps (modeled as maps from integer locations to integer values).
 It shows that Iris's [bi] canonical structure can be inhabited, and the Iris
 proof mode can be used to prove lemmas in this separation logic. *)
-Definition loc := Z.
-Definition val := Z.
 
-Record heapProp := HeapProp {
-  heapProp_holds :> gmap loc val → Prop;
+Record hProp := h_Prop {
+  hProp_holds :> gmap endpoint chan_type → Prop;
 }.
-Arguments heapProp_holds : simpl never.
-Add Printing Constructor heapProp.
+Arguments hProp_holds : simpl never.
+Add Printing Constructor hProp.
 
 Section ofe.
-  Inductive heapProp_equiv' (P Q : heapProp) : Prop :=
-    { heapProp_in_equiv : ∀ σ, P σ ↔ Q σ }.
-  Instance heapProp_equiv : Equiv heapProp := heapProp_equiv'.
-  Instance heapProp_equivalence : Equivalence (≡@{heapProp}).
+  Inductive hProp_equiv' (P Q : hProp) : Prop :=
+    { hProp_in_equiv : ∀ σ, P σ ↔ Q σ }.
+  Instance hProp_equiv : Equiv hProp := hProp_equiv'.
+  Instance hProp_equivalence : Equivalence (≡@{hProp}).
   Proof. split; repeat destruct 1; constructor; naive_solver. Qed.
-  Canonical Structure heapPropO := discreteO heapProp.
+  Canonical Structure hPropO := discreteO hProp.
 End ofe.
 
 (** logical entailement *)
-Inductive heapProp_entails (P Q : heapProp) : Prop :=
-  { heapProp_in_entails : ∀ σ, P σ → Q σ }.
+Inductive hProp_entails (P Q : hProp) : Prop :=
+  { hProp_in_entails : ∀ σ, P σ → Q σ }.
 
 (** logical connectives *)
-Definition heapProp_emp_def : heapProp :=
-  {| heapProp_holds σ := σ = ∅ |}.
-Definition heapProp_emp_aux : seal (@heapProp_emp_def). Proof. by eexists. Qed.
-Definition heapProp_emp := unseal heapProp_emp_aux.
-Definition heapProp_emp_eq :
-  @heapProp_emp = @heapProp_emp_def := seal_eq heapProp_emp_aux.
+Definition hProp_emp_def : hProp :=
+  {| hProp_holds σ := σ = ∅ |}.
+Definition hProp_emp_aux : seal (@hProp_emp_def). Proof. by eexists. Qed.
+Definition hProp_emp := unseal hProp_emp_aux.
+Definition hProp_emp_eq :
+  @hProp_emp = @hProp_emp_def := seal_eq hProp_emp_aux.
 
-Definition heapProp_pure_def (φ : Prop) : heapProp :=
-  {| heapProp_holds _ := φ |}.
-Definition heapProp_pure_aux : seal (@heapProp_pure_def). Proof. by eexists. Qed.
-Definition heapProp_pure := unseal heapProp_pure_aux.
-Definition heapProp_pure_eq :
-  @heapProp_pure = @heapProp_pure_def := seal_eq heapProp_pure_aux.
+Definition hProp_has_type_def (l : endpoint) (t : chan_type) : hProp :=
+  {| hProp_holds σ := σ = {[ l := t ]} |}.
+Definition hProp_has_type_aux : seal (@hProp_has_type_def). Proof. by eexists. Qed.
+Definition hProp_has_type := unseal hProp_has_type_aux.
+Definition hProp_has_type_eq :
+  @hProp_has_type = @hProp_has_type_def := seal_eq hProp_has_type_aux.
 
-Definition heapProp_and_def (P Q : heapProp) : heapProp :=
-  {| heapProp_holds σ := P σ ∧ Q σ |}.
-Definition heapProp_and_aux : seal (@heapProp_and_def). Proof. by eexists. Qed.
-Definition heapProp_and := unseal heapProp_and_aux.
-Definition heapProp_and_eq:
-  @heapProp_and = @heapProp_and_def := seal_eq heapProp_and_aux.
+Definition hProp_pure_def (φ : Prop) : hProp :=
+  {| hProp_holds _ := φ |}.
+Definition hProp_pure_aux : seal (@hProp_pure_def). Proof. by eexists. Qed.
+Definition hProp_pure := unseal hProp_pure_aux.
+Definition hProp_pure_eq :
+  @hProp_pure = @hProp_pure_def := seal_eq hProp_pure_aux.
 
-Definition heapProp_or_def (P Q : heapProp) : heapProp :=
-  {| heapProp_holds σ := P σ ∨ Q σ |}.
-Definition heapProp_or_aux : seal (@heapProp_or_def). Proof. by eexists. Qed.
-Definition heapProp_or := unseal heapProp_or_aux.
-Definition heapProp_or_eq:
-  @heapProp_or = @heapProp_or_def := seal_eq heapProp_or_aux.
+Definition hProp_and_def (P Q : hProp) : hProp :=
+  {| hProp_holds σ := P σ ∧ Q σ |}.
+Definition hProp_and_aux : seal (@hProp_and_def). Proof. by eexists. Qed.
+Definition hProp_and := unseal hProp_and_aux.
+Definition hProp_and_eq:
 
-Definition heapProp_impl_def (P Q : heapProp) : heapProp :=
-  {| heapProp_holds σ := P σ → Q σ |}.
-Definition heapProp_impl_aux : seal (@heapProp_impl_def). Proof. by eexists. Qed.
-Definition heapProp_impl := unseal heapProp_impl_aux.
-Definition heapProp_impl_eq :
-  @heapProp_impl = @heapProp_impl_def := seal_eq heapProp_impl_aux.
+@hProp_and = @hProp_and_def := seal_eq hProp_and_aux.
+Definition hProp_or_def (P Q : hProp) : hProp :=
+  {| hProp_holds σ := P σ ∨ Q σ |}.
+Definition hProp_or_aux : seal (@hProp_or_def). Proof. by eexists. Qed.
+Definition hProp_or := unseal hProp_or_aux.
+Definition hProp_or_eq:
+  @hProp_or = @hProp_or_def := seal_eq hProp_or_aux.
 
-Definition heapProp_forall_def {A} (Ψ : A → heapProp) : heapProp :=
-  {| heapProp_holds σ := ∀ a, Ψ a σ |}.
-Definition heapProp_forall_aux : seal (@heapProp_forall_def). Proof. by eexists. Qed.
-Definition heapProp_forall {A} := unseal heapProp_forall_aux A.
-Definition heapProp_forall_eq :
-  @heapProp_forall = @heapProp_forall_def := seal_eq heapProp_forall_aux.
+Definition hProp_impl_def (P Q : hProp) : hProp :=
+  {| hProp_holds σ := P σ → Q σ |}.
+Definition hProp_impl_aux : seal (@hProp_impl_def). Proof. by eexists. Qed.
+Definition hProp_impl := unseal hProp_impl_aux.
+Definition hProp_impl_eq :
+  @hProp_impl = @hProp_impl_def := seal_eq hProp_impl_aux.
 
-Definition heapProp_exist_def {A} (Ψ : A → heapProp) : heapProp :=
-  {| heapProp_holds σ := ∃ a, Ψ a σ |}.
-Definition heapProp_exist_aux : seal (@heapProp_exist_def). Proof. by eexists. Qed.
-Definition heapProp_exist {A} := unseal heapProp_exist_aux A.
-Definition heapProp_exist_eq :
-  @heapProp_exist = @heapProp_exist_def := seal_eq heapProp_exist_aux.
+Definition hProp_forall_def {A} (Ψ : A → hProp) : hProp :=
+  {| hProp_holds σ := ∀ a, Ψ a σ |}.
+Definition hProp_forall_aux : seal (@hProp_forall_def). Proof. by eexists. Qed.
+Definition hProp_forall {A} := unseal hProp_forall_aux A.
+Definition hProp_forall_eq :
+  @hProp_forall = @hProp_forall_def := seal_eq hProp_forall_aux.
 
-Definition heapProp_sep_def (P Q : heapProp) : heapProp :=
-  {| heapProp_holds σ := ∃ σ1 σ2, σ = σ1 ∪ σ2 ∧ σ1 ##ₘ σ2 ∧ P σ1 ∧ Q σ2 |}.
-Definition heapProp_sep_aux : seal (@heapProp_sep_def). Proof. by eexists. Qed.
-Definition heapProp_sep := unseal heapProp_sep_aux.
-Definition heapProp_sep_eq:
-  @heapProp_sep = @heapProp_sep_def := seal_eq heapProp_sep_aux.
+Definition hProp_exist_def {A} (Ψ : A → hProp) : hProp :=
+  {| hProp_holds σ := ∃ a, Ψ a σ |}.
+Definition hProp_exist_aux : seal (@hProp_exist_def). Proof. by eexists. Qed.
+Definition hProp_exist {A} := unseal hProp_exist_aux A.
+Definition hProp_exist_eq :
+  @hProp_exist = @hProp_exist_def := seal_eq hProp_exist_aux.
 
-Definition heapProp_wand_def (P Q : heapProp) : heapProp :=
-  {| heapProp_holds σ := ∀ σ', σ ##ₘ σ' → P σ' → Q (σ ∪ σ') |}.
-Definition heapProp_wand_aux : seal (@heapProp_wand_def). Proof. by eexists. Qed.
-Definition heapProp_wand := unseal heapProp_wand_aux.
-Definition heapProp_wand_eq:
-  @heapProp_wand = @heapProp_wand_def := seal_eq heapProp_wand_aux.
+Definition hProp_sep_def (P Q : hProp) : hProp :=
+  {| hProp_holds σ := ∃ σ1 σ2, σ = σ1 ∪ σ2 ∧ σ1 ##ₘ σ2 ∧ P σ1 ∧ Q σ2 |}.
+Definition hProp_sep_aux : seal (@hProp_sep_def). Proof. by eexists. Qed.
+Definition hProp_sep := unseal hProp_sep_aux.
+Definition hProp_sep_eq:
+  @hProp_sep = @hProp_sep_def := seal_eq hProp_sep_aux.
 
-Definition heapProp_persistently_def (P : heapProp) : heapProp :=
-  {| heapProp_holds σ := P ∅ |}.
-Definition heapProp_persistently_aux : seal (@heapProp_persistently_def).
+Definition hProp_wand_def (P Q : hProp) : hProp :=
+  {| hProp_holds σ := ∀ σ', σ ##ₘ σ' → P σ' → Q (σ ∪ σ') |}.
+Definition hProp_wand_aux : seal (@hProp_wand_def). Proof. by eexists. Qed.
+Definition hProp_wand := unseal hProp_wand_aux.
+Definition hProp_wand_eq:
+  @hProp_wand = @hProp_wand_def := seal_eq hProp_wand_aux.
+
+Definition hProp_persistently_def (P : hProp) : hProp :=
+  {| hProp_holds σ := P ∅ |}.
+Definition hProp_persistently_aux : seal (@hProp_persistently_def).
 Proof. by eexists. Qed.
-Definition heapProp_persistently := unseal heapProp_persistently_aux.
-Definition heapProp_persistently_eq:
-  @heapProp_persistently = @heapProp_persistently_def := seal_eq heapProp_persistently_aux.
+Definition hProp_persistently := unseal hProp_persistently_aux.
+Definition hProp_persistently_eq:
+  @hProp_persistently = @hProp_persistently_def := seal_eq hProp_persistently_aux.
 
 (** Iris's [bi] class requires the presence of a later modality, but for non
 step-indexed logics, it can be defined as the identity. *)
-Definition heapProp_later (P : heapProp) : heapProp := P.
+Definition hProp_later (P : hProp) : hProp := P.
 
 Definition unseal_eqs :=
-  (heapProp_emp_eq, heapProp_pure_eq, heapProp_and_eq, heapProp_or_eq,
-   heapProp_impl_eq, heapProp_forall_eq, heapProp_exist_eq,
-   heapProp_sep_eq, heapProp_wand_eq, heapProp_persistently_eq).
+  (hProp_emp_eq, hProp_pure_eq, hProp_and_eq, hProp_or_eq,
+   hProp_impl_eq, hProp_forall_eq, hProp_exist_eq,
+   hProp_sep_eq, hProp_wand_eq, hProp_persistently_eq).
 Ltac unseal := rewrite !unseal_eqs /=.
 
 Section mixins.
   (** Enable [simpl] locally, which is useful for proofs in the model. *)
-  Local Arguments heapProp_holds !_ _ /.
+  Local Arguments hProp_holds !_ _ /.
 
-  Lemma heapProp_bi_mixin :
+  Lemma hProp_bi_mixin :
     BiMixin
-      heapProp_entails heapProp_emp heapProp_pure heapProp_and heapProp_or
-      heapProp_impl (@heapProp_forall) (@heapProp_exist)
-      heapProp_sep heapProp_wand heapProp_persistently.
+      hProp_entails hProp_emp hProp_pure hProp_and hProp_or
+      hProp_impl (@hProp_forall) (@hProp_exist)
+      hProp_sep hProp_wand hProp_persistently.
   Proof.
     split.
-    - (* [PreOrder heapProp_entails] *)
+    - (* [PreOrder hProp_entails] *)
       split; repeat destruct 1; constructor; naive_solver.
     - (* [P ≡ Q ↔ (P ⊢ Q) ∧ (Q ⊢ P)] *)
       intros P Q; split.
@@ -130,7 +137,7 @@ Section mixins.
     - (* [Proper (iff ==> dist n) bi_pure] *)
       unseal=> n φ1 φ2 Hφ; split; naive_solver.
     - (* [NonExpansive2 bi_and] *)
-      unseal=> n P1 P2 [HP] Q1 Q2 [HQ]; split; naive_solver.
+      unseal=> n P1 P2 [HP] Q1 Q2 [HQ]; split. naive_solver.
     - (* [NonExpansive2 bi_or] *)
       unseal=> n P1 P2 [HP] Q1 Q2 [HQ]; split; naive_solver.
     - (* [NonExpansive2 bi_impl] *)
@@ -208,22 +215,22 @@ Section mixins.
       split_and!; done || apply map_disjoint_empty_l.
   Qed.
 
-  Lemma heapProp_bi_later_mixin :
+  Lemma hProp_bi_later_mixin :
     BiLaterMixin
-      heapProp_entails heapProp_pure heapProp_or heapProp_impl
-      (@heapProp_forall) (@heapProp_exist)
-      heapProp_sep heapProp_persistently heapProp_later.
-  Proof. eapply bi_later_mixin_id; [done|apply heapProp_bi_mixin]. Qed.
+      hProp_entails hProp_pure hProp_or hProp_impl
+      (@hProp_forall) (@hProp_exist)
+      hProp_sep hProp_persistently hProp_later.
+  Proof. eapply bi_later_mixin_id; [done|apply hProp_bi_mixin]. Qed.
 End mixins.
 
-Canonical Structure heapPropI : bi :=
-  {| bi_ofe_mixin := ofe_mixin_of heapProp;
-     bi_bi_mixin := heapProp_bi_mixin; bi_bi_later_mixin := heapProp_bi_later_mixin |}.
+Canonical Structure hPropI : bi :=
+  {| bi_ofe_mixin := ofe_mixin_of hProp;
+     bi_bi_mixin := hProp_bi_mixin; bi_bi_later_mixin := hProp_bi_later_mixin |}.
 
-Instance heapProp_pure_forall : BiPureForall heapPropI.
+Instance hProp_pure_forall : BiPureForall hPropI.
 Proof. intros A φ. rewrite /bi_forall /bi_pure /=. unseal. by split. Qed.
 
-Lemma heapProp_proofmode_test {A} (P Q R : heapProp) (Φ Ψ : A → heapProp) :
+Lemma hProp_proofmode_test {A} (P Q R : hProp) (Φ Ψ : A → hProp) :
   P ∗ Q -∗
   □ R -∗
   □ (R -∗ ∃ x, Φ x) -∗

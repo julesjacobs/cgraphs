@@ -1,6 +1,0 @@
-(P -* `ϕ`) * P -* P * `ϕ`
-
-WP e :=
-    - If a thread can take a step e -> e', then state_interp is preserved,
-        and we have a WP e'.
-    - If a thread cannot take a step, then legal_state holds.

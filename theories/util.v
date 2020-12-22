@@ -282,6 +282,17 @@ Proof.
   - rewrite IHxs. clear IHxs. repeat case_decide; eauto with lia.
 Qed.
 
+Lemma lookup_union_Some' `{Countable K} {V} (A B : gmap K V) x v :
+  A ##ₘ B ->
+  (A ∪ B) !! x = Some v ->
+  (A !! x = Some v ∧ B !! x = None) ∨ (B !! x = Some v ∧ A !! x = None).
+Proof.
+  intros Hdisj Hl.
+  apply lookup_union_Some in Hl as []; eauto; [left | right]; split; eauto;
+  rewrite ->map_disjoint_alt in Hdisj; specialize (Hdisj x);
+  destruct (A !! x); naive_solver.
+Qed.
+
 Section disjoint.
   Context `{Countable K}.
   Context {V : Type}.
@@ -417,6 +428,11 @@ Section disjoint.
       eapply sublist_Forall; eauto.
     - apply IHHsub. eapply disjoint_cons_weaken; eauto.
   Qed.
+
+  (* Lemma disjoint_submseteq gs gs' :
+    submseteq gs' gs -> disjoint gs -> disjoint gs'.
+  Proof.
+  Admitted. *)
 
   Lemma disjoint_update_sub gs g g' i :
     gs !! i = Some g -> g' ⊆ g -> disjoint gs -> disjoint (<[i := g']> gs).
