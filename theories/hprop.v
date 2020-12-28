@@ -50,6 +50,15 @@ Definition hProp_pure := unseal hProp_pure_aux.
 Definition hProp_pure_eq :
   @hProp_pure = @hProp_pure_def := seal_eq hProp_pure_aux.
 
+Definition hProp_own_def (σ : gmap endpoint chan_type) : hProp :=
+  {| hProp_holds σ' := σ' = σ |}.
+Definition hProp_own_aux : seal (@hProp_own_def). Proof. by eexists. Qed.
+Definition hProp_own := unseal hProp_own_aux.
+Definition hProp_own_eq :
+  @hProp_own= @hProp_own_def := seal_eq hProp_own_aux.
+
+Definition own (σ : gmap endpoint chan_type) : hProp := hProp_own_def σ.
+
 Definition hProp_and_def (P Q : hProp) : hProp :=
   {| hProp_holds σ := P σ ∧ Q σ |}.
 Definition hProp_and_aux : seal (@hProp_and_def). Proof. by eexists. Qed.
