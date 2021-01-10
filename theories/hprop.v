@@ -12,6 +12,7 @@ proof mode can be used to prove lemmas in this separation logic. *)
 Record hProp := h_Prop {
   hProp_holds :> gmap endpoint chan_type → Prop;
 }.
+Bind Scope bi_scope with hProp.
 Arguments hProp_holds : simpl never.
 Add Printing Constructor hProp.
 

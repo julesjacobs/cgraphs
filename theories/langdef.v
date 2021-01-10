@@ -3,6 +3,9 @@ From iris.proofmode Require Import base tactics classes.
 Definition chan := nat.
 Definition endpoint := (chan * bool)%type.
 
+Definition other (e : endpoint) : endpoint :=
+    let '(x,b) := e in (x, negb b).
+
 Inductive val :=
     | Unit : val
     | Nat : nat -> val
@@ -24,7 +27,7 @@ with expr :=
     | Fork : expr -> expr
     | Close : expr -> expr.
 
-Definition heap := list (list val * list val).
+Definition heap := gmap endpoint (list val).
 
 Inductive type :=
     | UnitT : type
@@ -118,26 +121,6 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   | Close e1 => Close (subst x a e1)
   end.
 
-Definition lookup_recv (h : heap) (c : endpoint) : option (list val) :=
-  h !! c.1 ≫= λ '(x,y), Some (if c.2 then x else y).
-
-Definition lookup_send (h : heap) (c : endpoint) : option (list val) :=
-  h !! c.1 ≫= λ '(x,y), Some (if c.2 then y else x).
-
-Definition set_recv (h : heap) (c : endpoint) (buf : list val) : heap :=
-  let (l,b) := c in
-  match h !! l with
-  | Some (x,y) => <[ l := if b then (buf,y) else (x,buf) ]> h
-  | None => h
-  end.
-
-Definition set_send (h : heap) (c : endpoint) (buf : list val) : heap :=
-  let (l,b) := c in
-  match h !! l with
-  | Some (x,y) => <[ l := if b then (x,buf) else (buf,y) ]> h
-  | None => h
-  end.
-
 Inductive pure_step : expr -> expr -> Prop :=
     | App_step : ∀ x e a,
         pure_step (App (Val (Fun x e)) (Val a)) (subst x a e)
@@ -159,19 +142,21 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
     | Pure_step : ∀ e e' h,
         pure_step e e' -> head_step e h e' h []
     | Send_step : ∀ h c y buf,
-        lookup_send h c = Some buf ->
-        head_step (Send (Val (Chan c)) (Val y)) h (Val (Chan c)) (set_recv h c (buf ++ [y])) []
+        h !! (other c) = Some buf ->
+        head_step (Send (Val (Chan c)) (Val y)) h (Val (Chan c)) (<[ other c := buf ++ [y] ]> h) []
     | Recv_step : ∀ h c y buf,
-        lookup_recv h c = Some (y::buf) ->
-        head_step (Recv (Val (Chan c))) h (Val (Pair (Chan c) y)) (set_send h c buf) []
+        h !! c = Some (y::buf) ->
+        head_step (Recv (Val (Chan c))) h (Val (Pair (Chan c) y)) (<[ c := buf ]> h) []
     | Close_step : ∀ c h,
-        lookup_recv h c = Some [] ->
-        head_step (Close (Val (Chan c))) h (Val Unit) h []
-    | Fork_step : ∀ v (h : heap),
+        h !! c = Some [] ->
+        head_step (Close (Val (Chan c))) h (Val Unit) (delete c h) []
+    | Fork_step : ∀ v (h : heap) i,
+        h !! (i,true) = None ->
+        h !! (i,false) = None ->
         head_step
           (Fork (Val v)) h
-          (Val $ Chan (length h, true)) (h++[([],[])])
-          [App (Val v) (Val (Chan (length h, false)))].
+          (Val $ Chan (i, true)) (<[ (i,true) := [] ]> $ <[ (i,false) := [] ]> h)
+          [App (Val v) (Val (Chan (i, false)))].
 
 Inductive ctx1 : (expr -> expr) -> Prop :=
     | Ctx_App_l : ∀ e, ctx1 (λ x, App x e)

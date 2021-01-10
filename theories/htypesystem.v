@@ -11,7 +11,7 @@ Require Import diris.util.
 Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 
 Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
- (match e with
+ match e with
   | Val v =>
       ⌜⌜ Γ = ∅ ⌝⌝ ∗ val_typed v t
   | Var x =>
@@ -51,15 +51,15 @@ Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
       ptyped Γ e (FunT (ChanT (dual r)) UnitT)
   | Close e =>
       ptyped Γ e (ChanT EndT)
-  end)%I
+  end
 with val_typed (v : val) (t : type) : hProp :=
- (match v with
+  match v with
   | Unit => ⌜⌜ t = UnitT ⌝⌝
   | Nat n => ⌜⌜ t = NatT ⌝⌝
   | Pair a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
   | Fun x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2
-  | Chan c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ hProp_has_type c r
-  end)%I.
+  | Chan c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own {[ c := r ]}
+  end.
 
 Lemma typed_ptyped Γ e t : ⌜⌜ typed Γ e t ⌝⌝ -∗ ptyped Γ e t.
 Proof.
@@ -338,6 +338,17 @@ Qed.
 
 Ltac smd := solve_map_disjoint || (rewrite map_union_comm; solve_map_disjoint).
 
+Lemma ctx_subst Γ1 Γ2 k A B e :
+  Γ1 ##ₘ Γ2 -> ctx_typed Γ1 k A B -∗ ptyped Γ2 e A -∗ ptyped (Γ1 ∪ Γ2) (k e) B.
+Proof.
+  intros Hdisj.
+  iIntros "Hctx Htyped".
+  unfold ctx_typed.
+  iApply "Hctx".
+  - iPureIntro. done.
+  - iFrame.
+Qed.
+
 Lemma typed_ctx1_typed Γ B k e :
   ctx1 k -> ptyped Γ (k e) B -∗
   ∃ Γ1 Γ2 A,
@@ -388,6 +399,10 @@ Proof.
       iApply "H1". iPureIntro. solve_map_disjoint.
       iApply "H3". solve_map_disjoint. done.
 Qed.
+
+(* Todo:
+  - Make ptyped0 for empty contexts
+  - Make ctx_typed0 for empty contexts *)
 
 (*
   Asynchronous subtyping:

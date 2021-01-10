@@ -66,6 +66,9 @@ Proof.
   intro. eauto.
 Qed.
 
+(* If we insist that P is a functor then we can't use (λ z, P z -> P x)
+and therefore we can't use symmetry. So in a directed type theory,
+Leibniz equality can be morphism. *)
 Lemma eq_sym (t : Set) (x y : t) :
   eq x y -> eq y x.
 Proof.

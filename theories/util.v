@@ -69,7 +69,7 @@ Fixpoint insert {T} (i : nat) (x : T) (xs : list T) : list T :=
   | S i',[] => []
   end.
 
-Lemma lookup_insert {A} i j (x : A) xs :
+Lemma lookup_insert' {A} i j (x : A) xs :
   i ≤ length xs ->
   insert i x xs !! j =
     if decide (j < i) then xs !! j
@@ -366,8 +366,8 @@ Section disjoint.
     destruct (decide (length gs < i)).
     { rewrite insert_out_of_bounds; eauto with lia. }
     intros HH Hdisj j1 j2 h1 h2 Hs1 Hs2 Hneq.
-    rewrite lookup_insert in Hs1; last lia.
-    rewrite lookup_insert in Hs2; last lia.
+    rewrite lookup_insert' in Hs1; last lia.
+    rewrite lookup_insert' in Hs2; last lia.
     repeat case_decide; simpl in *; simplify_eq;
     unfold disjoint in *;
     eauto using elem_of_list_lookup_2 with lia; symmetry;
