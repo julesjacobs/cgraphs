@@ -10,7 +10,7 @@ It shows that Iris's [bi] canonical structure can be inhabited, and the Iris
 proof mode can be used to prove lemmas in this separation logic. *)
 
 Record hProp := h_Prop {
-  hProp_holds :> gmap endpoint chan_type → Prop;
+  hProp_holds :> heapT → Prop;
 }.
 Bind Scope bi_scope with hProp.
 Arguments hProp_holds : simpl never.

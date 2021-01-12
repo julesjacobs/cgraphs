@@ -126,7 +126,7 @@ Proof.
   revert i; induction xs; destruct i; simpl; try f_equiv; eauto.
 Qed.
 
-Lemma delete_insert {T} (i : nat) (x : T) (xs : list T) :
+Lemma delete_insert' {T} (i : nat) (x : T) (xs : list T) :
   xs !! i = Some x -> insert i x (delete i xs) = xs.
 Proof.
   revert i; induction xs; destruct i; simpl; intros; try f_equiv; naive_solver.

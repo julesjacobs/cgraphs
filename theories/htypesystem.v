@@ -10,6 +10,7 @@ Require Import diris.util.
    ⌜⌜ p ⌝⌝ := λ Σ, Σ = ∅ ∧ p *)
 Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 
+
 Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
  match e with
   | Val v =>
@@ -18,8 +19,7 @@ Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
       ⌜⌜ Γ = {[ x := t ]} ⌝⌝
   | App e1 e2 => ∃ t' Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-      ptyped Γ1 e1 (FunT t' t)
-      ∗
+      ptyped Γ1 e1 (FunT t' t) ∗
       ptyped Γ2 e2 t'
   | Lam x e => ∃ t1 t2,
       ⌜⌜ t = FunT t1 t2 ∧ Γ !! x = None ⌝⌝ ∗

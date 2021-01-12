@@ -42,6 +42,7 @@ with chan_type :=
     | EndT : chan_type.
 
 Notation envT := (gmap string type).
+Notation heapT := (gmap endpoint chan_type).
 
 Fixpoint dual ct :=
     match ct with
@@ -49,6 +50,7 @@ Fixpoint dual ct :=
     | SendT c ct => RecvT c (dual ct)
     | RecvT c ct => SendT c (dual ct)
     end.
+
 
 Inductive typed : envT -> expr -> type -> Prop :=
     | Unit_typed : typed ∅ (Val Unit) UnitT
