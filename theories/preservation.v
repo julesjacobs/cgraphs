@@ -43,16 +43,69 @@ Definition invariantΣ (Σ : gmap endpoint chan_type)
       buf_typed buf ct (if ep.2 then (rest ep.1) else dual (rest (ep.1)))
     ) *)
 
+Definition heap_chans (Σ : gmap endpoint chan_type) : gset nat := set_map fst (dom (gset endpoint) Σ).
+
+Definition buf_typed' (chans : heap) (Σ : gmap endpoint chan_type) (ep : endpoint) (rest : chan_type) : hProp :=
+    match chans !! ep, Σ !! ep with
+    | Some buf, Some ct => buf_typed buf ct rest
+    | None, None => True
+    | _,_ => False
+    end.
+
 Definition heap_typed (chans : heap) (Σ : gmap endpoint chan_type) : hProp :=
-  (⌜⌜ ∀ ep, is_Some (chans !! ep) <-> is_Some (Σ !! ep) ⌝⌝ ∗
-   [∗ set] i∈set_map fst (dom (gset endpoint) Σ),
-      ∃ rest, buf_typed (default [] (chans !! (i,true))) (default EndT (Σ !! (i,true))) rest ∗
-              buf_typed (default [] (chans !! (i,false))) (default EndT (Σ !! (i,false))) (dual rest))%I.
+   ([∗ set] i∈heap_chans Σ,
+      ∃ rest, buf_typed' chans Σ (i,true) rest ∗
+              buf_typed' chans Σ (i,false) (dual rest))%I.
 
 Definition invariant (chans : heap) (threads : list expr) : hProp :=
   ∃ Σ, own Σ ∗ (* should become own_auth *)
-      ([∗ list] e∈threads, ptyped ∅ e UnitT) ∗
+      ([∗ list] e∈threads, ptyped0 e UnitT) ∗
       heap_typed chans Σ.
+
+(*
+Previously:
+===========
+
+invariant chans threads : Prop :=
+  ∃ Σ, own Σ ⊢ ...
+
+hProp := gmap endpoint chan_type -> Prop
+
+P ⊢ Q := ∀ Σ, P Σ -> Q Σ
+
+(P ∗ Q) Σ := ∃ Σ1 Σ2, Σ = Σ1 ∪ Σ2 ∧ Σ1 ##ₘ Σ2 ∧ P Σ1 ∧ Q Σ2
+
+(P -∗ Q) Σ := ∀ Σ', Σ ##ₘ Σ' -> P Σ' -> Q (Σ ∪ Σ')
+
+(own Σ) Σ' := (Σ = Σ')
+
+
+Now:
+====
+
+invariant chans threads : hProp :=
+  ∃ Σ, know Σ ∗ ...
+
+hProp := (gmap endpoint chan_type * gmap endpoint chan_type) -> Prop
+
+P ⊢ Q := ∀ Σ Σ', P (Σ,Σ') -> Q (Σ,Σ')
+
+(|=> Q) (Σg,Σl) = ∃ Σ', Q (Σ',Σ')
+
+(P ∗ Q) (Σg,Σl) := ∃ Σl1 Σl2, Σl = Σl1 ∪ Σl2 ∧ Σl1 ##ₘ Σl2 ∧ P (Σg,Σl1) ∧ Q (Σg,Σl2)
+
+(P -∗ Q) (Σg,Σl) := ∀ Σl', Σl ##ₘ Σl' -> P (Σg,Σl') -> Q (Σg, Σl ∪ Σl')
+
+We want: (P ∗ Q) -∗ R ⊣⊢ P -∗ (Q -∗ R)
+
+(own Σ) (Σg,Σl) := (Σ = Σl)
+(know Σ) (Σg,Σl) := (Σ ⊆ Σg ∧ Σl = ∅)
+
+Lemma preservation threads chans threads' chans' :
+  step threads chans threads' chans' ->
+    invariant threads chans -∗ |=> invariant threads' chans'
+
+*)
 
 Lemma buf_typed_push buf t ct rest v :
   val_typed v t -∗
@@ -74,6 +127,9 @@ Proof.
   iIntros "[? ?]". simpl. iFrame.
 Qed.
 
+(* TODO:
+  move premise chans !! other ep = Some buf to conclusion using an existential
+ *)
 Lemma heap_typed_send chans Σ t v ep ct buf :
   chans !! other ep = Some buf ->
   Σ !! ep = Some (SendT t ct) ->
@@ -82,34 +138,36 @@ Lemma heap_typed_send chans Σ t v ep ct buf :
   heap_typed (<[ other ep := buf ++ [v] ]> chans) (<[ ep := ct ]> Σ).
 Proof.
   iIntros (Hc HΣ) "Hv Ht".
+  iDestruct "Ht" as (Hchans) "Ht".
   iSplit.
-  - iDestruct "Ht" as "[% _]".
-    iPureIntro.
+  - iPureIntro.
     intros ep'.
+    (* Search is_Some insert.
+    rewrite !lookup_insert_is_Some.
+    destruct (decide (ep = ep')).
+    + subst. rewrite Hchans HΣ !is_Some_alt.
+      destruct ep'. *)
+
     destruct (decide (ep = ep')).
     + subst. rewrite !lookup_insert.
-      rewrite lookup_insert_ne. rewrite H. rewrite HΣ.
+      rewrite lookup_insert_ne. rewrite Hchans. rewrite HΣ.
       rewrite !is_Some_alt. done. destruct ep'. simpl. destruct b; eauto.
-    + rewrite lookup_insert_ne; eauto. rewrite <-H.
+    + rewrite lookup_insert_ne; eauto. rewrite <-Hchans.
       destruct (decide (ep' = other ep)).
       * subst. rewrite lookup_insert. rewrite Hc. rewrite !is_Some_alt. done.
       * rewrite lookup_insert_ne; eauto.
-  - iDestruct "Ht" as "[% Ht]".
-    assert (((set_map fst (dom (gset endpoint) (<[ep:=ct]> Σ)) : gset nat)
-        = (set_map fst (dom (gset endpoint) Σ)))) by admit.
-    rewrite H0.
-    assert (ep.1 ∈ (set_map fst (dom (gset endpoint) Σ) : gset nat)) by admit.
+  - assert (heap_chans (<[ep:=ct]> Σ) = heap_chans Σ) as -> by admit.
+    assert (ep.1 ∈ heap_chans Σ) by admit.
     iApply big_sepS_delete; first done.
     iDestruct (big_sepS_delete with "Ht") as "[Hep H]"; first done.
     iSplitL "Hep Hv".
     + iDestruct "Hep" as (rest) "[Hl Hr]".
-      iExists _.
+      iExists rest.
       destruct ep as [x b]. simpl.
       destruct b; simpl in *.
       * rewrite !lookup_insert.
         rewrite !lookup_insert_ne; eauto.
         iFrame. simpl. rewrite Hc. simpl. rewrite HΣ. simpl.
-
         admit.
       * rewrite !lookup_insert.
         rewrite !lookup_insert_ne; eauto.
