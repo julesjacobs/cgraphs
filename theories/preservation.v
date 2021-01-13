@@ -43,7 +43,7 @@ Definition invariantΣ (Σ : heapT)
       buf_typed buf ct (if ep.2 then (rest ep.1) else dual (rest (ep.1)))=
     ) *)
 
-Definition heap_chans (Σ : heapT) : gset nat := set_map fst (dom (gset endpoint) Σ).
+Definition dom_chans {V} (Σ : gmap endpoint V) : gset nat := set_map fst (dom (gset endpoint) Σ).
 
 Definition buf_typed' (bufq : option (list val)) (ctq : option chan_type) (rest : chan_type) : hProp :=
     match bufq, ctq with
@@ -57,14 +57,200 @@ Definition bufs_typed (chans : heap) (Σ : heapT) (i : chan) : hProp :=
           buf_typed' (chans !! (i,false)) (Σ !! (i,false)) (dual rest).
 
 Definition heap_typed (chans : heap) (Σ : heapT) : hProp :=
-   ([∗ set] i∈heap_chans Σ, bufs_typed chans Σ i)%I.
-   (* should this use heap_chans chans??? *)
-   (* should we insist that heap_chans Σ = heap_chans chans??? *)
+   ([∗ set] i∈dom_chans Σ ∪ dom_chans chans, bufs_typed chans Σ i)%I.
+   (* should this use dom_chans chans??? *)
+   (* should we insist that dom_chans Σ = dom_chans chans??? *)
 
 Definition invariant (chans : heap) (threads : list expr) : hProp :=
   ∃ Σ, own Σ ∗ (* should become own_auth *)
       ([∗ list] e∈threads, ptyped0 e UnitT) ∗
       heap_typed chans Σ.
+
+Lemma elem_of_dom_chans_alt {A} (i : nat) (Σ : gmap endpoint A) :
+  i ∈ dom_chans Σ <-> ∃ b, is_Some (Σ !! (i,b)).
+Proof.
+  unfold dom_chans.
+  rewrite elem_of_map.
+  setoid_rewrite elem_of_dom.
+  split; intros H.
+  + destruct H as [[c b] [H1 [x Hx]]]. simpl in *. subst.
+    exists b. rewrite Hx. eexists. done.
+  + destruct H as [b [x Hx]].
+    exists (i,b). simpl. split;auto.
+    rewrite Hx. eexists. done.
+Qed.
+
+Lemma not_elem_of_dom_chans_alt {A} (i : nat) (Σ : gmap endpoint A) :
+  i ∉ dom_chans Σ <-> ∀ b, Σ !! (i,b) = None.
+Proof.
+  unfold not. rewrite elem_of_dom_chans_alt.
+  split; intros.
+  - destruct (Σ !! (i,b)) eqn:E; naive_solver.
+  - destruct H0 as [b Hb].
+    rewrite H in Hb.
+    destruct Hb. simplify_eq.
+Qed.
+
+Lemma dom_chans_Some {A : Type} { i : nat} { b : bool }  { Σ : gmap endpoint A } :
+  is_Some (Σ !! (i,b)) ->
+  i ∈ dom_chans Σ.
+Proof.
+  intros H.
+  rewrite elem_of_map.
+  exists (i,b); simpl. split; first done.
+  rewrite elem_of_dom. done.
+Qed.
+
+Lemma dom_chans_in {A} (i : nat) (Σ : gmap endpoint A) :
+  i ∈ dom_chans Σ ->
+  ∃ b, is_Some (Σ !! (i,b)).
+Proof.
+  unfold dom_chans.
+  rewrite elem_of_map.
+  intros [x [H H']].
+  setoid_rewrite elem_of_dom in H'.
+  destruct x. eexists. simplify_eq. done.
+Qed.
+
+
+Lemma dom_chans_empty {A} :
+  dom_chans (V:=A) ∅ = ∅.
+Proof.
+  apply elem_of_equiv_L. intros n.
+  setoid_rewrite elem_of_dom_chans_alt.
+  rewrite elem_of_empty.
+  setoid_rewrite lookup_empty.
+  setoid_rewrite is_Some_alt.
+  split; intros []. done.
+Qed.
+
+Lemma dom_chans_None_delete {A} (Σ : gmap endpoint A) ep :
+  Σ !! other ep = None ->
+  dom_chans Σ ∖ {[ep.1]} = dom_chans (delete ep Σ).
+Proof.
+  intros H.
+  apply elem_of_equiv_L.
+  intros n.
+  rewrite elem_of_difference.
+  rewrite !elem_of_dom_chans_alt.
+  rewrite not_elem_of_singleton.
+  split.
+  - intros [[b Hb] Hn]. exists b.
+    rewrite lookup_delete_ne; eauto.
+    destruct ep; simpl in *; intro; simplify_eq.
+  - intros [b Hb].
+    apply lookup_delete_is_Some in Hb as [].
+    split; eauto.
+    intro. destruct ep. simpl in *. simplify_eq.
+    assert (b0 ≠ b) by naive_solver.
+    destruct b,b0; simpl in *; eauto.
+    + rewrite H in H1. destruct H1. simplify_eq.
+    + rewrite H in H1. destruct H1. simplify_eq.
+Qed.
+
+Lemma lookup_delete_lr `{Countable K} {V} (x y : K) (m : gmap K V) :
+  delete x m !! y = if (decide (x = y)) then None else m !! y.
+Proof.
+  case_decide.
+  - subst. rewrite lookup_delete. done.
+  - rewrite lookup_delete_ne; done.
+Qed.
+
+Lemma dom_chans_Some_delete {A} (Σ : gmap endpoint A) ep c :
+  Σ !! other ep = Some c ->
+  dom_chans (delete ep Σ) = dom_chans Σ.
+Proof.
+  intros H.
+  apply elem_of_equiv_L.
+  intros n.
+  rewrite !elem_of_dom_chans_alt.
+  split; intros HH.
+  - destruct HH as [b [x Hx]].
+    exists b. rewrite lookup_delete_lr in Hx.
+    case_decide; simplify_eq. rewrite Hx. eexists. done.
+  - destruct HH as [b [x Hx]].
+    destruct ep.
+    destruct (decide (n = c0)).
+    + subst. exists (negb b0). simpl in *.
+      rewrite lookup_delete_ne. rewrite H. eexists. done.
+      destruct b0; naive_solver.
+    + exists b.
+      rewrite lookup_delete_ne.
+      rewrite Hx. eexists. done.
+      naive_solver.
+Qed.
+
+Lemma bufs_typed_is_Some Σ chans ep :
+  bufs_typed chans Σ ep.1 -∗
+  ⌜ is_Some (chans !! ep) <-> is_Some (Σ !! ep) ⌝.
+Proof.
+  iIntros "H".
+  unfold bufs_typed.
+  iDestruct "H" as (rest) "[H1 H2]".
+  destruct ep; simpl.
+  destruct b.
+  - destruct (chans !! (c,true)),(Σ !! (c,true)); simpl;
+    rewrite !is_Some_alt; eauto.
+  - destruct (chans !! (c,false)),(Σ !! (c,false)); simpl;
+    rewrite !is_Some_alt; eauto.
+Qed.
+
+Lemma heap_typed_doms_eq chans Σ :
+  heap_typed chans Σ -∗ ∀ ep, ⌜ is_Some (Σ !! ep) <-> is_Some (chans !! ep) ⌝.
+Proof.
+  iIntros "H" (ep).
+  unfold heap_typed.
+  destruct (Σ !! ep) eqn:E; destruct (chans !! ep) eqn:F;
+  rewrite !is_Some_alt; eauto.
+  + assert (ep.1 ∈ dom_chans Σ).
+    { rewrite elem_of_dom_chans_alt. exists ep.2. destruct ep.
+      simpl. rewrite E. by eexists. }
+    assert (ep.1 ∈ (dom_chans Σ ∪ dom_chans chans)).
+    { apply elem_of_union. eauto. }
+    clear H.
+    iDestruct (big_sepS_delete with "H") as "[H _]"; first done.
+    iDestruct (bufs_typed_is_Some with "H") as "%".
+    rewrite E F in H.
+    rewrite-> !is_Some_alt in H. done.
+  + assert (ep.1 ∈ dom_chans chans).
+    { rewrite elem_of_dom_chans_alt. exists ep.2. destruct ep.
+      simpl. rewrite F. by eexists. }
+    assert (ep.1 ∈ (dom_chans Σ ∪ dom_chans chans)).
+    { apply elem_of_union. eauto. }
+    clear H.
+    iDestruct (big_sepS_delete with "H") as "[H _]"; first done.
+    iDestruct (bufs_typed_is_Some with "H") as "%".
+    rewrite E F in H.
+    rewrite-> !is_Some_alt in H. done.
+Qed.
+
+Lemma dom_chans_mono {A B : Type} (a : gmap endpoint A) (b : gmap endpoint B) :
+  (∀ ep, is_Some (a !! ep) -> is_Some (b !! ep)) -> dom_chans a ⊆ dom_chans b.
+Proof.
+  intros H.
+  unfold dom_chans.
+  apply set_map_mono; first done.
+  apply elem_of_subseteq.
+  intros x.
+  rewrite !elem_of_dom.
+  naive_solver.
+Qed.
+
+Lemma dom_chans_union {A B : Type} (a : gmap endpoint A) (b : gmap endpoint B) :
+  (∀ ep, is_Some (b !! ep) -> is_Some (a !! ep)) -> dom_chans a ∪ dom_chans b = dom_chans a.
+Proof.
+  intros H. apply dom_chans_mono in H.
+  rewrite-> subseteq_union_L in H.
+  rewrite (comm_L union). done.
+Qed.
+
+Lemma heap_typed_dom_union chans Σ :
+  heap_typed chans Σ -∗ ⌜ dom_chans Σ ∪ dom_chans chans = dom_chans Σ ⌝.
+Proof.
+  iIntros "H".
+  iDestruct (heap_typed_doms_eq with "H") as "%".
+  iPureIntro. apply dom_chans_union. intro. rewrite H. done.
+Qed.
 
 (*
 Previously:
@@ -133,118 +319,6 @@ Proof.
   iIntros "[? ?]". simpl. iFrame.
 Qed.
 
-Lemma heap_chans_Some { Σ i b } :
-  is_Some (Σ !! (i,b)) ->
-  i ∈ heap_chans Σ.
-Proof.
-  intros H.
-  rewrite elem_of_map.
-  exists (i,b); simpl. split; first done.
-  rewrite elem_of_dom. done.
-Qed.
-
-Lemma heap_chans_in i Σ :
-  i ∈ heap_chans Σ ->
-  ∃ b, is_Some (Σ !! (i,b)).
-Proof.
-  unfold heap_chans.
-  rewrite elem_of_map.
-  intros [x [H H']].
-  setoid_rewrite elem_of_dom in H'.
-  destruct x. eexists. simplify_eq. done.
-Qed.
-
-Lemma elem_of_heap_chans_alt i Σ :
-  i ∈ heap_chans Σ <-> ∃ b, is_Some (Σ !! (i,b)).
-Proof.
-  unfold heap_chans.
-  rewrite elem_of_map.
-  setoid_rewrite elem_of_dom.
-  split; intros H.
-  + destruct H as [[c b] [H1 [x Hx]]]. simpl in *. subst.
-    exists b. rewrite Hx. eexists. done.
-  + destruct H as [b [x Hx]].
-    exists (i,b). simpl. split;auto.
-    rewrite Hx. eexists. done.
-Qed.
-
-Lemma not_elem_of_heap_chans_alt i Σ :
-  i ∉ heap_chans Σ <-> ∀ b, Σ !! (i,b) = None.
-Proof.
-  unfold not. rewrite elem_of_heap_chans_alt.
-  split; intros.
-  - destruct (Σ !! (i,b)) eqn:E; naive_solver.
-  - destruct H0 as [b Hb].
-    rewrite H in Hb.
-    destruct Hb. simplify_eq.
-Qed.
-
-Lemma heap_chans_empty :
-  heap_chans ∅ = ∅.
-Proof.
-  apply elem_of_equiv_L. intros n.
-  setoid_rewrite elem_of_heap_chans_alt.
-  rewrite elem_of_empty.
-  setoid_rewrite lookup_empty.
-  setoid_rewrite is_Some_alt.
-  split; intros []. done.
-Qed.
-
-Lemma heap_chans_None_delete Σ ep :
-  Σ !! other ep = None ->
-  heap_chans Σ ∖ {[ep.1]} = heap_chans (delete ep Σ).
-Proof.
-  intros H.
-  apply elem_of_equiv_L.
-  intros n.
-  rewrite elem_of_difference.
-  rewrite !elem_of_heap_chans_alt.
-  rewrite not_elem_of_singleton.
-  split.
-  - intros [[b Hb] Hn]. exists b.
-    rewrite lookup_delete_ne; eauto.
-    destruct ep; simpl in *; intro; simplify_eq.
-  - intros [b Hb].
-    apply lookup_delete_is_Some in Hb as [].
-    split; eauto.
-    intro. destruct ep. simpl in *. simplify_eq.
-    assert (b0 ≠ b) by naive_solver.
-    destruct b,b0; simpl in *; eauto.
-    + rewrite H in H1. destruct H1. simplify_eq.
-    + rewrite H in H1. destruct H1. simplify_eq.
-Qed.
-
-Lemma lookup_delete_lr `{Countable K} {V} (x y : K) (m : gmap K V) :
-  delete x m !! y = if (decide (x = y)) then None else m !! y.
-Proof.
-  case_decide.
-  - subst. rewrite lookup_delete. done.
-  - rewrite lookup_delete_ne; done.
-Qed.
-
-Lemma heap_chans_Some_delete Σ ep c :
-  Σ !! other ep = Some c ->
-  heap_chans (delete ep Σ) = heap_chans Σ.
-Proof.
-  intros H.
-  apply elem_of_equiv_L.
-  intros n.
-  rewrite !elem_of_heap_chans_alt.
-  split; intros HH.
-  - destruct HH as [b [x Hx]].
-    exists b. rewrite lookup_delete_lr in Hx.
-    case_decide; simplify_eq. rewrite Hx. eexists. done.
-  - destruct HH as [b [x Hx]].
-    destruct ep.
-    destruct (decide (n = c0)).
-    + subst. exists (negb b0). simpl in *.
-      rewrite lookup_delete_ne. rewrite H. eexists. done.
-      destruct b0; naive_solver.
-    + exists b.
-      rewrite lookup_delete_ne.
-      rewrite Hx. eexists. done.
-      naive_solver.
-Qed.
 
 Lemma other_neq ep :
   ep ≠ other ep.
@@ -309,10 +383,10 @@ Proof.
   destruct b,b';simpl;simplify_eq;eauto.
 Qed. *)
 
-Lemma heap_chans_delete Σ ep :
-  heap_chans (delete ep $ delete (other ep) Σ) = heap_chans Σ ∖ {[ep.1]}.
+Lemma dom_chans_delete {A} (Σ : gmap endpoint A) ep :
+  dom_chans (delete ep $ delete (other ep) Σ) = dom_chans Σ ∖ {[ep.1]}.
 Proof.
-  unfold heap_chans.
+  unfold dom_chans.
   rewrite !dom_delete_L.
   apply elem_of_equiv_L. intros n.
   rewrite elem_of_difference.
@@ -373,52 +447,65 @@ Proof.
   intros HSome.
   iSplit.
   - iIntros "H".
+    iDestruct (heap_typed_doms_eq with "H") as "%".
+    pose proof (dom_chans_Some HSome) as Hin.
     unfold heap_typed.
-    pose proof (heap_chans_Some HSome) as Hin.
+    rewrite dom_chans_union; last naive_solver.
     iDestruct (big_sepS_delete with "H") as "[Hep H]"; first done.
-    rewrite heap_chans_delete. iFrame.
+    assert (dom_chans (delete ep (delete (other ep) Σ))
+      ∪ dom_chans (delete ep (delete (other ep) chans)) =
+      dom_chans (delete ep (delete (other ep) Σ))) as ->.
+    {
+      apply dom_chans_union. intros ep'.
+      rewrite !lookup_delete_lr.
+      repeat case_decide; simplify_eq; rewrite is_Some_alt; try done.
+      destruct (chans !! ep') eqn:E; rewrite E; try done. intros _.
+      rewrite H. rewrite E. by eexists.
+    }
+    rewrite dom_chans_delete. iFrame.
     iApply (big_sepS_impl with "H").
     iModIntro.
-    iIntros (x H) "H".
-    rewrite-> elem_of_difference, elem_of_singleton in H.
-    destruct H.
+    iIntros (x HH) "H".
+    rewrite-> elem_of_difference, elem_of_singleton in HH.
+    destruct HH.
     iApply (bufs_typed_relevant with "H"); intros b;
     rewrite delete_both; eauto.
   - iIntros "[H H2]".
+    iDestruct (heap_typed_doms_eq with "H") as "%".
     unfold heap_typed.
-    rewrite heap_chans_delete.
+    rewrite dom_chans_union; last naive_solver.
+    rewrite dom_chans_delete.
     iApply big_sepS_delete.
-    { eapply heap_chans_Some.
+    { apply elem_of_union. left.
+      eapply dom_chans_Some.
       replace (ep) with (ep.1, ep.2) in HSome; first done.
       destruct ep; done. }
     iFrame.
-    rewrite <-!heap_chans_delete.
+    assert ((dom_chans Σ ∪ dom_chans chans) ∖ {[ep.1]} =
+        dom_chans Σ ∖ {[ep.1]}) as HH.
+    {
+      rewrite difference_union_distr_l_L.
+      rewrite (comm_L union).
+      apply subseteq_union_L.
+      rewrite elem_of_subseteq. intros x.
+      rewrite <- !dom_chans_delete.
+      rewrite !elem_of_dom_chans_alt.
+      intros [b Hb].
+      exists b. rewrite H. done.
+    }
+    rewrite HH.
+    rewrite <-!dom_chans_delete.
     iApply (big_sepS_impl with "H").
     iModIntro.
-    iIntros (x H) "H".
+    iIntros (x HHH) "H".
     assert (x ≠ ep.1).
     {
-      rewrite heap_chans_delete //= in H.
-      apply elem_of_difference in H as [? H].
-      intro. apply H. apply elem_of_singleton. done.
+      rewrite dom_chans_delete //= in HHH.
+      apply elem_of_difference in HHH as [? HHH].
+      intro. apply HHH. apply elem_of_singleton. done.
     }
     iApply (bufs_typed_relevant with "H"); intros b;
     rewrite delete_both; eauto.
-Qed.
-
-Lemma bufs_typed_is_Some Σ chans ep :
-  bufs_typed chans Σ ep.1 -∗
-  ⌜ is_Some (chans !! ep) <-> is_Some (Σ !! ep) ⌝.
-Proof.
-  iIntros "H".
-  unfold bufs_typed.
-  iDestruct "H" as (rest) "[H1 H2]".
-  destruct ep; simpl.
-  destruct b.
-  - destruct (chans !! (c,true)),(Σ !! (c,true)); simpl;
-    rewrite !is_Some_alt; eauto.
-  - destruct (chans !! (c,false)),(Σ !! (c,false)); simpl;
-    rewrite !is_Some_alt; eauto.
 Qed.
 
 Lemma heap_typed_send chans Σ t v ep ct :
@@ -494,8 +581,8 @@ Proof.
       destruct (decide (ep' = other ep)).
       * subst. rewrite lookup_insert. rewrite Hc. rewrite !is_Some_alt. done.
       * rewrite lookup_insert_ne; eauto.
-  - assert (heap_chans (<[ep:=ct]> Σ) = heap_chans Σ) as -> by admit.
-    assert (ep.1 ∈ heap_chans Σ) by admit.
+  - assert (dom_chans (<[ep:=ct]> Σ) = dom_chans Σ) as -> by admit.
+    assert (ep.1 ∈ dom_chans Σ) by admit.
     iApply big_sepS_delete; first done.
     iDestruct (big_sepS_delete with "Ht") as "[Hep H]"; first done.
     iSplitL "Hep Hv".
@@ -570,12 +657,15 @@ Proof.
   iDestruct "H1" as "%". subst.
   iSplit; eauto.
   unfold heap_typed.
-  rewrite heap_chans_delete.
+  rewrite !dom_chans_delete.
   destruct (chans !! other ep) eqn:E.
   - destruct (Σ !! other ep) eqn:F;simpl; eauto.
-    erewrite heap_chans_Some_delete; eauto.
-    assert (ep.1 ∈ heap_chans Σ).
-    { destruct ep. simpl in *. eapply heap_chans_Some. done.  }
+    erewrite dom_chans_Some_delete; eauto.
+    pose proof (dom_chans_Some_delete _ _ _ E).
+    rewrite H0.
+    assert (ep.1 ∈ dom_chans Σ ∪ dom_chans chans).
+    { apply elem_of_union. left.
+      destruct ep. simpl in *. eapply dom_chans_Some. done.  }
     iApply big_sepS_delete; first done.
     iSplitL "H2".
     + rewrite bufs_typed_alt.
@@ -585,19 +675,24 @@ Proof.
       simpl.
       rewrite !lookup_delete_ne; auto using other_neq.
       rewrite E F. simpl. done.
-    + iApply (big_sepS_impl with "H").
+    + rewrite difference_union_distr_l_L.
+      iApply (big_sepS_impl with "H").
       iModIntro.
       iIntros (x HH) "H".
-      apply elem_of_difference in HH as [].
+      apply elem_of_union in HH.
       assert (x ≠ ep.1).
-      { intro. apply H2. subst. apply elem_of_singleton. done. }
+      { intro. subst.
+        destruct HH;
+        apply elem_of_difference in H2 as [? H3];
+        apply H3; subst; apply elem_of_singleton; done. }
       iApply (bufs_typed_relevant with "H"); intro b;
       rewrite delete_both; eauto; destruct ep; simpl in *;
       rewrite lookup_delete_ne; auto; intro; simplify_eq.
   - simpl. destruct (Σ !! other ep) eqn:F; eauto.
-    iClear "H2". rewrite heap_chans_None_delete; eauto.
-    rewrite (delete_notin chans); eauto.
-    rewrite (delete_notin Σ); eauto.
+    iClear "H2".
+    rewrite !dom_chans_None_delete; eauto.
+    rewrite (delete_notin chans (other ep)); eauto.
+    rewrite !(delete_notin Σ (other ep)); eauto.
 Qed.
 
 Lemma heap_typed_fork chans Σ i ct :
@@ -624,15 +719,22 @@ Proof.
     rewrite (delete_notin chans); eauto.
     clear H ct.
     unfold heap_typed.
-    destruct (decide (i ∈ heap_chans Σ)).
+    destruct (decide (i ∈ dom_chans Σ ∪ dom_chans chans)).
     + iDestruct (big_sepS_delete with "H") as "H"; first done.
       iDestruct "H" as "[Hb H]".
-      rewrite heap_chans_delete. simpl.
+      rewrite dom_chans_delete. simpl.
       iDestruct "Hb" as (rest) "[H1 H2]".
       rewrite H1 H2. simpl.
       destruct (Σ !! (i,true)) eqn:E; eauto.
       destruct (Σ !! (i,false)) eqn:F; eauto.
       iClear "H1 H2".
+      assert ((dom_chans Σ ∖ {[i]} ∪ dom_chans chans) =
+        ((dom_chans Σ ∪ dom_chans chans) ∖ {[i]})) as ->.
+      {
+        rewrite difference_union_distr_l_L. f_equal.
+        rewrite<- (dom_chans_delete _ (i,true)). simpl.
+        rewrite !delete_notin; eauto.
+      }
       iApply (big_sepS_impl with "H").
       iModIntro.
       iIntros (x H) "H".
@@ -641,7 +743,9 @@ Proof.
       assert (x ≠ i).
       { intro. apply H0. apply elem_of_singleton. done. }
       rewrite !lookup_delete_ne; first done; intro; simplify_eq.
-    + rewrite-> not_elem_of_heap_chans_alt in n.
+    + rewrite-> not_elem_of_union in n.
+      destruct n as [n n'].
+      rewrite-> not_elem_of_dom_chans_alt in n.
       rewrite !delete_notin; eauto.
   - unfold bufs_typed. iExists ct.
     rewrite !lookup_insert.
@@ -655,14 +759,23 @@ Lemma heap_typed_emp chans :
   heap_typed chans ∅ -∗ ⌜ chans = ∅ ⌝.
 Proof.
   iIntros "H".
-  unfold heap_typed. rewrite heap_chans_empty.
-  (* DANGER!!! This Lemma does not hold!!! *)
-Admitted.
+  iDestruct (heap_typed_doms_eq with "H") as "%".
+  iPureIntro.
+  apply map_empty.
+  intros ep.
+  specialize (H ep).
+  destruct (chans !! ep) eqn:E; auto.
+  exfalso.
+  rewrite lookup_empty in H.
+  rewrite-> is_Some_alt in H.
+  rewrite H. by eexists.
+Qed.
 
 Lemma heap_typed_init :
   ⊢ heap_typed ∅ ∅.
 Proof.
-  unfold heap_typed. rewrite heap_chans_empty.
+  unfold heap_typed. rewrite !dom_chans_empty.
+  rewrite left_id_L.
   iIntros. iApply big_sepS_empty. done.
 Qed.
 
