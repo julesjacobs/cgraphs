@@ -157,12 +157,38 @@ Qed.
 Lemma elem_of_heap_chans_alt i Σ :
   i ∈ heap_chans Σ <-> ∃ b, is_Some (Σ !! (i,b)).
 Proof.
-Admitted.
+  unfold heap_chans.
+  rewrite elem_of_map.
+  setoid_rewrite elem_of_dom.
+  split; intros H.
+  + destruct H as [[c b] [H1 [x Hx]]]. simpl in *. subst.
+    exists b. rewrite Hx. eexists. done.
+  + destruct H as [b [x Hx]].
+    exists (i,b). simpl. split;auto.
+    rewrite Hx. eexists. done.
+Qed.
 
 Lemma not_elem_of_heap_chans_alt i Σ :
   i ∉ heap_chans Σ <-> ∀ b, Σ !! (i,b) = None.
 Proof.
-Admitted.
+  unfold not. rewrite elem_of_heap_chans_alt.
+  split; intros.
+  - destruct (Σ !! (i,b)) eqn:E; naive_solver.
+  - destruct H0 as [b Hb].
+    rewrite H in Hb.
+    destruct Hb. simplify_eq.
+Qed.
+
+Lemma heap_chans_empty :
+  heap_chans ∅ = ∅.
+Proof.
+  apply elem_of_equiv_L. intros n.
+  setoid_rewrite elem_of_heap_chans_alt.
+  rewrite elem_of_empty.
+  setoid_rewrite lookup_empty.
+  setoid_rewrite is_Some_alt.
+  split; intros []. done.
+Qed.
 
 Lemma heap_chans_None_delete Σ ep :
   Σ !! other ep = None ->
@@ -188,23 +214,37 @@ Proof.
     + rewrite H in H1. destruct H1. simplify_eq.
 Qed.
 
+Lemma lookup_delete_lr `{Countable K} {V} (x y : K) (m : gmap K V) :
+  delete x m !! y = if (decide (x = y)) then None else m !! y.
+Proof.
+  case_decide.
+  - subst. rewrite lookup_delete. done.
+  - rewrite lookup_delete_ne; done.
+Qed.
+
 Lemma heap_chans_Some_delete Σ ep c :
   Σ !! other ep = Some c ->
   heap_chans (delete ep Σ) = heap_chans Σ.
 Proof.
   intros H.
   apply elem_of_equiv_L.
-  intros n. unfold heap_chans.
-  rewrite dom_delete_L elem_of_map.
-  split.
-  - intros [[] [H1 H2]]. simpl in *. subst.
-    apply elem_of_difference in H2 as []. destruct ep.
-    destruct (decide (c0 = c1)).
-    + admit.
-    + admit.
-  - intros HH.
-    admit.
-Admitted.
+  intros n.
+  rewrite !elem_of_heap_chans_alt.
+  split; intros HH.
+  - destruct HH as [b [x Hx]].
+    exists b. rewrite lookup_delete_lr in Hx.
+    case_decide; simplify_eq. rewrite Hx. eexists. done.
+  - destruct HH as [b [x Hx]].
+    destruct ep.
+    destruct (decide (n = c0)).
+    + subst. exists (negb b0). simpl in *.
+      rewrite lookup_delete_ne. rewrite H. eexists. done.
+      destruct b0; naive_solver.
+    + exists b.
+      rewrite lookup_delete_ne.
+      rewrite Hx. eexists. done.
+      naive_solver.
+Qed.
 
 Lemma other_neq ep :
   ep ≠ other ep.
@@ -312,13 +352,7 @@ Proof.
   rewrite !H1 !H2. iFrame.
 Qed.
 
-Lemma lookup_delete_lr `{Countable K} {V} (x y : K) (m : gmap K V) :
-  delete x m !! y = if (decide (x = y)) then None else m !! y.
-Proof.
-  case_decide.
-  - subst. rewrite lookup_delete. done.
-  - rewrite lookup_delete_ne; done.
-Qed.
+
 
 Lemma delete_both {A} (x : chan) (b : bool) (ep : endpoint) (m : gmap endpoint A) :
   x ≠ ep.1 ->
@@ -615,18 +649,6 @@ Proof.
     rewrite !lookup_insert.
     rewrite lookup_insert_ne; last naive_solver.
     rewrite !lookup_insert. simpl. done.
-Qed.
-
-Lemma set_map_empty `{Countable K} `{Countable K'} (f : K -> K') :
-  (set_map f (∅ : gset K) : gset K') = (∅ : gset K').
-Proof.
-Admitted.
-
-Lemma heap_chans_empty :
-  heap_chans ∅ = ∅.
-Proof.
-  unfold heap_chans.
-  rewrite dom_empty_L set_map_empty. done.
 Qed.
 
 Lemma heap_typed_emp chans :
