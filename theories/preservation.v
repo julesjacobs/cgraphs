@@ -297,8 +297,6 @@ Lemma preservation threads chans threads' chans' :
 
 *)
 
-
-
 Lemma buf_typed_push buf t ct rest v :
   val_typed v t -∗
   buf_typed buf ct (RecvT t rest) -∗
