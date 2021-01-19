@@ -22,6 +22,40 @@ Proof.
   unfold auth_global_valid; naive_solver.
 Qed.
 
+Lemma auth_global_valid_epsilon {A : ucmraT} k (x y : auth A) :
+  auth_global_valid k (x ⋅ y) ->
+  auth_global_valid k x ->
+  y ≡{k}≡ ε.
+Proof.
+  (*
+  Since auth_global_valid k x, we have x = (Some Σ, Σ).
+  So y must be of the form (None,Σ'), and Σ ##ₘ Σ',
+    otherwise (x ⋅ y) is not valid.
+  So (x⋅y) = (Some Σ, Σ ∪ Σ'), but since it's global valid, we must have
+    Σ = Σ ∪ Σ', but this can only be the case if Σ' = ∅, since they are disjoint.
+  So y = (None, ∅) = ε.
+  *)
+  Search view_auth_proj.
+  unfold auth_global_valid.
+  intros [? H1] [? H2].
+  destruct x.
+  destruct y.
+  destruct view_auth_proj; simpl in *; last first.
+  { inversion H2. }
+  destruct p. simpl in *.
+  simpl in *.
+  inversion H2. simplify_eq.
+  destruct H5. simpl in *.
+  inversion H3. subst.
+  clear H3 H2.
+  rewrite ->H4 in H1. simpl in *.
+  inversion H1. simplify_eq.
+  destruct view_auth_proj0; simpl in *.
+  - admit.
+  - destruct x. inversion H5. simpl in *.
+    Search (⋅).
+Admitted.
+
 Record uPred (M : ucmraT) : Type := UPred {
   uPred_holds :> nat → auth M → Prop;
 
@@ -680,13 +714,19 @@ Definition auth_global_update {A : ucmraT} (x y : auth A) := ∀ n z,
 Lemma bupd_ownM_update (x y : auth M) :
   auth_global_update x y →
   uPred_ownM x ⊢ |==> uPred_ownM y.
-Proof. Admitted.
-  (* unseal=> Hup; split=> n x2 ? [x3 Hx] k yf ??.
-  destruct (Hup k (Some (x3 ⋅ yf))) as (y&?&?); simpl in *.
-  { rewrite /= assoc -(dist_le _ _ _ _ Hx); auto. }
-  exists (y ⋅ x3); split; first by rewrite -assoc.
-  exists y; eauto using cmra_includedN_l.
-Qed. *)
+Proof.
+  unseal.
+  unfold auth_global_update.
+  intros H. constructor.
+  intros n z vz Ho.
+  unfold uPred_bupd_def. simpl.
+  intros k yf Kleq Hgv.
+  eexists.
+  split.
+  - apply H. unfold uPred_ownM_def in Ho. simpl in Ho.
+    rewrite (dist_le _ _ _ _ Ho); done.
+  - reflexivity.
+Qed.
 
 (** Valid *)
 Lemma ownM_valid (a : auth M) : uPred_ownM a ⊢ ✓ a.
@@ -736,6 +776,25 @@ Lemma ownM_soundness (x : auth M) (φ : auth M -> Prop) :
   (∀ n, auth_global_valid n x) →
   (uPred_ownM x ⊢ |==> ∃ y, uPred_ownM y ∧ ⌜ φ y ⌝) →
   ∃ y, auth_global_update x y ∧ φ y.
-Proof. Admitted.
+Proof.
+  unseal=> Hgv [H]. simpl in *.
+  unfold auth_global_update.
+  edestruct (H 0 x).
+  - apply auth_global_valid_valid. done.
+  - reflexivity.
+  - reflexivity.
+  - assert (auth_global_valid 0 (x ⋅ ε)); last done.
+    by rewrite right_id.
+  - destruct H0 as [Hgv1 [a [H1 H2]]].
+    eexists. split; last done.
+    intros n z Hgv2.
+    assert (auth_global_valid n x) by done.
+    pose proof (auth_global_valid_epsilon _ _ _ Hgv2 H0).
+    rewrite H3 right_id.
+    assert (n = 0)  as -> by admit.
+    rewrite H1.
+    assert (x0 ≡{0}≡ x0 ⋅ ε) as -> by (by rewrite right_id).
+    done.
+Admitted.
 End primitive.
 End uPred_primitive.
