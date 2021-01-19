@@ -17,14 +17,15 @@ Instance auth_global_valid_proper {A} k :
 Proof. intros r1 r2. rewrite equiv_dist=> Hr. by rewrite (Hr k). Qed.
 
 Lemma auth_global_valid_valid {A : ucmraT} k (x : auth A) :
-  auth_global_valid k x -> ✓{k} x.
+  auth_global_valid k x → ✓{k} x.
 Proof.
   unfold auth_global_valid; naive_solver.
 Qed.
 
 Lemma auth_global_valid_epsilon {A : ucmraT} k (x y : auth A) :
-  auth_global_valid k (x ⋅ y) ->
-  auth_global_valid k x ->
+  (∀ x y : A, x ≡{k}≡ x ⋅ y → y ≡{k}≡ ε) →
+  auth_global_valid k (x ⋅ y) →
+  auth_global_valid k x →
   y ≡{k}≡ ε.
 Proof.
   (*
@@ -35,7 +36,7 @@ Proof.
     Σ = Σ ∪ Σ', but this can only be the case if Σ' = ∅, since they are disjoint.
   So y = (None, ∅) = ε.
   *)
-  Search view_auth_proj.
+  intros Hcancel.
   unfold auth_global_valid.
   intros [? H1] [? H2].
   destruct x.
@@ -49,12 +50,19 @@ Proof.
   inversion H3. subst.
   clear H3 H2.
   rewrite ->H4 in H1. simpl in *.
-  inversion H1. simplify_eq.
-  destruct view_auth_proj0; simpl in *.
-  - admit.
-  - destruct x. inversion H5. simpl in *.
-    Search (⋅).
-Admitted.
+  destruct view_auth_proj0.
+  - destruct p. inversion H1. simplify_eq.
+    inversion H5. simpl in *.
+    apply Qp_add_id_free in H2 as [].
+  - inversion H1. clear H1. subst.
+    inversion H5. clear H5. simpl in *.
+    clear H1.
+    assert (to_agree view_frag_proj ≼{k} to_agree (view_frag_proj ⋅ view_frag_proj0)).
+    { rewrite H2. reflexivity. }
+    rewrite-> to_agree_includedN in H1.
+    apply Hcancel in H1.
+    rewrite H1. reflexivity.
+Qed.
 
 Record uPred (M : ucmraT) : Type := UPred {
   uPred_holds :> nat → auth M → Prop;
@@ -708,6 +716,9 @@ Proof.
   unseal; split=> -[|n] x /= ? Hax; eauto using ucmra_unit_leastN.
 Qed.
 
+Definition auth_global_updateN {A : ucmraT} (n : nat) (x y : auth A) := ∀ z,
+  auth_global_valid n (x ⋅ z) → auth_global_valid n (y ⋅ z).
+
 Definition auth_global_update {A : ucmraT} (x y : auth A) := ∀ n z,
   auth_global_valid n (x ⋅ z) → auth_global_valid n (y ⋅ z).
 
@@ -772,11 +783,13 @@ Proof.
   by apply (HP (S n)); eauto using ucmra_unit_validN.
 Qed.
 
-Lemma ownM_soundness (x : auth M) (φ : auth M -> Prop) :
-  (∀ n, auth_global_valid n x) →
+Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) :
+  (∀ x y : M, x ≡{0}≡ x ⋅ y → y ≡{0}≡ ε) →
+  auth_global_valid 0 x →
   (uPred_ownM x ⊢ |==> ∃ y, uPred_ownM y ∧ ⌜ φ y ⌝) →
-  ∃ y, auth_global_update x y ∧ φ y.
+  ∃ y, auth_global_updateN 0 x y ∧ φ y.
 Proof.
+  intros Hcancel.
   unseal=> Hgv [H]. simpl in *.
   unfold auth_global_update.
   edestruct (H 0 x).
@@ -787,14 +800,13 @@ Proof.
     by rewrite right_id.
   - destruct H0 as [Hgv1 [a [H1 H2]]].
     eexists. split; last done.
-    intros n z Hgv2.
-    assert (auth_global_valid n x) by done.
-    pose proof (auth_global_valid_epsilon _ _ _ Hgv2 H0).
+    intros z Hgv2.
+    assert (auth_global_valid 0 x) by done.
+    epose proof (auth_global_valid_epsilon _ _ _ Hcancel Hgv2 H0).
     rewrite H3 right_id.
-    assert (n = 0)  as -> by admit.
     rewrite H1.
     assert (x0 ≡{0}≡ x0 ⋅ ε) as -> by (by rewrite right_id).
     done.
-Admitted.
+Qed.
 End primitive.
 End uPred_primitive.
