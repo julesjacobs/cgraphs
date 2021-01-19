@@ -23,7 +23,7 @@ Proof.
 Qed.
 
 Lemma auth_global_valid_epsilon {A : ucmraT} k (x y : auth A) :
-  (∀ x y : A, x ≡{k}≡ x ⋅ y → y ≡{k}≡ ε) →
+  (∀ (x : A), Cancelable x) →
   auth_global_valid k (x ⋅ y) →
   auth_global_valid k x →
   y ≡{k}≡ ε.
@@ -60,8 +60,19 @@ Proof.
     assert (to_agree view_frag_proj ≼{k} to_agree (view_frag_proj ⋅ view_frag_proj0)).
     { rewrite H2. reflexivity. }
     rewrite-> to_agree_includedN in H1.
-    apply Hcancel in H1.
-    rewrite H1. reflexivity.
+    symmetry in H1.
+    assert (view_frag_proj ≡{k}≡ view_frag_proj ⋅ ε).
+    { rewrite right_id. reflexivity. }
+    rewrite ->H3 in H1 at 2.
+    assert (view_frag_proj0 ≡{k}≡ ε).
+    {
+      eapply cancelableN; try done.
+      inversion H. simpl in *.
+      destruct H6 as [a0 [HH1 HH2]].
+      destruct HH2.
+      eapply cmra_validN_includedN; done.
+    }
+    rewrite H5. reflexivity.
 Qed.
 
 Record uPred (M : ucmraT) : Type := UPred {
@@ -784,7 +795,7 @@ Proof.
 Qed.
 
 Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) :
-  (∀ x y : M, x ≡{0}≡ x ⋅ y → y ≡{0}≡ ε) →
+  (∀ x : M, Cancelable x) →
   auth_global_valid 0 x →
   (uPred_ownM x ⊢ |==> ∃ y, uPred_ownM y ∧ ⌜ φ y ⌝) →
   ∃ y, auth_global_updateN 0 x y ∧ φ y.
