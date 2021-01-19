@@ -141,3 +141,17 @@ Definition myauth := auth (gmap endpoint (excl chan_type))
 
 
 
+
+
+
+P ⊢ |==> P
+|==> ■ P ⊢ P
+[ P ] ⊢ □ [ P ]
+
+
+(* P ↔ Q -> P = Q *)
+Lemma iProp_ext P Q :
+  ■ ((P -∗ Q) ∧ (Q -∗ P)) ⊢ P === Q.
+  ∀ x, (∀ y, P y -> Q (y)) ∧ (∀ y, Q y -> P (y)) -> ∀ y, P y ↔ Q y.
+  P = l ↦ v
+  Q = False

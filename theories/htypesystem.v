@@ -1,15 +1,51 @@
-From stdpp Require Import gmap.
-From iris.bi Require Import interface.
+From stdpp Require Export gmap.
+From iris.bi Require Export interface.
+From iris.algebra Require Import excl gmap auth.
 From iris.proofmode Require Import tactics.
-Require Import diris.langdef.
-Require Import diris.hprop.
+Require Export diris.langdef.
+Require Export diris.logic.bi.
 Require Import diris.util.
+
+Canonical Structure chan_typeO := leibnizO chan_type.
+
+Notation heapT := (gmap endpoint chan_type).
+Notation heapTUR := (gmapUR endpoint (exclR chan_typeO)).
 
 (* ⌜ . ⌝ : Prop -> hProp
    ⌜ p ⌝ := λ Σ, p
    ⌜⌜ p ⌝⌝ := λ Σ, Σ = ∅ ∧ p *)
 Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 
+Notation hProp := (uPred heapTUR).
+
+Definition own (l : endpoint) (t : chan_type) : hProp :=
+  uPred_ownM (◯ {[ l := Excl t ]}).
+
+Definition own_auth (h : heapT) : hProp := uPred_ownM (● (Excl <$> h)).
+
+
+Lemma own_lookup l t Σ :
+  own l t ∗ own_auth Σ ⊢ ⌜ Σ !! l = Some t ⌝.
+Proof. Admitted. (* Niet in model gaan *)
+
+Lemma allocate Σ l t :
+  Σ !! l = None →
+  own_auth Σ ⊢ |==> own_auth (<[l:=t]> Σ) ∗ own l t.
+Proof. Admitted.
+
+Lemma deallocate Σ l t :
+  own_auth Σ ∗ own l t ⊢ |==> own_auth (delete l Σ).
+Proof. Admitted.
+
+Lemma update Σ l t t' :
+  own_auth Σ ∗ own l t ⊢
+  |==> own_auth (<[l:=t']> Σ) ∗ own l t'.
+Proof. Admitted. (* Use deallocate -> allocate *)
+
+Lemma adequacy Σ1 φ :
+  (own_auth Σ1 ⊢ |==> ∃ Σ2, own_auth Σ2 ∧ ⌜ φ Σ2 ⌝) →
+  φ Σ1.
+Proof. Admitted.
 
 Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
  match e with
@@ -55,11 +91,11 @@ Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
   end
 with val_typed (v : val) (t : type) : hProp :=
   match v with
-  | Unit => ⌜⌜ t = UnitT ⌝⌝
-  | Nat n => ⌜⌜ t = NatT ⌝⌝
-  | Pair a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
-  | Fun x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2
-  | Chan c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own {[ c := r ]}
+  | UnitV => ⌜⌜ t = UnitT ⌝⌝
+  | NatV n => ⌜⌜ t = NatT ⌝⌝
+  | PairV a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
+  | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2
+  | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own c r
   end.
 
 Lemma typed_ptyped Γ e t : ⌜⌜ typed Γ e t ⌝⌝ -∗ ptyped Γ e t.

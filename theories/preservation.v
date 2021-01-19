@@ -1,10 +1,6 @@
-From stdpp Require Import gmap.
-From iris.bi Require Import interface.
 From iris.proofmode Require Import tactics.
-Require Import diris.langdef.
-Require Import diris.hprop.
 Require Import diris.util.
-Require Import diris.htypesystem.
+Require Export diris.htypesystem.
 
 (*
   This predicate says that the types of the receives at the start of ct
@@ -58,11 +54,9 @@ Definition bufs_typed (chans : heap) (Σ : heapT) (i : chan) : hProp :=
 
 Definition heap_typed (chans : heap) (Σ : heapT) : hProp :=
    ([∗ set] i∈dom_chans Σ ∪ dom_chans chans, bufs_typed chans Σ i)%I.
-   (* should this use dom_chans chans??? *)
-   (* should we insist that dom_chans Σ = dom_chans chans??? *)
 
 Definition invariant (chans : heap) (threads : list expr) : hProp :=
-  ∃ Σ, own Σ ∗ (* should become own_auth *)
+  ∃ Σ, own_auth Σ ∗
       ([∗ list] e∈threads, ptyped0 e UnitT) ∗
       heap_typed chans Σ.
 
@@ -777,95 +771,6 @@ Proof.
   iIntros. iApply big_sepS_empty. done.
 Qed.
 
-
-
-(*
-  ([∗ list] i↦bufs∈chans,
-    bufs_typed bufs (default EndT (Σ !! (i,true))) (default EndT (Σ !! (i,false)))).
-    (* Add condition that the domain of Σ is a subset of chans. *)
-    (* ∀ i b, is_Some (Σ !! (i,b)) -> is_Some (chans !! i) *)
-*)
-
-Definition invariant (threads : list expr) (chans : heap) : Prop :=
-  ∃ Σ, own Σ ⊢ invariantΣ Σ threads chans.
-
-  (* ∃ Σ, invariantΣ Σ threads chans Σ *)
-  (* own Σ : hProp := λ Σ', Σ = Σ' *)
-
-(*
-  own {[ c := r ]} ∗ know {[ c := r' ]} -∗ ⌜ r = r' ⌝
-*)
-
-(*
-Do we want:
-  hProp := gset endpoint -> Prop
-???
-
-  hProp := option (gset endpoint * (endpoint -> chan_type)) -> Prop
-*)
-
-(*
-  Σ --> Σ1,Σ2     Σ1 ∪ Σ2 = Σ ∧ Σ1 ##ₘ Σ2
-
-  (Σl,Σg) --> (Σl1,Σg1),(Σl2,Σg2)
-
-      Σl1 ∪ Σl2 = Σl ∧ Σl1 ##ₘ Σl2
-      Σg1 ⊆ Σg ∧ Σg2 ⊆ Σg
-
-      Σl ⊆ Σg
-
-      (⋅) : A -> A -> A
-      ✓ : A -> Prop
-
-      R : A -> A -> A -> Prop
-      R Σ Σ1 Σ2 := Σ = Σ1 ∪ Σ2 ∧ Σ1 ##ₘ Σ2
-      (P ∗ Q)(a) := ∃ a1 a2, R a a1 a2 ∧ P(a1) ∧ Q(a2)
-
-      P : A -> Prop
-      Q : A -> Prop
-      (P ∗ Q)(a) := ∃ a1 a2, ✓ (a1⋅a2) ∧ a1⋅a2 = a ∧ P(a1) ∧ Q(a2)
-
-      for hProp we have A := option (heapT)
-        Σ1⋅Σ2 := Σ1 ∪ Σ2
-        None⋅Σ2 := None
-        Σ1⋅None := None
-        (Some Σ1)⋅(Some Σ2) := if Σ1 ##ₘ Σ2 then Some (Σ1 ∪ Σ2) else None
-
-        ✓ None := False
-        ✓ (Some Σ) := True
-*)
-
-(* Which lemma's do we need for own? *)
-(*
-  We need to instantiate the existential, then we have:
-  own Σ -∗ invariant Σ es h
-  -------------------------
-  own Σ' -∗ invariant Σ' es' h'
-
-  We want to transform this so that we have the same own Σ'' in top and bottom,
-  so that we can get a goal of the worm invariant (?) (?) -∗ invariant (?') (?').
-*)
-
-Lemma foo (A B : Type) (P : A -> Prop) :
-  A = B -> (∃ x:A, P x).
-  intros Heq.
-  (* rewrite Heq. *)
-  subst.
-Admitted.
-
-Lemma bar (n m : nat) :
-  (∀ x, x + m = x + n) -> (λ x, x+m) = (λ x, x+n).
-  intros Heq.
-  (* rewrite Heq. *)
-Admitted.
-
-Lemma baz (A B : Type) (P : (A -> A) -> Prop) :
-  A = B -> P (λ (x : A), x).
-  intros Heq.
-  (* rewrite Heq. *)
-  subst.
-Admitted.
-
 Lemma pure_step_ptyped e e' t :
   pure_step e e' -> ptyped ∅ e t -∗ ptyped ∅ e' t.
 Proof.
@@ -897,10 +802,10 @@ Proof.
     destruct H0. subst. rewrite left_id in H. subst. done.
   - iDestruct "Ht" as (t1 t2 Γ1 Γ2 (? & ? & ? & ?)) "[[% Hv] Ht]".
     iDestruct "Hv" as (t1' t2' HH) "[Hv1 Hv2]".
-    subst.
-    rewrite left_id in H. subst.
+    simplify_eq.
+    rewrite left_id in H0. subst.
     rewrite left_id.
-    replace (∅ : envT) with (delete x1 $ delete x2 $ ({[x1 := t1]} ∪ {[x2 := t2]}) : envT)
+    replace (∅ : envT) with (delete x1 $ delete x2 $ ({[x1 := t1']} ∪ {[x2 := t2']}) : envT)
       by admit.
     iApply (subst_ptyped with "Hv1 [Ht Hv2]").
     + admit.
@@ -915,28 +820,6 @@ Definition ct_tail (ct : chan_type) : chan_type :=
     | EndT => EndT
     end.
 
-Lemma own_distr (A B : heapT) :
-  A ##ₘ B -> own (A ∪ B) -∗ own A ∗ own B.
-Proof. Admitted.
-
-  (*
-ct = (SendT vt ct')
-
-Hinv: own (delete c Σ) ∗ own {[ c := ct ]} -∗ invariantΣ Σ es h
-Hinv: own (delete c Σ) -∗ own {[ c := ct ]} -∗ invariantΣ Σ es h
-
-
-
-"HΣ1" : own {[ c := ct ]} -∗ invariantΣ Σ es h
-"HΣ2" : own {[ c := ct' ]}
---------------------------------------∗
-invariantΣ (delete c Σ ∪ {[c := ct']}) (<[i:=k (Val (Chan c))]> es)
-  (set_recv h c (buf ++ [y]))
-
-
-
-  *)
-
 Lemma big_opL_insert_override {A} (l : list A) (k : nat) (y y' : A)
                      (P : nat -> A -> hProp) :
   l !! k = Some y ->
@@ -949,28 +832,10 @@ Proof.
   iApply "H". iApply "HP". done.
 Qed.
 
-Lemma own_adequacy Σ P :
-  (own Σ ⊢ ⌜ P ⌝) -> P.
-Proof.
-Admitted.
-
-
-(*
-(own Σ ⊢ own Σ' ∗ P) -> Σ' ⊆ Σ ∧ (own (Σ ∖ Σ') ⊢ P)
-*)
-
-(*
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
-  invariant threads chans |==>
-  invariant threads' chans'.
-Proof.
-*)
-
-Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
-  invariant threads chans ->
-  step threads chans threads' chans' ->
-  invariant threads' chans'.
+  invariant chans threads ==∗
+  invariant chans' threads'.
 Proof.
   intros Hinv Hstep. unfold invariant in *.
   destruct Hinv as [Σ Hinv].
@@ -1021,7 +886,12 @@ Proof.
   - admit.
 Admitted.
 
-
+(*
+What is leak freedom? (Coq)
+What is type safety? (uPred)
+What is type safety? (Coq)
+What is progress? (uPred)
+*)
 
 
 

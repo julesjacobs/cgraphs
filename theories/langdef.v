@@ -7,11 +7,11 @@ Definition other (e : endpoint) : endpoint :=
     let '(x,b) := e in (x, negb b).
 
 Inductive val :=
-    | Unit : val
-    | Nat : nat -> val
-    | Pair : val -> val -> val
-    | Fun : string -> expr -> val
-    | Chan : endpoint -> val
+    | UnitV : val
+    | NatV : nat -> val
+    | PairV : val -> val -> val
+    | FunV : string -> expr -> val
+    | ChanV : endpoint -> val
 
 with expr :=
     | Val : val -> expr
@@ -42,7 +42,6 @@ with chan_type :=
     | EndT : chan_type.
 
 Notation envT := (gmap string type).
-Notation heapT := (gmap endpoint chan_type).
 
 Fixpoint dual ct :=
     match ct with
@@ -53,8 +52,8 @@ Fixpoint dual ct :=
 
 
 Inductive typed : envT -> expr -> type -> Prop :=
-    | Unit_typed : typed ∅ (Val Unit) UnitT
-    | Nat_typed : ∀ n, typed ∅ (Val (Nat n)) NatT
+    | Unit_typed : typed ∅ (Val UnitV) UnitT
+    | Nat_typed : ∀ n, typed ∅ (Val (NatV n)) NatT
     | Var_typed : ∀ x t,
         typed {[ x := t ]} (Var x) t
     | App_typed : ∀ Γ1 Γ2 e1 e2 t1 t2,
@@ -125,40 +124,40 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
 
 Inductive pure_step : expr -> expr -> Prop :=
     | App_step : ∀ x e a,
-        pure_step (App (Val (Fun x e)) (Val a)) (subst x a e)
+        pure_step (App (Val (FunV x e)) (Val a)) (subst x a e)
     | Lam_step : ∀ x e,
-        pure_step (Lam x e) (Val (Fun x e))
+        pure_step (Lam x e) (Val (FunV x e))
     | If_step1 : ∀ n e1 e2,
         n ≠ 0 ->
-        pure_step (If (Val (Nat n)) e1 e2) e1
+        pure_step (If (Val (NatV n)) e1 e2) e1
     | If_step2 : ∀ e1 e2,
-        pure_step (If (Val (Nat 0)) e1 e2) e2
+        pure_step (If (Val (NatV 0)) e1 e2) e2
     | Let_step : ∀ x v e,
         pure_step (Let x (Val v) e) (subst x v e)
     | LetUnit_step : ∀ e,
-        pure_step (LetUnit (Val Unit) e) e
+        pure_step (LetUnit (Val UnitV) e) e
     | LetProd_step : ∀ x1 x2 v1 v2 e,
-        pure_step (LetProd x1 x2 (Val (Pair v1 v2)) e) (subst x1 v1 $ subst x2 v2 e).
+        pure_step (LetProd x1 x2 (Val (PairV v1 v2)) e) (subst x1 v1 $ subst x2 v2 e).
 
 Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
     | Pure_step : ∀ e e' h,
         pure_step e e' -> head_step e h e' h []
     | Send_step : ∀ h c y buf,
         h !! (other c) = Some buf ->
-        head_step (Send (Val (Chan c)) (Val y)) h (Val (Chan c)) (<[ other c := buf ++ [y] ]> h) []
+        head_step (Send (Val (ChanV c)) (Val y)) h (Val (ChanV c)) (<[ other c := buf ++ [y] ]> h) []
     | Recv_step : ∀ h c y buf,
         h !! c = Some (y::buf) ->
-        head_step (Recv (Val (Chan c))) h (Val (Pair (Chan c) y)) (<[ c := buf ]> h) []
+        head_step (Recv (Val (ChanV c))) h (Val (PairV (ChanV c) y)) (<[ c := buf ]> h) []
     | Close_step : ∀ c h,
         h !! c = Some [] ->
-        head_step (Close (Val (Chan c))) h (Val Unit) (delete c h) []
+        head_step (Close (Val (ChanV c))) h (Val UnitV) (delete c h) []
     | Fork_step : ∀ v (h : heap) i,
         h !! (i,true) = None ->
         h !! (i,false) = None ->
         head_step
           (Fork (Val v)) h
-          (Val $ Chan (i, true)) (<[ (i,true) := [] ]> $ <[ (i,false) := [] ]> h)
-          [App (Val v) (Val (Chan (i, false)))].
+          (Val $ ChanV (i, true)) (<[ (i,true) := [] ]> $ <[ (i,false) := [] ]> h)
+          [App (Val v) (Val (ChanV (i, false)))].
 
 Inductive ctx1 : (expr -> expr) -> Prop :=
     | Ctx_App_l : ∀ e, ctx1 (λ x, App x e)
