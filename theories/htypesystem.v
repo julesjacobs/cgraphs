@@ -21,31 +21,68 @@ Notation hProp := (uPred heapTUR).
 Definition own (l : endpoint) (t : chan_type) : hProp :=
   uPred_ownM (◯ {[ l := Excl t ]}).
 
-Definition own_auth (h : heapT) : hProp := uPred_ownM (● (Excl <$> h)).
-
+Definition own_auth (h : heapT) : hProp :=
+  uPred_ownM (● (Excl <$> h)).
 
 Lemma own_lookup l t Σ :
   own l t ∗ own_auth Σ ⊢ ⌜ Σ !! l = Some t ⌝.
-Proof. Admitted. (* Niet in model gaan *)
+Proof.
+  unfold own, own_auth.
+  rewrite <-uPred.ownM_op.
+  rewrite uPred.ownM_valid.
+  (* Search FromPure. *)
+ Admitted. (* Niet in model gaan *)
 
 Lemma allocate Σ l t :
   Σ !! l = None →
   own_auth Σ ⊢ |==> own_auth (<[l:=t]> Σ) ∗ own l t.
-Proof. Admitted.
+Proof.
+  intros H.
+  iIntros "H".
+  iDestruct (uPred.bupd_ownM_update with "H") as "H".
+  { unfold uPred_primitive.auth_global_update. admit. }
+  admit.
+  (* Need to find the right laws about the monoid. *)
+ Admitted.
 
 Lemma deallocate Σ l t :
   own_auth Σ ∗ own l t ⊢ |==> own_auth (delete l Σ).
-Proof. Admitted.
+Proof.
+  iIntros "[H1 H2]".
+  iApply uPred.bupd_ownM_update.
+  { admit. }
+  admit.
+  (* Need to find the right laws about the monoid. *)
+ Admitted.
 
 Lemma update Σ l t t' :
   own_auth Σ ∗ own l t ⊢
   |==> own_auth (<[l:=t']> Σ) ∗ own l t'.
-Proof. Admitted. (* Use deallocate -> allocate *)
+Proof.
+  iIntros "[H1 H2]".
+  iApply bupd_trans.
+  replace (<[l:=t']> Σ) with (<[l := t']> (delete l Σ))
+    by apply fin_maps.insert_delete.
+  iApply allocate. { apply lookup_delete. }
+  iApply deallocate. iFrame.
+Qed.
+
+Import uPred_primitive.
 
 Lemma adequacy Σ1 φ :
   (own_auth Σ1 ⊢ |==> ∃ Σ2, own_auth Σ2 ∧ ⌜ φ Σ2 ⌝) →
   φ Σ1.
-Proof. Admitted.
+Proof.
+  unfold own_auth.
+  pose proof (ownM_soundness (M:= heapTUR)).
+  specialize (H (● (Excl <$> Σ1))).
+Admitted.
+
+(* Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) :
+  (∀ x : M, Cancelable x) →
+  auth_global_valid 0 x →
+  (uPred_ownM x ⊢ |==> ∃ y, uPred_ownM y ∧ ⌜ φ y ⌝) →
+  ∃ y, auth_global_updateN 0 x y ∧ φ y. *)
 
 Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
  match e with

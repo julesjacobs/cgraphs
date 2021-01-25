@@ -178,6 +178,11 @@ Proof. exact: uPred_primitive.later_ownM. Qed.
   x ~~>: Φ → uPred_ownM x ⊢ |==> ∃ y, ⌜Φ y⌝ ∧ uPred_ownM y.
 Proof. exact: uPred_primitive.bupd_ownM_updateP. Qed. *)
 
+Lemma bupd_ownM_update (x y : auth M) :
+  auth_global_update x y →
+  uPred_ownM x ⊢ |==> uPred_ownM y.
+Proof. exact: uPred_primitive.bupd_ownM_update. Qed.
+
 (** This is really just a special case of an entailment
 between two [siProp], but we do not have the infrastructure
 to express the more general case. This temporary proof rule will
