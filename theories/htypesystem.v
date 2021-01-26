@@ -24,14 +24,28 @@ Definition own (l : endpoint) (t : chan_type) : hProp :=
 Definition own_auth (h : heapT) : hProp :=
   uPred_ownM (● (Excl <$> h)).
 
-Lemma own_lookup l t Σ :
-  own l t ∗ own_auth Σ ⊢ ⌜ Σ !! l = Some t ⌝.
+
+Lemma own_ownM Σ l t : own_auth Σ ∗ own l t ⊣⊢ uPred_ownM (● (Excl <$> Σ) ⋅ ◯ {[ l := Excl t ]}).
 Proof.
   unfold own, own_auth.
-  rewrite <-uPred.ownM_op.
+  rewrite <- uPred.ownM_op. done.
+Qed.
+
+
+Lemma own_lookup l t Σ :
+  own_auth Σ ∗ own l t ⊢ ⌜ Σ !! l = Some t ⌝.
+Proof.
+  rewrite own_ownM.
   rewrite uPred.ownM_valid.
-  (* Search FromPure. *)
- Admitted. (* Niet in model gaan *)
+  rewrite uPred.discrete_valid.
+  iIntros "%". iPureIntro.
+  apply auth_both_valid_discrete in H as [].
+  apply singleton_included_exclusive_l in H; last done; last apply _.
+  rewrite lookup_fmap in H.
+  destruct (Σ !! l) eqn:E; simpl in *; simplify_eq. done.
+ Qed.
+
+Ltac inv H := inversion H; clear H; simpl in *; simplify_eq.
 
 Lemma allocate Σ l t :
   Σ !! l = None →
@@ -39,21 +53,35 @@ Lemma allocate Σ l t :
 Proof.
   intros H.
   iIntros "H".
-  iDestruct (uPred.bupd_ownM_update with "H") as "H".
-  { unfold uPred_primitive.auth_global_update. admit. }
-  admit.
-  (* Need to find the right laws about the monoid. *)
- Admitted.
+  iDestruct (uPred.bupd_ownM_update with "H") as "H"; last first.
+  { rewrite own_ownM. iExact "H". }
+  { unfold uPred_primitive.auth_global_update.
+    intros n z HH.
+    unfold auth_global_valid in *.
+    simpl in *.
+    destruct HH as [H1 H2].
+    split; first admit.
+    destruct z. simpl in *.
+    rewrite left_id.
+    inv H2.
+    destruct view_auth_proj.
+    - destruct p.
+      inv H0.
+      inv H4.
+    (* Read the auth/excl/agree/view stuff in Iris *)
+Admitted.
 
 Lemma deallocate Σ l t :
   own_auth Σ ∗ own l t ⊢ |==> own_auth (delete l Σ).
 Proof.
-  iIntros "[H1 H2]".
-  iApply uPred.bupd_ownM_update.
-  { admit. }
-  admit.
-  (* Need to find the right laws about the monoid. *)
- Admitted.
+  rewrite own_ownM.
+  iIntros "H". unfold own_auth.
+  iApply uPred.bupd_ownM_update; last first.
+  { iExact "H". }
+  {
+    admit.
+  }
+Admitted.
 
 Lemma update Σ l t t' :
   own_auth Σ ∗ own l t ⊢
@@ -67,15 +95,15 @@ Proof.
   iApply deallocate. iFrame.
 Qed.
 
-Import uPred_primitive.
-
 Lemma adequacy Σ1 φ :
   (own_auth Σ1 ⊢ |==> ∃ Σ2, own_auth Σ2 ∧ ⌜ φ Σ2 ⌝) →
   φ Σ1.
 Proof.
   unfold own_auth.
-  pose proof (ownM_soundness (M:= heapTUR)).
+  intros HH.
+  pose proof (uPred_primitive.ownM_soundness (M:= heapTUR)) as H.
   specialize (H (● (Excl <$> Σ1))).
+
 Admitted.
 
 (* Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) :
