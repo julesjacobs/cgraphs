@@ -83,8 +83,6 @@ Proof.
   }
 Admitted.
 
-(* test *)
-
 Lemma update Σ l t t' :
   own_auth Σ ∗ own l t ⊢
   |==> own_auth (<[l:=t']> Σ) ∗ own l t'.
