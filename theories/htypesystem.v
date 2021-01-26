@@ -71,6 +71,7 @@ Proof.
     (* Read the auth/excl/agree/view stuff in Iris *)
 Admitted.
 
+
 Lemma deallocate Σ l t :
   own_auth Σ ∗ own l t ⊢ |==> own_auth (delete l Σ).
 Proof.

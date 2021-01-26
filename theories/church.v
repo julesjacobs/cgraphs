@@ -1,6 +1,27 @@
 (* Import all convenient notations and tactics from Iris... *)
 From iris.bi Require Import bi.
 
+Definition induction := ∀ P, P 0 -> (∀ n, P n -> P (n + 1)) -> ∀ n, P n.
+Definition strong_induction := ∀ P, (∀ n, (∀ m, m < n -> P m) -> P n) -> ∀ n, P n.
+
+Lemma thm_strong_induction :
+  strong_induction.
+Proof.
+  intros P H n.
+  apply H. induction n; naive_solver lia.
+Qed.
+
+Lemma induction_implies_strong_induction :
+  induction -> strong_induction.
+Proof.
+  intros Hind P H n.
+  apply H.
+  unfold induction in *.
+  apply (Hind (λ n, ∀ m, m < n -> P m));
+  naive_solver lia.
+Qed.
+
+
 (* Requires -impredicative-set *)
 Definition N : Set := ∀ (t : Set), t -> (t -> t) -> t.
 
