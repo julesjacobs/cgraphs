@@ -1,0 +1,352 @@
+\documentclass[aspectratio=169]{beamer}
+\beamertemplatenavigationsymbolsempty
+\setbeamertemplate{footline}[frame number]
+\usepackage[utf8]{inputenc}
+\usepackage{bold-extra}
+\usepackage{tcolorbox}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{amsmath}
+
+\usepackage{color}
+\definecolor{lightgray}{rgb}{.9,.9,.9}
+\definecolor{darkgray}{rgb}{.4,.4,.4}
+\definecolor{purple}{rgb}{0.65, 0.12, 0.82}
+\definecolor{airforceblue}{rgb}{0.36, 0.54, 0.66}
+\definecolor{arsenic}{rgb}{0.23, 0.27, 0.29}
+\definecolor{darkgreen}{rgb}{0.0, 0.5, 0.0}
+\lstdefinelanguage{JavaScript}{
+  keywords={break, let, fork, print, send, recv, case, then, fun, catch, continue, debugger, default, delete, do, else, false, finally, for, function, if, in, instanceof, new, null, return, switch, this, throw, true, try, typeof, var, void, while, with},
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+  ndkeywords={class, export, boolean, throw, implements, import, this},
+  keywordstyle=\color{green}\bfseries,
+  ndkeywordstyle=\color{darkgray}\bfseries,
+  identifierstyle=\color{black},
+  commentstyle=\color{purple}\ttfamily,
+  stringstyle=\color{gray}\ttfamily,
+  sensitive=true
+}
+
+\lstset{
+   language=JavaScript,
+   extendedchars=true,
+   basicstyle=\footnotesize\ttfamily,
+   showstringspaces=false,
+   showspaces=false,
+   numberstyle=\footnotesize,
+   numbersep=9pt,
+   tabsize=2,
+   showtabs=false,
+   captionpos=b
+}
+
+\def\Put(#1,#2)#3{\leavevmode\makebox(0,0){\put(#1,#2){#3}}}
+
+\title{Deadlock Freedom for Session Types Using Separation Logic}
+\author{Jules Jacobs}
+\institute{Radboud University Nijmegen
+\\ \href{mailto:julesjacobs@gmail.com}{julesjacobs@gmail.com}}
+% \date{November 25, 2020}
+\date{}
+
+\lstset{language=javascript}
+\lstset{basicstyle=\ttfamily}
+\lstset{keywordstyle=\color{red}}
+
+\setbeamersize{text margin left=5mm,text margin right=5mm}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows}
+\usepackage{adjustbox}
+
+\begin{document}
+
+\frame{
+  \titlepage
+  % \begin{center}
+  %   \Put(220,150){\includegraphics[scale=0.2]{jules.jpg}}
+  %   These slides: \href{https://julesjacobs.com/slides/measurezero.pdf}{julesjacobs.com/slides/measurezero.pdf}
+  % \end{center}
+}
+
+\begin{frame}[fragile]
+  \frametitle{Overview}
+  \begin{itemize}
+    \item Channels for concurrency
+    \item Operational semantics
+    \item Session types
+    \item Typing channel references
+    \item Typing channel references with separation logic
+    \item The connectivity tree
+    \item Deadlock freedom
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Channels for concurrency}
+  \begin{itemize}
+    \item Lambda calculus + channels
+    \item Fork: \lstinline|let c' = fork(fun c => ...)|
+    \item Send: \lstinline|let c' = send(c, 3)|
+    \item Receive: \lstinline|let (c',x) = recv(c)|
+    \item Close: \lstinline|let () = close(c)|
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Channels for concurrency}
+  Example:
+  \begin{lstlisting}
+    let c' = fork(fun c =>
+          send(c, 3)
+          let k = recv(c)
+          if k < 10 then send(c,"hello") else send(c,"hi")
+          close(c)
+        )
+
+    let n = recv(c')
+    send(c', 2*n)
+    let msg = recv(c')
+    close(c')
+    print(msg)
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Potential bugs}
+
+  Safety bugs:
+  \begin{itemize}
+    \item Wrong type of message, e.g. string instead of int
+    \item Example:
+    \item Using a channel after close
+    \item Example:
+  \end{itemize}
+
+  Concurrency bugs:
+  \begin{itemize}
+    \item Not sending a message (receive blocks $\implies$ deadlock)
+    \item Both sides do a receive
+    \item Example:
+  \end{itemize}
+
+  Leaks:
+  \begin{itemize}
+    \item Not closing a channel (leak)
+    \item Example:
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Session types}
+
+  Existing system, citation: Honda et al. 1900
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Session types}
+  \begin{itemize}
+    \item Linear lambda calculus
+    \item Channels have protocol types: sequence of send (!) receive (?) and End
+    \item Example: \lstinline|!Int, ?Int, !String, End|
+    \item Dual: \lstinline|?Int, !Int, ?String, End|
+    \item If \lstinline|c : !T, R| and \lstinline|x : T| then \lstinline|send(c,x) : R|
+    \item If \lstinline|c : ?T, R| then \lstinline|recv(c,x) : R x T|
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{State passing}
+  Example:
+  \begin{lstlisting}
+    let c' = fork(fun c =>
+          let c = send(c, 3)
+          let (c,k) = recv(c)
+          if k < 10 then
+            let c = send(c,"hello")
+            close(c)
+          else
+            let c = send(c,"hi")
+            close(c)
+        )
+    let (c',n) = recv(c')
+    let c' = send(c', 2*n)
+    let (c',msg) = recv(c')
+    close(c')
+    print(msg)
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Session types prevent bugs}
+
+  Safety bugs:
+  \begin{itemize}
+    \item Wrong type of message, e.g. string instead of int
+    \item Example:
+    \item Using a channel after close
+    \item Example:
+  \end{itemize}
+
+  Concurrency bugs:
+  \begin{itemize}
+    \item Not sending a message (receive blocks $\implies$ deadlock)
+    \item Both sides do a receive
+    \item Example:
+  \end{itemize}
+
+  Leaks:
+  \begin{itemize}
+    \item Not closing a channel (leak)
+    \item Example:
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \frametitle{Problem statement}
+
+  \begin{itemize}
+    \item Deadlock freedom for session types has not been mechanised
+    \item Lambda calculus
+    \item Cut elimination
+  \end{itemize}
+
+  Key ideas:
+  \begin{itemize}
+    \item Research accounting via separation logic
+    \item Connectivity graphs for deadlocks
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Operational semantics}
+  \begin{itemize}
+    \item Small-step operational semantics
+    \item State: threads $\times$ buffers
+    \item Buffers indexed by addresses (e.g. natural numbers); two buffers per channel
+    \item Representation of a channel is address $\times$ bool, e.g. \lstinline|send(#(324, true))|
+    \item \lstinline|send(#(324,true), "hello")| $\mapsto$ \lstinline|#(324,true)|
+    \item Send adds message to the other party's buffer
+    \item Receive takes a message out of its own buffer
+    \item Fork allocates a new pair of buffers, returns \lstinline|#(n,true)| to one
+          side and passes \lstinline|#(n,false)| to the other
+    \item Close deallocates its own buffer
+  \end{itemize}
+  \begin{lstlisting}
+    endpoint = nat x bool
+    heap = endpoint -> list val
+    local_step : expr x heap -> expr x heap -> Prop
+    step : list expr x heap -> list expr x heap -> Prop
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Formal properties}
+  Formal properties:
+  \begin{itemize}
+    \item Safety
+    \item Deadlock freedom
+    \item Leak freedom
+  \end{itemize}
+
+  \begin{theorem}
+    Typed expr -> previous 3 properties
+  \end{theorem}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Progress \& preservation}
+
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Formal properties}
+  High level approach:
+  \begin{itemize}
+    \item Progress \& preservation (explain this) $\implies$ safety
+    \item Progress \& preservation for linear types
+    \item Connectivity tree
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Typing channel references}
+  \begin{itemize}
+    \item When the operational semantics takes steps, channel references (e.g. \lstinline|#(324, true)|) enter into the program.
+    \item How do we type them?
+    \item We need a typing rule for channel references.
+    \item We need an environment $\Sigma$ for channel references, similar to $\Gamma$ for variables
+    \item If $((342,true), T) \in \Sigma$ then \lstinline|#(324,true) : T|
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Typing channel references with separation logic}
+  How to explain this...?
+\end{frame}
+
+\tikzstyle{thread} = [rectangle, rounded corners, minimum width=1cm, minimum height=0.6cm,text centered, draw=black, fill=red!30]
+\tikzstyle{channel} = [circle, text centered, draw=black, fill=blue!30]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+
+\begin{frame}[fragile]
+  \frametitle{The connectivity graph}
+  \begin{itemize}
+    \item A graph containing threads (boxes) and channels (circles)
+    \item An arrow $T \to C$ means that thread $T$ has a reference to channel $C$
+      \begin{itemize}
+        \item This means that some data structure that $T$ holds contains a channel reference to $C$
+      \end{itemize}
+    \item An arrow $C1 \to C2$ means that channel $C1$ has a reference to channel $C2$
+      \begin{itemize}
+        \item This means that somewhere in the buffer of $C1$ there is a reference to $C2$
+      \end{itemize}
+  \end{itemize}
+  \medskip
+
+  \trimbox{-2cm 0cm 0cm 0cm}{
+  \fbox{\begin{tikzpicture}[node distance=1.5cm]
+    \node (T1) [thread] {T1};
+    \node (C1) [channel, below of = T1] {C1};
+    \node (T2) [thread, below of = C1] {T2};
+    \draw [arrow] (T1) -- (C1);
+    \draw [arrow] (T2) -- (C1);
+
+    \node (C2) [channel, right of = C1] {C2};
+    \draw [arrow] (C1) -- (C2);
+
+    \node (T3) [thread, right of = C2] {T3};
+    \draw [arrow] (T3) -- (C2);
+  \end{tikzpicture}}}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Deadlock freedom}
+  \begin{itemize}
+    \item Invariant: the connectivity graph is a tree.
+    \item Even when channel references are put in buffers.
+    \item Ensured by linearity.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Deadlock freedom}
+  \begin{theorem}
+    There is a thread that's not blocked.
+  \end{theorem}
+  \begin{proof}
+    We find a thread that's not blocked using this algorithm:
+    \begin{itemize}
+      \item Start at any thread in the connectivity graph.
+      \item If the thread is not blocked, we're done.
+      \item If the thread is blocked, step to the channel that it's blocked on.
+      \item If we're at a channel
+    \end{itemize}
+  \end{proof}
+\end{frame}
+
+\end{document}

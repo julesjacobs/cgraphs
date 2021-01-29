@@ -1,0 +1,13 @@
+\frametitle{Deadlock freedom}
+  \begin{theorem}
+    There is a thread that's not blocked.
+  \end{theorem}
+  \begin{proof}
+    We find a thread that's not blocked using this algorithm:
+    \begin{itemize}
+      \item Start at any thread in the connectivity graph.
+      \item If the thread is not blocked, we're done.
+      \item If the thread is blocked, step to the channel that it's blocked on.
+      \item If we're at a channel
+    \end{itemize}
+  \end{proof}
