@@ -50,7 +50,6 @@ Fixpoint dual ct :=
     | RecvT c ct => SendT c (dual ct)
     end.
 
-
 Inductive typed : envT -> expr -> type -> Prop :=
     | Unit_typed : typed ∅ (Val UnitV) UnitT
     | Nat_typed : ∀ n, typed ∅ (Val (NatV n)) NatT

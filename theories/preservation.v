@@ -8,36 +8,13 @@ Require Export diris.htypesystem.
 *)
 Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : hProp :=
   match buf, ct with
+                            (* add owner here *)
   | v::buf', RecvT t ct' => val_typed v t ∗ buf_typed buf' ct' rest
   (* | v::buf', SendT t ct' => ??? *)
   (* Add a rule for this to support asynchrous subtyping *)
   | [], ct => ⌜⌜ rest = ct ⌝⌝
   | _,_ => False
   end.
-
-(*
-  This predicate says two buffers and two channel types are in a consistent state.
-  If the buffers are empty this says that they must be dual.
-  If the buffers are not empty then the types are not necessarily dual, but
-  they are "dual up to the values in the buffers".
-*)
-(* Definition bufs_typed (bufs : list val * list val) (ct1 ct2 : chan_type) : hProp :=
-  ∃ rest:chan_type,
-     buf_typed (snd bufs) ct1 rest ∗
-     buf_typed (fst bufs) ct2 (dual rest).
-
-Definition bufs_typed' (buf1 buf2 : list val) (ct1 ct2 : chan_type) : hProp :=
-  ∃ rest:chan_type,
-      buf_typed buf1 ct1 rest ∗
-      buf_typed buf2 ct2 (dual rest).
-
-Definition invariantΣ (Σ : heapT)
-      (threads : list expr) (chans : heap) : hProp :=
-  ([∗ list] e∈threads, ptyped ∅ e UnitT) ∗=
-  ∃ rest : nat -> chan_type,
-    ([∗ map] ep↦buf;ct∈chans;Σ,
-      buf_typed buf ct (if ep.2 then (rest ep.1) else dual (rest (ep.1)))=
-    ) *)
 
 Definition dom_chans {V} (Σ : gmap endpoint V) : gset nat := set_map fst (dom (gset endpoint) Σ).
 
@@ -56,8 +33,8 @@ Definition heap_typed (chans : heap) (Σ : heapT) : hProp :=
    ([∗ set] i∈dom_chans Σ ∪ dom_chans chans, bufs_typed chans Σ i)%I.
 
 Definition invariant (chans : heap) (threads : list expr) : hProp :=
-  ∃ Σ, own_auth Σ ∗
-      ([∗ list] e∈threads, ptyped0 e UnitT) ∗
+  ∃ Σ, own_auth Σ ∗ (* acyclic Σ ∗ *)
+      ([∗ list] id↦e∈threads, ptyped0 e UnitT) ∗ (* add (Thread id) as owner *)
       heap_typed chans Σ.
 
 Lemma elem_of_dom_chans_alt {A} (i : nat) (Σ : gmap endpoint A) :
@@ -105,7 +82,6 @@ Proof.
   setoid_rewrite elem_of_dom in H'.
   destruct x. eexists. simplify_eq. done.
 Qed.
-
 
 Lemma dom_chans_empty {A} :
   dom_chans (V:=A) ∅ = ∅.

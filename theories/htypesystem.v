@@ -8,6 +8,19 @@ Require Import diris.util.
 
 Canonical Structure chan_typeO := leibnizO chan_type.
 
+(*
+Inductive owner :=
+  | Thread : nat -> owner
+  | Chan : endpoint -> owner.
+
+Notation heapT := (gmap endpoint (chan_type * owner)).
+
+Σ : heapT
+G : graph owner
+
+(ep ↦ (t, w)) <-> (ep, w) ∈ G
+
+*)
 Notation heapT := (gmap endpoint chan_type).
 Notation heapTUR := (gmapUR endpoint (exclR chan_typeO)).
 
@@ -31,7 +44,6 @@ Proof.
   rewrite <- uPred.ownM_op. done.
 Qed.
 
-
 Lemma own_lookup l t Σ :
   own_auth Σ ∗ own l t ⊢ ⌜ Σ !! l = Some t ⌝.
 Proof.
@@ -43,34 +55,81 @@ Proof.
   apply singleton_included_exclusive_l in H; last done; last apply _.
   rewrite lookup_fmap in H.
   destruct (Σ !! l) eqn:E; simpl in *; simplify_eq. done.
- Qed.
+Qed.
 
 Ltac inv H := inversion H; clear H; simpl in *; simplify_eq.
+
+Lemma auth_update {A:ucmraT} (a b a' b' : A) :
+  Cancelable a →
+  (a,b) ~l~> (a',b') → uPred_primitive.auth_global_update (● a ⋅ ◯ b) (● a' ⋅ ◯ b').
+Proof.
+  intros Hcancel Hl.
+  rewrite ->local_update_unital in Hl.
+  intros n [[[q z1]|] z2] [H1 H2].
+  - rewrite view.view_validN_eq /= in H1.
+    destruct H1 as [H _].
+    apply Qp_not_add_le_l in H as [].
+  - rewrite view.view_validN_eq /= in H1.
+    destruct H1 as (_ & x & ?%(inj _) & [z3 ?] & ?).
+    apply (inj Some) in H2 as [_ ?%(inj to_agree)]; simpl in *.
+    ofe_subst x.
+    assert (z3 ≡{n}≡ ε).
+    {
+      apply Hcancel; first by rewrite H3.
+      by rewrite {1}H3 H0 right_id.
+    }
+    ofe_subst z3.
+    rewrite-> !(left_id _ _) in H3, H0, H1.
+    rewrite-> !(right_id _ _) in H0, H1.
+    destruct (Hl n z2).
+    { by rewrite H0. }
+    { done. }
+    split.
+    + rewrite view.view_validN_eq /=.
+      split; first done.
+      exists a'.
+      split; first done.
+      split; last done.
+      rewrite left_id. by rewrite H2.
+    + simpl in *.
+      do 2 constructor; simpl; first done.
+      f_equiv.
+      by rewrite left_id.
+Qed.
+
+Lemma auth_update_alloc {A:ucmraT} (a a' b' : A) :
+  Cancelable a →
+  (a,ε) ~l~> (a',b') → uPred_primitive.auth_global_update (● a) (● a' ⋅ ◯ b').
+Proof.
+  intros Hcancel Hl.
+  eapply uPred_primitive.auth_global_update_proper, auth_update, Hl; auto.
+  rewrite (_ : (◯ ε) = ε); last done.
+  by rewrite right_id.
+Qed.
 
 Lemma allocate Σ l t :
   Σ !! l = None →
   own_auth Σ ⊢ |==> own_auth (<[l:=t]> Σ) ∗ own l t.
 Proof.
   intros H.
-  iIntros "H".
-  iDestruct (uPred.bupd_ownM_update with "H") as "H"; last first.
-  { rewrite own_ownM. iExact "H". }
-  { unfold uPred_primitive.auth_global_update.
-    intros n z HH.
-    unfold auth_global_valid in *.
-    simpl in *.
-    destruct HH as [H1 H2].
-    split; first admit.
-    destruct z. simpl in *.
-    rewrite left_id.
-    inv H2.
-    destruct view_auth_proj.
-    - destruct p.
-      inv H0.
-      inv H4.
-    (* Read the auth/excl/agree/view stuff in Iris *)
-Admitted.
+  rewrite own_ownM.
+  apply uPred.bupd_ownM_update.
+  apply auth_update_alloc; first apply _.
+  rewrite fmap_insert.
+  apply alloc_singleton_local_update; last done.
+  by rewrite lookup_fmap H.
+Qed.
 
+(* Definition local_update {A : cmra} (x y : A * A) := ∀ n mz,
+  ✓{n} x.1 → x.1 ≡{n}≡ x.2 ⋅? mz → ✓{n} y.1 ∧ y.1 ≡{n}≡ y.2 ⋅? mz. *)
+(*
+Lemma auth_update a b a' b' :
+  (a,b) ~l~> (a',b') → ● a ⋅ ◯ b ~~> ● a' ⋅ ◯ b'.
+Proof.
+  intros Hup. apply view_update=> n bf [[bf' Haeq] Hav].
+  destruct (Hup n (Some (bf ⋅ bf'))); simpl in *; [done|by rewrite assoc|].
+  split; [|done]. exists bf'. by rewrite -assoc.
+Qed. *)
 
 Lemma deallocate Σ l t :
   own_auth Σ ∗ own l t ⊢ |==> own_auth (delete l Σ).
@@ -96,22 +155,43 @@ Proof.
   iApply deallocate. iFrame.
 Qed.
 
-Lemma adequacy Σ1 φ :
-  (own_auth Σ1 ⊢ |==> ∃ Σ2, own_auth Σ2 ∧ ⌜ φ Σ2 ⌝) →
-  φ Σ1.
+Lemma adequacy φ :
+  (own_auth ∅ ⊢ |==> ∃ Σ2, own_auth Σ2 ∧ ⌜ φ Σ2 ⌝) → φ ∅.
 Proof.
   unfold own_auth.
   intros HH.
-  pose proof (uPred_primitive.ownM_soundness (M:= heapTUR)) as H.
-  specialize (H (● (Excl <$> Σ1))).
+  destruct (uPred.ownM_soundness (M:= heapTUR) (● ε)
+    (λ x, ∃ y, x ≡ ● (Excl <$> y) ∧ φ y)) as [x [H1 [y [H2 H3]]]].
+  - apply _.
+  - split; last done.
+    by apply auth_auth_validN.
+  - iIntros "H".
+    iMod (HH with "[H]") as (Σ) "[H %]".
+    + by rewrite fmap_empty.
+    + iExists (● (Excl <$> Σ)). iFrame.
+      iModIntro. iSplit; first done.
+      iPureIntro.
+      by exists Σ.
+  - unfold uPred_primitive.auth_global_updateN in H1.
+    destruct (H1 ε) as [R1 R2].
+    { split. rewrite right_id. by apply auth_auth_validN.
+      simpl. by rewrite !right_id. }
+    simpl in *.
+    rewrite right_id in R2.
+    rewrite-> H2 in R2.
+    simpl in *.
+    apply (inj Some) in R2 as [_ R2]. simpl in *.
+    apply (inj to_agree) in R2.
+    rewrite-> (left_id _ _) in R2.
+    apply (discrete _) in R2.
+    apply leibniz_equiv_iff in R2.
+    by apply (fmap_empty_inv Excl) in R2 as ->.
+Qed.
 
+Lemma adequacy φ :
+  (own_auth ∅ ⊢ |==> ⌜ φ ⌝) → φ.
+Proof.
 Admitted.
-
-(* Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) :
-  (∀ x : M, Cancelable x) →
-  auth_global_valid 0 x →
-  (uPred_ownM x ⊢ |==> ∃ y, uPred_ownM y ∧ ⌜ φ y ⌝) →
-  ∃ y, auth_global_updateN 0 x y ∧ φ y. *)
 
 Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
  match e with
@@ -155,13 +235,13 @@ Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
   | Close e =>
       ptyped Γ e (ChanT EndT)
   end
-with val_typed (v : val) (t : type) : hProp :=
+with val_typed (v : val) (t : type) : hProp := (* extra argument: owner*)
   match v with
   | UnitV => ⌜⌜ t = UnitT ⌝⌝
   | NatV n => ⌜⌜ t = NatT ⌝⌝
   | PairV a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
   | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2
-  | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own c r
+  | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own c r (* own c r owner *)
   end.
 
 Lemma typed_ptyped Γ e t : ⌜⌜ typed Γ e t ⌝⌝ -∗ ptyped Γ e t.

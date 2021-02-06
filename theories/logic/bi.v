@@ -222,6 +222,14 @@ Proof. apply internal_eq_soundness. Qed.
 Lemma later_soundness P : (⊢ ▷ P) → ⊢ P.
 Proof. apply later_soundness. Qed.
 (** See [derived.v] for a similar soundness result for basic updates. *)
+
+Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) :
+  (∀ x : M, Cancelable x) →
+  auth_global_valid 0 x →
+  (uPred_ownM x ⊢ |==> ∃ y, uPred_ownM y ∧ ⌜ φ y ⌝) →
+  ∃ y, auth_global_updateN 0 x y ∧ φ y.
+Proof. apply ownM_soundness. Qed.
+
 End restate.
 
 

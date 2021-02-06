@@ -733,6 +733,17 @@ Definition auth_global_updateN {A : ucmraT} (n : nat) (x y : auth A) := ∀ z,
 Definition auth_global_update {A : ucmraT} (x y : auth A) := ∀ n z,
   auth_global_valid n (x ⋅ z) → auth_global_valid n (y ⋅ z).
 
+Instance : Params (@auth_global_update) 1 := {}.
+
+Instance auth_global_update_proper {A : ucmraT}
+  : Proper ((≡) ==> (≡) ==> iff) (auth_global_update (A:=A)).
+Proof.
+  intros x1 x2 Hx y1 y2 Hy. unfold auth_global_update.
+  setoid_rewrite Hx.
+  setoid_rewrite Hy.
+  done.
+Qed.
+
 Lemma bupd_ownM_update (x y : auth M) :
   auth_global_update x y →
   uPred_ownM x ⊢ |==> uPred_ownM y.

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020) (preloaded format=pdflatex 2020.12.18)  29 JAN 2021 11:47
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020) (preloaded format=pdflatex 2020.12.18)  4 FEB 2021 11:42
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -564,13 +564,21 @@ File: lstmisc.sty 2020/03/24 1.8d (Carsten Heinz)
 File: listings.cfg 2020/03/24 1.8d listings configuration
 ))
 Package: listings 2020/03/24 1.8d (Carsten Heinz)
- (/usr/local/texlive/2020/texmf-dist/tex/latex/pgf/frontendlayer/tikz.sty (/usr/local/texlive/2020/texmf-dist/tex/latex/pgf/utilities/pgffor.sty (/usr/local/texlive/2020/texmf-dist/tex/latex/pgf/utilities/pgfkeys.sty (/usr/local/texlive/2020/texmf-dist/tex/generic/pgf/utilities/pgfkeys.code.tex)) (/usr/local/texlive/2020/texmf-dist/tex/latex/pgf/math/pgfmath.sty (/usr/local/texlive/2020/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex)) (/usr/local/texlive/2020/texmf-dist/tex/generic/pgf/utilities/pgffor.code.tex
+ (/usr/local/texlive/2020/texmf-dist/tex/latex/mathpartir/mathpartir.sty
+Package: mathpartir 2016/02/24 version 1.3.2 Math Paragraph for Typesetting Inference Rules
+\mpr@andskip=\skip63
+\mpr@lista=\toks49
+\mpr@listb=\toks50
+\mpr@hlist=\box84
+\mpr@vlist=\box85
+\mpr@right=\box86
+) (/usr/local/texlive/2020/texmf-dist/tex/latex/pgf/frontendlayer/tikz.sty (/usr/local/texlive/2020/texmf-dist/tex/latex/pgf/utilities/pgffor.sty (/usr/local/texlive/2020/texmf-dist/tex/latex/pgf/utilities/pgfkeys.sty (/usr/local/texlive/2020/texmf-dist/tex/generic/pgf/utilities/pgfkeys.code.tex)) (/usr/local/texlive/2020/texmf-dist/tex/latex/pgf/math/pgfmath.sty (/usr/local/texlive/2020/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex)) (/usr/local/texlive/2020/texmf-dist/tex/generic/pgf/utilities/pgffor.code.tex
 Package: pgffor 2020/01/08 v3.1.5b (3.1.5b)
  (/usr/local/texlive/2020/texmf-dist/tex/generic/pgf/math/pgfmath.code.tex)
 \pgffor@iter=\dimen283
 \pgffor@skip=\dimen284
-\pgffor@stack=\toks49
-\pgffor@toks=\toks50
+\pgffor@stack=\toks51
+\pgffor@toks=\toks52
 )) (/usr/local/texlive/2020/texmf-dist/tex/generic/pgf/frontendlayer/tikz/tikz.code.tex
 Package: tikz 2020/01/08 v3.1.5b (3.1.5b)
  (/usr/local/texlive/2020/texmf-dist/tex/generic/pgf/libraries/pgflibraryplothandlers.code.tex
@@ -586,10 +594,10 @@ File: pgflibraryplothandlers.code.tex 2020/01/08 v3.1.5b (3.1.5b)
 \tikz@lastmovetoy=\dimen291
 \tikzleveldistance=\dimen292
 \tikzsiblingdistance=\dimen293
-\tikz@figbox=\box84
-\tikz@figbox@bg=\box85
-\tikz@tempbox=\box86
-\tikz@tempbox@bg=\box87
+\tikz@figbox=\box87
+\tikz@figbox@bg=\box88
+\tikz@tempbox=\box89
+\tikz@tempbox@bg=\box90
 \tikztreelevel=\count322
 \tikznumberofchildren=\count323
 \tikznumberofcurrentchild=\count324
@@ -617,8 +625,8 @@ Package: adjustbox 2019/01/04 v1.2 Adjusting TeX boxes (trim, clip, ...)
  (/usr/local/texlive/2020/texmf-dist/tex/latex/xkeyval/xkeyval.sty
 Package: xkeyval 2014/12/03 v2.7a package option processing (HA)
  (/usr/local/texlive/2020/texmf-dist/tex/generic/xkeyval/xkeyval.tex (/usr/local/texlive/2020/texmf-dist/tex/generic/xkeyval/xkvutils.tex
-\XKV@toks=\toks51
-\XKV@tempa@toks=\toks52
+\XKV@toks=\toks53
+\XKV@tempa@toks=\toks54
 )
 \XKV@depth=\count330
 File: xkeyval.tex 2014/12/03 v2.7a key=value parser (HA)
@@ -628,7 +636,7 @@ Package: adjcalc 2012/05/16 v1.1 Provides advanced setlength with multiple back-
 Package: trimclip 2018/04/08 v1.1 Trim and clip general TeX material
  (/usr/local/texlive/2020/texmf-dist/tex/latex/collectbox/collectbox.sty
 Package: collectbox 2012/05/17 v0.4b Collect macro arguments as boxes
-\collectedbox=\box88
+\collectedbox=\box91
 )
 \tc@llx=\dimen295
 \tc@lly=\dimen296
@@ -651,33 +659,33 @@ Package: ifoddpage 2016/04/23 v1.1 Conditionals for odd/even page detection
 \c@checkoddpage=\count331
 ) (/usr/local/texlive/2020/texmf-dist/tex/latex/varwidth/varwidth.sty
 Package: varwidth 2009/03/30 ver 0.92;  Variable-width minipages
-\@vwid@box=\box89
+\@vwid@box=\box92
 \sift@deathcycles=\count332
 \@vwid@loff=\dimen307
 \@vwid@roff=\dimen308
 )) (/usr/local/texlive/2020/texmf-dist/tex/latex/l3backend/l3backend-pdfmode.def
 File: l3backend-pdfmode.def 2020-03-12 L3 backend support: PDF mode
 \l__kernel_color_stack_int=\count333
-\l__pdf_internal_box=\box90
+\l__pdf_internal_box=\box93
 ) (/Users/jules/git/diris/talk/talk.aux)
 \openout1 = `talk.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 74.
+LaTeX Font Info:    ... okay on input line 74.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 74.
+LaTeX Font Info:    ... okay on input line 74.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 74.
+LaTeX Font Info:    ... okay on input line 74.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 74.
+LaTeX Font Info:    ... okay on input line 74.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 74.
+LaTeX Font Info:    ... okay on input line 74.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 74.
+LaTeX Font Info:    ... okay on input line 74.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 74.
+LaTeX Font Info:    ... okay on input line 74.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 74.
+LaTeX Font Info:    ... okay on input line 74.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -717,23 +725,23 @@ LaTeX Font Info:    ... okay on input line 64.
 [Loading MPS to PDF converter (version 2006.09.02).]
 \scratchcounter=\count334
 \scratchdimen=\dimen309
-\scratchbox=\box91
+\scratchbox=\box94
 \nofMPsegments=\count335
 \nofMParguments=\count336
-\everyMPshowfont=\toks53
+\everyMPshowfont=\toks55
 \MPscratchCnt=\count337
 \MPscratchDim=\dimen310
 \MPnumerator=\count338
 \makeMPintoPDFobject=\count339
-\everyMPtoPDFconversion=\toks54
+\everyMPtoPDFconversion=\toks56
 ) (/usr/local/texlive/2020/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
 Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
 Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 485.
  (/usr/local/texlive/2020/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Live
 )) ABD: EveryShipout initializing macros
-\AtBeginShipoutBox=\box92
-Package hyperref Info: Link coloring OFF on input line 64.
+\AtBeginShipoutBox=\box95
+Package hyperref Info: Link coloring OFF on input line 74.
  (/usr/local/texlive/2020/texmf-dist/tex/latex/hyperref/nameref.sty
 Package: nameref 2019/09/16 v2.46 Cross-referencing by name of section
  (/usr/local/texlive/2020/texmf-dist/tex/latex/refcount/refcount.sty
@@ -743,62 +751,62 @@ Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
 )
 \c@section@level=\count340
 )
-LaTeX Info: Redefining \ref on input line 64.
-LaTeX Info: Redefining \pageref on input line 64.
-LaTeX Info: Redefining \nameref on input line 64.
+LaTeX Info: Redefining \ref on input line 74.
+LaTeX Info: Redefining \pageref on input line 74.
+LaTeX Info: Redefining \nameref on input line 74.
  (/Users/jules/git/diris/talk/talk.out) (/Users/jules/git/diris/talk/talk.out)
 \@outlinefile=\write7
 \openout7 = `talk.out'.
 
 LaTeX Font Info:    Overwriting symbol font `operators' in version `normal'
-(Font)                  OT1/cmr/m/n --> OT1/cmss/m/n on input line 64.
+(Font)                  OT1/cmr/m/n --> OT1/cmss/m/n on input line 74.
 LaTeX Font Info:    Overwriting symbol font `operators' in version `bold'
-(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 64.
+(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 74.
 \symnumbers=\mathgroup6
 \sympureletters=\mathgroup7
 LaTeX Font Info:    Overwriting math alphabet `\mathrm' in version `normal'
-(Font)                  OT1/cmss/m/n --> OT1/cmr/m/n on input line 64.
-LaTeX Font Info:    Redeclaring math alphabet \mathbf on input line 64.
+(Font)                  OT1/cmss/m/n --> OT1/cmr/m/n on input line 74.
+LaTeX Font Info:    Redeclaring math alphabet \mathbf on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `normal'
-(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 64.
+(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `bold'
-(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 64.
-LaTeX Font Info:    Redeclaring math alphabet \mathsf on input line 64.
+(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 74.
+LaTeX Font Info:    Redeclaring math alphabet \mathsf on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `normal'
-(Font)                  OT1/cmss/m/n --> OT1/cmss/m/n on input line 64.
+(Font)                  OT1/cmss/m/n --> OT1/cmss/m/n on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `bold'
-(Font)                  OT1/cmss/bx/n --> OT1/cmss/m/n on input line 64.
-LaTeX Font Info:    Redeclaring math alphabet \mathit on input line 64.
+(Font)                  OT1/cmss/bx/n --> OT1/cmss/m/n on input line 74.
+LaTeX Font Info:    Redeclaring math alphabet \mathit on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathit' in version `normal'
-(Font)                  OT1/cmr/m/it --> OT1/cmss/m/it on input line 64.
+(Font)                  OT1/cmr/m/it --> OT1/cmss/m/it on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathit' in version `bold'
-(Font)                  OT1/cmr/bx/it --> OT1/cmss/m/it on input line 64.
-LaTeX Font Info:    Redeclaring math alphabet \mathtt on input line 64.
+(Font)                  OT1/cmr/bx/it --> OT1/cmss/m/it on input line 74.
+LaTeX Font Info:    Redeclaring math alphabet \mathtt on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `normal'
-(Font)                  OT1/cmtt/m/n --> OT1/cmtt/m/n on input line 64.
+(Font)                  OT1/cmtt/m/n --> OT1/cmtt/m/n on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `bold'
-(Font)                  OT1/cmtt/m/n --> OT1/cmtt/m/n on input line 64.
+(Font)                  OT1/cmtt/m/n --> OT1/cmtt/m/n on input line 74.
 LaTeX Font Info:    Overwriting symbol font `numbers' in version `bold'
-(Font)                  OT1/cmss/m/n --> OT1/cmss/b/n on input line 64.
+(Font)                  OT1/cmss/m/n --> OT1/cmss/b/n on input line 74.
 LaTeX Font Info:    Overwriting symbol font `pureletters' in version `bold'
-(Font)                  OT1/cmss/m/it --> OT1/cmss/b/it on input line 64.
+(Font)                  OT1/cmss/m/it --> OT1/cmss/b/it on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathrm' in version `bold'
-(Font)                  OT1/cmss/b/n --> OT1/cmr/b/n on input line 64.
+(Font)                  OT1/cmss/b/n --> OT1/cmr/b/n on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `bold'
-(Font)                  OT1/cmss/b/n --> OT1/cmss/b/n on input line 64.
+(Font)                  OT1/cmss/b/n --> OT1/cmss/b/n on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `bold'
-(Font)                  OT1/cmss/m/n --> OT1/cmss/b/n on input line 64.
+(Font)                  OT1/cmss/m/n --> OT1/cmss/b/n on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathit' in version `bold'
-(Font)                  OT1/cmss/m/it --> OT1/cmss/b/it on input line 64.
+(Font)                  OT1/cmss/m/it --> OT1/cmss/b/it on input line 74.
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `bold'
-(Font)                  OT1/cmtt/m/n --> OT1/cmtt/b/n on input line 64.
-LaTeX Font Info:    Redeclaring symbol font `pureletters' on input line 64.
+(Font)                  OT1/cmtt/m/n --> OT1/cmtt/b/n on input line 74.
+LaTeX Font Info:    Redeclaring symbol font `pureletters' on input line 74.
 LaTeX Font Info:    Overwriting symbol font `pureletters' in version `normal'
-(Font)                  OT1/cmss/m/it --> OT1/mathkerncmss/m/sl on input line 64.
+(Font)                  OT1/cmss/m/it --> OT1/mathkerncmss/m/sl on input line 74.
 LaTeX Font Info:    Overwriting symbol font `pureletters' in version `bold'
-(Font)                  OT1/cmss/b/it --> OT1/mathkerncmss/m/sl on input line 64.
+(Font)                  OT1/cmss/b/it --> OT1/mathkerncmss/m/sl on input line 74.
 LaTeX Font Info:    Overwriting symbol font `pureletters' in version `bold'
-(Font)                  OT1/mathkerncmss/m/sl --> OT1/mathkerncmss/bx/sl on input line 64.
+(Font)                  OT1/mathkerncmss/m/sl --> OT1/mathkerncmss/bx/sl on input line 74.
  (/usr/local/texlive/2020/texmf-dist/tex/latex/translator/translator-basic-dictionary-English.dict
 Dictionary: translator-basic-dictionary, Language: English 
 ) (/usr/local/texlive/2020/texmf-dist/tex/latex/translator/translator-bibliography-dictionary-English.dict
@@ -835,12 +843,20 @@ File: ot1mathkerncmss.fd 2020/01/31 Fontinst v1.933 font definitions for OT1/mat
 ]
 \openout4 = `talk.vrb'.
 
- (/Users/jules/git/diris/talk/talk.vrb) [3
+ (/Users/jules/git/diris/talk/talk.vrb
+LaTeX Font Info:    Font shape `OT1/cmtt/bx/n' in size <10.95> not available
+(Font)              Font shape `OT1/cmtt/b/n' tried instead on input line 7.
+) [3
 
 ]
 \openout4 = `talk.vrb'.
 
- (/Users/jules/git/diris/talk/talk.vrb) [4
+ (/Users/jules/git/diris/talk/talk.vrb
+Overfull \hbox (82.05316pt too wide) in paragraph at lines 21--30
+[][] 
+ []
+
+) [4
 
 ]
 \openout4 = `talk.vrb'.
@@ -855,13 +871,22 @@ File: ot1mathkerncmss.fd 2020/01/31 Fontinst v1.933 font definitions for OT1/mat
 ]
 \openout4 = `talk.vrb'.
 
- (/Users/jules/git/diris/talk/talk.vrb) [7
+ (/Users/jules/git/diris/talk/talk.vrb)
+Overfull \vbox (5.93625pt too high) detected at line 274
+ []
+
+[7
 
 ]
 \openout4 = `talk.vrb'.
 
- (/Users/jules/git/diris/talk/talk.vrb)
-Overfull \vbox (8.47884pt too high) detected at line 180
+ (/Users/jules/git/diris/talk/talk.vrb
+Overfull \hbox (0.91556pt too wide) in paragraph at lines 20--21
+[][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+)
+Overfull \vbox (7.67882pt too high) detected at line 310
  []
 
 [8
@@ -884,7 +909,12 @@ Overfull \vbox (8.47884pt too high) detected at line 180
 ]
 \openout4 = `talk.vrb'.
 
- (/Users/jules/git/diris/talk/talk.vrb) [12
+ (/Users/jules/git/diris/talk/talk.vrb
+Overfull \hbox (7.81406pt too wide) in paragraph at lines 11--12
+[][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+) [12
 
 ]
 \openout4 = `talk.vrb'.
@@ -894,7 +924,12 @@ Overfull \vbox (8.47884pt too high) detected at line 180
 ]
 \openout4 = `talk.vrb'.
 
- (/Users/jules/git/diris/talk/talk.vrb) [14
+ (/Users/jules/git/diris/talk/talk.vrb
+
+LaTeX Font Warning: Font shape `OT1/cmss/m/sc' in size <10> not available
+(Font)              Font shape `OT1/cmr/m/sc' tried instead on input line 13.
+
+) [14
 
 ]
 \openout4 = `talk.vrb'.
@@ -922,6 +957,50 @@ Overfull \vbox (8.47884pt too high) detected at line 180
  (/Users/jules/git/diris/talk/talk.vrb) [19
 
 ]
+\openout4 = `talk.vrb'.
+
+ (/Users/jules/git/diris/talk/talk.vrb)
+Overfull \vbox (3.50378pt too high) detected at line 635
+ []
+
+[20
+
+]
+\openout4 = `talk.vrb'.
+
+ (/Users/jules/git/diris/talk/talk.vrb) [21
+
+]
+\openout4 = `talk.vrb'.
+
+ (/Users/jules/git/diris/talk/talk.vrb) [22
+
+]
+\openout4 = `talk.vrb'.
+
+ (/Users/jules/git/diris/talk/talk.vrb) [23
+
+]
+\openout4 = `talk.vrb'.
+
+ (/Users/jules/git/diris/talk/talk.vrb) [24
+
+]
+\openout4 = `talk.vrb'.
+
+ (/Users/jules/git/diris/talk/talk.vrb) [25
+
+]
+\openout4 = `talk.vrb'.
+
+ (/Users/jules/git/diris/talk/talk.vrb) [26
+
+]
+\openout4 = `talk.vrb'.
+
+ (/Users/jules/git/diris/talk/talk.vrb) [27
+
+]
 \tf@nav=\write8
 \openout8 = `talk.nav'.
 
@@ -931,27 +1010,27 @@ Overfull \vbox (8.47884pt too high) detected at line 180
 \tf@snm=\write10
 \openout10 = `talk.snm'.
 
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 352.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 352.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 967.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 967.
  (/Users/jules/git/diris/talk/talk.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 352.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 352.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 967.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 967.
 Package rerunfilecheck Info: File `talk.out' has not changed.
 (rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
  ) 
 Here is how much of TeX's memory you used:
- 26452 strings out of 480608
- 526806 string characters out of 5903629
- 780550 words of memory out of 5000000
- 41703 multiletter control sequences out of 15000+600000
- 543713 words of font info for 65 fonts, out of 8000000 for 9000
+ 26780 strings out of 480608
+ 531683 string characters out of 5903629
+ 798964 words of memory out of 5000000
+ 41991 multiletter control sequences out of 15000+600000
+ 545357 words of font info for 71 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 58i,11n,80p,836b,1301s stack positions out of 5000i,500n,10000p,200000b,80000s
-</usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss12.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss8.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb>
-Output written on /Users/jules/git/diris/talk/talk.pdf (19 pages, 101236 bytes).
+ 58i,22n,80p,838b,1360s stack positions out of 5000i,500n,10000p,200000b,80000s
+ </Users/jules/Library/texlive/2020/texmf-var/fonts/pk/ljfour/public/cm-mf-extra-bold/cmttb10.657pk></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmcsc10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss12.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss17.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss8.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmssbx10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi8.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
+Output written on /Users/jules/git/diris/talk/talk.pdf (27 pages, 194009 bytes).
 PDF statistics:
- 162 PDF objects out of 1000 (max. 8388607)
- 125 compressed objects within 2 object streams
- 39 named destinations out of 1000 (max. 500000)
+ 254 PDF objects out of 1000 (max. 8388607)
+ 186 compressed objects within 2 object streams
+ 55 named destinations out of 1000 (max. 500000)
  43 words of extra memory for PDF output out of 10000 (max. 10000000)
 

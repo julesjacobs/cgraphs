@@ -3,6 +3,39 @@ From stdpp Require Import base.
 
 Ltac qed := eauto;(repeat case_decide; (naive_solver lia || set_solver)) || solve_decision.
 
+Lemma dec_exists_list {A} (P : A → Prop) (xs : list A) :
+  (∀ x, P x → x ∈ xs) → (∀ x, x ∈ xs → Decision (P x)) → Decision (∃ x, P x).
+Proof.
+  induction xs; intros H1 H2.
+  - right. intros [x ?].
+    specialize (H1 x). eapply elem_of_nil. apply H1. done.
+  - assert (Decision (P a)) as [].
+    { apply H2. apply elem_of_cons. eauto. }
+    + left. exists a. done.
+    + destruct IHxs.
+      * intros x Hx. specialize (H1 x Hx). apply elem_of_cons in H1 as []; naive_solver.
+      * intros x Hx. apply H2. rewrite elem_of_cons. naive_solver.
+      * left. done.
+      * right. intros [x ?].
+        apply n0. eauto.
+Qed.
+
+
+Lemma dec_forall_list {A} (P : A → Prop) (xs : list A) :
+  (∀ x, P x ∨ x ∈ xs) → (∀ x, x ∈ xs → Decision (P x)) → Decision (∀ x, P x).
+Proof.
+  induction xs; intros H1 H2.
+  - left. intros x. edestruct H1; eauto. exfalso. apply not_elem_of_nil in H. done.
+  - assert (Decision (P a)) as [].
+    { apply H2. apply elem_of_cons. eauto. }
+    + destruct IHxs.
+      * intros x. edestruct H1; eauto. apply elem_of_cons in H as []; naive_solver.
+      * intros x Hx. apply H2. rewrite elem_of_cons. naive_solver.
+      * left. done.
+      * right. done.
+    + right. naive_solver.
+Qed.
+
 Lemma dec_exists_fin (P : nat → Prop) (n : nat) :
   (∀ i, P i → i < n) → (∀ i, i < n → Decision (P i)) → Decision (∃ i, P i).
 Proof.
@@ -42,7 +75,7 @@ Proof.
       assert (¬ (i ≠ j' ∧ j' < n ∧ f j' = m)); qed.
     }
     exists (skip i i'),(skip i j').
-    unfold skip in *. qed. 
+    unfold skip in *. qed.
   - specialize (IHm n f) as [i [j ?]];[qed|..|exists i,j;qed].
     { intro i. destruct (decide (f i = m)); qed. }
 Qed.
@@ -73,7 +106,7 @@ Proof.
   - intros x'. destruct (HPxs x').
     + set_solver.
     + assert (x' = x ∨ x' ∈ xs) as []; set_solver.
-  - intros ??. apply Hdec. set_solver. 
+  - intros ??. apply Hdec. set_solver.
 Qed.
 
 Lemma pigeon' {A B : Type} `{FA : Finite A} `{FB : Finite B} (f : A → B) :
