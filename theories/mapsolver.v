@@ -205,3 +205,13 @@ Proof.
   destruct (B !! i) eqn:?;
   fin.
 Qed.
+
+Lemma foo16 `{Countable K} {V} (A B C : gmap K V) :
+  A ∪ B = B ∪ A -> A ∩ B = B ∩ A.
+Proof.
+  prep.
+  prep_hyp i H0.
+  destruct (A !! i) eqn:?;
+  destruct (B !! i) eqn:?;
+  fin.
+Qed.
