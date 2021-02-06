@@ -56,15 +56,18 @@ Ltac prep :=
                  ?lookup_union
                  ?lookup_intersection_spec.
 
-Ltac prep_hyp i H :=
-  specialize (H i);
+Ltac simpl_hyp H :=
   repeat rewrite ?lookup_insert_spec
                  ?lookup_difference_spec
                  ?lookup_delete_spec
                  ?lookup_intersection_spec
                  ?lookup_union in H.
 
-Ltac fin := repeat case_decide; simpl in *; simplify_eq; done.
+Ltac prep_hyp i H :=
+  specialize (H i); simpl_hyp H.
+
+Ltac fin := repeat case_decide; simpl in *;
+  simplify_eq; (done || eauto || naive_solver).
 
 Lemma foo1 `{Countable K} {V} (A B : gmap K V) :
   A ∪ B = A ∪ B ∪ A.
@@ -214,4 +217,48 @@ Proof.
   destruct (A !! i) eqn:?;
   destruct (B !! i) eqn:?;
   fin.
+Qed.
+
+Lemma foo17 `{Countable K} {V} (A B : gmap K V) :
+  A ⊆ B -> B ⊆ A -> A = B.
+Proof.
+  prep.
+  prep_hyp i H0.
+  prep_hyp i H1.
+  destruct (A !! i) eqn:?;
+  destruct (B !! i) eqn:?;
+  fin.
+Qed.
+
+Lemma foo18 `{Countable K} {V} (A B C : gmap K V) :
+  A ⊆ B -> A ⊆ B ∪ C.
+Proof.
+  prep.
+  prep_hyp i H0.
+  destruct (A !! i) eqn:?;
+  destruct (B !! i) eqn:?;
+  destruct (C !! i) eqn:?;
+  fin.
+Qed.
+
+Lemma foo19 `{Countable K} {V} (A B : gmap K V) i v :
+  A !! i = None → <[ i := v ]> A ⊆ B → A ⊆ delete i B.
+Proof.
+  prep.
+  prep_hyp i0 H1.
+  destruct (A !! i) eqn:?;
+  destruct (B !! i) eqn:?;
+  destruct (B !! i0) eqn:?;
+  fin.
+Qed.
+
+Lemma foo20 `{Countable K} {V} (A B : gmap K V) i v :
+  A !! i = Some v → A ⊆ B → <[ i := v ]> A ⊆ B.
+Proof.
+  prep.
+  simpl_hyp H2.
+  prep_hyp i0 H1.
+  destruct (A !! i) eqn:?;
+  destruct (B !! i) eqn:?;
+  try fin.
 Qed.
