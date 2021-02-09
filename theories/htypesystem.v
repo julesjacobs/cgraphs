@@ -200,14 +200,10 @@ Proof.
     by apply (fmap_empty_inv Excl) in R2 as ->.
 Qed.
 
-(* Lemma simple_adequacy φ :
+Lemma simple_adequacy φ :
   (own_auth ∅ ⊢ |==> ⌜ φ ⌝) → φ.
 Proof.
-  unfold own_auth.
-  intros HH.
-  Check uPred.ownM_soundness.
-  uPred_soundness.
-Admitted. *)
+Admitted.
 
 Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
  match e with

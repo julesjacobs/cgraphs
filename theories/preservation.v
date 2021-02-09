@@ -865,12 +865,6 @@ Proof.
     iExists x. iFrame.
 Qed.
 
-Lemma rw_helper3 (P : hProp) :
-  P ∗ emp ⊣⊢ P.
-Proof.
-  rewrite right_id. done.
-Qed.
-
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
   invariant chans threads ==∗
@@ -900,48 +894,294 @@ Proof.
 
   revert H1. clear. intros Hstep. (* clean up the goal *)
 
-  destruct Hstep;
-  try (setoid_rewrite big_sepL_nil; setoid_rewrite rw_helper3).
+  destruct Hstep; simpl;
+  repeat (setoid_rewrite (right_id emp%I (∗)%I)).
   - iExists Σ. iFrame. iModIntro. by iApply (pure_step_ptyped0 with "Ht").
-  - simpl. iDestruct "Ht" as (r t' ->) "[H Hv]".
-    iDestruct "H" as (r0) "[% H]". simplify_eq.
-    iDestruct (own_lookup with "[Hown H]") as "%"; first iFrame.
-    iDestruct (heap_typed_send _ _ _ _ _ _ H0 with "Hv Hheap") as (buf' HH) "Hsend".
+  - iDestruct "Ht" as (r t' ->) "[H Hv]".
+    iDestruct "H" as (r0 [=<-]) "H".
+    iDestruct (own_lookup with "[$Hown $H]") as "%".
+    iDestruct (heap_typed_send with "Hv Hheap") as (buf' HH) "Hsend"; first done.
     iExists (<[ c := r ]> Σ).
-    rewrite H in HH. simplify_eq. iFrame.
-    iMod (update with "[Hown H]") as "[H1 H2]"; first iFrame.
-    iFrame. iExists r. iFrame. done.
-  - simpl. iDestruct "Ht" as (t' r ->) "Ht".
+    simplify_eq. iFrame.
+    iMod (update with "[$Hown $H]") as "[$ H2]"; eauto.
+  - iDestruct "Ht" as (t' r ->) "Ht".
     iDestruct "Ht" as (r0 HH) "H". simplify_eq.
     iDestruct (own_lookup with "[Hown H]") as "%"; first iFrame.
-    iDestruct (heap_typed_recv _ _ _ _ _ _ _ H with "Hheap") as "[Hheap Hv]"; first done.
+    iDestruct (heap_typed_recv with "Hheap") as "[Hheap Hv]"; [done..|].
     iExists _. iFrame.
     iMod (update with "[Hown H]") as "[H1 H2]"; iFrame. iModIntro.
     iExists _,_. iFrame.
     iSplit. done.
     iExists _. iSplit; done.
-  - simpl. iDestruct "Ht" as (r r' HH) "H". simplify_eq.
-    iDestruct (own_lookup with "[Hown H]") as "%"; first iFrame.
-    iDestruct (heap_typed_close _ _ _ H0 with "Hheap") as (HH) "Hheap".
+  - iDestruct "Ht" as (r r' HH) "H". simplify_eq.
+    iDestruct (own_lookup with "[Hown H]") as %HΣc; first iFrame.
+    iDestruct (heap_typed_close with "Hheap") as (HH) "Hheap"; first done.
     iExists (delete c Σ).
     iMod (deallocate with "[Hown H]"); iFrame.
     done.
-  - simpl. iDestruct "Ht" as (r ->) "Hv".
+  - iDestruct "Ht" as (r ->) "Hv".
     iAssert (⌜ ∀ x,  Σ !! x = None <-> h !! x = None ⌝)%I as "%".
     { iDestruct (heap_typed_doms_eq with "Hheap") as "%".
       iPureIntro. intros x. rewrite !eq_None_not_Some. naive_solver. }
     iDestruct (heap_typed_fork _ _ _ _ H H0 with "Hheap") as "H".
-    iExists _. iFrame. rewrite right_id.
+    iExists _. iFrame.
     iMod (allocate with "Hown") as "[Hown H1]".
     { rewrite H1. exact H0. }
-    iMod (allocate with "Hown") as "[Hown H2]".
-    { rewrite lookup_insert_ne. rewrite H1. exact H. done. }
-    iModIntro. iFrame.
-    iSplitL "H2". { iExists _. iFrame. done. }
-    iExists _. iFrame.
-    iExists _. iFrame.
-    done.
+    iMod (allocate with "Hown") as "[$ H2]".
+    { rewrite lookup_insert_ne // H1 //. }
+    iModIntro. iSplitL "H2"; eauto with iFrame.
 Qed.
+
+Definition head_waiting (e : expr) (h : heap) :=
+  ∃ c, e = Recv (Val (ChanV c)) ∧ h !! c = Some [].
+Definition waiting (e : expr) (h : heap) :=
+  ∃ e' k, e = k e' ∧ ctx k ∧ head_waiting e' h.
+Definition is_val (e : expr) :=
+  ∃ v, e = Val v.
+Definition head_reducible (e : expr) (h : heap) :=
+  ∃ e' h' ts, head_step e h e' h' ts.
+Definition reducible (e : expr) (h : heap) :=
+  ∃ e' h' ts, ctx_step e h e' h' ts.
+Definition waiting_or_reducible e h := waiting e h ∨ reducible e h.
+
+Lemma wr_head_step e h e' h' ts :
+  head_step e h e' h' ts ->
+  waiting_or_reducible e h.
+Proof.
+  intros H.
+  right.
+  exists e', h', ts.
+  eapply (Ctx_step id). { constructor. }
+  done.
+Qed.
+
+Lemma wr_ctx k e h :
+  ctx1 k ->
+  waiting_or_reducible e h ->
+  waiting_or_reducible (k e) h.
+Proof.
+  intros Hk Hwr.
+  unfold waiting_or_reducible in *.
+  destruct Hwr.
+  - left. unfold waiting in *.
+    destruct H as (e' & k' & -> & Hk' & Hw).
+    exists e', (k ∘ k').
+    repeat split; eauto.
+    apply (Ctx_cons k); done.
+  - right. unfold reducible in *.
+    destruct H as (e' & h' & ts & Hcs).
+    destruct Hcs.
+    do 3 eexists.
+    apply (Ctx_step (k ∘ k0)); last done.
+    apply (Ctx_cons k); done.
+Qed.
+
+Fixpoint val_typed' (v : val) (t : type) : hProp := (* extra argument: owner*)
+  match t with
+  | UnitT => ⌜⌜ v = UnitV ⌝⌝
+  | NatT => ∃ n, ⌜⌜ v = NatV n ⌝⌝
+  | PairT t1 t2 => ∃ a b, ⌜⌜ v = PairV a b ⌝⌝ ∗ val_typed' a t1 ∗ val_typed' b t2
+  | FunT t1 t2 => ∃ x e, ⌜⌜ v = FunV x e ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2
+  | ChanT r => ∃ c, ⌜⌜ v = ChanV c ⌝⌝ ∗ own c r
+  end.
+
+Lemma val_typed_switch v t :
+  val_typed v t ⊣⊢ val_typed' v t.
+Proof.
+  iIntros. iSplit; iIntros "H".
+  - iInduction t as [] "IH" forall (v); simpl; destruct v; simpl;
+    repeat iDestruct "H" as (?) "H"; try iDestruct "H" as "%";
+    simplify_eq; repeat iExists _; try done; iSplit; try done.
+    iDestruct "H" as "[H1 H2]".
+    iSplitL "H1". { by iApply "IH". }
+    by iApply "IH1".
+  - iInduction t as [] "IH" forall (v); simpl; destruct v; simpl;
+    repeat iDestruct "H" as (?) "H"; try iDestruct "H" as "%";
+    simplify_eq; repeat iExists _; try done; iSplit; try done.
+    iDestruct "H" as "[H1 H2]".
+    iSplitL "H1". { by iApply "IH". }
+    by iApply "IH1".
+Qed.
+
+Lemma heap_fresh (h : heap) :
+  ∃ i, ∀ b, h !! (i,b) = None.
+Proof.
+  exists (fresh $ set_map (D:=gset nat) fst (dom (gset (nat*bool)) h)). intros b.
+  pose proof (is_fresh (set_map (D:=gset nat) fst (dom (gset (nat * bool)) h))) as H.
+  remember (fresh $ set_map (D:=gset nat) fst (dom (gset (nat*bool)) h)) as i.
+  clear Heqi.
+  destruct (h !! (i,b)) eqn:E; last done.
+  exfalso. apply H. clear H.
+  apply elem_of_map. exists (i,b).
+  simpl; split; eauto.
+  apply elem_of_dom. by eexists.
+Qed.
+
+Lemma heap_typed_send_info Σ c t r h :
+  Σ !! c = Some (SendT t r) ->
+  heap_typed h Σ -∗
+  ⌜∃ buf : list val, h !! other c = Some buf⌝.
+Proof.
+  iIntros (H) "H".
+  iDestruct (heap_typed_Some_split with "H") as "[_ H]";
+    first (erewrite H; by eexists).
+  rewrite bufs_typed_alt.
+  iDestruct "H" as (rest) "[H1 H2]".
+  destruct (h !! other c) eqn:E; simpl; first eauto.
+  destruct (Σ !! other c) eqn:F; first eauto.
+  iDestruct "H2" as %G. destruct rest; simplify_eq.
+  destruct (h !! c) eqn:E';
+  destruct (Σ !! c) eqn:F'; eauto.
+  simplify_eq. simpl.
+  destruct l; simpl; eauto.
+  iDestruct "H1" as "%".
+  simplify_eq.
+Qed.
+
+Lemma heap_typed_close_info Σ c h :
+  Σ !! c = Some EndT ->
+  heap_typed h Σ -∗
+  ⌜h !! c = Some []⌝.
+Proof.
+  iIntros (H) "H".
+  iDestruct (heap_typed_Some_split with "H") as "[_ H]";
+    first (erewrite H; by eexists).
+  rewrite bufs_typed_alt.
+  iDestruct "H" as (rest) "[H1 H2]".
+  rewrite H.
+  destruct (h !! c) eqn:E; simpl; eauto.
+  iClear "H2".
+  destruct l; simpl; eauto.
+Qed.
+
+Ltac fin := done || by constructor.
+
+Lemma progress1 Σ h e t :
+  own_auth Σ -∗
+  heap_typed h Σ -∗
+  ptyped0 e t -∗
+  ⌜is_val e ∨ waiting_or_reducible e h⌝.
+Proof.
+  iIntros "Hown Hheap Ht".
+  iDestruct (heap_typed_doms_eq with "Hheap") as %E.
+  iInduction e as [] "IH" forall (t); simpl.
+  - iPureIntro. left. by eexists.
+  - done.
+  - iDestruct "Ht" as (t') "[H1 H2]".
+    iDestruct ("IH" with "Hown Hheap H1") as %H1.
+    iDestruct ("IH1" with "Hown Hheap H2") as %H2.
+    iRight.
+    destruct H1 as [[v1 ->]|H1].
+    + destruct H2 as [[v2 ->]|H2].
+      * simpl. rewrite val_typed_switch /=.
+        iDestruct "H1" as (x e ->) "H1".
+        iPureIntro. eapply wr_head_step.
+        constructor. constructor.
+      * iPureIntro. apply (wr_ctx (λ x, App _ x)); fin.
+    + iPureIntro. apply (wr_ctx (λ x, App x _)); fin.
+  - iPureIntro. right.
+    eapply wr_head_step.
+    constructor. constructor.
+  - iRight.
+    iDestruct "Ht" as (r t' ->) "[H1 H2]".
+    iDestruct ("IH" with "Hown Hheap H1") as %H1.
+    iDestruct ("IH1" with "Hown Hheap H2") as %H2.
+    destruct H1 as [[v1 ->]|H1].
+    + destruct H2 as [[v2 ->]|H2].
+      * simpl. rewrite val_typed_switch /=.
+        iDestruct "H1" as (c ->) "H1".
+        iDestruct (own_lookup with "[$Hown $H1]") as %H.
+        iDestruct (heap_typed_send_info with "Hheap") as %[buf Hbuf]; first done.
+        iPureIntro. eapply wr_head_step.
+        eapply Send_step. done.
+      * iPureIntro. apply (wr_ctx (λ x, Send _ x)); fin.
+    + iPureIntro. apply (wr_ctx (λ x, Send x _)); fin.
+  - iRight.
+    iDestruct "Ht" as (t' r ->) "H".
+    iDestruct ("IH" with "Hown Hheap H") as %H.
+    destruct H as [[v ->]|H].
+    + simpl. rewrite val_typed_switch /=.
+      iDestruct "H" as (c ->) "H".
+      iDestruct (own_lookup with "[$Hown $H]") as %H.
+      assert (is_Some (h !! c)) as [buf Hbuf]. { rewrite <-E. by eexists. }
+      destruct buf.
+      * iPureIntro. left. exists (Recv (Val (ChanV c))), id.
+        split; first done.
+        split; first by constructor.
+        unfold head_waiting. eauto.
+      * iPureIntro. eapply wr_head_step.
+        eapply Recv_step. done.
+    + iPureIntro. apply (wr_ctx (λ x, Recv x)); fin.
+  - iRight.
+    iDestruct "Ht" as (t') "[H1 H2]".
+    iDestruct ("IH" with "Hown Hheap H1") as %H1.
+    destruct H1 as [[v1 ->]|H1].
+    + iPureIntro. eapply wr_head_step.
+      constructor. constructor.
+    + iPureIntro. apply (wr_ctx (λ x, Let _ x _)); fin.
+  - iRight.
+    iDestruct "Ht" as "[H1 H2]".
+    iDestruct ("IH" with "Hown Hheap H1") as %H1.
+    destruct H1 as [[v1 ->]|H1].
+    + simpl. rewrite val_typed_switch /=.
+      iDestruct "H1" as %->.
+      iPureIntro. eapply wr_head_step.
+      constructor. constructor.
+    + iPureIntro. apply (wr_ctx (λ x, LetUnit x _)); fin.
+  - iRight.
+    iDestruct "Ht" as (t1 t2 HH) "[H1 H2]".
+    iDestruct ("IH" with "Hown Hheap H1") as %H1.
+    destruct H1 as [[v1 ->]|H1].
+    + simpl. rewrite val_typed_switch /=.
+      iDestruct "H1" as (a b ->) "[H1 H3]".
+      iPureIntro. eapply wr_head_step.
+      constructor. constructor.
+    + iPureIntro. apply (wr_ctx (λ x, LetProd _ _ x _)); fin.
+  - iRight.
+    iDestruct "Ht" as "[H H2]".
+    iDestruct ("IH" with "Hown Hheap H") as %H.
+    destruct H as [[v ->]|H].
+    + simpl. rewrite val_typed_switch /=.
+      iDestruct "H" as %[n ->].
+      iPureIntro. destruct n; eapply wr_head_step; constructor.
+      * apply If_step2.
+      * constructor. lia.
+    + iPureIntro. apply (wr_ctx (λ x, If x _ _)); fin.
+  - iRight.
+    iDestruct "Ht" as (r ->) "H".
+    iDestruct ("IH" with "Hown Hheap H") as %H.
+    destruct H as [[v ->]|H].
+    + simpl. rewrite val_typed_switch /=.
+      iDestruct "H" as (x e ->) "H".
+      iPureIntro.
+      pose proof (heap_fresh h) as [i H].
+      eapply wr_head_step. eapply Fork_step; eauto.
+    + iPureIntro. apply (wr_ctx (λ x, Fork x)); fin.
+  - iRight.
+    iDestruct "Ht" as (->) "H".
+    iDestruct ("IH" with "Hown Hheap H") as %H.
+    destruct H as [[v ->]|H].
+    + simpl. rewrite val_typed_switch /=.
+      iDestruct "H" as (c ->) "H".
+      iDestruct (own_lookup with "[$Hown $H]") as %H.
+      iDestruct (heap_typed_close_info with "Hheap") as %HH; first done.
+      iPureIntro. eapply wr_head_step.
+      eapply Close_step. done.
+    + iPureIntro. apply (wr_ctx (λ x, Close x)); fin.
+Qed.
+
+Lemma progress (threads : list expr) (h : heap) e :
+  e ∈ threads ->
+  invariant h threads -∗
+  ⌜ is_val e ∨ waiting_or_reducible e h ⌝.
+Proof.
+  iIntros ([i Hi]%elem_of_list_lookup).
+  iDestruct 1 as (Σ) "(Hown & Hthreads & Hheap)".
+  iDestruct (big_sepL_delete with "Hthreads") as "[Htyped _]"; first done.
+  iApply (progress1 with "Hown Hheap Htyped").
+Qed.
+
+
 
 (*
 What is leak freedom? (Coq)
