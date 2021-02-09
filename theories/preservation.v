@@ -932,6 +932,36 @@ Proof.
     iModIntro. iSplitL "H2"; eauto with iFrame.
 Qed.
 
+Lemma preservationN (threads threads' : list expr) (chans chans' : heap) :
+  steps threads chans threads' chans' ->
+  invariant chans threads ==∗
+  invariant chans' threads'.
+Proof.
+  iIntros (Hsteps) "Hinv".
+  iInduction Hsteps as [] "IH"; last done.
+  iMod (preservation with "Hinv") as "H"; eauto.
+  iMod ("IH" with "H"). done.
+Qed.
+
+Lemma invariant_init (e : expr) :
+  typed ∅ e UnitT -> own_auth ∅ ⊢ invariant ∅ [e].
+Proof.
+  iIntros (H) "H".
+  iExists ∅. iFrame. simpl.
+  iSplit.
+  - rewrite right_id.
+    iApply ptyped_ptyped0.
+    iApply typed_ptyped.
+    iPureIntro. done.
+  - unfold heap_typed.
+    unfold dom_chans.
+    rewrite !dom_empty_L.
+    rewrite set_map_empty.
+    rewrite left_id_L.
+    rewrite big_sepS_empty.
+    done.
+Qed.
+
 Definition head_waiting (e : expr) (h : heap) :=
   ∃ c, e = Recv (Val (ChanV c)) ∧ h !! c = Some [].
 Definition waiting (e : expr) (h : heap) :=
@@ -942,7 +972,8 @@ Definition head_reducible (e : expr) (h : heap) :=
   ∃ e' h' ts, head_step e h e' h' ts.
 Definition reducible (e : expr) (h : heap) :=
   ∃ e' h' ts, ctx_step e h e' h' ts.
-Definition waiting_or_reducible e h := waiting e h ∨ reducible e h.
+Definition waiting_or_reducible e h :=
+  waiting e h ∨ reducible e h.
 
 Lemma wr_head_step e h e' h' ts :
   head_step e h e' h' ts ->
@@ -1181,7 +1212,18 @@ Proof.
   iApply (progress1 with "Hown Hheap Htyped").
 Qed.
 
-
+Lemma safety (e : expr) (es : list expr) (h : heap) :
+  typed ∅ e UnitT ->
+  steps [e] ∅ es h ->
+  ∀ e', e' ∈ es -> is_val e' ∨ waiting_or_reducible e' h.
+Proof.
+  intros Htypes Hsteps e' He'.
+  apply simple_adequacy.
+  iIntros "Hown".
+  iApply progress; first done.
+  iApply preservationN; first done.
+  iApply invariant_init; eauto.
+Qed.
 
 (*
 What is leak freedom? (Coq)
