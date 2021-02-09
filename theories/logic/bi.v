@@ -230,6 +230,12 @@ Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) :
   ∃ y, auth_global_updateN 0 x y ∧ φ y.
 Proof. apply ownM_soundness. Qed.
 
+Lemma ownM_simple_soundness (x : auth M) (φ : Prop) :
+  auth_global_valid 0 x →
+  (uPred_ownM x ⊢ |==> ⌜ φ ⌝) →
+  φ.
+Proof. apply ownM_simple_soundness. Qed.
+
 End restate.
 
 

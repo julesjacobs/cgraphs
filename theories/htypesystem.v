@@ -200,10 +200,21 @@ Proof.
     by apply (fmap_empty_inv Excl) in R2 as ->.
 Qed.
 
+Lemma auth_global_valid_auth {A : ucmraT} n :
+  auth_global_valid n (● (ε : A)).
+Proof.
+  split; last done.
+  apply auth_auth_validN. apply ucmra_unit_validN.
+Qed.
+
 Lemma simple_adequacy φ :
   (own_auth ∅ ⊢ |==> ⌜ φ ⌝) → φ.
 Proof.
-Admitted.
+  unfold own_auth.
+  apply uPred.ownM_simple_soundness.
+  rewrite fmap_empty.
+  apply: auth_global_valid_auth.
+Qed.
 
 Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
  match e with

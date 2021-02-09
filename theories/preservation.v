@@ -1212,10 +1212,10 @@ Proof.
   iApply (progress1 with "Hown Hheap Htyped").
 Qed.
 
-Lemma safety (e : expr) (es : list expr) (h : heap) :
-  typed ∅ e UnitT ->
-  steps [e] ∅ es h ->
-  ∀ e', e' ∈ es -> is_val e' ∨ waiting_or_reducible e' h.
+Lemma safety (e0 : expr) (es : list expr) (h : heap) :
+  typed ∅ e0 UnitT ->
+  steps [e0] ∅ es h ->
+  ∀ e, e ∈ es -> is_val e ∨ waiting_or_reducible e h.
 Proof.
   intros Htypes Hsteps e' He'.
   apply simple_adequacy.

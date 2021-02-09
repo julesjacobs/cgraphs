@@ -805,6 +805,19 @@ Proof.
   by apply (HP (S n)); eauto using ucmra_unit_validN.
 Qed.
 
+Lemma ownM_simple_soundness (x : auth M) (φ : Prop) :
+  auth_global_valid 0 x →
+  (uPred_ownM x ⊢ |==> ⌜ φ ⌝) →
+  φ.
+Proof.
+  unseal=> Hgv [H]. simpl in *.
+  edestruct (H 0 x); try done.
+  - apply auth_global_valid_valid. done.
+  - assert (auth_global_valid 0 (x ⋅ ε)); last done.
+    by rewrite right_id.
+  - destruct H0; done.
+Qed.
+
 Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) :
   (∀ x : M, Cancelable x) →
   auth_global_valid 0 x →
