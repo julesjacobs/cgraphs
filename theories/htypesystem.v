@@ -131,17 +131,29 @@ Proof.
   split; [|done]. exists bf'. by rewrite -assoc.
 Qed. *)
 
+Lemma auth_update_dealloc {A:ucmraT} (a b a' : A) :
+  Cancelable a →
+  (a,b) ~l~> (a',ε) → uPred_primitive.auth_global_update (● a ⋅ ◯ b) (● a').
+Proof.
+  intros Hcancel Hl.
+  eapply uPred_primitive.auth_global_update_proper, auth_update, Hl; auto.
+  rewrite (_ : (◯ ε) = ε); last done.
+  by rewrite right_id.
+Qed.
+
 Lemma deallocate Σ l t :
   own_auth Σ ∗ own l t ⊢ |==> own_auth (delete l Σ).
 Proof.
+  iIntros "H".
+  iDestruct (own_lookup with "H") as "%".
+  iStopProof.
   rewrite own_ownM.
-  iIntros "H". unfold own_auth.
-  iApply uPred.bupd_ownM_update; last first.
-  { iExact "H". }
-  {
-    admit.
-  }
-Admitted.
+  apply uPred.bupd_ownM_update.
+  apply auth_update_dealloc; first apply _.
+  rewrite fmap_delete.
+  apply delete_singleton_local_update_cancelable; first apply _.
+  rewrite lookup_fmap. rewrite H. done.
+Qed.
 
 Lemma update Σ l t t' :
   own_auth Σ ∗ own l t ⊢
@@ -188,10 +200,14 @@ Proof.
     by apply (fmap_empty_inv Excl) in R2 as ->.
 Qed.
 
-Lemma adequacy φ :
+(* Lemma simple_adequacy φ :
   (own_auth ∅ ⊢ |==> ⌜ φ ⌝) → φ.
 Proof.
-Admitted.
+  unfold own_auth.
+  intros HH.
+  Check uPred.ownM_soundness.
+  uPred_soundness.
+Admitted. *)
 
 Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
  match e with
@@ -211,7 +227,7 @@ Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
       ptyped Γ1 e1 (ChanT (SendT t' r)) ∗
       ptyped Γ2 e2 t'
   | Recv e => ∃ t' r,
-      ⌜⌜ t = PairT t' (ChanT r) ⌝⌝ ∗
+      ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗
       ptyped Γ e (ChanT (RecvT t' r))
   | Let x e1 e2 => ∃ (t' : type) (Γ1 Γ2 : envT),
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ∧ Γ2 !! x = None ⌝⌝ ∗
@@ -233,7 +249,7 @@ Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
       ⌜⌜ t = ChanT r ⌝⌝ ∗
       ptyped Γ e (FunT (ChanT (dual r)) UnitT)
   | Close e =>
-      ptyped Γ e (ChanT EndT)
+      ⌜⌜ t = UnitT ⌝⌝ ∗ ptyped Γ e (ChanT EndT)
   end
 with val_typed (v : val) (t : type) : hProp := (* extra argument: owner*)
   match v with
@@ -299,11 +315,10 @@ Proof.
     + rewrite lookup_union. rewrite Hx lookup_singleton_ne; eauto.
     + rewrite H1. done.
   - iDestruct "Ht" as (r t' Γ1 Γ2 (-> & -> & Hdisj)) "[H1 H2]".
-    iDestruct ("IH" with "[%] H1") as %?.
-    { by apply lookup_union_None in Hx as []. }
-    iDestruct ("IH1" with "[%] H2") as %?.
-    { by apply lookup_union_None in Hx as []. }
-    by rewrite H H0.
+    apply lookup_union_None in Hx as [].
+    iDestruct ("IH" with "[%] H1") as %?; first done.
+    iDestruct ("IH1" with "[%] H2") as %?; first done.
+    by rewrite H1 H2.
   - iDestruct "Ht" as (t' r ->) "H".
     iDestruct ("IH" with "[%] H") as %?; eauto.
     by rewrite H.
@@ -341,7 +356,8 @@ Proof.
   - iDestruct "Ht" as (r ->) "H".
     iDestruct ("IH" with "[%] H") as %?; eauto.
     by rewrite H.
-  - iDestruct ("IH" with "[%] Ht") as %?; eauto.
+  - iDestruct "Ht" as "[_ Ht]".
+    iDestruct ("IH" with "[%] Ht") as %?; eauto.
     by rewrite H.
 Qed.
 
@@ -496,7 +512,9 @@ Proof.
     iExists _. iSplit.
     { iPureIntro. done. }
     { iApply ("IH" with "[%] Hv H"). done. }
-  - iApply ("IH" with "[%] Hv He"). done.
+  - iDestruct "He" as "[% He]".
+    iSplit; first done.
+    iApply ("IH" with "[%] Hv He"). done.
 Qed.
 
 (* Definition ctx_typed (Γ : envT) (k : expr -> expr)
@@ -602,7 +620,7 @@ Fixpoint ptyped0 (e : expr) (t : type) : hProp :=
       ptyped0 e1 (ChanT (SendT t' r)) ∗
       ptyped0 e2 t'
   | Recv e => ∃ t' r,
-      ⌜⌜ t = PairT t' (ChanT r) ⌝⌝ ∗
+      ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗
       ptyped0 e (ChanT (RecvT t' r))
   | Let x e1 e2 => ∃ (t' : type),
       ptyped0 e1 t' ∗
@@ -621,7 +639,7 @@ Fixpoint ptyped0 (e : expr) (t : type) : hProp :=
       ⌜⌜ t = ChanT r ⌝⌝ ∗
       ptyped0 e (FunT (ChanT (dual r)) UnitT)
   | Close e =>
-      ptyped0 e (ChanT EndT)
+      ⌜⌜ t = UnitT ⌝⌝ ∗ ptyped0 e (ChanT EndT)
  end.
 
 Lemma both_emp (A B : envT) : ∅ = A ∪ B -> A = ∅ ∧ B = ∅.
@@ -691,7 +709,7 @@ Proof.
     iExists r.
     iSplit. done.
     iApply "IH". done.
-  - iApply "IH". done.
+  - iDestruct "H" as "[? H]". iFrame. iApply "IH". done.
 Qed.
 
 Lemma ptyped0_ptyped e t :
@@ -753,7 +771,7 @@ Proof.
     iExists r.
     iSplit. done.
     iApply "IH". done.
-  - iApply "IH". done.
+  - iDestruct "H" as "[? H]". iFrame. iApply "IH". done.
 Qed.
 
 

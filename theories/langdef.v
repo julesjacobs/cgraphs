@@ -71,7 +71,7 @@ Inductive typed : envT -> expr -> type -> Prop :=
         typed (Γ1 ∪ Γ2) (Send e1 e2) (ChanT r)
     | Recv_typed : ∀ Γ e t r,
         typed Γ e (ChanT (RecvT t r)) ->
-        typed Γ (Recv e) (PairT t (ChanT r))
+        typed Γ (Recv e) (PairT (ChanT r) t)
     | Let_typed : ∀ Γ1 Γ2 e1 e2 t1 t2 x,
         Γ1 ##ₘ Γ2 ->
         Γ2 !! x = None ->

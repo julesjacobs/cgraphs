@@ -714,3 +714,12 @@ Proof.
     + exfalso. eapply step_not_val; eauto.
     + assert (y = y0) as ->; eauto using step_deterministic.
 Qed.
+
+Theorem termination_uniq e t : typed ∅ e t -> exists! e', steps e e' ∧ val e'.
+Proof.
+  intros Ht.
+  apply termination in Ht as (v & Hs & Hv).
+  exists v. unfold unique. split; eauto.
+  intros v' [].
+  eapply steps_deterministic; eauto.
+Qed.

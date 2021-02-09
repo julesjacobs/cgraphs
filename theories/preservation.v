@@ -34,8 +34,8 @@ Definition heap_typed (chans : heap) (Σ : heapT) : hProp :=
 
 Definition invariant (chans : heap) (threads : list expr) : hProp :=
   ∃ Σ, own_auth Σ ∗ (* acyclic Σ ∗ *)
-      ([∗ list] id↦e∈threads, ptyped0 e UnitT) ∗ (* add (Thread id) as owner *)
-      heap_typed chans Σ.
+       ([∗ list] id↦e∈threads, ptyped0 e UnitT) ∗ (* add (Thread id) as owner *)
+       heap_typed chans Σ.
 
 Lemma elem_of_dom_chans_alt {A} (i : nat) (Σ : gmap endpoint A) :
   i ∈ dom_chans Σ <-> ∃ b, is_Some (Σ !! (i,b)).
@@ -53,8 +53,8 @@ Qed.
 
 Lemma not_elem_of_dom_chans_alt {A} (i : nat) (Σ : gmap endpoint A) :
   i ∉ dom_chans Σ <-> ∀ b, Σ !! (i,b) = None.
-Proof.
   unfold not. rewrite elem_of_dom_chans_alt.
+  Proof.
   split; intros.
   - destruct (Σ !! (i,b)) eqn:E; naive_solver.
   - destruct H0 as [b Hb].
@@ -765,13 +765,22 @@ Proof.
     iExists _,_.
     iSplit; first done. rewrite left_id. done.
   - iDestruct "Ht" as (Γ1 Γ2 HH) "[_ [Ht _]]".
-    assert (Γ2 = ∅) by admit. subst. done.
+    assert (Γ2 = ∅).
+    { destruct HH. symmetry in H0.
+      assert (Γ1 = ∅). eapply map_positive_l; done. subst.
+      rewrite left_id in H0. done. }
+    subst. done.
   - iDestruct "Ht" as (Γ1 Γ2 H) "[_ [_ Ht]]".
-    assert (Γ2 = ∅) by admit. subst. done.
+    assert (Γ2 = ∅).
+    { destruct H. symmetry in H.
+      assert (Γ1 = ∅). eapply map_positive_l; done. subst.
+      rewrite left_id in H. done. }
+    subst. done.
   - iDestruct "Ht" as (t' Γ1 Γ2 H) "[[% Hv] Ht]".
     destruct H as (H & _ & _).
     subst. rewrite left_id in H. subst. rewrite left_id.
-    replace (∅ : envT) with (delete x {[ x := t']} : envT) by admit.
+    replace (∅ : envT) with (delete x {[ x := t']} : envT); last first.
+    { apply delete_singleton. }
     iApply (subst_ptyped with "Hv Ht").
     rewrite lookup_singleton. done.
   - iDestruct "Ht" as (Γ1 Γ2 (H & Hd)) "[% Ht]".
@@ -781,13 +790,25 @@ Proof.
     simplify_eq.
     rewrite left_id in H0. subst.
     rewrite left_id.
-    replace (∅ : envT) with (delete x1 $ delete x2 $ ({[x1 := t1']} ∪ {[x2 := t2']}) : envT)
-      by admit.
+    replace (∅ : envT) with (delete x1 $ delete x2 $ ({[x1 := t1']} ∪ {[x2 := t2']}) : envT); last first.
+    { rewrite delete_union delete_singleton right_id.
+      rewrite delete_singleton_ne; eauto.
+      apply delete_singleton. }
     iApply (subst_ptyped with "Hv1 [Ht Hv2]").
-    + admit.
+    + rewrite delete_union delete_singleton right_id.
+      rewrite delete_singleton_ne; eauto. rewrite lookup_singleton. done.
     + iApply (subst_ptyped with "Hv2 Ht").
-      admit.
-Admitted.
+      rewrite lookup_union lookup_singleton lookup_singleton_ne; eauto.
+Qed.
+
+Lemma pure_step_ptyped0 e e' t :
+  pure_step e e' -> ptyped0 e t -∗ ptyped0 e' t.
+Proof.
+  iIntros (Hs) "Ht".
+  iApply ptyped_ptyped0.
+  iDestruct (ptyped0_ptyped with "Ht") as "Ht".
+  iApply (pure_step_ptyped with "Ht"). done.
+Qed.
 
 Definition ct_tail (ct : chan_type) : chan_type :=
     match ct with
@@ -808,59 +829,119 @@ Proof.
   iApply "H". iApply "HP". done.
 Qed.
 
+Lemma typed0_ctx_typed0_iff B k e :
+  ctx k -> ptyped0 (k e) B ⊣⊢
+  ∃ A, ctx_typed0 k A B ∗ ptyped0 e A.
+Proof.
+  intros Hk.
+  iIntros.
+  iSplit.
+  - iApply typed0_ctx_typed0. done.
+  - iIntros "H". iDestruct "H" as (A) "[Hct Ht]".
+    iApply (ctx_subst0 with "Hct"). done.
+Qed.
+
+Lemma rw_helper1 {T} (P Q : T -> hProp) (R : hProp) :
+  (∃ x, P x ∗ R ∗ Q x) ⊣⊢ R ∗ ∃ x, P x ∗ Q x.
+Proof.
+  iIntros.
+  iSplit; iIntros "H".
+  - iDestruct "H" as (x) "(H1 & H2 & H3)". iFrame.
+    iExists x. iFrame.
+  - iDestruct "H" as "[H1 H2]".
+    iDestruct "H2" as (x) "[H2 H3]".
+    iExists x. iFrame.
+Qed.
+
+Lemma rw_helper2 {T} (P : T -> hProp) (Q : hProp) :
+  (∃ x, P x) ∗ Q ⊣⊢ ∃ x, P x ∗ Q.
+Proof.
+  iIntros.
+  iSplit; iIntros "H".
+  - iDestruct "H" as "[H1 H2]".
+    iDestruct "H1" as (x) "H1".
+    iExists x. iFrame.
+  - iDestruct "H" as (x) "[H1 H2]". iFrame.
+    iExists x. iFrame.
+Qed.
+
+Lemma rw_helper3 (P : hProp) :
+  P ∗ emp ⊣⊢ P.
+Proof.
+  rewrite right_id. done.
+Qed.
+
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
   invariant chans threads ==∗
   invariant chans' threads'.
 Proof.
-  intros Hinv Hstep. unfold invariant in *.
-  destruct Hinv as [Σ Hinv].
+  iIntros (Hstep) "Hinv".
   destruct Hstep.
   destruct H.
-  destruct H1.
-  (* TODO: Need to extract type info here *)
-  - exists Σ. iIntros "HΣ".
-    iDestruct (Hinv with "HΣ") as "Hinv".
-    unfold invariantΣ.
-    rewrite right_id.
-    iDestruct "Hinv" as "[Htyped Hbufs]". iFrame.
-    iApply big_opL_insert_override; eauto.
-    iIntros "H".
-    iApply pure_step_ptyped; eauto.
-    admit.
-  - assert (invariantΣ Σ es h -∗ ⌜ ∃ vt ct', Σ !! c = Some (SendT vt ct') ⌝) by admit.
+  iDestruct "Hinv" as (Σ) "(Hown & Hthreads & Hheap)".
+  rewrite big_sepL_delete; last done.
+  iDestruct "Hthreads" as "[Ht Hthreads]".
+  iDestruct (typed0_ctx_typed0 with "Ht") as (t) "[Hct Ht]"; first done.
+  unfold invariant.
+  rewrite rw_helper1.
+  rewrite big_sepL_app.
+  rewrite (big_sepL_delete _ (<[i:=k e']> es) i (k e')); last first.
+  { apply list_lookup_insert. eapply lookup_lt_Some. done. }
+  iDestruct (big_opL_insert_override _ _ _ (k e') _ H0 with "[] Hthreads") as "Hthreads".
+  { iIntros "H". case_decide; iFrame. done. }
+  iFrame.
+  rewrite typed0_ctx_typed0_iff; last done.
+  rewrite rw_helper2.
+  rewrite rw_helper2.
+  iExists t. iFrame.
+  rewrite (comm (∗)%I).
+  rewrite rw_helper2.
 
-    (* chan_lits : expr -> list endpoint
+  revert H1. clear. intros Hstep. (* clean up the goal *)
 
-    es !! i = Some (k (Val (Chan c))) ->
-    invariantΣ Σ es h -∗
-      invariantΣ (delete c Σ) (delete i es) h ∗ ptyped ∅ e UnitT *)
-
-  (* Make separation logic over auth of Σ
-     What's the adequacy statement for that logic?
-        ((own (auth ∅)) ⊢ |=> ⌜ P ⌝) -> P
-        (own (auth ∅) ⊢ invariant es h) -> ???
-     *)
-
-
-    assert (invariantΣ Σ es h -∗ ∃ vt ct', own {[c := ct ]} ∗ ⌜ Σ !! c = Some (SendT vt ct') ⌝) by admit.
-    assert (∃ vt ct', Σ !! c = Some (SendT vt ct')) as (vt & ct' & HH).
-    {
-      eapply (own_adequacy Σ). rewrite Hinv. done.
-    }
-    exists (<[ c := ct' ]> Σ).
-    iIntros "HΣ".
-    rewrite right_id_L.
-    replace ((<[c:=ct']> Σ)) with (delete c Σ ∪ {[ c := ct' ]}) by admit.
-    assert (delete c Σ ##ₘ {[c := ct']}) by admit.
-    iDestruct (own_distr with "HΣ") as "[HΣ1 HΣ2]"; eauto.
-
-    admit.
-  - admit.
-  - exists (delete c Σ).
-    admit.
-  - admit.
-Admitted.
+  destruct Hstep;
+  try (setoid_rewrite big_sepL_nil; setoid_rewrite rw_helper3).
+  - iExists Σ. iFrame. iModIntro. by iApply (pure_step_ptyped0 with "Ht").
+  - simpl. iDestruct "Ht" as (r t' ->) "[H Hv]".
+    iDestruct "H" as (r0) "[% H]". simplify_eq.
+    iDestruct (own_lookup with "[Hown H]") as "%"; first iFrame.
+    iDestruct (heap_typed_send _ _ _ _ _ _ H0 with "Hv Hheap") as (buf' HH) "Hsend".
+    iExists (<[ c := r ]> Σ).
+    rewrite H in HH. simplify_eq. iFrame.
+    iMod (update with "[Hown H]") as "[H1 H2]"; first iFrame.
+    iFrame. iExists r. iFrame. done.
+  - simpl. iDestruct "Ht" as (t' r ->) "Ht".
+    iDestruct "Ht" as (r0 HH) "H". simplify_eq.
+    iDestruct (own_lookup with "[Hown H]") as "%"; first iFrame.
+    iDestruct (heap_typed_recv _ _ _ _ _ _ _ H with "Hheap") as "[Hheap Hv]"; first done.
+    iExists _. iFrame.
+    iMod (update with "[Hown H]") as "[H1 H2]"; iFrame. iModIntro.
+    iExists _,_. iFrame.
+    iSplit. done.
+    iExists _. iSplit; done.
+  - simpl. iDestruct "Ht" as (r r' HH) "H". simplify_eq.
+    iDestruct (own_lookup with "[Hown H]") as "%"; first iFrame.
+    iDestruct (heap_typed_close _ _ _ H0 with "Hheap") as (HH) "Hheap".
+    iExists (delete c Σ).
+    iMod (deallocate with "[Hown H]"); iFrame.
+    done.
+  - simpl. iDestruct "Ht" as (r ->) "Hv".
+    iAssert (⌜ ∀ x,  Σ !! x = None <-> h !! x = None ⌝)%I as "%".
+    { iDestruct (heap_typed_doms_eq with "Hheap") as "%".
+      iPureIntro. intros x. rewrite !eq_None_not_Some. naive_solver. }
+    iDestruct (heap_typed_fork _ _ _ _ H H0 with "Hheap") as "H".
+    iExists _. iFrame. rewrite right_id.
+    iMod (allocate with "Hown") as "[Hown H1]".
+    { rewrite H1. exact H0. }
+    iMod (allocate with "Hown") as "[Hown H2]".
+    { rewrite lookup_insert_ne. rewrite H1. exact H. done. }
+    iModIntro. iFrame.
+    iSplitL "H2". { iExists _. iFrame. done. }
+    iExists _. iFrame.
+    iExists _. iFrame.
+    done.
+Qed.
 
 (*
 What is leak freedom? (Coq)
