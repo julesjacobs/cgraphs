@@ -1,0 +1,118 @@
+%  Locallabel
+%
+%  Copyright (C) 2001, 2002, 2003 Didier Rmy
+%
+%  Author         : Didier Remy 
+%  Version        : 1.1.1
+%  Bug Reports    : to author
+%  Web Site       : http://pauillac.inria.fr/~remy/latex/
+% 
+%  Locallabel is free software; you can redistribute it and/or modify
+%  it under the terms of the GNU General Public License as published by
+%  the Free Software Foundation; either version 2, or (at your option)
+%  any later version.
+%  
+%  Locallabel is distributed in the hope that it will be useful,
+%  but WITHOUT ANY WARRANTY; without even the implied warranty of
+%  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%  GNU General Public License for more details 
+%  (http://pauillac.inria.fr/~remy/license/GPL).
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  File locallabel.sty (LaTeX macros)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%
+
+%% Identification
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{locallabel}
+         [2001/23/02 v0.92 Locallabel]
+
+%% Preliminary declarations
+
+%% Options
+
+%% More declarations
+
+%% We use two counters: The global counter is incremented at each reset.
+%% Its value is the ``group'' of a local. 
+%% The local counter is the last numeric value of a bound label in the
+%% current group.  The value of a label #1 is globally set to 
+%% \csname llb@\the\c@llb@global-#1\endcsname
+%% The global command \csname llb@\the\c@llb@global-#1*\endcsname is 
+%% use to ensure that a label is only bound once. Usually a label is
+%% bound and declared at the same time with \llabel. It may also be bound in
+%% advance,  with \lbind, for instance so as to control the numbering.
+%% Then, another \llabel must be used to declare it in the text.
+%% If no \lbind has been used before, the \llabel calls \lbind implicitlt. 
+
+\newcounter{llb@global}
+\newcounter{llb@local}
+
+\newcommand \llb@find [1]
+  {\expandafter \ifx \csname llb@\the\c@llb@global-#1\endcsname \relax
+     \message {*** Local label #1 undefined in this context}%
+     \edef \llb@current {#1??}%
+   \else 
+     \edef \llb@current {\csname llb@\the\c@llb@global-#1\endcsname}%
+   \fi}
+
+\newcommand \llb@make [1]
+  {\expandafter \ifx \csname llb@\the\c@llb@global-#1\endcsname \relax
+     \stepcounter{llb@local}\relax \expandafter 
+     \xdef \csname llb@\the\c@llb@global-#1\endcsname {\the\c@llb@local}%
+     \edef \llb@current {\the\c@llb@local}%
+   \else
+     \expandafter \ifx \csname llb@\the\c@llb@global-#1*\endcsname \relax
+       \message {*** Local label #1 already defined in this countext!}%
+       \edef \llb@current {\csname llb@\the\c@llb@global-#1\endcsname ??}%
+     \else
+       \expandafter \global \expandafter \let
+          \csname llb@\the\c@llb@global-#1*\endcsname \relax
+     \edef \llb@current {\csname llb@\the\c@llb@global-#1\endcsname}
+     \fi 
+   \fi
+}
+
+%%% Redefine those macros to change typsetting
+
+\newcommand \thelocallabel {\the \c@llb@local}
+
+\newcommand \LlabelTypeset [1] {(\textrm {\bfseries #1})}
+\newcommand \LrefTypeset [1] {(\textrm {#1)}}
+\newcommand \glabel [1]{\LlabelTypeset{\softtarget {#1}{#1}}}
+\newcommand \gref [1]{\LrefTypeset{\softlink {#1}{#1}}}
+
+%%% To reset all local labels---which just increment a global prefix.
+\newcommand \locallabelreset[1][0]%
+  {\stepcounter {llb@global}\setcounter {llb@local}{#1}}
+
+%%% Make a new local label, typeset it, and bind to the given name
+\def \llb@relax {\relax}
+\newcommand {\llabel}[2][\relax]%
+  {\llb@make{#2}%
+   \def \@test {#1}\ifx \@test\llb@relax\else
+     \edef \@currentlabel {\the\c@llb@local}%
+     \def \@test {#1}\ifx \@test\empty \def \@test{#2}\fi
+     \label{\@test}%
+   \fi%
+   \LlabelTypeset {\softtarget{llb@\the\c@llb@global-#2}{\llb@current}}}
+
+%%% Retreive the local label of given name and type set it.
+\newcommand \lref [1]
+  {\llb@find {#1}%
+   \LrefTypeset {\softlink {llb@\the\c@llb@global-#1}{\llb@current}}}
+
+%%% Make a new local label and bind it to the given name but do not typeset
+%%% it. Typesetting may then be done with \llabel non locally. Useful to
+%%% control the order of numberring.
+\newcommand \lbind [1]
+  {\llb@make {#1}%
+   \expandafter \global \expandafter 
+      \let \csname llb@\the\c@llb@global-#1*\endcsname \empty}
+   
+\AtBeginDocument {%
+  \@ifundefined{softlink}{\let \softlink \@secondoftwo}{}%
+  \@ifundefined{softtarget}{\let \softtarget \@secondoftwo}{}%
+}  

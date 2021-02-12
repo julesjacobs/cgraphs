@@ -1,0 +1,87 @@
+\documentclass{lmcs} %%% last changed 2014-08-20
+\pdfoutput=1
+%% mandatory lists of keywords
+\keywords{Message passing, actor model, concurrency, session types, Iris}
+
+%% read in additional TeX-packages or personal macros here:
+%% e.g. \usepackage{tikz}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{multirow}
+\newtheorem{theorem}{Theorem}
+\input{preamble}
+
+% Use a sans serif font that is comparable in size to the main font
+\renewcommand{\sfdefault}{cmss}
+
+%% define non-standard environments BEYOND the ones already supplied
+%% here, for example
+\theoremstyle{plain}\newtheorem{satz}[thm]{Satz} %\Crefname{satz}{Satz}{S\"atze}
+%% Do NOT replace the proclamation environments lready provided by
+%% your own.
+
+%% due to the dependence on amsart.cls, \begin{document} has to occur
+%% BEFORE the title and author information:
+
+%% Use \citep in place of \cite, as is done in acmart.csl
+\renewcommand{\cite}{\citep}
+%% Use '[ ]' in place of '( )', as is done in acmart.csl
+\setcitestyle{%
+  authoryear,%
+  open={[},close={]},citesep={;},%
+  aysep={},yysep={,},%
+  notesep={, }}
+
+\begin{document}
+
+\title{Actris 2.0: Asynchronous Session-Type Based Reasoning in Separation Logic}
+
+\author{Jonas Kastberg Hinrichsen}	%required
+\address{IT University of Copenhagen, Denmark}	%required
+%\thanks{thanks 1, optional.}	%optional
+\email{jkas@itu.dk}
+
+\author{Jesper Bengtson}	%optional
+\address{IT University of Copenhagen, Denmark}	%optional
+\email{bengtson@itu.dk}
+
+\author{Robbert Krebbers}	%optional
+\address{Radboud University and Delft University of Technology, The Netherlands}	%optional
+\email{mail@robbertkrebbers.nl}
+%% etc.
+
+%% required for running head on odd and even pages, use suitable
+%% abbreviations in case of long titles and many authors:
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% the abstract has to PRECEDE the command \maketitle:
+%% be sure not to issue the \maketitle command twice!
+
+\begin{abstract}
+  \input{abstract}
+\end{abstract}
+
+\maketitle
+
+\input{introduction}
+\input{tour}
+\input{subprotocols}
+\input{sharing}
+\input{map_reduce}
+\input{model}
+\input{coq}
+\input{related_work}
+\input{future_work}
+
+\input{acknowledgments}
+
+%% in general the use of bibtex is encouraged
+%%ACM
+\bibliographystyle{ACM-Reference-Format}
+\citestyle{acmauthoryear}
+\bibliography{main}
+
+\end{document}

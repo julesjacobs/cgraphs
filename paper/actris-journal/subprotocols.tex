@@ -1,0 +1,923 @@
+\newcommand{\subprotfig}{
+\begin{figure}
+  \begin{mathpar}
+    \textbf{\Binder manipulation and resource transfer:}\\
+    \inferrule*[lab=\textlabel{SP-send-elim}{$\subprotop$-send-out},
+      right=\textnormal{$\prot_1 \neq \protend$}]
+    {\All \xdots. \iprop \wand \big(
+      \subprot {\prot_1} {\sendprotT {} \val {\prot_2}}\big)}
+    {\subprot {\prot_1} {\sendprot \xdots \val \iprop {\prot_2}}}
+    \and
+    \inferhref{$\subprotop$-send-in}{SP-send-intro}
+    {\subst \iprop {\vec\var} {\vec\term}}
+    {\subprot
+      {\sendprot \xdots \val \iprop {\prot}}
+      {\sendprotT{}
+        {\subst \val {\vec\var} {\vec\term}}
+        {\subst \prot {\vec\var} {\vec\term}}}}
+    \and
+    \inferrule*[lab=\textlabel{SP-recv-elim}{$\subprotop$-recv-out},
+      right=\textnormal{$\prot_2 \neq \protend$}]
+    {\All \xdots. \iprop \wand \big(
+     \subprot {\recvprotT {} \val {\prot_1}} {\prot_2} \big)}
+     {\subprot {\recvprot \xdots \val \iprop {\prot_1}} {\prot_2}}
+    \and
+    \inferhref{$\subprotop$-recv-in}{SP-recv-intro}
+    {\subst \iprop {\vec\var} {\vec\term}}
+    {\subprot
+      {\recvprotT {}
+        {\subst \val {\vec\var} {\vec\term}}
+        {\subst \prot {\vec\var} {\vec\term}}}
+      {\recvprot \xdots \val \iprop \prot}}\\
+    \textbf{Monotonicity and swapping:}\\
+    \inferhref{$\subprotop$-send-mono}{SP-send-mono}
+    {\later (\subprot {\prot_1} {\prot_2})}
+    {\subprot
+      {\sendprotT {} {\val} {\prot_1}}
+      {\sendprotT {} {\val} {\prot_2}}}
+    \and
+    \inferhref{$\subprotop$-recv-mono}{SP-recv-mono}
+    {\later (\subprot {\prot_1} {\prot_2})}
+    {\subprot
+      {\recvprotT {} {\val} {\prot_1}}
+      {\recvprotT {} {\val} {\prot_2}}}
+    \and
+    \inferhref{$\subprotop$-swap}{SP-swap}
+    {}
+    {\subprot
+      {\recvprotT {} {\val} {\sendprotT {} {\valB} \prot}}
+      {\sendprotT {} {\valB} {\recvprotT {} {\val} \prot}}}\\
+    \textbf{Reflexivity and transitivity:}\\
+    \inferhref{$\subprotop$-refl}{SP-refl}
+    {}
+    {\subprot {\prot} {\prot}}
+    \and
+    \inferhref{$\subprotop$-trans}{SP-trans}
+    {\subprot {\prot_1} {\prot_2} \and \subprot {\prot_2} {\prot_3}}
+    {\subprot {\prot_1} {\prot_3}}\\
+    \textbf{Dual and append:}\\
+  \inferhref{$\subprotop$-dual}{SP-dual}
+  {\subprot{\prot_2}{\prot_1}}
+  {\subprot{\dual{\prot_1}}{\dual{\prot_2}}}
+  \and
+  \inferhref{$\subprotop$-append}{SP-append}
+  {\subprot{\prot_1}{\prot_2} \and \subprot{\prot_3}{\prot_4}}
+  {\subprot{\protapp{\prot_1}{\prot_3}}{\protapp{\prot_2}{\prot_4}}}\\
+  \textbf{Channel ownership:}\\
+  \inferhref{$\subprotop$-chan-mono}{SP-chan-mono}
+  {\interp \chan {\prot_1} \and {\subprot {\prot_1} {\prot_2}}}
+  {\interp \chan {\prot_2}}
+  \end{mathpar}
+  \caption{The rules of Actris 2.0 for subprotocols.}
+  \label{fig:subprotocol_rules}
+\end{figure}
+}
+
+\section{Subprotocols}
+\label{sec:subprotocols}
+
+\newcommand{\swapexamplesessiontype}{
+  \begin{array}{@{}l@{}}
+    \sendtypepoly{\tvarB_1, \tvarC_1}{(\arrtype{\tvarB_1}{\tvarC_1})}
+    \sendtype{\tvarB_1}
+    \sendtypepoly{\tvarB_2, \tvarC_2}{(\arrtype{\tvarB_2}{\tvarC_2})}
+    \sendtype{\tvarB_2}
+    \recvtype{\tvarC_1} \recvtype{\tvarC_2}\\
+    \polymappertype
+  \end{array}
+}
+
+This section describes \textbf{Actris 2.0}, which extends
+Actris 1.0---as presented in the conference version of this
+paper~\cite{DBLP:journals/pacmpl/HinrichsenBK20}---with \emph{subprotocols}, inspired by asynchronous subtyping of session types. Subprotocols have two key features.
+First, they expose the asynchronous nature of channels in the \lname logic
+by relaxing the requirements of
+duality, thereby making it possible to prove functional correctness of a larger
+class of programs.
+Second, they give rise to a more extensional approach to reasoning about \pname, as we can work up to the subprotocol relation and not equality,
+thereby providing more flexibility in the design and reuse of protocols.
+
+We first introduce the subprotocol relation and its proof rules
+(\Cref{sec:subprotocol_relation}).
+We then show how subprotocols can be employed to prove a mapper service,
+which handles requests one at a time, while its client may send
+multiple requests up front (\Cref{sec:subprotocol_swapping}).
+Next, we verify a list reversal service whose protocol involves a
+minimal specification of lists, which we then reuse through subprotocols to obtain
+a protocol with a more generic specification of lists (\Cref{sec:subprotocol_reuse}).
+Finally, we show that the subprotocol relation is coinductive, and thereby when
+combined with \ruleref{Loeb} induction, can be used to reason about recursive procotols
+(\Cref{sec:subprotocol_recursion}).
+
+\subsection{The subprotocol relation}
+\label{sec:subprotocol_relation}
+
+The \pnameSingular of a channel is picked upon channel creation (using the rule
+\ruleref{Ht-new}), which then determines how the channel endpoints should interact.
+To ensure safe communication, \lname adapts the notion of duality from session
+types, which requires every send ($\SEND$) of one endpoint to be paired with a receive
+($\RECV$) for the other endpoint, and \viceversa.
+However, strictly working with a channel's protocol and its dual is more restrictive than
+necessary, as either endpoint is agnostic to some variance from the protocol
+by the other endpoint.
+We capture the flexibility of safe variances via a new notion---the
+\textit{subprotocol relation}:
+\[
+  \subprot{\prot_1}{\prot_2}
+\]
+This relation describes that protocol $\prot_1$ is \textit{stronger} than $\prot_2$,
+or conversely, that protocol $\prot_2$ is \textit{weaker} than $\prot_1$.
+More specifically, this means that $\prot_2$ can be used \textit{in place of}
+$\prot_1$ whenever such a protocol is expected during the verification.
+This property is captured by the following monotonicity rule for channel
+ownership:
+\begin{mathpar}
+\infer
+  {\interp \chan {\prot_1} \and {\subprot {\prot_1} {\prot_2}}}
+  {\interp \chan {\prot_2}}
+\end{mathpar}
+The subprotocol relation is inspired by asynchronous subtyping for session types
+\cite{mostrous-ESOP2009,mostrous-InfComput2015}, which allows (1) sending subtypes (contravariance),
+(2) receiving supertypes (covariance), and (3) swapping sends ahead of receives.
+These variations are sound, as (1) the originally expected type that is to be sent can be derived
+from the subtype, (2) the originally expected type that is to be received can be derived
+from the supertype, and (3) sends do not block because channels are buffered in both directions.
+These variances, along with the swapping property,
+can be generalised to \pname using the following proof rules:
+\begin{mathpar}
+\inferhref{$\subprotop$-send-mono'}{SP-send-mono'}
+  {\All \xdots. \iprop_2 \wand \iprop_1 \and
+   \All \xdots. \subprot {\prot_1} {\prot_2}}
+  {\subprot
+  {\sendprot \xdots {\val} {\iprop_1} {\prot_1}}
+  {\sendprot \xdots {\val} {\iprop_2} {\prot_2}}}
+  \and
+\inferhref{$\subprotop$-recv-mono'}{SP-recv-mono'}
+  {\All \xdots. \iprop_1 \wand \iprop_2 \and
+   \All \xdots. \subprot {\prot_1} {\prot_2}}
+  {\subprot
+  {\recvprot \xdots {\val} {\iprop_1} {\prot_1}}
+  {\recvprot \xdots {\val} {\iprop_2} {\prot_2}}}
+  \and
+\inferhref{$\subprotop$-swap'}{SP-swap'}
+  {}
+  {\subprot
+  {\recvprot \xdots {\val} {\iprop} {\sendprot \xdotsB {\valB} {\ipropB} \prot}}
+  {\sendprot \xdotsB {\valB} {\ipropB} {\recvprot \xdots {\val} {\iprop} \prot}}}
+\end{mathpar}
+%
+The rules \ruleref{SP-send-mono'} and \ruleref{SP-recv-mono'}
+use \emph{separation implication} $\iprop \wand \ipropB$---which states that
+ownership of $\ipropB$ can be obtained by giving up ownership
+of $\iprop$---to mimic the contra- and covariance of session subtyping.
+The rule \ruleref{SP-swap'} states that sends can be swapped ahead of receives.
+To be well-formed, this rule has the implicit side condition that $\xdots$ does not
+bind into $\valB$ and $\ipropB$, and that $\xdotsB$ does not bind into $\val$
+and $\iprop$.
+
+With this set of rules we can make subprotocol derivations such as the following:
+%
+\[
+\begin{array}{@{} l @{\ } l @{\qquad } l @{}}
+    &\recvprot{(i:\integer)}{i}{i < 42}
+      \sendprot{(j:\integer)}{j}{j > 42}
+      \prot & \ruleref{SP-send-mono'}\\
+    \subprotop
+    &\recvprot{(i:\integer)}{i}{i < 42}
+      \sendprot{(j:\integer)}{j}{j > 50}
+      \prot & \ruleref{SP-recv-mono'} \\
+    \subprotop
+    &\recvprot{(i:\integer)}{i}{i < 40}
+      \sendprot{(j:\integer)}{j}{j > 50}
+      \prot & \ruleref{SP-swap'} \\
+    \subprotop
+    & \sendprot{(j:\integer)}{j}{j > 50}
+      \recvprot{(i:\integer)}{i}{i < 40}
+      \prot &
+\end{array}
+\]
+%
+Here, we strengthen the proposition of the send (by increasing the bound
+from $j > 42$ to $j > 50$), weaken the proposition of the receive
+(by reducing the bound from $i < 42$ to $i < 40$), while also swapping the send ahead of the receive.
+
+While the aforementioned rules cover the intuition behind \lname's subprotocol
+relation, \lname's actual rules for subprotocols provide a number of additional features.
+
+\begin{enumerate}
+\item They can be used to manipulate the \binders $\xdots$ that appear in protocols.
+\item They can be used to transfer ownership of resources in and out of messages.
+\item They can be used to reason about recursive protocols defined using
+  \ruleref{Loeb} induction.
+\end{enumerate}
+
+\subprotfig
+
+The key idea to obtain these features is to consider the subprotocol relation
+$\subprot{\prot_1}{\prot_2}$ as a first-class logical connective.
+That is, $\subprot{\prot_1}{\prot_2}$ is an Iris
+proposition that can be combined freely with the logical connectives of
+Iris and Actris (\eg separating conjunction, separating implication,
+higher-order quantification).
+Since $\subprot{\prot_1}{\prot_2}$ is an Iris proposition, the proof rules are
+in fact (separating) implications in Iris.
+For readability,
+we use inference rules to denote each rule
+$(\iprop_1 \ast \dotsb \ast \iprop_n) \wand \ipropB$ as:
+\[
+  \infer{\iprop_1 \and \dots \and \iprop_n}{\ipropB}
+\]
+The full set of rules for subprotocols is shown in \Cref{fig:subprotocol_rules}.
+The first four rules account for \binder manipulation and resource transfer:
+Rules \ruleref{SP-send-elim} and \ruleref{SP-recv-elim}
+generalise over the \binders $\xdots$ and transfer ownership of
+$\iprop$ out of the weaker sending protocol $\sendprot \xdots \val \iprop {\prot}$,
+and stronger receiving protocol $\recvprot \xdots \val \iprop {\prot}$,
+respectively.
+Rule \ruleref{SP-send-intro} weakens a sending protocol
+$\sendprot \xdots \val \iprop {\prot}$ by instantiating the
+\binders $\xdots$ and transferring ownership of $\subst{\iprop}{\vec{\var}}{\vec{\term}}$ into the protocol.
+Dually, the rule \ruleref{SP-recv-intro} strengthens a receiving protocol
+$\recvprot \xdots \val \iprop {\prot}$ by instantiating the
+\binders $\xdots$ and transferring ownership of $\subst{\iprop}{\vec{\var}}{\vec{\term}}$ into the protocol.
+
+To demonstrate the intuition behind these rules consider the following proof of the
+subprotocol relation presented in \Cref{sec:subprotocol_intro}, where we transfer
+ownership of $\loc_1' \mapsto 20$ into a protocol,
+while instantiating the \binder $\loc_1$ accordingly:
+\newcommand{\linetext}[1]{\smash{\raisebox{-6pt}{\rlap{\ #1}}}}
+\[
+\def\arraystretch{1.3}
+\hspace{-5.5em}
+\begin{array}[b]{@{} l @{\ } c @{\ } l @{} l @{}}
+& &  &  \linetext{\ruleref{SP-send-intro}} \\ \hline
+  \begin{array}[b]{@{}l@{}}
+    \loc_1' \mapsto 20 \ast \loc_2 \mapsto 22 \wand \\[-0.3em]
+    \quad\quad\sendprot {(\loc_1,\loc_2\!:\!\Loc)} {({\loc_1},\loc_2)}
+      {{\loc_1 \!\mapsto\! 20 * \loc_2 \!\mapsto\! 22}} \prot
+  \end{array}
+  & \subprotop &
+   \sendprotT {} {(\loc_1',\loc_2)}
+    \prot
+   & \linetext{\ruleref{SP-send-elim}} \\ \hline
+  \begin{array}[b]{@{}l@{}}
+    \loc_1' \mapsto 20 \wand \\[-0.3em]
+    \quad\quad\sendprot {(\loc_1,\loc_2\!:\!\Loc)} {(\loc_1,\loc_2)}
+      {\loc_1 \!\mapsto\! 20 * \loc_2 \!\mapsto\! 22} \prot
+  \end{array}
+    & \subprotop \\[-0.3em]
+   \quad\quad\sendprot {(\loc_2\!:\!\Loc)} {(\loc_1',\loc_2)}
+    {{\loc_2 \!\mapsto\! 22}} \prot
+\end{array}
+\]
+We first use rule \ruleref{SP-send-elim} to
+generalise over the \binder $\loc_2$ and transfer
+ownership of $\loc_2 \mapsto 22$ out of the weaker protocol (\ie the send on the
+RHS), and then use \ruleref{SP-send-intro} to instantiate the \binders $\loc_1'$
+and $\loc_2$ and transfer ownership of $\loc_1' \mapsto 20$ and $\loc_2 \mapsto 22$
+into the stronger protocol (\ie the send on the LHS).
+
+The rules for monotonicity (\ruleref{SP-send-mono} and \ruleref{SP-recv-mono})
+and swapping (\ruleref{SP-swap}) in \Cref{fig:subprotocol_rules} differ in two aspects
+from the rules for monotonicity (\ruleref{SP-send-mono'} and \ruleref{SP-recv-mono'})
+and swapping (\ruleref{SP-swap'}) that we have seen in the beginning of this
+section.
+First, the actual rules only apply to protocols whose head does not have
+\binders $\xdots$ and resources $\iprop$, \ie protocols of the shape
+$\sendprotT {} {\val} {\prot}$ or $\recvprotT {} {\val} {\prot}$, instead of
+those of the shape $\sendprot \xdots {\val} {\iprop} {\prot}$ or
+$\recvprot \xdots {\val} {\iprop} {\prot}$.
+While this restriction might seem to make the rules more restrictive, the more general rules
+for monotonicity (\ruleref{SP-send-mono'} and \ruleref{SP-recv-mono'})
+and swapping (\ruleref{SP-swap'}) are derivable from these simpler rules.
+This is done using the rules for \binder manipulation and resource
+transfer.
+Second, the actual rules for monotonicity have a later modality ($\later$) in
+their premise.
+The later modality makes these rules stronger (by \ruleref{Later-intro}
+we have that $\iprop$ entails $\later \iprop$), and thereby internalizes its
+coinductive nature into the \lname logic so \ruleref{Loeb} induction can be used to
+prove subprotocol relations for recursive protocols (\Cref{sec:subprotocol_recursion}).
+
+The remaining rules in \Cref{fig:subprotocol_rules}
+express that the subprotocol relation is
+reflexive (\ruleref{SP-refl}) and transitive (\ruleref{SP-trans}),
+as well as that the dual operation is anti-monotone (\ruleref{SP-dual}) and
+the append operation is monotone (\ruleref{SP-append}).
+
+Let us consider the following subprotocol relation to provide some further insight
+into the expressivity of our rules, where \binders are omitted for simplicity:
+\[
+  \subprot
+  { \sendprot{}{\val}{ \iprop }
+   \recvprot{}{\valB}{ \ipropB }
+   \prot}
+  {\sendprot{}{\val}{ {\iprop \ast \ipropR} }
+   \recvprot{}{\valB}{ \ipropB \ast \ipropR }
+   \prot}
+\]
+Here we extend the protocol $\sendprot{}{\val}{ \iprop }
+\recvprot{}{\valB}{ \ipropB } \prot$ with a so-called \emph{frame} $\ipropR$, which
+describes resources that must be sent along with the originally expected
+resources $\iprop$, and which are reacquired along with the resources $\ipropB$
+that are sent back.
+The above subprotocol relation mimics the frame rule of separation logic
+(\ruleref{Ht-frame}), which makes it possible to apply specifications while
+maintaining a \textit{frame} of resources $\ipropR$:
+\begin{mathpar}
+\infer
+  {\hoare{\iprop}\expr{\Ret\valB. \ipropB}}
+  {\hoare{\iprop * \ipropC}\expr{\Ret\valB. \ipropB * \ipropC}}
+\end{mathpar}
+The frame-like subprotocol relation is proven as follows:
+\[
+\def\arraystretch{1.3}
+\hspace{-10em}
+\begin{array}{@{} r @{\ } r @{\ } c @{\ } l @{} l @{}}
+& & & & \linetext{\ruleref{SP-recv-intro}} \\ \hline
+\ipropB \ast \ipropR \wand & \subprot
+  {\recvprotT{}{\valB} \prot &}
+  {& \recvprot{}{\valB}{\ipropB \ast \ipropR} \prot}
+  & \linetext{\ruleref{SP-recv-elim}} \\ \hline
+\ipropR \wand & \subprot
+  {\recvprot{}{\valB}{\ipropB} \prot &}
+  { & \recvprot{}{\valB}{\ipropB \ast \ipropR} \prot}
+  & \linetext{\ruleref{SP-send-mono}, \ruleref{Later-intro}} \\ \hline
+\ipropR \wand & \subprot
+  { \sendprotT{}{\val} \recvprot{}{\valB}{\ipropB} \prot &}
+  {& \sendprotT{}{\val} \recvprot{}{\valB}{\ipropB \ast \ipropR} \prot}
+  & \linetext{\ruleref{SP-send-intro}, \ruleref{SP-trans}} \\ \hline
+\iprop \ast \ipropR \wand & \subprot
+  {\sendprot{}{\val}{\iprop} \recvprot{}{\valB}{\ipropB} \prot &}
+  {& \sendprotT{}{\val} \recvprot{}{\valB}{\ipropB \ast \ipropR} \prot}
+  & \linetext{\ruleref{SP-send-elim}} \\ \hline
+& \subprot
+  {\sendprot{}{\val}{\iprop} \recvprot{}{\valB}{\ipropB} \prot &}
+  {& \sendprot{}{\val}{\iprop \ast \ipropR} \recvprot{}{\valB}{\ipropB \ast \ipropR} \prot}
+\end{array}
+\]
+We use rule \ruleref{SP-send-elim} to transfer $\iprop$ and the frame $\ipropR$ out of the
+weaker protocol (\ie the send on the RHS), and then use rule \ruleref{SP-send-intro}
+to transfer $\iprop$ into the stronger protocol (\ie the send on the LHS), leaving us
+with a context in which we still own the frame $\ipropR$.
+We then use rule \ruleref{SP-send-mono} to proceed with the receiving
+part of the protocol in a dual fashion---we use rule
+\ruleref{SP-recv-elim} to transfer out $\ipropB$ of the stronger protocol (\ie the
+receive on the LHS), and use rule \ruleref{SP-recv-intro} to transfer $\ipropB$ and the frame $\ipropR$
+into the weaker protocol (\ie the receive on the RHS).
+
+\subsection{Swapping}
+\label{sec:subprotocol_swapping}
+
+\newcommand{\recvallnamefixed}{\mathtt{recvN}}
+
+\newcommand{\mapperfig}{
+\begin{figure}[t!]
+\begin{equation*}
+\begin{array}[t]{@{} l @{}}
+  \mapperservicename\ \vmapvar\ \chan \eqdef\\
+  \quad
+  \begin{array}[t]{@{} l @{}}
+    \mbranchA{\chan}
+    {\begin{array}[t]{@{} l @{}}
+       \send {(\vmapvar\ (\recv \chan))};\\
+       \mapperservicename\ \vmapvar\ \chan
+     \end{array}}
+    {\TT}
+  \end{array}
+\end{array}
+\qquad\qquad
+\begin{array}[t]{@{} l @{}}
+  \mapperclientname\ \vmapvar\ l\ \eqdef\\
+  \quad
+  \begin{array}[t]{@{} l @{}}
+    \Let {\chan} = {\start {(\mapperservicename\ \vmapvar)}} in\\
+    \Let {n} = \listlength{l} in\\
+    \sendallname\ \chan\ l;\
+    \recvallnamefixed\ \chan\ l\ n;\\
+    \select{\chan}{\rightname};
+  \end{array}
+\end{array}
+\end{equation*}
+\caption{A mapper service whose verification relies on swapping
+(the code for the functions $\sendallname$ and $\recvallnamefixed$ has been elided).}
+\label{fig:mapper}
+\end{figure}
+}
+\mapperfig
+Subprotocols make it possible to verify message-passing
+programs whose order of sends and receives does not match up w.r.t.\
+duality.
+As an example of such a program, let us consider the mapper service and client in
+\Cref{fig:mapper}.
+The service $\mapperservicename$ is a loop, which iteratively receives an element,
+maps a function over that element, and sends the resulting value back.
+Conversely, the client $\mapperclientname$ sends all of the elements of the list
+$l$ up front, and only requests the mapped results back once all elements have
+been sent.
+Since the former interleaves the sends and receives, while the latter does not,
+the \pname for the service and client cannot be dual of each other.
+However, the communication between the service and client is in fact safe as
+messages are buffered.
+We now show that using subprotocols we can prove that this is indeed the case.
+We define the protocol based on the interleaved communication:
+\[
+\begin{array}{@{} l @{}}
+  \mapperprotname\
+  (\interpvar_\tvar : \tvar \to \Val \to \iProp)\
+  (\interpvar_\tvarB : \tvarB \to \Val \to \iProp)\
+  (\mapvar : \tvar \to \tvarB) \eqdef\\
+  \quad
+  \begin{array}{@{} l @{}}
+    \MU (\recvar : \iProto).
+    \selectprot
+    {(
+    \sendprot{(\var : \tvar)\ (\val : \Val)}
+    \val
+    {\interpvar_\tvar\ \var\ \val}
+    \recvprot{(\valB : \Val)}{\valB}
+    {\interpvar_{\tvarB}\ {(\mapvar\ \var)}\ \valB}
+    \recvar)}
+    {\protend}
+  \end{array}
+\end{array}
+\]
+The protocol is parameterised by representation predicates $\interpvar_\tvar$
+and $\interpvar_\tvarB$ that relate language-level values to elements of type $\tvar$
+and $\tvarB$ in the Iris/Actris logic, and a function $\mapvar : \tvar \to \tvarB$
+in Iris/Actris that specifies the behaviour of the language-level function $\vmapvar$.
+The connection between $\mapvar$ and $\vmapvar$ is formalised as:
+\[
+\begin{array}{l}
+\mapspecname\
+  (\interpvar_\tvar : \tvar \to \Val \to \iProp)\
+  (\interpvar_\tvarB : \tvarB \to \Val \to \iProp)\
+  (\mapvar : \tvar \to \tvarB)\
+  (\vmapvar : \Val) \eqdef \\
+\quad\All \var\,\val.
+  \hoare{\interpvar_\tvar\ \var\ \val}
+  {\vmapvar\ \val}
+  {\Ret \valB.
+  \interpvar_\tvarB\ {(\mapvar\ \var)}\ \valB
+  }
+\end{array}
+\]
+Since $\mapperprotname$ describes an interleaved sequence of transactions,
+$\mapperservicename$ can be readily verified against the protocol
+$\dual \mapperprotname$ using just the symbolic execution rules from \Cref{sec:tour}.
+However, to verify $\mapperclientname$ against the protocol
+$\mapperprotname$, we need to weaken the protocol using \lname's rules for
+subprotocols.
+Given a list of $n$ elements, the subprotocol relation (together with an
+intermediate step) that describes this weakening is:
+\[
+\begin{array}[t]{@{} l @{\ } l @{} @{\qquad} l}
+&\mapperprotname\ \interpvar_\tvar\ \interpvar_\tvarB\ \mapvar \\
+\subprotop
+&
+  \begin{array}[t]{@{} l @{}}
+    \sendprotT{}{\leftname}
+    \sendprot{(\var_1 : \tvar)\ (\val_1 : \Val)}
+      {\val_1}
+      {\interpvar_\tvar\ \var_1\ \val_1} \\
+    \recvprot{(\varB_1 : \tvarB)}{\varB_1}
+      {\interpvar_{\tvarB}\ {(\mapvar\ \var_1)}\ \varB_1}
+    \cdots\\
+    \sendprotT{}{\leftname}
+    \sendprot{(\var_n : \tvar)\ (\val_n : \Val)}
+      {\val_n}
+      {\interpvar_\tvar\ \var_n\ \val_n}\\
+    \recvprot{(\varB_n : \tvarB)}{\varB_n}
+      {\interpvar_{\tvarB}\ {(\mapvar\ \var_n)}\ \varB_n}
+    \\
+    \mapperprotname\ \interpvar_\tvar\ \interpvar_\tvarB\ \mapvar
+  \end{array} &
+  \begin{array}[t]{@{} l}
+  \textnormal{$n$ times \ruleref{rec-unfold} and}\\
+  \textnormal{weaken $\selectop$ into $\genprotTHead{\SEND}{}{\leftname}$}
+  \end{array} \\
+\subprotop
+&
+  \begin{array}[t]{@{} l @{}}
+    \sendprotT{}{\leftname}
+    \sendprot{(\var_1 : \tvar)\ (\val_1 : \Val)}
+      {\val_1}
+      {\interpvar_\tvar\ \var_1\ \val_1}
+      \cdots\\
+    \sendprotT{}{\leftname}
+    \sendprot{(\var_n : \tvar)\ (\val_n : \Val)}
+      {\val_n}
+      {\interpvar_\tvar\ \var_n\ \val_n}\\
+    \recvprot{(\varB_1 : \tvarB)}{\varB_1}
+      {\interpvar_{\tvarB}\ {(\mapvar\ \var_1)}\ \varB_1}
+      \cdots\\
+    \recvprot{(\varB_n : \tvarB)}{\varB_n}
+     {\interpvar_{\tvarB}\ {(\mapvar\ \var_n)}\ \varB_n}
+    \\
+    \mapperprotname\ \interpvar_\tvar\ \interpvar_\tvarB\ \mapvar
+  \end{array} & \textnormal{$n$ times \ruleref{SP-swap'}}
+\end{array}
+\]
+Both steps are proven by induction on $n$.
+In the first step, we unfold the recursive protocol $n$ times using
+\ruleref{rec-unfold} and the derived rule
+$\subprot {(\prot_1 \selectop \prot_2)} {\sendprotT{}{\leftname}{\prot_1}}$
+to weaken the choices.
+Recall from \Cref{sec:choice} that $\selectop$
+is defined in terms of the send protocol ($\SEND$), allowing us to prove
+$\subprot {(\prot_1 \selectop \prot_2)} {\sendprotT{}{\leftname}{\prot_1}}$
+using \ruleref{SP-send-elim} and \ruleref{SP-send-intro}.
+The second step involves swapping all sends ahead of the receives using the rule
+\ruleref{SP-swap'}.
+
+The weakened protocol that we have obtained follows the behaviour of the client,
+making its verification straightforward using \lname's rules for symbolic execution.
+Concretely, we prove the following specifications for the service and the client:
+\newcommand{\mapname}{\defemph{map}}
+\[
+\begin{array}{c !{\ } c}
+\begin{array}{l}
+  \hoareV
+    {
+  \begin{array}{@{} l @{}}
+    \mapspecname\
+     \interpvar_\tvar\
+     \interpvar_\tvarB\
+     \mapvar\ \vmapvar\ *
+  \interp \chan
+  {\protapp{\dual{\mapperprotname\ \interpvar_\tvar\ \interpvar_\tvarB\ \mapvar}}
+    {\prot}}
+    \end{array}}
+  { \mapperservicename\ \vmapvar\ \chan}
+    {\interp \chan {\prot}}
+\end{array}
+  &
+\begin{array}{@{} l @{}}
+  \hoareV
+    {
+     \mapspecname\
+     \interpvar_\tvar\
+     \interpvar_\tvarB\
+     \mapvar\ \vmapvar\ *
+  \listrefI {\interpvar_\tvar} \loc {\vec\var}}
+  { \mapperclientname\ \vmapvar\ \loc}
+    { \listrefI {\interpvar_\tvarB} \loc {\mapname\ \mapvar\ \vec\var}}
+\end{array}
+\end{array}
+\]
+
+\subsection{Minimal protocols}
+\label{sec:subprotocol_reuse}
+
+\newcommand{\tvarF}{R}
+\newcommand{\listrevname}{\mathtt{list\_rev}}
+\newcommand{\listrevservicename}{\listrevname\_{\mathtt{service}}}
+\newcommand{\listrevclientname}{\listrevname\_{\mathtt{client}}}
+\newcommand{\listrevprotname}{\logdefemph{list\_rev\_prot}}
+
+\newcommand{\listrevfig}{
+\begin{figure}[t!]
+\begin{equation*}
+\begin{array}[t]{@{} l @{}}
+  \listrevservicename\ \chan \eqdef\\
+  \quad
+  \Let \loc = \recv{\chan} in \listrevname\ \loc;\ \send{\TT}
+\end{array}
+\qquad
+\begin{array}[t]{@{} l @{}}
+  \listrevclientname\ \loc\ \eqdef\\
+  \quad
+  \begin{array}[t]{@{} l @{}}
+    \Let {\chan} = {\start {\listrevservicename}} in\\
+    \send \chan \loc;\ \recv{\chan}
+  \end{array}
+\end{array}
+\end{equation*}
+\caption{A list reversing service
+(the code for the function $\listrevname$ has been elided).}
+\label{fig:listrevprog}
+\end{figure}
+}
+
+\listrevfig
+
+An essential feature of separation logic is the ability to assign strong and
+minimal specifications to libraries, so that each library can be verified once
+against its specification, which in turn can be used to verify as many client
+programs as possible.
+To achieve a similar goal for message-passing programs we would like to
+assign strong and minimal protocols to services,
+so that each service can be verified once against its protocol, which in turn can be
+used to verify as many clients as possible.
+One of the key ingredients of separation logic to allow for such specifications is
+the frame rule (\ruleref{Ht-frame}).
+In \Cref{sec:subprotocol_relation} we showed that subprotocols allow
+framing in protocols.
+In this section we give a detailed example of framing in protocols by considering the
+service $\listrevservicename$ in \Cref{fig:listrevprog},
+which receives a linked list, reverses it, and sends it back.
+
+To specify this service, we could use a protocol similar to the sorting service
+in \Cref{sec:basics}, defined in terms of the
+representation predicate $\listrefI{\interpvar_\tvar}{\loc}{\vec{\var}}$ for
+linked lists:
+\[
+\listrevprotname_{\interpvar_\tvar} \eqdef{}
+  \sendprot{(\loc:\Loc)(\vec{\var}:\List\ \tvar)}{\loc}
+    {\listrefI{\interpvar_\tvar}{\loc}{\vec{\var}}}
+  \recvprot{}{\TT}
+    {\listrefI{\interpvar_\tvar}{\loc}{\listrev{\vec{\var}}}}
+  \protend
+\]
+Although it is possible to verify the service against the protocol
+$\dual {\listrevprotname_{\interpvar_\tvar}}$, that approach is not quite satisfactory.
+Unlike the sorting service, the reversal service does not access the list
+elements, but only changes the structure of the list.
+Hence, there is no need to keep track of the ownership of the elements through
+the predicate $\interpvar_\tvar$.
+A self-contained and minimal protocol for this service would instead be the
+following:
+\[
+\listrevprotname \eqdef{}
+  \sendprot{(\loc:\Loc)(\vec{\val}:\List\ \Val)}{\loc}{\listref{\loc}{\vec{\val}}}
+  \recvprot{}{\TT}{\listref{\loc}{\listrev{\vec{\val}}}}
+  \protend
+\]
+Here, $\listref{\loc}{\vec{\val}}$ is a version of the list representation
+predicate that does not keep track of the resources of the elements, but only
+describes the structure of the list.
+It is defined as:
+\begin{equation*}
+\listref \loc {\vec \val} \eqdef
+  \begin{cases}
+  \loc \mapsto \Inl\;\TT & \textnormal{if $\vec\val = \nil$} \\
+  \Exists \loc_2.
+    \loc \mapsto \Inr\;(\val_1,\loc_2) \ast
+    \listref {\loc_2} {\vec\val_2}
+    & \textnormal{if $\vec\val = [\val_1] \cdot \vec\val_2$}
+  \end{cases}
+\end{equation*}
+Once we have verified the service against the minimal protocol, a client might
+still want to interact with the list reversal
+service through the protocol $\listrevprotname_{\interpvar_\tvar}$.
+This can be achieved by proving the subprotocol relation
+$\subprot \listrevprotname {\listrevprotname_{\interpvar_\tvar}}$.
+To do so, we first establish a relation between the two versions
+of the list representation predicate:
+\[
+  \textstyle
+  \listrefI{\interpvar_\tvar}{\loc}{\vec{\var}} \ \wandIff \
+  (\Exists \vec{\val}.
+  \listref{\loc}{\vec{\val}} \ast
+  \Sep_{(\var,\val) \in (\vec{\var},\vec{\val})}.
+  \interpvar_\tvar\ \var\ \val)
+  \tagH{list-rel}
+\]
+Here, $\Sep_{(\var,\val) \in (\vec{\var},\vec{\val})}$ is the pair-wise iterated
+separation conjuction over two lists of equal length,
+and $\wandIff$ is a bi-directional separation implication.
+The above result thus states that $\listrefI{\interpvar_\tvar}{\loc}{\vec{\var}}$
+can be split into two parts, ownership of the links of the list $\listref{\loc}{\vec\val}$,
+and a range of interpretation predicates $\interpvar_\tvar$
+for each element of the list, and \viceversa.
+With this result at hand, the proof of the desired subprotocol relation is
+carried out as follows:
+\[
+\begin{array}{@{} l @{\ } l @{}}
+  &\listrevprotname \\
+={} &
+  \sendprot{(\loc:\Loc)(\vec{\val}:\List\ \Val)}{\loc}{\listref{\loc}{\vec{\val}}}
+    \recvprot{}{\TT}{\listref{\loc}{\listrev{\vec{\val}}}}
+    \protend \\
+\subprotop &
+  \sendprot{(\loc:\Loc)(\vec{\val}:\List\ \Val)(\vec{\var}:\List\ \tvar)}{\loc}
+    {\listref{\loc}{\vec{\val}} \ast
+     \Sep_{(\var,\val) \in (\vec{\var},\vec{\val})}. \interpvar_\tvar\ \var\ \val} \\
+  &
+  \recvprot{}{\TT}
+    {\listref{\loc}{(\listrev\ \vec{\val})} \ast
+     \Sep_{(\var,\val) \in (\vec{\var},\vec{\val})}. \interpvar_\tvar\ \var\ \val}
+  \protend \\
+\subprotop &
+  \sendprot{(\loc:\Loc)(\vec{\var}:\List\ \tvar)}{\loc}
+    {\listrefI{\interpvar_\tvar}{\loc}{\vec{\var}}}
+  \recvprot{}{\TT}
+    {\listrefI{\interpvar_\tvar}{\loc}{\listrev{\vec{\var}}}}
+  \protend \\
+={}& \listrevprotname_{\interpvar_\tvar}
+\end{array}
+\]
+We first frame the range of interpretation predicates owned by the list
+$\Sep_{(\var,\val) \in (\vec{\var},\vec{\val})}. \interpvar_\tvar\ \var\ \val$,
+using an approach similar to the frame example in \Cref{sec:subprotocol_relation},
+and then use \ruleref{list-rel} to combine it with $\listref{\loc}{\vec{\val}}$ and
+$\listref{\loc}{\listrev{\vec{\val}}}$ for the sending and receiving step,
+to turn them into $\listrefI{\interpvar_\tvar}{\loc}{\vec{\var}}$ and
+$\listrefI{\interpvar_\tvar}{\loc}{\listrev{\vec{\var}}}$, respectively.
+Note that the \binder $\vec{\val}$ is changed into $\vec{\var}$,
+using the subprotocol rules for \binder manipulation.
+With this subprotocol relation at hand, it is possible to prove the following
+specifications for the service and client:
+\[
+\begin{array}{c !{\quad} c}
+\begin{array}{l}
+  \hoareV
+  { \interp{\chan}{\protapp {\listrevprotname} {\prot}} }
+  { \listrevservicename\ \chan }
+  { \interp{\chan}{\prot} }
+\end{array}
+\qquad
+\begin{array}{l}
+  \hoareV
+  { \listrefI {\interpvar_{\tvar}} \loc {\vec\var} }
+  { \listrevclientname\ \loc}
+  { \listrefI {\interpvar_{\tvar}} \loc {\listrev \vec\var} }
+\end{array}
+\end{array}
+\]
+
+\subsection{Subprotocols and recursion}
+\label{sec:subprotocol_recursion}
+
+\newcommand{\listrevrecprotname}{\listrevprotname_{\prot}}
+
+We conclude this section by showing how subprotocol relations involving recursive
+protocols can be proved using \ruleref{Loeb} induction.
+Recall from \Cref{sec:tour} that the principle of \ruleref{Loeb} induction
+is as follows:
+\begin{mathpar}
+\infer
+  {}
+  {(\later\iprop\Ra\iprop) \Ra \iprop}
+\end{mathpar}
+By letting $\iprop$ to be $\subprot {\prot_1} {\prot_2}$, this means that we can
+prove $\subprot {\prot_1} {\prot_2}$ under the assumption of the induction hypothesis
+$\later (\subprot {\prot_1} {\prot_2})$.
+The later modality ($\later$) ensures that we do not immediately use
+the induction hypothesis, but first apply the monotonicity rule for
+send (\ruleref{SP-send-mono}) or receive (\ruleref{SP-recv-mono}), which is
+done typically after unfolding the recursion operator using \ruleref{rec-unfold}.
+The monotonicity rules \ruleref{SP-send-mono} or \ruleref{SP-recv-mono} contain
+a later modality ($\later$) in their premise, which makes it possible to strip off the
+later of the induction hypotheses (by monotonicity of $\later$).
+
+Our approach for proving subprotocol relations using \ruleref{Loeb} induction
+is similar to the approach of \citet{DBLP:journals/fuin/BrandtH98} for proving
+subtyping relations for recursive types using coinduction.
+\citet{DBLP:journals/fuin/BrandtH98} however have a syntactic restriction on
+proofs to ensure that the induction hypothesis is not used immediately (\ie is
+used in a \emph{contractive} fashion), while
+we use the later modality ($\later$) of Iris to achieve that.
+
+To demonstrate how our approach works, we prove $\subprot {\prot_1} {\prot_2}$,
+where:
+\begin{align*}
+\prot_1 \eqdef{}&
+  \MU (\recvar:\iProto). \selectprot {(\protapp \listrevprotname \recvar)} \protend \\
+\prot_2 \eqdef{}&
+  \MU (\recvar:\iProto). \selectprot {(\protapp {\listrevprotname_{\interpvar_\tvar}} \recvar)} \protend
+\end{align*}
+Here, $\listrevprotname$ and $\listrevprotname_{\interpvar_\tvar}$ are the
+protocols from \Cref{sec:subprotocol_reuse}, for which we already
+proved $\subprot \listrevprotname {\listrevprotname_{\interpvar_\tvar}}$.
+The proof is as follows:
+%
+\[
+\def\arraystretch{1.3}
+\hspace{-6em}
+\begin{array}{@{} r @{\ } c @{\ } r @{\ } c @{\ } l @{} l @{}}
+  \hline
+  \subprot {\prot_1} {\prot_2} & \wand &
+  \subprot {\prot_1 &} {&\prot_2}
+  & \linetext{\ruleref{SP-append}, $(*)$} \\ \hline
+  \subprot {\prot_1} {\prot_2} & \wand &
+  \subprot
+    {\protapp \listrevprotname {\prot_1} &}
+    {& \protapp {\listrevprotname_{\interpvar_\tvar}} {\prot_2}}
+    & \linetext{$\later$ mono} \\ \hline
+
+  \later (\subprot {\prot_1} {\prot_2}) & \wand  &
+  \later (\subprot
+    {\protapp \listrevprotname {\prot_1} &}
+    {& \protapp {\listrevprotname_{\interpvar_\tvar}} {\prot_2}})
+  & \linetext{$\selectop$ mono, \ruleref{SP-refl}} \\ \hline
+  \later (\subprot { \prot_1} {\prot_2 }) & \wand &
+  \subprot
+    {\selectprot {(\protapp \listrevprotname {\prot_1})} \protend &}
+    {\\[-0.3em] && \selectprot {(\protapp {\listrevprotname_{\interpvar_\tvar}} {\prot_2})} \protend}
+  &&& \linetext{\ruleref{rec-unfold}} \\ \hline
+  \later (\subprot {\prot_1} {\prot_2}) & \wand &
+    \subprot {\prot_1 &} {& \prot_2}
+  & \linetext{\ruleref{Loeb}} \\ \hline
+  && \subprot {\prot_1 &} {& \prot_2}
+\end{array}
+\]
+%
+The proof starts with rule \ruleref{Loeb} and unfolding the recursive
+types.
+We then proceed with monotonicity of $\selectop$, \ie
+$\later (\subprot{\prot_1}{\prot_2} \land \subprot{\prot_3}{\prot_4})
+\wand \subprot{(\selectprot{\prot_1}{\prot_3})}{(\selectprot{\prot_2}{\prot_4})}$,
+which itself follows from \ruleref{SP-send-mono} since selection ($\selectop$)
+is defined in terms of send ($\SEND$).
+In step $(*)$, we use $\subprot \listrevprotname {\listrevprotname_{\interpvar_\tvar}}$,
+which we proved in \Cref{sec:subprotocol_reuse}.
+
+While the protocols in the prior examples are similar in structure, our approach
+scales to protocols for which that is not the case.
+For example, consider $\subprot {\prot_1} {\prot_2}$, where:
+\begin{align*}
+\prot_1 \eqdef{}&
+  \MU (\recvar:\iProto).
+    \sendprotT{(\var:\integer)}{\var}
+    \recvprotT{}{\var+2}
+    \recvar \\
+\prot_2 \eqdef{}&
+  \MU (\recvar:\iProto).
+    \sendprotT{(\var:\integer)}{\var}
+    \sendprotT{(\varB:\integer)}{\varB}
+    \recvprotT{}{\var+2}
+    \recvprotT{}{\varB+2}
+    \recvar
+\end{align*}
+Intuitively, these protocols are related, as we can unfold the body of $\prot_1$
+twice, the body of $\prot_2$ once, and swap the second receive over the first send.
+The proof is as follows:
+\[
+\def\arraystretch{1.3}
+\hspace{-10em}
+\begin{array}{@{} r @{\ } c @{\ } r @{} l @{\ } l @{} l @{}}
+  \hline
+  \subprot {\prot_1} {\prot_2} & \wand &
+  \subprot {\prot_1 &\ } {&\prot_2}
+  & \linetext{\ruleref{SP-recv-mono}, \ruleref{Later-intro}} \\ \hline
+  \subprot {\prot_1} {\prot_2} & \wand &
+  \subprot
+    {\recvprotT{}{\var\!+\!2}
+     \recvprotT{}{\varB\!+\!2}
+     \prot_1 &\ }
+    {\\[-0.3em] && \recvprotT{}{\var\!+\!2}
+     \recvprotT{}{\varB\!+\!2}
+     \prot_2}
+  &&& \linetext{\ruleref{SP-send-mono'}, \ruleref{Later-intro}} \\ \hline
+  \subprot {\prot_1} {\prot_2} & \wand &
+  \subprot
+    {\sendprotT{\varB}{\varB}
+     \recvprotT{}{\var\!+\!2}
+     \recvprotT{}{\varB\!+\!2}
+     \prot_1 &\ }
+    {\\[-0.3em] && \sendprotT{\varB}{\varB}
+     \recvprotT{}{\var\!+\!2}
+     \recvprotT{}{\varB\!+\!2}
+     \prot_2}
+  &&& \linetext{\ruleref{SP-swap'}, \ruleref{SP-trans}} \\ \hline
+    \subprot {\prot_1} {\prot_2} & \wand &
+    \subprot
+    {\recvprotT{}{\var\!+\!2}
+     \sendprotT{\varB}{\varB}
+     \recvprotT{}{\varB\!+\!2}
+     \prot_1 &\ }
+    {\\[-0.3em] && \sendprotT{\varB}{\varB}
+     \recvprotT{}{\var\!+\!2}
+     \recvprotT{}{\varB\!+\!2}
+     \prot_2}
+    &&& \linetext{$\later$ mono} \\ \hline
+
+    \later(\subprot {\prot_1} {\prot_2}) & \wand &
+    \later (
+  \subprot
+    {\recvprotT{}{\var\!+\!2}
+     \sendprotT{\varB}{\varB}
+     \recvprotT{}{\varB\!+\!2}
+     \prot_1 &\ }
+    {\\[-0.3em] && \sendprotT{\varB}{\varB}
+     \recvprotT{}{\var\!+\!2}
+     \recvprotT{}{\varB\!+\!2}
+     \prot_2}
+  &)&& \linetext{\ruleref{SP-send-mono'}} \\ \hline
+  \later (\subprot {\prot_1} {\prot_2}) & \wand &
+  \subprot
+    {\sendprotT{\var}{\var}
+     \recvprotT{}{\var\!+\!2}
+     \sendprotT{\varB}{\varB}
+     \recvprotT{}{\varB\!+\!2}
+     \prot_1 &\ }
+    {\\[-0.3em] && \sendprotT{\var}{\var}
+     \sendprotT{\varB}{\varB}
+     \recvprotT{}{\var\!+\!2}
+     \recvprotT{}{\varB\!+\!2}
+     \prot_2}
+  &&& \linetext{\ruleref{rec-unfold}} \\ \hline
+  \later (\subprot {\prot_1} {\prot_2}) & \wand &
+    \subprot {\prot_1 &\ } {& \prot_2}
+  & \linetext{\ruleref{Loeb}} \\ \hline
+  && \subprot {\prot_1 &\ } {& \prot_2}
+\end{array}
+\]
+After we use \ruleref{SP-send-mono'} for the first time, we strip
+off the later of the induction hypothesis $\later (\subprot {\prot_1} {\prot_2})$.
+Subsequently, when we use \ruleref{SP-send-mono'} and \ruleref{SP-recv-mono},
+there are no more laters to strip.
+We therefore introduce the later using \ruleref{Later-intro} before applying the
+appropriate monotonicity rule.
+

@@ -805,43 +805,43 @@ Proof.
   by apply (HP (S n)); eauto using ucmra_unit_validN.
 Qed.
 
-Lemma ownM_simple_soundness (x : auth M) (φ : Prop) :
-  auth_global_valid 0 x →
+Lemma ownM_simple_soundness (x : auth M) (φ : Prop) n :
+  auth_global_valid n x →
   (uPred_ownM x ⊢ |==> ⌜ φ ⌝) →
   φ.
 Proof.
   unseal=> Hgv [H]. simpl in *.
-  edestruct (H 0 x); try done.
+  edestruct (H n x); try done.
   - apply auth_global_valid_valid. done.
-  - assert (auth_global_valid 0 (x ⋅ ε)); last done.
+  - assert (auth_global_valid n (x ⋅ ε)); last done.
     by rewrite right_id.
   - destruct H0; done.
 Qed.
 
-Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) :
+(* Lemma bupb_persistently (P : uPred M) :
+  (|==> <pers> P) ⊢ <pers> P.
+Proof.
+  unseal; split => n x ? /= H.
+  edestruct H as [] *)
+
+Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) n :
   (∀ x : M, Cancelable x) →
-  auth_global_valid 0 x →
+  auth_global_valid n x →
   (uPred_ownM x ⊢ |==> ∃ y, uPred_ownM y ∧ ⌜ φ y ⌝) →
-  ∃ y, auth_global_updateN 0 x y ∧ φ y.
+  ∃ y, auth_global_valid n y ∧ φ y.
 Proof.
   intros Hcancel.
   unseal=> Hgv [H]. simpl in *.
   unfold auth_global_update.
-  edestruct (H 0 x).
+  edestruct (H n x).
   - apply auth_global_valid_valid. done.
   - reflexivity.
   - reflexivity.
-  - assert (auth_global_valid 0 (x ⋅ ε)); last done.
+  - assert (auth_global_valid n (x ⋅ ε)); last done.
     by rewrite right_id.
   - destruct H0 as [Hgv1 [a [H1 H2]]].
     eexists. split; last done.
-    intros z Hgv2.
-    assert (auth_global_valid 0 x) by done.
-    epose proof (auth_global_valid_epsilon _ _ _ Hcancel Hgv2 H0).
-    rewrite H3 right_id.
-    rewrite H1.
-    assert (x0 ≡{0}≡ x0 ⋅ ε) as -> by (by rewrite right_id).
-    done.
+    rewrite H1. rewrite-> (right_id _ _) in Hgv1. done.
 Qed.
 End primitive.
 End uPred_primitive.

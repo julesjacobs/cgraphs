@@ -1,0 +1,29 @@
+\section{Conclusion and future work}
+
+In this paper, we have given a comprehensive account of the \lname logic,
+which incorporates a protocol mechanism based on session types into concurrent
+separation logic to enable functional correctness proofs of programs that
+combine message-passing with other programming and concurrency paradigms.
+Considering the rich literature on session types and concurrent separation
+logic, we expect there to be many promising directions for future work.
+
+One of the most prominent extensions of binary session types is multi-party
+session types \cite{honda-POPL2008}, often called choreographies, which
+allow concise specifications of message transfers between more
+than two parties.
+It would be interesting to explore a multi-party version of \pname,
+similar to the multi-party version of session logic by \citet{costea-APLAS2018},
+to allow \lname to more readily verify programs that make use of multi-party communication.
+
+In addition to safety (\ie session fidelity), conventional session type systems
+guarantee properties like deadlock and resource-leak freedom.
+Since \lname is an extension of concurrent separation logic that supports
+reasoning about several concurrency primitives and not only message passing,
+ensuring deadlock freedom is hard.
+The only prior work in this direction that we are aware of is by
+\citet{hamin-ECOOP2019} and \citet{cracium-ICECCS2015}, but it is not immediately obvious how to integrate that
+with Iris or \lname.
+Resource-leak freedom has been studied in Iron, an extension of Iris by
+\citet{bizjak-PACMPL2019}, which makes it possible to prove resource-leak
+freedom of non-structured fork-based concurrent programs.
+It would be interesting to build \pname on top of Iron instead of Iris.

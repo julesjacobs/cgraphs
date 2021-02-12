@@ -1,0 +1,830 @@
+\section{The model of \lname}
+\label{sec:model}
+
+\newcommand{\chanmapsto}[4]{\interp {(#1,#2)} {(#3, #4)}}
+\newcommand{\protevalname}{\mathsf{prot\_consistent}}
+\newcommand{\proteval}[4]{\protevalname\ #1\ #2\ #3\ #4}
+
+We prove the adequacy theorem of \lname---given a Hoare triple $\hoare \TRUE \expr \pprop$
+that is derivable in \lname, we prove that $\expr$ cannot get stuck (\ie safety), and if
+$\expr$ terminates, the resulting value $\val$ satisfies $\pprop$ (\ie postcondition
+validity).
+To do that, we construct a model of \lname as a shallow embedding in
+the Iris framework \cite{jung-POPL2015,krebbers-ESOP2017,jung-ICFP06,jung-JFP2018}.
+This means that the type $\iProto$ of \pname,
+the subprotocol relation $\subprot{\prot_1}{\prot_2}$,
+and the connective $\interp \chan \prot$ for the channel ownership,
+are definitions in Iris,
+and the \lname proof rules are lemmas about these definitions in Iris.
+Adequacy of \lname is then simply a consequence of Iris's adequacy theorem.
+
+In this section we describe the relevant aspects of the model of \lname.
+We model the type $\iProto$ of \pname as the solution of a recursive domain equation, and
+describe how the operators for dual and composition are defined
+(\Cref{sec:protocol_model}).
+We then define the subprotocol relation $\subprot {\prot_1} {\prot_2}$
+and prove its proof rules as lemmas (\Cref{sec:subprotocol_model}).
+To connect protocols to the endpoint channel buffers in the semantics
+we define the \emph{protocol consistency relation},
+which ensures that a pair of protocols is consistent with the messages in
+their associated buffers (\Cref{sec:dual_consistency}).
+On top of the protocol consistency relation, we define the \emph{\lname ghost theory} for
+\pname (\Cref{sec:ghost_theory}),
+which forms the key ingredient for defining the connective $\interp\chan\prot$ for
+channel ownership (\Cref{sec:chan_own_model}) that links protocols to the
+semantics of channels (\Cref{sec:semantics}).
+We then show how adequacy follows from the embedding in Iris (\Cref{sec:adequacy}).
+Finally, we show how to solve the recursive domain equation for the type
+$\iProto$ of \pname
+(\Cref{sec:equation_solution}).
+
+\subsection{The model of \pname}
+\label{sec:protocol_model}
+
+To construct a model of \pname, we first need to determine what they mean
+semantically.
+The challenging part involves the constructors
+$\sendprot{\xdots}{\val}{\iprop}{\prot}$ and
+$\recvprot{\xdots}{\val}{\iprop}{\prot}$, whose (higher-order and
+impredicative) \binders $\xdots$ bind into the communicated value $\val$, the
+transferred resources $\iprop$, and the tail protocol $\prot$.
+We model these constructors as predicates over the communicated value
+and the tail protocol.
+To describe the transferred resources $\iprop$, we model these protocols as
+Iris predicates (functions
+to $\iProp$) instead of meta-level predicates (functions to $\mProp$).
+This gives rise to the following recursive domain equation:
+%
+\begin{align*}
+  \newaction \bnfdef{}& \actionsend \mid \actionrecv\\
+\iProto \cong{}&
+  1 + (\newaction \times (\Val \to \latert \iProto \to \iProp))
+\intertext{The left part of the sum type (the unit type $\unit$) indicates that
+the protocol has terminated, while the right part describes a message that is
+exchanged, expressed as an Iris predicate.
+Since the recursive occurence of $\iProto$ in the predicate appears in negative
+position,
+we guard it using Iris's \emph{type-level later} ($\latert$) operator (whose only
+constructor is $\latertinj : \tvar \to \latert\ \tvar$).
+The exact way the solution is constructed is detailed in
+\Cref{sec:equation_solution}.
+For now, we assume a solution exists, and define the \pname constructors as:}
+\protend \eqdef{}& \Inj 1 \TT \\
+\sendprot{\xdots}{\val}{\iprop}{\prot} \eqdef{}&
+  \Inj 2 (\actionsend, \Lam \valB\,\prot'.
+    \Exists \xdots. (\val = \valB) * \iprop * (\prot' = \latertinj\ \prot)) \\
+\recvprot{\xdots}{\val}{\iprop}{\prot} \eqdef{}&
+  \Inj 2 (\actionrecv, \Lam \valB\,\prot'.
+    \Exists \xdots. (\val = \valB) * \iprop * (\prot' = \latertinj\ \prot))
+\end{align*}
+%
+The definitions of $\sendprot{\xdots}{\val}{\iprop}{\prot}$ and
+$\recvprot{\xdots}{\val}{\iprop}{\prot}$ make use of the (higher-order and
+impredicative) existential quantifiers of Iris
+to constrain the actual message $\valB$ and tail $\prot'$ so that they agree
+with the message $\val$ and tail $\prot$ prescribed by the protocol.
+
+\paragraph{\bf Recursive protocols.}
+
+Iris's guarded recursion operator $\MU \var. \term$ requires the
+recursion variable $\var$ to appear under a \emph{contractive} term construct in $\term$.
+Hence, to use Iris's recursion operator to construct recursive protocols, it is
+essential that the protocols $\sendprot{\xdots}{\val}{\iprop}{\prot}$ and
+$\recvprot{\xdots}{\val}{\iprop}{\prot}$ are contractive in the tail $\prot$.
+To show why this is the case, let us first define what it means for a function
+$f : \tvar \to \tvarB$ to be contractive:
+\[
+\All \var,\varB. \later(\var = \varB) \Ra f\; \var = f\; \varB
+\]
+Examples of contractive functions are the later modality
+$\later : \iProp \to \iProp$ and the constructor $\latertinj : \tvar \to \latert\ \tvar$.
+The protocols $\sendprot{\xdots}{\val}{\iprop}{\prot}$ and
+$\recvprot{\xdots}{\val}{\iprop}{\prot}$ are defined so that
+$\prot$ appears below a $\latertinj$, and hence we can prove
+that they are contractive in $\prot$.
+
+\paragraph{\bf Operations.}
+With these definitions at hand, the dual $\dual{(\_)}$ and append
+$(\protapp {\_} {\_})$ operations are defined using Iris's guarded
+recursion operator ($\MU \var.\term$):
+\begingroup
+\allowdisplaybreaks
+\begin{align*}
+  \dual{\actionsend} \eqdef{}& \actionrecv \\
+  \dual{\actionrecv} \eqdef{}& \actionsend \\
+\dual{(\_)} \eqdef{}&
+  \MU \recvar. \Lam \prot.
+  \begin{cases}
+    \Inj 1 \TT
+    & \textnormal{if } \prot = \Inj 1 \TT \\
+    \Inj 2 (\dual a,
+    \begin{array}[t]{@{} l @{}}
+      \Lam \valB\ \prot'. \Exists \prot''. \\ \quad
+    \begin{array}[t]{@{} l @{}}
+     \pred\ \valB\ (\latertinj\ \prot'')\ \ast \\
+     \prot' = \latertinj\ (\recvar\ \prot''))
+    \end{array}\end{array}
+    & \textnormal{if } \prot = \Inj 2 (a, \pred)
+  \end{cases} \\
+(\protapp{\_}{\prot_2}) \eqdef{}&
+  \MU \recvar. \Lam \prot_1.
+  \begin{cases}
+    \prot_2
+    & \textnormal{if } \prot_1 = \Inj 1 \TT \\
+    \Inj 2 (a,
+    \begin{array}[t]{@{} l @{}}
+      \Lam \valB\ \prot'. \Exists \prot''. \\ \quad
+    \begin{array}[t]{@{} l @{}}
+      \pred\ \valB\ (\latertinj\ \prot'')\ \ast \\
+      \prot' = \latertinj\ (\recvar\ \prot''))
+    \end{array} \end{array}
+    & \textnormal{if }\prot_1 = \Inj 2 (a, \pred)
+  \end{cases}
+\end{align*}
+\endgroup
+%
+The base cases of both definitions are as expected.
+In the recursive cases, we construct a new predicate, given the original
+predicate $\pred$.
+In these new predicates, we quantify over an original tail protocol $\prot''$ such
+that $\pred\ \valB\ (\latertinj\ \prot'')$ holds, and unify the new tail
+protocol $\prot'$ with the result of the recursive call $\recvar\ \prot''$.
+
+The equational rules for dual $\dual{(\_)}$ and append $(\protapp {\_} {\_})$ from
+\Cref{fig:logic} are proven as lemmas in Iris using \ruleref{Loeb} induction.
+This is possible as the recursive call $\recvar\ \prot''$ appears below a
+$\latertinj$ constructor---since the $\latertinj$ constructor is contractive, we can
+strip-off the later from the induction hypothesis when proving the equality for
+the tail.
+
+\paragraph{\bf Difference from the conference version.}
+
+In the conference version of this paper~\cite{DBLP:journals/pacmpl/HinrichsenBK20},
+we described two versions of the recursive domain equation for \pname:
+an ``ideal'' version (as used in this paper), where $\iProto$ appears in negative
+position, and an ``alternative'' version, where $\iProto$ appears in positive
+position.
+At that time, we were unable to construct a solution of the ``ideal''
+version, so we used the ``alternative'' version.
+In \Cref{sec:equation_solution} we show how we are now able to solve the ``ideal''
+version.
+
+In the conference version of this paper, the proposition $\iprop$
+appeared under a later modality in the definitions of the protocols
+$\sendprot{\xdots}{\val}{\iprop}{\prot}$ and $\recvprot{\xdots}{\val}{\iprop}{\prot}$,
+making these protocols contractive in $\iprop$.
+This choice was motivated by the ability to construct recursive procotols like
+$\MU \recvar. \sendprot{(\chan:\Chan)}{\chan}{\interp \chan \prot}{\prot'}$,
+where the payload refers to the recursion variable $\recvar$.
+In the current version (without the later modality) we can still construct such
+protocols, because $\interp \chan \prot$ is contractive in $\prot$.
+We removed the later modality because it is incompatible with the rules \ruleref{SP-send-elim}
+and \ruleref{SP-recv-elim} for subprotocols.
+
+\subsection{The model of the subprotocol relation}
+\label{sec:subprotocol_model}
+
+We now model the subprotocol relation $\subprot {\prot_1} {\prot_2}$ from
+\Cref{sec:subprotocols}.
+For legibility, we present it in the style of an inference system through its
+constructors, whereas it is formally defined using Iris's
+guarded recursion operator ($\MU \var.\term$):
+\begin{mathpar}
+\infer{}{\subprot {\Inj 1 \TT} {\Inj 1 \TT}}
+  \\
+\begin{array}{@{} c @{}}
+  \All \val,\prot_2.
+  \begin{array}[t]{@{} l @{}}
+    \pred_2\; \val\; (\latertinj\; \prot_2) \wand\\
+    \begin{array}{@{} l @{\;} l @{}}
+      \Exists \prot_1. &
+      \pred_1\; \val\; (\latertinj\; \prot_1)\ \ast\\
+      \ & \later (\subprot {\prot_1} {\prot_2})
+    \end{array}
+  \end{array}
+  \\ \hline
+  \subprot{\Inj 2 {(\actionsend,\pred_1)}}{\Inj 2 {(\actionsend,\pred_2)}}
+\end{array}
+  \and
+\begin{array}{@{} c @{}}
+  \All \val,\prot_1.
+  \begin{array}[t]{@{} l @{}}
+    \pred_1\; \val\ (\latertinj\; \prot_1) \wand \\
+    \begin{array}{@{} l @{\;} l @{}}
+    \Exists \prot_2. & \pred_2\; \val\; (\latertinj\; \prot_2)\ \ast \\
+    \ & \later (\subprot {\prot_1} {\prot_2})
+    \end{array}
+  \end{array}
+  \\ \hline
+  \subprot{\Inj 2 {(\actionrecv,\pred_1)}}{\Inj 2 {(\actionrecv,\pred_2)}}
+\end{array}
+  \\
+\begin{array}{@{} c @{}}
+  \begin{array}[t]{@{} r @{\ } l @{}}
+    \All \val_1,\val_2,\prot_1,\prot_2. &
+      (\pred_1\ \val_1\ (\latertinj\ \prot_1) \ast
+      \pred_2\ \val_2\ (\latertinj\ \prot_2)) \wand \\
+    & \Exists \prot.
+      \later (\subprot {\prot_1} {
+         \sendprotT {} {\val_2} {\prot}
+         }) \ast
+      \later (\subprot {
+         \recvprotT {} {\val_1} {\prot}
+         } {\prot_2})
+  \end{array}
+  \\ \hline
+  \subprot{\Inj 2 {(\actionrecv,\pred_1)}}{\Inj 2 {(\actionsend,\pred_2)}}
+\end{array}
+\end{mathpar}
+To be a well-formed guarded recursion definition, every
+recursive occurrence of $\subprotop$ is guarded by later modality ($\later$).
+Aside from the later being required for well-formedness,
+these laters make it possible to reason about
+the subprotocol relation using \ruleref{Loeb} induction; both to prove the
+subprotocol rules from \Cref{fig:subprotocol_rules} as lemmas, and for \lname users to
+reason about recursive protocols as shown in \Cref{sec:subprotocol_recursion}.
+The relation is defined in a syntax-directed fashion (\ie
+there are no overlapping rules), and therefore all constructors need to be
+defined so that they are closed under monotonicity and transitivity.
+
+The first constructor states that terminating protocols ($\protend \eqdef
+\Inj 1 \TT$) are related.
+The other constructors concern the protocols
+$\sendprot{\xdots}{\val}{\iprop}{\prot}$ and
+$\recvprot{\xdots}{\val}{\iprop}{\prot}$, which are modelled
+as $\Inj 2 {(\actionsend,\pred)}$ and $\Inj 2 {(\actionrecv,\pred)}$, where
+$\pred : \Val \to \latert \iProto \to \iProp$
+is a predicate over the communicated value and tail protocol.
+While the actual constructors are somewhat intimidating because they are defined
+in terms of these predicates in the model, they
+essentially correspond to the following high-level versions:
+%
+\begin{mathpar}
+\infer
+  {\All \xdotsB. \iprop_2 \wand \Exists \xdots.
+     (\val_1 = \val_2) * \iprop_1 *
+     \later (\subprot {\prot_1} {\prot_2})}
+  {\subprot
+    {\sendprot \xdots {\val_1} {\iprop_1} {\prot_1}}
+    {\sendprot \xdotsB {\val_2} {\iprop_2} {\prot_2}}}
+\and
+\infer
+  {\All \xdots. \iprop_1 \wand \Exists \xdotsB.
+     (\val_1 = \val_2) * \iprop_2 *
+     \later (\subprot {\prot_1} {\prot_2})}
+  {\subprot
+    {\recvprot \xdots {\val_1} {\iprop_1} {\prot_1}}
+    {\recvprot \xdotsB {\val_2} {\iprop_2} {\prot_2}}}
+\and
+\infer
+  {\All \xdots,\xdotsB. (\iprop_1 * \iprop_2) \wand \Exists \prot.
+    \later (\subprot {\prot_1} {\sendprotT {} {\val_2} {\prot}}) *
+    \later (\subprot {\recvprotT {} {\val_1} {\prot}} {\prot_2})
+  }
+  {\subprot
+    {\recvprot \xdots {\val_1} {\iprop_1} {\prot_1}}
+    {\sendprot \xdotsB {\val_2} {\iprop_2} {\prot_2}}}
+\end{mathpar}
+%
+To obtain syntax directed rules, the first rule combines \ruleref{SP-send-elim},
+\ruleref{SP-send-intro}, and \ruleref{SP-send-mono}, and dually, the second
+rule combines \ruleref{SP-recv-elim}, \ruleref{SP-recv-intro}, and
+\ruleref{SP-recv-mono}.
+The third rule combines \ruleref{SP-recv-elim}, \ruleref{SP-send-elim} and
+\ruleref{SP-swap} and bakes in transitivity, instead of asserting
+that $\prot_1$ and $\prot_2$ are equal to $\sendprotT {} {\val_2} {\prot}$ and
+$\recvprotT {} {\val_1} {\prot}$, respectively.
+
+The rules from the beginning of this section are defined by generalising
+the high-level rules to arbitrary predicates.
+For example, rule $\subprot{\Inj 2 {(\actionsend,\pred_1)}}{\Inj 2 {(\actionsend,\pred_2)}}$
+requires that for any value $\val$ and tail protocol $\prot_2$ that
+are allowed by the predicate $\pred_2$, there is a stronger tail protocol $\prot_1$
+(\ie where $\subprot {\prot_1} {\prot_2}$),
+so that the same value $\val$ and stronger tail protocol
+$\prot_1$ are allowed by the predicate $\pred_1$.
+
+The rules in \Cref{fig:subprotocol_rules} on page \pageref{fig:subprotocol_rules}
+are proven as lemmas.
+Those for \binder and resource manipulation (\ruleref{SP-send-elim},
+\ruleref{SP-send-intro}, \ruleref{SP-recv-elim} and \ruleref{SP-recv-intro})
+monotonicity (\ruleref{SP-send-mono} and \ruleref{SP-recv-mono}),
+and swapping (\ruleref{SP-swap}) follow
+almost immediately from the definition, whereas
+those for reflexivity (\ruleref{SP-refl}), transitivity (\ruleref{SP-trans}),
+and the dual and append operator (\ruleref{SP-dual} and \ruleref{SP-append})
+are proven using \ruleref{Loeb} induction.
+
+\subsection{Protocol consistency}
+\label{sec:dual_consistency}
+
+\newcommand{\vsl}{\vec\val_1}
+\newcommand{\vsr}{\vec\val_2}
+
+To connect \pname to the semantics of channels in \Cref{sec:chan_own_model}, we define
+the \emph{protocol consistency relation} $\proteval \vsl \vsr {\prot_1} {\prot_2}$,
+which expresses that protocols $\prot_1$ and $\prot_2$ are \emph{consistent}
+w.r.t.\ channel buffers containing values $\vsl$ and $\vsr$.
+The consistency relation is defined as:
+\begin{align*}
+\proteval \vsl \vsr {\prot_1} {\prot_2}
+  \eqdef{}& \Exists \prot. \\
+  & \hspace{-13em}
+  (\subprot {\recvprotT {} {\vec\val_{2.1}} {\dots
+    \recvprotT {} {\vec\val_{2.\listlength{\vsr}}} \prot}} {\prot_1}) *
+  (\subprot {\recvprotT {} {\vec\val_{1.1}} {\dots
+    \recvprotT {} {\vec\val_{1.\listlength{\vsl}}} {\dual\prot}}} {\prot_2})
+\end{align*}
+%
+Intuitively, $\proteval \vsl \vsr {\prot_1} {\prot_2}$
+ensures that for all messages $\vsl$ in transit from the endpoint described
+by $\prot_1$ to the endpoint described by $\prot_2$, the protocol $\prot_2$ is
+expecting to receive these message in order (and \viceversa for $\vsr$),
+after which the remaining protocols $\prot$ and $\dual\prot$ are dual.
+To account for weakening we close the consistency relation under subprotocols
+(by using $\subprotop$ instead of equality), which
+additionally captures ownership of the resources associated with
+the messages $\vsl$ and $\vsr$.
+
+Closure under the subprotocol relation gives us that
+$\proteval \vsl \vsr {\prot_1} {\prot_2}$ and $\subprot {\prot_1} {\prot_1'}$
+implies $\proteval \vsl \vsr {\prot_1'} {\prot_2}$, % (and \viceversa for $\prot_2$),
+and ensures that the consistency relation enjoys the following rules
+corresponding to creating a channel, sending a message, and receiving a message:
+%
+\begin{align*}
+& \proteval \nil \nil {\prot} {\dual \prot}
+\\[0.5em]
+& \begin{array}{@{} l @{}}
+  \proteval \vsl \vsr {(\sendprot \xdots \val \iprop {\prot_1})} {\prot_2}
+    \ast \subst \iprop {\vec\var} {\vec\term} \wand \\
+  \qquad
+  \lateropt {\listlength \vsr} (
+    \proteval {(\snoc {\subst \val {\vec\var} {\vec\term}} \vsl)} \vsr {\prot_1} {\prot_2})
+  \end{array} \\[0.5em]
+& \begin{array}{@{} l @{}}
+  \proteval \vsl {(\cons \valB \vsr)} {(\recvprot \xdots \val \iprop {\prot_1})} {\prot_2}
+  \wand \\
+  \qquad
+  \Exists \vec\varB.
+    (\valB = \subst \val {\vec\var} {\vec\varB}) *
+    \subst \iprop {\vec\var} {\vec\varB} \ast
+    \later (\proteval \vsl \vsr {\prot_1} {\prot_2})
+  \end{array}
+\end{align*}
+%
+The first rule states that dual protocols are consistent w.r.t.\ a pair of
+empty buffers.
+The second rule states that a protocol $\sendprot \xdots \val \iprop {\prot_1}$
+can be advanced to $\prot_1$ by giving up ownership of
+$\subst \iprop {\vec\var} {\vec\term}$ and enqueing the value
+$\subst \val {\vec\var} {\vec\term}$ in the buffer $\vsl$.
+Dually, the third rule states that given a protocol
+$\recvprot \xdots \val \iprop {\prot_1}$ and a buffer that contains value
+$\valB$ as its head, we learn that $\valB$ is equal to
+$\subst \val {\vec\var} {\vec\varB}$, and that we can obtain ownership of
+$\subst \iprop {\vec\var} {\vec\varB}$ by advancing the protocol to $\prot_1$
+and dequeuing the value $\valB$ from the buffer.
+Since the relation is symmetric, \ie if $\proteval \vsl \vsr {\prot_1} {\prot_2}$
+then $\proteval \vsr \vsl {\prot_2} {\prot_1}$, we obtain similar rules for
+the protocol $\prot_2$ on the right-hand side.
+
+The last two rules are proved by inversion on the definition of the subprotocol
+relation ($\subprotop$).
+Since the subprotocol relation ($\subprotop$) is defined using guarded recursion,
+we obtain a later modality ($\later$) for each inversion.
+To prove the first rule, we need to perform a number of inversions equal to the
+size of the buffer $\vsr$, whereas for the second rule we need to perform
+just a single inversion.
+The later modalities will be eliminated through physical program steps in
+the semantics of channels in \Cref{sec:semantics}.
+
+\subsection{The \lname ghost theory}
+\label{sec:ghost_theory}
+
+\newcommand{\fighoghost}{
+  \begin{figure}
+  \begin{align}
+  \TRUE \vs{}& \Exists \gname.
+    (\gname \mapsto_{\authfull} \prot) * (\gname \mapsto_{\authfrag} \prot)
+    \tagH{ho-ghost-alloc}\\
+  (\gname \mapsto_{\authfull} \prot) * (\gname \mapsto_{\authfrag} \prot')
+    \Ra{}&
+    \later (\prot = \prot') \tagH{ho-ghost-agree}\\
+  (\gname \mapsto_{\authfull} \prot) * (\gname \mapsto_{\authfrag} \prot')
+    \vs{}&
+    (\gname \mapsto_{\authfull} \prot'') * (\gname \mapsto_{\authfrag} \prot'')
+    \tagH{ho-ghost-update}
+  \end{align}
+  \caption{Higher-order ghost variables in Iris.}
+  \label{fig:hoghost}
+  \end{figure}}
+
+\newcommand{\protoctx}[3]{\mathsf{prot\_ctx}\ #1\ #2\ #3}
+\newcommand{\protofragleft}[2]{\mathsf{prot\_own_l}\ #1\ #2}
+\newcommand{\protofragright}[2]{\mathsf{prot\_own_r}\ #1\ #2}
+\newcommand{\gnamel}{\gname_1}
+\newcommand{\gnamer}{\gname_2}
+
+To provide a general interface for adopting Actris's reasoning principles
+for arbitrary message-passing languages,
+we employ a standard ghost theory approach to compartmentalise channel
+ownership.
+
+We use an approach similar to the ghost theory for contributions that we used in
+\Cref{sec:integration}.
+The authority $\protoctx{(\gnamel,\gnamer)}{\vsl}{\vsr}$
+governs the global state of the buffers $\vsl$ and $\vsr$.
+The tokens $\protofragleft{(\gnamel,\gnamer)}{\prot_l}$ and
+$\protofragright{(\gnamel,\gnamer)}{\prot_r}$ provide local views of that state,
+being that the protocols $\prot_l$ and $\prot_r$ are consistent with the buffers.
+As we will see in \Cref{sec:chan_own_model}, the authority can then be shared
+through a lock, while the tokens can be distributed to individual threads.
+The ghost connectives are identified by the shared ghost identifiers
+$\gnamel$ and $\gnamer$ for the protocols $\prot_l$ and $\prot_r$, respectively.
+
+\fighoghost
+
+To define the connectives of the \lname ghost theory
+we use Iris's higher-order ghost variables, whose rules are shown in
+\Cref{fig:hoghost}.
+Higher-order ghost variables come in pairs $\gname \mapsto_{\authfull} \prot$ and
+$\gname \mapsto_{\authfrag} \prot$, which always hold the same protocol
+$\prot$.
+They can be allocated together (\ruleref{ho-ghost-alloc}),
+are always required to hold the same protocol (\ruleref{ho-ghost-agree}),
+and can only be updated together (\ruleref{ho-ghost-update}).
+The subtle part of the higher-order ghost variables is that they involve ownership
+of a protocol of type $\iProto$, which is defined in terms of Iris propositions
+$\iProp$.
+Due to the dependency on $\iProp$, which is covered in detail in
+\cref{sec:equation_solution}, the rule \ruleref{ho-ghost-agree} only gives the
+equality between the protocols under a later modality ($\later$).
+The \lname ghost theory connectives are then defined as:
+%
+\begin{align*}
+\protoctx{(\gnamel, \gnamer)}{\vsl}{\vsr} \eqdef{}&
+  \Exists \prot_1, \prot_2.
+  \begin{array}[t]{@{} l @{}}
+  \gnamel \mapsto_{\authfull} \prot_1 \ast
+  \gnamer \mapsto_{\authfull} \prot_2\ \ast\\
+  \later \proteval \vsl \vsr {\prot_1} {\prot_2}
+  \end{array}\\
+\protofragleft{(\gnamel, \gnamer)}{\prot_l} \eqdef{}&
+  \Exists \prot_l'.
+  \gnamel \mapsto_{\authfrag} \prot_l' \ast
+  \later (\subprot{\prot_l'}{\prot_l})
+  \\
+\protofragright{(\gnamel, \gnamer)}{\prot_r} \eqdef\ &
+  \Exists \prot_r'.
+  \gnamer \mapsto_{\authfrag} \prot_r' \ast
+  \later (\subprot{\prot_r'}{\prot_r})
+\end{align*}
+The authority $\protoctx{(\gnamel, \gnamer)}{\vsl}{\vsr}$
+asserts that the buffers $\vsl$ and $\vsr$ are consistent with respect to the
+protocols $\prot_1$ and $\prot_2$ (via $\proteval{\vsl}{\vsr}{\prot_1}{\prot_2}$).
+It also asserts the higher-order authoritative ownership
+$\gnamel \mapsto_{\authfull} \prot_1$ and $\gnamer \mapsto_{\authfull} \prot_2$
+of both protocols.
+The tokens assert higher-order fragmented ownership
+$\gnamel \mapsto_{\authfrag} \prot_l'$ and $\gnamer \mapsto_{\authfrag} \prot_r'$ of
+protocols $\prot_l'$ and $\prot_r'$ that are weaker than the protocol
+arguments $\prot_l$ and $\prot_r$ (via $\subprot{\prot'_l}{\prot_l}$ and
+$\subprot{\prot'_r}{\prot_r}$).
+Explicit weakening under the subprotocol relation may seem redundant, as weakening is
+already accounted for in $\protevalname$.
+However, it allows us to weaken the
+protocols of the tokens without the presence of the authority as
+shown by the rules \ruleref{proto-weaken-l} and \ruleref{proto-weaken-r} in
+\Cref{fig:proto_ghost_theory}.
+The later modality ($\later$) makes sure that $\protofragleft{(\gnamel, \gnamer)} \prot$
+and $\protofragright{(\gnamel, \gnamer)} \prot$ are contractive in $\prot$.
+For readability we
+condense the ghost state identifiers $(\gnamel, \gnamer)$ into a single
+identifier $\gname$ from now on.
+
+\newcommand{\protoghosttheoryfig}{
+  \begin{figure}
+  \begin{align*}
+  & \begin{array}{@{} l @{}}
+    \TRUE \vs
+    \Exists \gname.
+    \protoctx \gname \nil \nil \ast
+    \protofragleft \gname \prot \ast
+    \protofragright \gname {\dual\prot}
+  \end{array}
+  \tagH{proto-alloc} \\[0.5em]
+  %%%%%
+  & \begin{array}{@{} l @{}}
+    \protoctx \gname \vsl \vsr \ast
+    \protofragleft \gname {(\sendprot \xdots \val \iprop \prot)} \ast
+    \subst \iprop {\vec\var} {\vec\term}
+  \vs\\
+  \qquad
+    \lateropt {\listlength\vsr}
+      \left(\protoctx \gname {(\snoc {\subst \val {\vec\var} {\vec\term}} \vsl)} \vsr\right) \ast
+    \protofragleft \gname {(\subst \prot {\vec\var} {\vec\term})}
+  \end{array}
+  \tagH{proto-send-l} \\[0.5em]
+    %%%%%%
+  & \begin{array}{@{} l @{}}
+    \protoctx \gname \vsl \vsr \ast
+    \protofragright \gname {(\sendprot \xdots \val \iprop \prot)} \ast
+    \subst \iprop {\vec\var} {\vec\term}
+    \vs\\
+    \qquad
+    \lateropt {\listlength\vsl}
+      \left((\protoctx \gname \vsl {(\snoc {\subst \val {\vec\var} {\vec\term}} \vsr)}\right) \ast
+    \protofragright \gname {(\subst \prot {\vec\var} {\vec\term})}
+  \end{array}
+  \tagH{proto-send-r} \\[0.5em]
+  %%%%%%
+  & \begin{array}{@{} l @{}}
+    \protoctx \gname \vsl {(\cons \valB \vsr)} \ast
+    \protofragleft \gname {(\recvprot \xdots \val \iprop \prot)}
+    \vs \\
+    \qquad
+    \later \Exists \vec\varB.
+      (\valB = \subst \val {\vec\var} {\vec\varB}) \ast
+      \subst \iprop {\vec\var} {\vec\varB} \ast
+      \protoctx \gname \vsl \vsr \ast
+      \protofragleft \gname \prot
+  \end{array}
+  \tagH{proto-recv-l} \\[0.5em]
+  %%%%%%
+  & \begin{array}{@{} l @{}}
+    \protoctx \gname {(\cons \valB \vsl)} \vsr \ast
+    \protofragright \gname {(\recvprot \xdots \val \iprop \prot)}
+    \vs \\
+    \qquad
+    \later \Exists \vec\varB.
+      (\valB = \subst \val {\vec\var} {\vec\varB}) \ast
+      \subst \iprop {\vec\var} {\vec\varB} \ast
+      \protoctx \gname \vsl \vsr \ast
+      \protofragright \gname \prot
+  \end{array}
+  \tagH{proto-recv-r} \\
+  & \protofragleft \gname \prot * \subprot \prot {\prot'} \wand
+    \protofragleft \gname {\prot'}
+  \taghref{proto-$\subprotop$-l}{proto-weaken-l} \\
+  & \protofragright \gname \prot * \subprot \prot {\prot'} \wand
+    \protofragright \gname {\prot'}
+  \taghref{proto-$\subprotop$-r}{proto-weaken-r}
+  \end{align*}
+  \caption{The \lname ghost theory.}
+  \label{fig:proto_ghost_theory}
+  \end{figure}}
+
+\protoghosttheoryfig
+
+With these definitions at hand, we prove the rules of the ghost theory presented in
+\Cref{fig:proto_ghost_theory}.
+The rule \ruleref{proto-alloc} corresponds to allocation of a buffer pair, the rules
+\ruleref{proto-send-l} and \ruleref{proto-send-r} correspond to sending a
+message, and the rules \ruleref{proto-recv-l} and \ruleref{proto-recv-r}
+correspond to receiving a message.
+These are proved through a combination of the rules for higher-order ghost state
+from \Cref{fig:hoghost}, and the rules for the protocol consistency
+relation $\protevalname$ from \Cref{sec:dual_consistency}.
+
+\subsection{Semantics of channels}
+\label{sec:semantics}
+
+\newcommand{\skipn}{\langkw{skipN}}
+\newcommand{\none}{\Inj 1 {\TT}}
+\newcommand{\some}[1]{\Inj 2 {#1}}
+\newcommand{\pop}{\defemph{pop}}
+\newcommand{\lsnoc}{\defemph{snoc}}
+\newcommand{\isnil}{\defemph{is\_nil}}
+\newcommand{\newlistt}{\defemph{new\_list}\;\TT}
+
+\newcommand{\chanencfig}{
+  \begin{figure}
+    \begin{align*}
+      \newchan \eqdef &
+        \begin{array}[t]{l}
+          \Let (l,r,\lockvar) = (\newlistt, \newlistt, \newlock) in \\
+          ((l,r,\lockvar),(r,l,\lockvar))
+        \end{array}\\
+      \send{\chan}{\val} \eqdef &
+        \begin{array}[t]{l}
+          \Let (l,r,\lockvar) = \chan in\\
+          \acquire{\lockvar};\\
+          \quad \lsnoc\ l\ \val;\
+          \skipn\ \listlength{r};\\
+          \release{\lockvar}
+        \end{array}\\
+      \tryrecv{\chan} \eqdef &
+        \begin{array}[t]{l}
+          \Let (l,r,\lockvar) = \chan in\\
+          \acquire{\lockvar};\\
+          \quad \Let \mathit{ret} = (\If (\isnil\ r) then {(\none)} \Else (\some{(\pop\ l)}))
+          in\\
+          \release{\lockvar};\ \mathit{ret}\\
+        \end{array}\\
+      \recv{\chan} \eqdef & \
+          \MatchML (\tryrecv{\chan}) with
+          \none => \recv{\chan}
+          | \some{\val} => \val
+          end \
+    \end{align*}
+  \caption{Implementation of bidirectional channels in HeapLang.}
+  \label{fig:channel_implementation}
+\end{figure}
+}
+
+Since Iris is parametric in the programming language that is used, there are
+various approaches to extend Iris with support for channels:
+
+\begin{itemize}
+\item Instantiate Iris with a language that has native support
+  for channels.
+  This approach was carried out in the original Iris paper~\cite{jung-POPL2015} and by
+  \citet{tassarotti-ESOP2017}.
+\item Instantiate Iris with a language that has low-level concurrency
+  primitives, but no native support for channels, and implement channels as a
+  library in that language.
+  This approach was carried out by \citet{bizjak-PACMPL2019} for a lock-free
+  implementation of channels.
+\end{itemize}
+
+\noindent
+In this paper we take the second approach.
+We use HeapLang, the default language shipped with Iris, and
+implement bidirectional channels using a pair of mutable linked lists protected
+by a lock.
+Although this implementation is not efficient, contrary to \eg the implementation
+by \citet{bizjak-PACMPL2019}, it has the benefit that it gives
+a clear declarative semantics that corresponds exactly to the intuitive semantics
+of channels described in \Cref{sec:language}.
+
+\chanencfig
+
+Our implementation of bidirectional channels in HeapLang is displayed in
+\Cref{fig:channel_implementation}.
+New channels are created by the \langkw{new\_chan} function, which allocates two empty mutable linked
+lists $l$ and $r$ using $\newlistt$,
+along with a lock $\lockvar$ using $\newlock$, and returns the tuples
+$(l,r,\lockvar)$ and $(r,l,\lockvar)$, where the order of the linked
+lists $l$ and $r$ determines the side of the endpoints.
+We refer to the list in the left position as the endpoint's own buffer,
+and the list in the right position as the other endpoint's buffer.
+
+Values are sent over a channel endpoint $(l,r,\lockvar)$ using the \langkw{send}
+function.
+This function operates in an atomic fashion by first acquiring the lock via
+$\acquire{\lockvar}$, thereby entering the critical section, after which the value
+is enqueued (\ie appended to the end) of the endpoint's own buffer using $\lsnoc\ l\ \val$.
+The $\skipn\ \listlength{r}$ instruction is a no-op that is inserted to aid the proof.
+We come back to the reason why this instruction is needed in \Cref{sec:chan_own_model}.
+
+Values are received over a channel endpoint $(l,r,\lockvar)$ using the $\langkw{send}$
+function, which performs a loop that repeatedly calls the helper function
+$\langkw{try\_recv}$.
+This helper function attempts to receive a value atomically, and fails if there
+is no value in the other endpoint's buffer.
+The function $\langkw{try\_recv}$ acquires the lock with
+$\acquire{\lockvar}$, and then check whether the other endpoint's buffer is empty
+using $\isnil\ r$.
+If it is empty, nothing is returned (\ie $\none$), while otherwise the value is
+dequeued and returned (\ie $\some{(\pop\ l)}$).
+
+\subsection{The model of channel ownership}
+\label{sec:chan_own_model}
+
+To link the physical contents of the bidirectional channel $\chan$ to the
+\lname ghost theory we define the channel ownership connective as follows:
+%
+\begin{align*}
+\interp \chan \prot \eqdef{}&
+  \Exists \gname,l,r,\lockvar.
+  \begin{array}[t]{@{} l}
+  \left(\begin{array}{@{} l @{}}
+     (\chan = (l,r,\lockvar) * \protofragleft{\gname}{\prot})\ \lor\\
+     (\chan = (r,l,\lockvar) * \protofragright{\gname}{\prot})
+   \end{array}\right) \ast\\
+  \islock \lockvar
+    {(\Exists \vec\val_1\,\vec\val_2.
+    \listref{l}{\vec\val_1} \ast
+    \listref{r}{\vec\val_2} \ast
+    \protoctx{\gname}{\vec\val_1}{\vec\val_2})}\
+  \end{array}
+\end{align*}
+The predicate states that the referenced channel endpoint $\chan$
+is either the left $(l,r,\lockvar)$ or the right $(r,l,\lockvar)$ side of a channel,
+and that we have exclusive ownership of the ghost token
+$\protofragleft{\gname}{\prot}$ or $\protofragright{\gname}{\prot}$ for the
+corresponding side.
+Iris's lock representation predicate $\logdefemph{is\_lock}$
+(previously presented in \Cref{sec:integration}) is used to make sharing of the
+buffers possible.
+The lock invariant is governed by lock $\lockvar$, and carries
+the ownership $\listref{l}{\vec\val_1}$
+and $\listref{r}{\vec\val_2}$ of the mutable linked lists containing the channel
+buffers, as well as $\protoctx{\gname}{\vec\val_1}{\vec\val_2}$, which
+asserts protocol consistency of the buffers with respect to the protocols.
+
+With the definition of the channel endpoint ownership along with the ghost theory and
+lock rules we then prove the channel rules \ruleref{Ht-new},
+\ruleref{Ht-send} and \ruleref{Ht-recv} from \Cref{fig:logic}.
+The proofs are carried out through symbolic execution to the point
+where the critical section is entered, after which the rules of the \lname ghost theory
+(\Cref{fig:proto_ghost_theory}) are used to allocate or update the ghost state appropriately so that it matches
+the physical channel buffers.
+
+\paragraph{\bf The need for skip instructions.}
+
+The rules \ruleref{proto-send-l} and \ruleref{proto-send-r} from
+\Cref{fig:proto_ghost_theory} contain a number of later modalities ($\later$)
+proportional to the other endpoint's buffer in their premise.
+As explained in \Cref{sec:dual_consistency} these later modalities are the consequence
+of having to perform a number of inversions on the subprotocol relation,
+which is defined using guarded recursion, and thus contains a later modality
+for each recursive unfolding.
+
+To eliminate these later modalities, we instrument the code of the $\langkw{send}$
+function with the $\skipn\ \listlength{r}$ instruction, which performs a number
+of skips equal to the size of the other endpoint's buffer $r$.
+The $\langkw{skipN}$ instruction has the following specification:
+\[
+  \textstyle\hoare{\later^{n}\iprop}{\skipn\ n}{\iprop}
+\]
+Instrumentation with skip instructions appears more often in work on step-indexing,
+see \eg~\cite{DBLP:conf/esop/SvendsenSB16,giarrusso-ICFP2020}.
+It is needed due to the fact that current step-indexed logics like Iris
+unify physical/program steps and logical steps, \ie for
+each physical/program step at most one later can be eliminated from the hypotheses.
+\citet{DBLP:conf/esop/SvendsenSB16} proposed a more liberal version of
+step-indexed, called \emph{transfinite step-indexing}, to avoid this problem.
+However, transfinite step-indexing is not available in Iris.
+
+\subsection{Adequacy of \lname}
+\label{sec:adequacy}
+
+Having constructed the model of \lname in Iris, we now obtain the following main result:
+\begin{theorem}[Adequacy of \lname]
+\label{thm:adequacy}
+Let $\pprop$ be a first-order predicate over values and suppose the Hoare
+triple $\hoare \TRUE \expr \pprop$ is derivable in \lname, then:
+\begin{itemize}
+\item \textbf{(Safety):} The program $\expr$ will not get stuck.
+\item \textbf{(Postcondition validity):} If the main thread of $\expr$
+  terminates with a value $\val$, then the postcondition $\pprop\;\val$ holds
+  at the meta-level.
+\end{itemize}
+\end{theorem}
+Since \lname is an internal logic embedded in Iris, the proof is an immediate
+consequence of Iris's adequacy theorem~\cite{krebbers-ESOP2017,jung-JFP2018}.
+Finally, note that safety implies \emph{session fidelity}---any message that
+is received has in fact been sent.
+
+\subsection{Solving the recursive domain equation for protocols}
+\label{sec:equation_solution}
+
+\newcommand{\Ppol}[1]{X^{#1}}
+\newcommand{\Pneg}{\Ppol{-}}
+\newcommand{\Ppos}{\Ppol{+}}
+
+Recall the recursive domain equation for \pname from \Cref{sec:protocol_model}:
+\[
+\iProto \cong{}
+  1 + (\newaction \times (\Val \to \latert \iProto \to \iProp))
+\]
+This recursive domain equation shows that $\iProto$ depends on the type $\iProp$
+of Iris propositions.
+To use types that depend on $\iProp$ as part of higher-order ghost state in Iris,
+such types need to be bi-functorial in $\iProp$.
+Hence, this means that to construct $\iProto$, in a way that it can be used
+in combination with the higher-order ghost variables in \Cref{fig:hoghost},
+we need to solve the following recursive domain equation:
+\[
+  \iProto(\Pneg,\Ppos) \cong{}
+  1 + (\newaction \times (\Val \to \latert \iProto(\Ppos,\Pneg) \to \Ppos))
+\]
+Since the recursive occurrence of $\iProto$ appears in negative position, the
+polarity needs to be inverted for $\iProto$ to be bi-functorial.
+
+The version of Iris's recursive domain equation solver based
+on~\cite{america-JCSS1989,birkedal-TCS2010} as mechanised in Iris's Coq
+development is not readily able to construct a solution of $\iProto(\Pneg,\Ppos)$.
+Concretely, the solver can only construct solutions of non-parameterised
+recursive domain equations.
+While a general construction for solving such recursive domain
+equations exists~\cite[\S~7]{birkedal-LMCS2012}, that construction has not been
+mechanised in Coq.
+We circumvent this shortcoming by solving the following recursive domain
+equation instead, in which we unfold the recursion once by hand:
+\[\begin{array}{@{}l@{}}
+  \iProto_2(\Pneg,\Ppos) \cong{}\\
+  \quad
+    \begin{array}{@{}l@{}}
+      1 + \Big(\newaction \times \big(\Val \to
+        \latert (1 + (\newaction \times
+        (\Val \to \latert \iProto_2(\Pneg,\Ppos)\to \Pneg))) \to
+        \Ppos\big)\Big)
+    \end{array}
+\end{array}\]
+Here, the polarity in the recursive occurrence is fixed, allowing us to solve
+$\iProto_2(\Pneg,\Ppos)$ using Iris's existing recursive domain equation solver.
+This is sufficient because a solution of $\iProto_2(\Pneg,\Ppos)$ is isomorphic
+to a solution of $\iProto(\Pneg,\Ppos)$.

@@ -6,10 +6,10 @@ Require Export diris.htypesystem.
   This predicate says that the types of the receives at the start of ct
   match the values in buf, and the rest of ct is equal to rest.
 *)
-Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : hProp :=
+Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) (o : owner) : hProp :=
   match buf, ct with
                             (* add owner here *)
-  | v::buf', RecvT t ct' => val_typed v t ∗ buf_typed buf' ct' rest
+  | v::buf', RecvT t ct' => val_typed v t o ∗ buf_typed buf' ct' rest o
   (* | v::buf', SendT t ct' => ??? *)
   (* Add a rule for this to support asynchrous subtyping *)
   | [], ct => ⌜⌜ rest = ct ⌝⌝
@@ -18,23 +18,23 @@ Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : hProp 
 
 Definition dom_chans {V} (Σ : gmap endpoint V) : gset nat := set_map fst (dom (gset endpoint) Σ).
 
-Definition buf_typed' (bufq : option (list val)) (ctq : option chan_type) (rest : chan_type) : hProp :=
+Definition buf_typed' (bufq : option (list val)) (ctq : option chan_type) (rest : chan_type) (o : owner) : hProp :=
     match bufq, ctq with
-    | Some buf, Some ct => buf_typed buf ct rest
+    | Some buf, Some ct => buf_typed buf ct rest o
     | None, None => ⌜⌜ rest = EndT ⌝⌝
     | _,_ => False
     end.
 
 Definition bufs_typed (chans : heap) (Σ : heapT) (i : chan) : hProp :=
-  ∃ rest, buf_typed' (chans !! (i,true)) (Σ !! (i,true)) rest ∗
-          buf_typed' (chans !! (i,false)) (Σ !! (i,false)) (dual rest).
+  ∃ rest, buf_typed' (chans !! (i,true)) (Σ !! (i,true)) rest (Chan i) ∗
+          buf_typed' (chans !! (i,false)) (Σ !! (i,false)) (dual rest) (Chan i).
 
 Definition heap_typed (chans : heap) (Σ : heapT) : hProp :=
    ([∗ set] i∈dom_chans Σ ∪ dom_chans chans, bufs_typed chans Σ i)%I.
 
 Definition invariant (chans : heap) (threads : list expr) : hProp :=
-  ∃ Σ, own_auth Σ ∗ (* acyclic Σ ∗ *)
-       ([∗ list] id↦e∈threads, ptyped0 e UnitT) ∗ (* add (Thread id) as owner *)
+  ∃ Σ, own_auth Σ ∗
+       ([∗ list] id↦e∈threads, ptyped0 e UnitT (Thread id)) ∗
        heap_typed chans Σ.
 
 Lemma elem_of_dom_chans_alt {A} (i : nat) (Σ : gmap endpoint A) :
@@ -222,55 +222,10 @@ Proof.
   iPureIntro. apply dom_chans_union. intro. rewrite H. done.
 Qed.
 
-(*
-Previously:
-===========
-
-invariant chans threads : Prop :=
-  ∃ Σ, own Σ ⊢ ...
-
-hProp := heapT -> Prop
-
-P ⊢ Q := ∀ Σ, P Σ -> Q Σ
-
-(P ∗ Q) Σ := ∃ Σ1 Σ2, Σ = Σ1 ∪ Σ2 ∧ Σ1 ##ₘ Σ2 ∧ P Σ1 ∧ Q Σ2
-
-(P -∗ Q) Σ := ∀ Σ', Σ ##ₘ Σ' -> P Σ' -> Q (Σ ∪ Σ')
-
-(own Σ) Σ' := (Σ = Σ')
-
-
-Now:
-====
-
-invariant chans threads : hProp :=
-  ∃ Σ, know Σ ∗ ...
-
-hProp := (heapT * heapT) -> Prop
-
-P ⊢ Q := ∀ Σ Σ', P (Σ,Σ') -> Q (Σ,Σ')
-
-(|=> Q) (Σg,Σl) = ∃ Σ', Q (Σ',Σ')
-
-(P ∗ Q) (Σg,Σl) := ∃ Σl1 Σl2, Σl = Σl1 ∪ Σl2 ∧ Σl1 ##ₘ Σl2 ∧ P (Σg,Σl1) ∧ Q (Σg,Σl2)
-
-(P -∗ Q) (Σg,Σl) := ∀ Σl', Σl ##ₘ Σl' -> P (Σg,Σl') -> Q (Σg, Σl ∪ Σl')
-
-We want: (P ∗ Q) -∗ R ⊣⊢ P -∗ (Q -∗ R)
-
-(own Σ) (Σg,Σl) := (Σ = Σl)
-(know Σ) (Σg,Σl) := (Σ ⊆ Σg ∧ Σl = ∅)
-
-Lemma preservation threads chans threads' chans' :
-  step threads chans threads' chans' ->
-    invariant threads chans -∗ |=> invariant threads' chans'
-
-*)
-
-Lemma buf_typed_push buf t ct rest v :
-  val_typed v t -∗
-  buf_typed buf ct (RecvT t rest) -∗
-  buf_typed (buf ++ [v]) ct rest.
+Lemma buf_typed_push buf t ct rest v o :
+  val_typed v t o -∗
+  buf_typed buf ct (RecvT t rest) o -∗
+  buf_typed (buf ++ [v]) ct rest o.
 Proof.
   iIntros "Hv Hb".
   iInduction buf as [] "IH" forall (ct rest); simpl.
@@ -280,9 +235,9 @@ Proof.
     iDestruct ("IH" with "Hv H") as "HH". iFrame.
 Qed.
 
-Lemma buf_typed_pop buf t ct rest v :
-  buf_typed (v::buf) (RecvT t ct) rest -∗
-  buf_typed buf ct rest ∗ val_typed v t.
+Lemma buf_typed_pop buf t ct rest v o :
+  buf_typed (v::buf) (RecvT t ct) rest o -∗
+  buf_typed buf ct rest o ∗ val_typed v t o.
 Proof.
   iIntros "[? ?]". simpl. iFrame.
 Qed.
@@ -308,8 +263,8 @@ Qed.
 
 Lemma bufs_typed_alt (chans : heap) (Σ : heapT) (ep : endpoint) :
   bufs_typed chans Σ ep.1 ⊣⊢
-  ∃ rest, buf_typed' (chans !! ep) (Σ !! ep) rest ∗
-          buf_typed' (chans !! other ep) (Σ !! other ep) (dual rest).
+  ∃ rest, buf_typed' (chans !! ep) (Σ !! ep) rest (Chan ep.1) ∗
+          buf_typed' (chans !! other ep) (Σ !! other ep) (dual rest) (Chan ep.1).
 Proof.
   destruct ep as [n b].
   iSplit.
@@ -321,35 +276,6 @@ Proof.
     simpl. unfold bufs_typed.
     destruct b; simpl; iExists _; iFrame. rewrite dual_dual. iFrame.
 Qed.
-
-
-(* Lemma bufs_typed_other chans Σ ep :
-  bufs_typed chans Σ ep ⊣⊢ bufs_typed chans Σ (other ep).
-Proof.
-  revert ep.
-  wlog: / (∀ ep, bufs_typed chans Σ ep ⊢ bufs_typed chans Σ (other ep)); last first.
-  { intros H ep.
-    iSplit.
-    - iIntros "H". iApply H. done.
-    - destruct ep as [i []]; simpl; iIntros "H";
-      iDestruct (H with "H") as "H"; simpl; done. }
-  intros H ep. apply H. clear H ep. intros ep.
-  iIntros "H".
-  iDestruct "H" as (rest) "[H1 H2]".
-  iExists (dual rest).
-  rewrite dual_dual other_other.
-  iFrame.
-Qed. *)
-
-(* Lemma bufs_typed_wlog  chans Σ ep b :
-  bufs_typed chans Σ (ep.1, b) ⊢ bufs_typed chans Σ ep.
-Proof.
-  destruct ep as [i b']; simpl.
-  destruct (decide (b = b')); simplify_eq; eauto.
-  iIntros "H".
-  rewrite bufs_typed_other.
-  destruct b,b';simpl;simplify_eq;eauto.
-Qed. *)
 
 Lemma dom_chans_delete {A} (Σ : gmap endpoint A) ep :
   dom_chans (delete ep $ delete (other ep) Σ) = dom_chans Σ ∖ {[ep.1]}.
@@ -478,7 +404,7 @@ Qed.
 
 Lemma heap_typed_send chans Σ t v ep ct :
   Σ !! ep = Some (SendT t ct) ->
-  val_typed v t -∗
+  val_typed v t (Chan ep.1) -∗
   heap_typed chans Σ -∗
   ∃ buf, ⌜⌜  chans !! other ep = Some buf ⌝⌝ ∗
     heap_typed (<[ other ep := buf ++ [v] ]> chans) (<[ ep := ct ]> Σ).
@@ -518,68 +444,11 @@ Proof.
   - done.
 Qed.
 
-(*
-(* TODO:
-  move premise chans !! other ep = Some buf to conclusion using an existential -> DONE
- *)
-
-Lemma heap_typed_send chans Σ t v ep ct buf :
-  chans !! other ep = Some buf ->
-  Σ !! ep = Some (SendT t ct) ->
-  val_typed v t -∗
-  heap_typed chans Σ -∗
-  heap_typed (<[ other ep := buf ++ [v] ]> chans) (<[ ep := ct ]> Σ).
-Proof.
-  iIntros (Hc HΣ) "Hv Ht".
-  iDestruct "Ht" as (Hchans) "Ht".
-  iSplit.
-  - iPureIntro.
-    intros ep'.
-    (* Search is_Some insert.
-    rewrite !lookup_insert_is_Some.
-    destruct (decide (ep = ep')).
-    + subst. rewrite Hchans HΣ !is_Some_alt.
-      destruct ep'. *)
-
-    destruct (decide (ep = ep')).
-    + subst. rewrite !lookup_insert.
-      rewrite lookup_insert_ne. rewrite Hchans. rewrite HΣ.
-      rewrite !is_Some_alt. done. destruct ep'. simpl. destruct b; eauto.
-    + rewrite lookup_insert_ne; eauto. rewrite <-Hchans.
-      destruct (decide (ep' = other ep)).
-      * subst. rewrite lookup_insert. rewrite Hc. rewrite !is_Some_alt. done.
-      * rewrite lookup_insert_ne; eauto.
-  - assert (dom_chans (<[ep:=ct]> Σ) = dom_chans Σ) as -> by admit.
-    assert (ep.1 ∈ dom_chans Σ) by admit.
-    iApply big_sepS_delete; first done.
-    iDestruct (big_sepS_delete with "Ht") as "[Hep H]"; first done.
-    iSplitL "Hep Hv".
-    + iDestruct "Hep" as (rest) "[Hl Hr]".
-      iExists rest.
-      destruct ep as [x b]. simpl.
-      destruct b; simpl in *.
-      * rewrite !lookup_insert.
-        rewrite !lookup_insert_ne; eauto.
-        iFrame. simpl. rewrite Hc. simpl. rewrite HΣ. simpl.
-        admit.
-      * rewrite !lookup_insert.
-        rewrite !lookup_insert_ne; eauto.
-        iFrame. simpl. rewrite Hc. simpl. rewrite HΣ. simpl.
-        admit.
-    + iApply (big_sepS_impl with "H").
-      iModIntro.
-      iIntros (x HH) "H".
-      iDestruct "H" as (rest) "[Hl Hr]".
-      iExists _.
-      destruct ep as [x' b']. assert (x ≠ x') by admit.
-      rewrite !lookup_insert_ne; [iFrame|..]; intro; simplify_eq.
-Admitted. *)
-
 Lemma heap_typed_recv chans Σ t v ep ct buf :
   chans !! ep = Some (v::buf) ->
   Σ !! ep = Some (RecvT t ct) ->
   heap_typed chans Σ -∗
-  heap_typed (<[ ep := buf ]> chans) (<[ ep := ct ]> Σ) ∗ val_typed v t.
+  heap_typed (<[ ep := buf ]> chans) (<[ ep := ct ]> Σ) ∗ val_typed v t (Chan ep.1).
 Proof.
   iIntros (Hc HΣ) "H".
   assert (is_Some (Σ !! ep)).
@@ -747,8 +616,8 @@ Proof.
   iIntros. iApply big_sepS_empty. done.
 Qed.
 
-Lemma pure_step_ptyped e e' t :
-  pure_step e e' -> ptyped ∅ e t -∗ ptyped ∅ e' t.
+Lemma pure_step_ptyped e e' t o :
+  pure_step e e' -> ptyped ∅ e t o -∗ ptyped ∅ e' t o.
 Proof.
   intros Hps.
   iIntros "Ht".
@@ -801,8 +670,8 @@ Proof.
       rewrite lookup_union lookup_singleton lookup_singleton_ne; eauto.
 Qed.
 
-Lemma pure_step_ptyped0 e e' t :
-  pure_step e e' -> ptyped0 e t -∗ ptyped0 e' t.
+Lemma pure_step_ptyped0 e e' t o :
+  pure_step e e' -> ptyped0 e t o -∗ ptyped0 e' t o.
 Proof.
   iIntros (Hs) "Ht".
   iApply ptyped_ptyped0.
@@ -829,9 +698,9 @@ Proof.
   iApply "H". iApply "HP". done.
 Qed.
 
-Lemma typed0_ctx_typed0_iff B k e :
-  ctx k -> ptyped0 (k e) B ⊣⊢
-  ∃ A, ctx_typed0 k A B ∗ ptyped0 e A.
+Lemma typed0_ctx_typed0_iff B k e o:
+  ctx k -> ptyped0 (k e) B o ⊣⊢
+  ∃ A, ctx_typed0 k A B o ∗ ptyped0 e A o.
 Proof.
   intros Hk.
   iIntros.
@@ -865,6 +734,26 @@ Proof.
     iExists x. iFrame.
 Qed.
 
+Lemma val_typed_move_tc Σ c v t i t' :
+  own_auth Σ ∗
+  own c t (Thread i) ∗
+  val_typed v t' (Thread i)
+  ==∗
+  own_auth Σ ∗
+  own c t (Thread i) ∗
+  val_typed v t' (Chan c.1).
+Proof. Admitted.
+
+Lemma val_typed_move_ct Σ c v t i t' :
+  own_auth Σ ∗
+  own c t (Thread i) ∗
+  val_typed v t' (Chan c.1)
+  ==∗
+  own_auth Σ ∗
+  own c t (Thread i) ∗
+  val_typed v t' (Thread i).
+Proof. Admitted.
+
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
   invariant chans threads ==∗
@@ -892,7 +781,7 @@ Proof.
   rewrite (comm (∗)%I).
   rewrite rw_helper2.
 
-  revert H1. clear. intros Hstep. (* clean up the goal *)
+  revert H1 H0. clear. intros Hstep Hi. (* clean up the goal *)
 
   destruct Hstep; simpl;
   repeat (setoid_rewrite (right_id emp%I (∗)%I)).
@@ -900,16 +789,18 @@ Proof.
   - iDestruct "Ht" as (r t' ->) "[H Hv]".
     iDestruct "H" as (r0 [=<-]) "H".
     iDestruct (own_lookup with "[$Hown $H]") as "%".
+    iMod (val_typed_move_tc with "[Hown H Hv]") as "(Hown & H & Hv)"; first by iFrame.
     iDestruct (heap_typed_send with "Hv Hheap") as (buf' HH) "Hsend"; first done.
     iExists (<[ c := r ]> Σ).
     simplify_eq. iFrame.
-    iMod (update with "[$Hown $H]") as "[$ H2]"; eauto.
+    iMod (own_mutate with "[$Hown $H]") as "[$ H2]"; eauto.
   - iDestruct "Ht" as (t' r ->) "Ht".
     iDestruct "Ht" as (r0 HH) "H". simplify_eq.
     iDestruct (own_lookup with "[Hown H]") as "%"; first iFrame.
     iDestruct (heap_typed_recv with "Hheap") as "[Hheap Hv]"; [done..|].
-    iExists _. iFrame.
-    iMod (update with "[Hown H]") as "[H1 H2]"; iFrame. iModIntro.
+    iMod (val_typed_move_ct with "[Hown H Hv]") as "(Hown & H & Hv)"; first by iFrame.
+    iExists _.
+    iMod (own_mutate with "[Hown H]") as "[H1 H2]"; iFrame. iModIntro.
     iExists _,_. iFrame.
     iSplit. done.
     iExists _. iSplit; done.
@@ -917,19 +808,28 @@ Proof.
     iDestruct (own_lookup with "[Hown H]") as %HΣc; first iFrame.
     iDestruct (heap_typed_close with "Hheap") as (HH) "Hheap"; first done.
     iExists (delete c Σ).
-    iMod (deallocate with "[Hown H]"); iFrame.
+    iMod (own_dealloc with "[Hown H]"); iFrame.
     done.
   - iDestruct "Ht" as (r ->) "Hv".
     iAssert (⌜ ∀ x,  Σ !! x = None <-> h !! x = None ⌝)%I as "%".
     { iDestruct (heap_typed_doms_eq with "Hheap") as "%".
       iPureIntro. intros x. rewrite !eq_None_not_Some. naive_solver. }
     iDestruct (heap_typed_fork _ _ _ _ H H0 with "Hheap") as "H".
-    iExists _. iFrame.
-    iMod (allocate with "Hown") as "[Hown H1]".
-    { rewrite H1. exact H0. }
-    iMod (allocate with "Hown") as "[$ H2]".
-    { rewrite lookup_insert_ne // H1 //. }
-    iModIntro. iSplitL "H2"; eauto with iFrame.
+    iExists _. iFrame "H".
+    iMod (own_alloc _ _ (i0,true) Σ r (dual r) with "Hown") as "(Hown & H1 & H2)"; try (by rewrite H1); first last.
+    {
+      (* Move the closure over the channel *)
+      iMod (val_typed_move_tc with "[Hown H1 Hv]") as "(Hown & H1 & Hv)"; simpl; first by iFrame.
+      iMod (val_typed_move_ct with "[Hown H2 Hv]") as "(Hown & H2 & Hv)"; simpl; first by iFrame.
+      (* Build up the invariant again *)
+      iFrame "Hown". simpl.
+      iModIntro.
+      iSplitL "H1"; first by eauto with iFrame.
+      iExists (ChanT (dual r)).
+      iSplitL "Hv"; eauto.
+    }
+    rewrite insert_length.
+    apply lookup_lt_Some in Hi. lia.
 Qed.
 
 Lemma preservationN (threads threads' : list expr) (chans chans' : heap) :
@@ -962,12 +862,12 @@ Proof.
     done.
 Qed.
 
+Definition is_val (e : expr) :=
+  ∃ v, e = Val v.
 Definition head_waiting (e : expr) (h : heap) :=
   ∃ c, e = Recv (Val (ChanV c)) ∧ h !! c = Some [].
 Definition waiting (e : expr) (h : heap) :=
   ∃ e' k, e = k e' ∧ ctx k ∧ head_waiting e' h.
-Definition is_val (e : expr) :=
-  ∃ v, e = Val v.
 Definition head_reducible (e : expr) (h : heap) :=
   ∃ e' h' ts, head_step e h e' h' ts.
 Definition reducible (e : expr) (h : heap) :=
@@ -1007,17 +907,17 @@ Proof.
     apply (Ctx_cons k); done.
 Qed.
 
-Fixpoint val_typed' (v : val) (t : type) : hProp := (* extra argument: owner*)
+Fixpoint val_typed' (v : val) (t : type) (o : owner) : hProp := (* extra argument: owner*)
   match t with
   | UnitT => ⌜⌜ v = UnitV ⌝⌝
   | NatT => ∃ n, ⌜⌜ v = NatV n ⌝⌝
-  | PairT t1 t2 => ∃ a b, ⌜⌜ v = PairV a b ⌝⌝ ∗ val_typed' a t1 ∗ val_typed' b t2
-  | FunT t1 t2 => ∃ x e, ⌜⌜ v = FunV x e ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2
-  | ChanT r => ∃ c, ⌜⌜ v = ChanV c ⌝⌝ ∗ own c r
+  | PairT t1 t2 => ∃ a b, ⌜⌜ v = PairV a b ⌝⌝ ∗ val_typed' a t1 o ∗ val_typed' b t2 o
+  | FunT t1 t2 => ∃ x e, ⌜⌜ v = FunV x e ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2 o
+  | ChanT r => ∃ c, ⌜⌜ v = ChanV c ⌝⌝ ∗ own c r o
   end.
 
-Lemma val_typed_switch v t :
-  val_typed v t ⊣⊢ val_typed' v t.
+Lemma val_typed_switch v t o :
+  val_typed v t o ⊣⊢ val_typed' v t o.
 Proof.
   iIntros. iSplit; iIntros "H".
   - iInduction t as [] "IH" forall (v); simpl; destruct v; simpl;
@@ -1087,10 +987,10 @@ Qed.
 
 Ltac fin := done || by constructor.
 
-Lemma progress1 Σ h e t :
+Lemma progress1 Σ h e t o :
   own_auth Σ -∗
   heap_typed h Σ -∗
-  ptyped0 e t -∗
+  ptyped0 e t o -∗
   ⌜is_val e ∨ waiting_or_reducible e h⌝.
 Proof.
   iIntros "Hown Hheap Ht".
@@ -1204,18 +1104,23 @@ Qed.
 Lemma progress (threads : list expr) (h : heap) e :
   e ∈ threads ->
   invariant h threads -∗
-  ⌜ is_val e ∨ waiting_or_reducible e h ⌝.
+  ⌜ e = Val UnitV ∨ waiting_or_reducible e h ⌝.
 Proof.
   iIntros ([i Hi]%elem_of_list_lookup).
   iDestruct 1 as (Σ) "(Hown & Hthreads & Hheap)".
   iDestruct (big_sepL_delete with "Hthreads") as "[Htyped _]"; first done.
-  iApply (progress1 with "Hown Hheap Htyped").
+  iDestruct (progress1 with "Hown Hheap Htyped") as %H.
+  destruct H; eauto.
+  destruct H. destruct e; simplify_eq. simpl.
+  destruct x; simpl; eauto;
+  repeat iDestruct "Htyped" as (?) "Htyped"; simplify_eq.
+  iDestruct "Htyped" as "%". simplify_eq.
 Qed.
 
 Lemma safety (e0 : expr) (es : list expr) (h : heap) :
   typed ∅ e0 UnitT ->
   steps [e0] ∅ es h ->
-  ∀ e, e ∈ es -> is_val e ∨ waiting_or_reducible e h.
+  ∀ e, e ∈ es -> e = Val UnitV ∨ waiting_or_reducible e h.
 Proof.
   intros Htypes Hsteps e' He'.
   apply simple_adequacy.
@@ -1225,36 +1130,73 @@ Proof.
   iApply invariant_init; eauto.
 Qed.
 
-(*
-What is leak freedom? (Coq)
-What is type safety? (uPred)
-What is type safety? (Coq)
-What is progress? (uPred)
-*)
+Definition final (es : list expr) (h : heap) :=
+  (∀ e, e ∈ es -> e = Val UnitV) ∧ h = ∅.
+Definition can_step (es : list expr) (h : heap) :=
+  ∃ es' h', step es h es' h'.
+Definition stopped (es : list expr) (h : heap) :=
+  ∀ e, e ∈ es -> waiting e h ∨ e = Val UnitV.
+Definition deadlock (es : list expr) (h : heap) :=
+  stopped es h ∧ ∃ e, e ∈ es ∧ waiting e h.
+
+Instance val_unit_eq_decision e : Decision (e = Val UnitV).
+Proof.
+  destruct e; first (destruct v); first (left; done); right; intro; simplify_eq.
+Qed.
+Instance waiting_decision e h : Decision (waiting e h).
+Proof.
+Admitted.
+Instance stopped_decision es h : Decision (stopped es h).
+Proof.
+  unfold stopped. eapply dec_forall_list.
+Admitted.
+Instance deadlock_decision es h : Decision (deadlock es h).
+Proof. Admitted.
 
 
+Lemma list_dec {A} (xs : list A) (P : A -> Prop) :
+  (∀ x, Decision (P x)) ->
+  (∀ x, x ∈ xs -> P x) ∨ (∃ x, x ∈ xs ∧ ¬ P x).
+Proof.
+  intros Hdec.
+  assert (Decision (∃ x, x ∈ xs ∧ ¬ P x)) as [H|H]; eauto.
+  { eapply dec_exists_list. naive_solver.
+    intros x. specialize (Hdec x). intro.
+    destruct Hdec.
+    - right. intros []. done.
+    - left. done. }
+  left. intros x Hx.
+  destruct (decide (P x)); eauto.
+  exfalso. apply H. eauto.
+Qed.
 
-  (*
-  invariant : list expr -> heap -> Prop
-  invariant' : list expr -> heap -> hProp
-  invariant es h := ∃ Σ, invariant' es h Σ
+Lemma invariant_implies_stopped_or_can_step h es :
+  invariant h es -∗
+  ⌜ stopped es h ∨ can_step es h ⌝.
+Proof.
+  iIntros "Hinv".
+  destruct (decide (stopped es h)) as [H|H]; eauto.
+  unfold stopped in H.
+  assert (∃ e, e∈es ∧ ¬ waiting e h ∧ e ≠ Val UnitV) as HH.
+  { destruct (list_dec es (λ e, waiting e h ∨ e = Val UnitV));
+    (solve_decision || naive_solver). }
+  destruct HH as (e & Hes & Hw & Hv).
+  iDestruct (progress with "Hinv") as %HH; eauto.
+  destruct HH as [?|[?|HH]]; simplify_eq; eauto.
+  iPureIntro. right.
+  unfold reducible in HH.
+  destruct HH as (e' & h' & ts & Hs).
+  rewrite ->elem_of_list_lookup in Hes.
+  destruct Hes as (i & Hi).
+  unfold can_step.
+  exists (<[ i := e' ]> es ++ ts), h'.
+  econstructor; eauto.
+Qed.
 
-  init : typed ∅ e UnitT -> invariant [e] []
-  preservation : step es1 h1 es2 h2 -> invariant es1 h1 -> invariant es2 h2
-  progress : invariant es1 h1 -> (final es1 h1) ∨ ∃ es2 h2, step es1 h1 es2 h2
-  final es h := (∀ e, e∈es -> is_value e) ∧ ∀ b, b∈h -> b = []
+Lemma deadlock_and_leak_freedom (e0 : expr) (es : list expr) (h : heap) :
+  typed ∅ e0 UnitT ->
+  steps [e0] ∅ es h ->
+  final es h ∨ can_step es h.
+Proof.
 
-  GOAL:
-  type_safety :
-    typed ∅ e UnitT ->
-    steps [e] [] es h ->
-    (final es h) ∨ ∃ es2 h2, step es h es2 h2
-
-  1. Deadlock freedom for session types
-  2. Deadlock freedom for locks + session types
-  3. Program logic for deadlock freedom
-     a) 1&2 als logical relation
-     b) put forests in the hProp
-
-  Conferences: LICS, ICFP, POPL
-  *)
+Admitted.

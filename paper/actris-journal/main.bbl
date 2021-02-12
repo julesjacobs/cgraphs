@@ -1,0 +1,795 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{63}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{}, \showDOI{}, and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showDOI}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showDOI #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showDOI      \undefined \def \showDOI       #1{#1}\fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[\protect\citeauthoryear{America and Rutten}{America and
+  Rutten}{1989}]%
+        {america-JCSS1989}
+\bibfield{author}{\bibinfo{person}{Pierre America} {and} \bibinfo{person}{Jan
+  J. M.~M. Rutten}.} \bibinfo{year}{1989}\natexlab{}.
+\newblock \showarticletitle{Solving Reflexive Domain Equations in a Category of
+  Complete Metric Spaces}.
+\newblock \bibinfo{journal}{\emph{JCSS}} \bibinfo{volume}{39},
+  \bibinfo{number}{3} (\bibinfo{year}{1989}), \bibinfo{pages}{343--375}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Appel}{Appel}{2014}]%
+        {appel2014vst}
+\bibfield{author}{\bibinfo{person}{Andrew~W. Appel}.}
+  \bibinfo{year}{2014}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Program Logics for Certified Compilers}}.
+\newblock \bibinfo{publisher}{Cambridge University Press}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Atkey, Lindley, and Morris}{Atkey
+  et~al\mbox{.}}{2016}]%
+        {atkey2016}
+\bibfield{author}{\bibinfo{person}{Robert Atkey}, \bibinfo{person}{Sam
+  Lindley}, {and} \bibinfo{person}{J.~Garrett Morris}.}
+  \bibinfo{year}{2016}\natexlab{}.
+\newblock \showarticletitle{Conflation Confers Concurrency}. In
+  \bibinfo{booktitle}{\emph{Essays Dedicated to Philip Wadler on the Occasion
+  of His 60th Birthday}}. \bibinfo{pages}{32--55}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Balzer and Pfenning}{Balzer and
+  Pfenning}{2017}]%
+        {balzer-PACMPL2017}
+\bibfield{author}{\bibinfo{person}{Stephanie Balzer} {and}
+  \bibinfo{person}{Frank Pfenning}.} \bibinfo{year}{2017}\natexlab{}.
+\newblock \showarticletitle{Manifest Sharing with Session Types}.
+\newblock \bibinfo{journal}{\emph{{PACMPL}}} \bibinfo{volume}{1},
+  \bibinfo{number}{{ICFP}} (\bibinfo{year}{2017}),
+  \bibinfo{pages}{37:1--37:29}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Balzer, Toninho, and Pfenning}{Balzer
+  et~al\mbox{.}}{2019}]%
+        {balzer-ESOP2019}
+\bibfield{author}{\bibinfo{person}{Stephanie Balzer}, \bibinfo{person}{Bernardo
+  Toninho}, {and} \bibinfo{person}{Frank Pfenning}.}
+  \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{{Manifest Deadlock-Freedom for Shared Session
+  Types}}. In \bibinfo{booktitle}{\emph{ESOP}}. \bibinfo{pages}{611--639}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Birkedal and Bizjak}{Birkedal and
+  Bizjak}{2020}]%
+        {lecturenotes}
+\bibfield{author}{\bibinfo{person}{Lars Birkedal} {and}
+  \bibinfo{person}{Ale\v{s} Bizjak}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \bibinfo{title}{Lecture Notes on Iris: Higher-Order Concurrent
+  Separation Logic}.
+\newblock
+  \bibinfo{howpublished}{\url{https://iris-project.org/tutorial-material.html}}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Birkedal, M{\o}gelberg, Schwinghammer, and
+  St{\o}vring}{Birkedal et~al\mbox{.}}{2012}]%
+        {birkedal-LMCS2012}
+\bibfield{author}{\bibinfo{person}{Lars Birkedal},
+  \bibinfo{person}{Rasmus~Ejlers M{\o}gelberg}, \bibinfo{person}{Jan
+  Schwinghammer}, {and} \bibinfo{person}{Kristian St{\o}vring}.}
+  \bibinfo{year}{2012}\natexlab{}.
+\newblock \showarticletitle{First Steps in Synthetic Guarded Domain Theory:
+  Step-Indexing in the Topos of Trees}.
+\newblock \bibinfo{journal}{\emph{LMCS}} \bibinfo{volume}{8},
+  \bibinfo{number}{4} (\bibinfo{year}{2012}).
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Birkedal, St{\o}vring, and Thamsborg}{Birkedal
+  et~al\mbox{.}}{2010}]%
+        {birkedal-TCS2010}
+\bibfield{author}{\bibinfo{person}{Lars Birkedal}, \bibinfo{person}{Kristian
+  St{\o}vring}, {and} \bibinfo{person}{Jacob Thamsborg}.}
+  \bibinfo{year}{2010}\natexlab{}.
+\newblock \showarticletitle{The Category-Theoretic Solution of Recursive
+  Metric-Space Equations}.
+\newblock \bibinfo{journal}{\emph{TCS}} \bibinfo{volume}{411},
+  \bibinfo{number}{47} (\bibinfo{year}{2010}), \bibinfo{pages}{4102--4122}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Bizjak, Gratzer, Krebbers, and
+  Birkedal}{Bizjak et~al\mbox{.}}{2019}]%
+        {bizjak-PACMPL2019}
+\bibfield{author}{\bibinfo{person}{Ales Bizjak}, \bibinfo{person}{Daniel
+  Gratzer}, \bibinfo{person}{Robbert Krebbers}, {and} \bibinfo{person}{Lars
+  Birkedal}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Iron: Managing Obligations in Higher-Order
+  Concurrent Separation Logic}.
+\newblock \bibinfo{journal}{\emph{{PACMPL}}} \bibinfo{volume}{3},
+  \bibinfo{number}{{POPL}} (\bibinfo{year}{2019}),
+  \bibinfo{pages}{65:1--65:30}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Bocchi, Honda, Tuosto, and Yoshida}{Bocchi
+  et~al\mbox{.}}{2010}]%
+        {bocchi-CONCUR2010}
+\bibfield{author}{\bibinfo{person}{Laura Bocchi}, \bibinfo{person}{Kohei
+  Honda}, \bibinfo{person}{Emilio Tuosto}, {and} \bibinfo{person}{Nobuko
+  Yoshida}.} \bibinfo{year}{2010}\natexlab{}.
+\newblock \showarticletitle{A Theory of Design-by-Contract for Distributed
+  Multiparty Interactions}. In \bibinfo{booktitle}{\emph{{CONCUR}}}.
+  \bibinfo{pages}{162--176}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Brandt and Henglein}{Brandt and
+  Henglein}{1998}]%
+        {DBLP:journals/fuin/BrandtH98}
+\bibfield{author}{\bibinfo{person}{Michael Brandt} {and} \bibinfo{person}{Fritz
+  Henglein}.} \bibinfo{year}{1998}\natexlab{}.
+\newblock \showarticletitle{Coinductive Axiomatization of Recursive Type
+  Equality and Subtyping}.
+\newblock \bibinfo{journal}{\emph{Fundamenta Informaticae}}
+  \bibinfo{volume}{33}, \bibinfo{number}{4} (\bibinfo{year}{1998}),
+  \bibinfo{pages}{309--338}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{{Coq Development Team}}{{Coq Development
+  Team}}{2020}]%
+        {coq}
+\bibfield{author}{\bibinfo{person}{{Coq Development Team}}.}
+  \bibinfo{year}{2020}\natexlab{}.
+\newblock \bibinfo{title}{The {Coq} Proof Assistant Reference Manual, Version
+  8.12.0}.  (\bibinfo{year}{2020}).
+\newblock
+\urldef\tempurl%
+\url{https://coq.inria.fr/distrib/current/refman/}
+\showURL{%
+\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Costea, Chin, Qin, and Craciun}{Costea
+  et~al\mbox{.}}{2018}]%
+        {costea-APLAS2018}
+\bibfield{author}{\bibinfo{person}{Andreea Costea}, \bibinfo{person}{Wei{-}Ngan
+  Chin}, \bibinfo{person}{Shengchao Qin}, {and} \bibinfo{person}{Florin
+  Craciun}.} \bibinfo{year}{2018}\natexlab{}.
+\newblock \showarticletitle{Automated Modular Verification for Relaxed
+  Communication Protocols}. In \bibinfo{booktitle}{\emph{APLAS}}.
+  \bibinfo{pages}{284--305}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Craciun, Kiss, and Costea}{Craciun
+  et~al\mbox{.}}{2015}]%
+        {cracium-ICECCS2015}
+\bibfield{author}{\bibinfo{person}{Florin Craciun}, \bibinfo{person}{Tibor
+  Kiss}, {and} \bibinfo{person}{Andreea Costea}.}
+  \bibinfo{year}{2015}\natexlab{}.
+\newblock \showarticletitle{Towards a Session Logic for Communication
+  Protocols}. In \bibinfo{booktitle}{\emph{ICECCS}}. \bibinfo{pages}{140--149}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{da~Rocha~Pinto, Dinsdale{-}Young, and
+  Gardner}{da~Rocha~Pinto et~al\mbox{.}}{2014}]%
+        {pinto-ECOOP2014}
+\bibfield{author}{\bibinfo{person}{Pedro da Rocha~Pinto},
+  \bibinfo{person}{Thomas Dinsdale{-}Young}, {and} \bibinfo{person}{Philippa
+  Gardner}.} \bibinfo{year}{2014}\natexlab{}.
+\newblock \showarticletitle{TaDA: {A} Logic for Time and Data Abstraction}. In
+  \bibinfo{booktitle}{\emph{ECOOP}}. \bibinfo{pages}{207--231}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Dardha, Giachino, and Sangiorgi}{Dardha
+  et~al\mbox{.}}{2012}]%
+        {dardha-PPDP2012}
+\bibfield{author}{\bibinfo{person}{Ornela Dardha}, \bibinfo{person}{Elena
+  Giachino}, {and} \bibinfo{person}{Davide Sangiorgi}.}
+  \bibinfo{year}{2012}\natexlab{}.
+\newblock \showarticletitle{Session Types Revisited}. In
+  \bibinfo{booktitle}{\emph{PPDP}}. \bibinfo{pages}{139--150}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Dean and Ghemawat}{Dean and Ghemawat}{2004}]%
+        {dean-OSDI2004}
+\bibfield{author}{\bibinfo{person}{Jeffrey Dean} {and} \bibinfo{person}{Sanjay
+  Ghemawat}.} \bibinfo{year}{2004}\natexlab{}.
+\newblock \showarticletitle{MapReduce: Simplified Data Processing on Large
+  Clusters}. In \bibinfo{booktitle}{\emph{{OSDI}}}. \bibinfo{pages}{137--150}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Francalanza, Rathke, and Sassone}{Francalanza
+  et~al\mbox{.}}{2011}]%
+        {francalanza-LMCS2011}
+\bibfield{author}{\bibinfo{person}{Adrian Francalanza}, \bibinfo{person}{Julian
+  Rathke}, {and} \bibinfo{person}{Vladimiro Sassone}.}
+  \bibinfo{year}{2011}\natexlab{}.
+\newblock \showarticletitle{Permission-Based Separation Logic for
+  Message-Passing Concurrency}.
+\newblock \bibinfo{journal}{\emph{LMCS}} \bibinfo{volume}{7},
+  \bibinfo{number}{3} (\bibinfo{year}{2011}).
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Gay}{Gay}{2016}]%
+        {DBLP:conf/birthday/Gay16}
+\bibfield{author}{\bibinfo{person}{Simon~J. Gay}.}
+  \bibinfo{year}{2016}\natexlab{}.
+\newblock \showarticletitle{Subtyping Supports Safe Session Substitution}. In
+  \bibinfo{booktitle}{\emph{A List of Successes That Can Change the World -
+  Essays Dedicated to Philip Wadler on the Occasion of His 60th Birthday}}.
+  \bibinfo{pages}{95--108}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Gay and Hole}{Gay and Hole}{2005}]%
+        {DBLP:journals/acta/GayH05}
+\bibfield{author}{\bibinfo{person}{Simon~J. Gay} {and} \bibinfo{person}{Malcolm
+  Hole}.} \bibinfo{year}{2005}\natexlab{}.
+\newblock \showarticletitle{Subtyping for Session Types in the pi Calculus}.
+\newblock \bibinfo{journal}{\emph{Acta Informatica}} \bibinfo{volume}{42},
+  \bibinfo{number}{2-3} (\bibinfo{year}{2005}), \bibinfo{pages}{191--225}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Gay, Thiemann, and Vasconcelos}{Gay
+  et~al\mbox{.}}{2020}]%
+        {DBLP:journals/corr/abs-2004-01322}
+\bibfield{author}{\bibinfo{person}{Simon~J. Gay}, \bibinfo{person}{Peter
+  Thiemann}, {and} \bibinfo{person}{Vasco~T. Vasconcelos}.}
+  \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Duality of Session Types: The Final Cut}. In
+  \bibinfo{booktitle}{\emph{{PLACES}}} \emph{(\bibinfo{series}{EPTCS})},
+  Vol.~\bibinfo{volume}{314}. \bibinfo{pages}{23--33}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Giarrusso, Stefanesco, Timany, Birkedal, and
+  Krebbers}{Giarrusso et~al\mbox{.}}{2020}]%
+        {giarrusso-ICFP2020}
+\bibfield{author}{\bibinfo{person}{Paolo~G. Giarrusso},
+  \bibinfo{person}{L{\'{e}}o Stefanesco}, \bibinfo{person}{Amin Timany},
+  \bibinfo{person}{Lars Birkedal}, {and} \bibinfo{person}{Robbert Krebbers}.}
+  \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Scala Step-by-Step: Soundness for {DOT} with
+  Step-Indexed Logical Relations in {I}ris}.
+\newblock \bibinfo{journal}{\emph{PACMPL}} \bibinfo{volume}{4},
+  \bibinfo{number}{{ICFP}} (\bibinfo{year}{2020}),
+  \bibinfo{pages}{114:1--114:29}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Hamin and Jacobs}{Hamin and Jacobs}{2019}]%
+        {hamin-ECOOP2019}
+\bibfield{author}{\bibinfo{person}{Jafar Hamin} {and} \bibinfo{person}{Bart
+  Jacobs}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Transferring Obligations Through Synchronizations}.
+  In \bibinfo{booktitle}{\emph{{ECOOP}}}. \bibinfo{pages}{19:1--19:58}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Hewitt, Bishop, and Steiger}{Hewitt
+  et~al\mbox{.}}{1973}]%
+        {hewitt_IJCAI1973}
+\bibfield{author}{\bibinfo{person}{Carl Hewitt}, \bibinfo{person}{Peter
+  Bishop}, {and} \bibinfo{person}{Richard Steiger}.}
+  \bibinfo{year}{1973}\natexlab{}.
+\newblock \showarticletitle{{A Universal Modular ACTOR Formalism for Artificial
+  Intelligence}}. In \bibinfo{booktitle}{\emph{IJCAI}}.
+  \bibinfo{pages}{235--245}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Hinrichsen, Bengtson, and Krebbers}{Hinrichsen
+  et~al\mbox{.}}{2020a}]%
+        {DBLP:journals/pacmpl/HinrichsenBK20}
+\bibfield{author}{\bibinfo{person}{Jonas~Kastberg Hinrichsen},
+  \bibinfo{person}{Jesper Bengtson}, {and} \bibinfo{person}{Robbert Krebbers}.}
+  \bibinfo{year}{2020}\natexlab{a}.
+\newblock \showarticletitle{Actris: Session-type Based Reasoning in Separation
+  Logic}.
+\newblock \bibinfo{journal}{\emph{PACMPL}} \bibinfo{volume}{4},
+  \bibinfo{number}{{POPL}} (\bibinfo{year}{2020}), \bibinfo{pages}{6:1--6:30}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Hinrichsen, Bengtson, and Krebbers}{Hinrichsen
+  et~al\mbox{.}}{2020b}]%
+        {actris_coq}
+\bibfield{author}{\bibinfo{person}{Jonas~Kastberg Hinrichsen},
+  \bibinfo{person}{Jesper Bengtson}, {and} \bibinfo{person}{Robbert Krebbers}.}
+  \bibinfo{year}{2020}\natexlab{b}.
+\newblock \bibinfo{title}{Coq Mechanization of Actris}.
+\newblock
+\newblock
+\newblock
+\shownote{Available online at
+  \url{https://gitlab.mpi-sws.org/iris/actris/-/tree/lmcs}.}
+
+
+\bibitem[\protect\citeauthoryear{Hinrichsen, Louwrink, Bengtson, and
+  Krebbers}{Hinrichsen et~al\mbox{.}}{2020c}]%
+        {actris-logrel}
+\bibfield{author}{\bibinfo{person}{Jonas~Kastberg Hinrichsen},
+  \bibinfo{person}{Dani\"{e}l Louwrink}, \bibinfo{person}{Jesper Bengtson},
+  {and} \bibinfo{person}{Robbert Krebbers}.} \bibinfo{year}{2020}\natexlab{c}.
+\newblock \bibinfo{title}{Machine Checked Semantic Session Typing}.
+  (\bibinfo{year}{2020}).
+\newblock
+\newblock
+\shownote{Manuscript under submission.}
+
+
+\bibitem[\protect\citeauthoryear{Honda, Vasconcelos, and Kubo}{Honda
+  et~al\mbox{.}}{1998}]%
+        {honda-ESOP1998}
+\bibfield{author}{\bibinfo{person}{Kohei Honda},
+  \bibinfo{person}{Vasco~Thudichum Vasconcelos}, {and} \bibinfo{person}{Makoto
+  Kubo}.} \bibinfo{year}{1998}\natexlab{}.
+\newblock \showarticletitle{Language Primitives and Type Discipline for
+  Structured Communication-Based Programming}. In
+  \bibinfo{booktitle}{\emph{{ESOP}}}. \bibinfo{pages}{122--138}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Honda, Yoshida, and Carbone}{Honda
+  et~al\mbox{.}}{2008}]%
+        {honda-POPL2008}
+\bibfield{author}{\bibinfo{person}{Kohei Honda}, \bibinfo{person}{Nobuko
+  Yoshida}, {and} \bibinfo{person}{Marco Carbone}.}
+  \bibinfo{year}{2008}\natexlab{}.
+\newblock \showarticletitle{Multiparty Asynchronous Session Types}. In
+  \bibinfo{booktitle}{\emph{{POPL}}}. \bibinfo{pages}{273--284}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Hu, Kouzapas, Pernet, Yoshida, and Honda}{Hu
+  et~al\mbox{.}}{2010}]%
+        {hu-ECOOP2010}
+\bibfield{author}{\bibinfo{person}{Raymond Hu}, \bibinfo{person}{Dimitrios
+  Kouzapas}, \bibinfo{person}{Olivier Pernet}, \bibinfo{person}{Nobuko
+  Yoshida}, {and} \bibinfo{person}{Kohei Honda}.}
+  \bibinfo{year}{2010}\natexlab{}.
+\newblock \showarticletitle{Type-Safe Eventful Sessions in Java}. In
+  \bibinfo{booktitle}{\emph{ECOOP}}. \bibinfo{pages}{21--25}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Imai, Yoshida, and Yuen}{Imai
+  et~al\mbox{.}}{2019}]%
+        {imai-soCP2019}
+\bibfield{author}{\bibinfo{person}{Keigo Imai}, \bibinfo{person}{Nobuko
+  Yoshida}, {and} \bibinfo{person}{Shoji Yuen}.}
+  \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Session-OCaml: A Session-Based Library with
+  Polarities and Lenses}.
+\newblock \bibinfo{journal}{\emph{Science of Computer Programming}}
+  \bibinfo{volume}{172} (\bibinfo{year}{2019}), \bibinfo{pages}{135--159}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Jung, Jourdan, Krebbers, and Dreyer}{Jung
+  et~al\mbox{.}}{2018a}]%
+        {jung-POPL2018}
+\bibfield{author}{\bibinfo{person}{Ralf Jung}, \bibinfo{person}{Jacques{-}Henri
+  Jourdan}, \bibinfo{person}{Robbert Krebbers}, {and} \bibinfo{person}{Derek
+  Dreyer}.} \bibinfo{year}{2018}\natexlab{a}.
+\newblock \showarticletitle{RustBelt: Securing the Foundations of the Rust
+  Programming Language}.
+\newblock \bibinfo{journal}{\emph{{PACMPL}}} \bibinfo{volume}{2},
+  \bibinfo{number}{{POPL}} (\bibinfo{year}{2018}),
+  \bibinfo{pages}{66:1--66:34}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Jung, Krebbers, Birkedal, and Dreyer}{Jung
+  et~al\mbox{.}}{2016}]%
+        {jung-ICFP06}
+\bibfield{author}{\bibinfo{person}{Ralf Jung}, \bibinfo{person}{Robbert
+  Krebbers}, \bibinfo{person}{Lars Birkedal}, {and} \bibinfo{person}{Derek
+  Dreyer}.} \bibinfo{year}{2016}\natexlab{}.
+\newblock \showarticletitle{Higher-Order Ghost State}. In
+  \bibinfo{booktitle}{\emph{{ICFP}}}. \bibinfo{pages}{256--269}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Jung, Krebbers, Jourdan, Bizjak, Birkedal, and
+  Dreyer}{Jung et~al\mbox{.}}{2018b}]%
+        {jung-JFP2018}
+\bibfield{author}{\bibinfo{person}{Ralf Jung}, \bibinfo{person}{Robbert
+  Krebbers}, \bibinfo{person}{Jacques{-}Henri Jourdan}, \bibinfo{person}{Ales
+  Bizjak}, \bibinfo{person}{Lars Birkedal}, {and} \bibinfo{person}{Derek
+  Dreyer}.} \bibinfo{year}{2018}\natexlab{b}.
+\newblock \showarticletitle{Iris From the Ground Up: {A} Modular Foundation for
+  Higher-Order Concurrent Separation Logic}.
+\newblock \bibinfo{journal}{\emph{JFP}}  \bibinfo{volume}{28}
+  (\bibinfo{year}{2018}), \bibinfo{pages}{e20}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Jung, Swasey, Sieczkowski, Svendsen, Turon,
+  Birkedal, and Dreyer}{Jung et~al\mbox{.}}{2015}]%
+        {jung-POPL2015}
+\bibfield{author}{\bibinfo{person}{Ralf Jung}, \bibinfo{person}{David Swasey},
+  \bibinfo{person}{Filip Sieczkowski}, \bibinfo{person}{Kasper Svendsen},
+  \bibinfo{person}{Aaron Turon}, \bibinfo{person}{Lars Birkedal}, {and}
+  \bibinfo{person}{Derek Dreyer}.} \bibinfo{year}{2015}\natexlab{}.
+\newblock \showarticletitle{Iris: Monoids and Invariants as an Orthogonal Basis
+  for Concurrent Reasoning}. In \bibinfo{booktitle}{\emph{POPL}}.
+  \bibinfo{pages}{637--650}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Kobayashi}{Kobayashi}{2006}]%
+        {kobayashi-CONCUR2016}
+\bibfield{author}{\bibinfo{person}{Naoki Kobayashi}.}
+  \bibinfo{year}{2006}\natexlab{}.
+\newblock \showarticletitle{A New Type System for Deadlock-Free Processes}. In
+  \bibinfo{booktitle}{\emph{CONCUR}}. \bibinfo{pages}{233--247}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Kobayashi, Pierce, and Turner}{Kobayashi
+  et~al\mbox{.}}{1996}]%
+        {kobayashi-POPL1996}
+\bibfield{author}{\bibinfo{person}{Naoki Kobayashi},
+  \bibinfo{person}{Benjamin~C. Pierce}, {and} \bibinfo{person}{David~N.
+  Turner}.} \bibinfo{year}{1996}\natexlab{}.
+\newblock \showarticletitle{Linearity and the pi-Calculus}. In
+  \bibinfo{booktitle}{\emph{POPL}}. \bibinfo{pages}{358--371}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Krebbers, Jourdan, Jung, Tassarotti, Kaiser,
+  Timany, Chargu{\'{e}}raud, and Dreyer}{Krebbers et~al\mbox{.}}{2018}]%
+        {krebbers-PACMPL2018}
+\bibfield{author}{\bibinfo{person}{Robbert Krebbers},
+  \bibinfo{person}{Jacques{-}Henri Jourdan}, \bibinfo{person}{Ralf Jung},
+  \bibinfo{person}{Joseph Tassarotti}, \bibinfo{person}{Jan{-}Oliver Kaiser},
+  \bibinfo{person}{Amin Timany}, \bibinfo{person}{Arthur Chargu{\'{e}}raud},
+  {and} \bibinfo{person}{Derek Dreyer}.} \bibinfo{year}{2018}\natexlab{}.
+\newblock \showarticletitle{MoSeL: A General, Extensible Modal Framework for
+  Interactive Proofs in Separation Logic}.
+\newblock \bibinfo{journal}{\emph{{PACMPL}}} \bibinfo{volume}{2},
+  \bibinfo{number}{{ICFP}} (\bibinfo{year}{2018}),
+  \bibinfo{pages}{77:1--77:30}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Krebbers, Jung, Bizjak, Jourdan, Dreyer, and
+  Birkedal}{Krebbers et~al\mbox{.}}{2017a}]%
+        {krebbers-ESOP2017}
+\bibfield{author}{\bibinfo{person}{Robbert Krebbers}, \bibinfo{person}{Ralf
+  Jung}, \bibinfo{person}{Ales Bizjak}, \bibinfo{person}{Jacques{-}Henri
+  Jourdan}, \bibinfo{person}{Derek Dreyer}, {and} \bibinfo{person}{Lars
+  Birkedal}.} \bibinfo{year}{2017}\natexlab{a}.
+\newblock \showarticletitle{The Essence of Higher-Order Concurrent Separation
+  Logic}. In \bibinfo{booktitle}{\emph{{ESOP}}}. \bibinfo{pages}{696--723}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Krebbers, Timany, and Birkedal}{Krebbers
+  et~al\mbox{.}}{2017b}]%
+        {krebbers-POPL2017}
+\bibfield{author}{\bibinfo{person}{Robbert Krebbers}, \bibinfo{person}{Amin
+  Timany}, {and} \bibinfo{person}{Lars Birkedal}.}
+  \bibinfo{year}{2017}\natexlab{b}.
+\newblock \showarticletitle{Interactive Proofs in Higher-Order Concurrent
+  Separation Logic}. In \bibinfo{booktitle}{\emph{POPL}}.
+  \bibinfo{pages}{205--217}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Krogh{-}Jespersen, Timany, Ohlenbusch,
+  Gregersen, and Birkedal}{Krogh{-}Jespersen et~al\mbox{.}}{2020}]%
+        {krogh-jespersen}
+\bibfield{author}{\bibinfo{person}{Morten Krogh{-}Jespersen},
+  \bibinfo{person}{Amin Timany}, \bibinfo{person}{Marit~Edna Ohlenbusch},
+  \bibinfo{person}{Simon~Oddershede Gregersen}, {and} \bibinfo{person}{Lars
+  Birkedal}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Aneris: {A} Mechanised Logic for Modular Reasoning
+  about Distributed Systems}. In \bibinfo{booktitle}{\emph{ESOP}}.
+  \bibinfo{pages}{336--365}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Lange, Ng, Toninho, and Yoshida}{Lange
+  et~al\mbox{.}}{2018}]%
+        {lange-ICSE2018}
+\bibfield{author}{\bibinfo{person}{Julien Lange}, \bibinfo{person}{Nicholas
+  Ng}, \bibinfo{person}{Bernardo Toninho}, {and} \bibinfo{person}{Nobuko
+  Yoshida}.} \bibinfo{year}{2018}\natexlab{}.
+\newblock \showarticletitle{A Static Verification Framework for Message Passing
+  in Go Using Behavioural Types}.
+\newblock \bibinfo{journal}{\emph{ICSE}} (\bibinfo{year}{2018}),
+  \bibinfo{pages}{1137--1148}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Lozes and Villard}{Lozes and Villard}{2012}]%
+        {villard-ICE2012}
+\bibfield{author}{\bibinfo{person}{{\'{E}}tienne Lozes} {and}
+  \bibinfo{person}{Jules Villard}.} \bibinfo{year}{2012}\natexlab{}.
+\newblock \showarticletitle{Shared Contract-Obedient Endpoints}. In
+  \bibinfo{booktitle}{\emph{{ICE}}}. \bibinfo{pages}{17--31}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Mansky, Appel, and Nogin}{Mansky
+  et~al\mbox{.}}{2017}]%
+        {mansky-OOPSLA2017}
+\bibfield{author}{\bibinfo{person}{William Mansky}, \bibinfo{person}{Andrew~W.
+  Appel}, {and} \bibinfo{person}{Aleksey Nogin}.}
+  \bibinfo{year}{2017}\natexlab{}.
+\newblock \showarticletitle{A Verified Messaging System}.
+\newblock \bibinfo{journal}{\emph{{PACMPL}}} \bibinfo{volume}{1},
+  \bibinfo{number}{{OOPSLA}} (\bibinfo{year}{2017}),
+  \bibinfo{pages}{87:1--87:28}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{March{\'{e}}, Paulin{-}Mohring, and
+  Urbain}{March{\'{e}} et~al\mbox{.}}{2004}]%
+        {marche-JLAP2004}
+\bibfield{author}{\bibinfo{person}{Claude March{\'{e}}},
+  \bibinfo{person}{Christine Paulin{-}Mohring}, {and} \bibinfo{person}{Xavier
+  Urbain}.} \bibinfo{year}{2004}\natexlab{}.
+\newblock \showarticletitle{The {KRAKATOA} Tool for Certification of
+  {JAVA/JAVACARD} Programs Annotated in {JML}}.
+\newblock \bibinfo{journal}{\emph{JLP}} \bibinfo{number}{1-2}
+  (\bibinfo{year}{2004}), \bibinfo{pages}{89--106}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Mostrous and Vasconcelos}{Mostrous and
+  Vasconcelos}{2014}]%
+        {mostrous-COORDINATION2014}
+\bibfield{author}{\bibinfo{person}{Dimitris Mostrous} {and}
+  \bibinfo{person}{Vasco~Thudichum Vasconcelos}.}
+  \bibinfo{year}{2014}\natexlab{}.
+\newblock \showarticletitle{Affine Sessions}. In
+  \bibinfo{booktitle}{\emph{{COORDINATION}}}. \bibinfo{pages}{115--130}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Mostrous and Yoshida}{Mostrous and
+  Yoshida}{2015}]%
+        {mostrous-InfComput2015}
+\bibfield{author}{\bibinfo{person}{Dimitris Mostrous} {and}
+  \bibinfo{person}{Nobuko Yoshida}.} \bibinfo{year}{2015}\natexlab{}.
+\newblock \showarticletitle{Session Typing and Asynchronous Subtyping for the
+  Higher-Order {\(\pi\)}-Calculus}.
+\newblock \bibinfo{journal}{\emph{Information and Computation}}
+  \bibinfo{volume}{241} (\bibinfo{year}{2015}), \bibinfo{pages}{227--263}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Mostrous, Yoshida, and Honda}{Mostrous
+  et~al\mbox{.}}{2009}]%
+        {mostrous-ESOP2009}
+\bibfield{author}{\bibinfo{person}{Dimitris Mostrous}, \bibinfo{person}{Nobuko
+  Yoshida}, {and} \bibinfo{person}{Kohei Honda}.}
+  \bibinfo{year}{2009}\natexlab{}.
+\newblock \showarticletitle{Global Principal Typing in Partially Commutative
+  Asynchronous Sessions}. In \bibinfo{booktitle}{\emph{{ESOP}}}.
+  \bibinfo{pages}{316--332}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Nakano}{Nakano}{2000}]%
+        {nakano-LICS2000}
+\bibfield{author}{\bibinfo{person}{Hiroshi Nakano}.}
+  \bibinfo{year}{2000}\natexlab{}.
+\newblock \showarticletitle{A Modality for Recursion}. In
+  \bibinfo{booktitle}{\emph{{LICS}}}. \bibinfo{pages}{255--266}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Nanevski, Ley{-}Wild, Sergey, and
+  Delbianco}{Nanevski et~al\mbox{.}}{2014}]%
+        {nanevski-ESOP2014}
+\bibfield{author}{\bibinfo{person}{Aleksandar Nanevski}, \bibinfo{person}{Ruy
+  Ley{-}Wild}, \bibinfo{person}{Ilya Sergey}, {and}
+  \bibinfo{person}{Germ{\'{a}}n~Andr{\'{e}}s Delbianco}.}
+  \bibinfo{year}{2014}\natexlab{}.
+\newblock \showarticletitle{Communicating State Transition Systems for
+  Fine-Grained Concurrent Resources}. In \bibinfo{booktitle}{\emph{ESOP}}.
+  \bibinfo{pages}{290--310}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Ono, Hirai, Tanabe, Noda, and Hagiya}{Ono
+  et~al\mbox{.}}{2011}]%
+        {ono-SEFM2011}
+\bibfield{author}{\bibinfo{person}{Kosuke Ono}, \bibinfo{person}{Yoichi Hirai},
+  \bibinfo{person}{Yoshinori Tanabe}, \bibinfo{person}{Natsuko Noda}, {and}
+  \bibinfo{person}{Masami Hagiya}.} \bibinfo{year}{2011}\natexlab{}.
+\newblock \showarticletitle{Using Coq in Specification and Program Extraction
+  of Hadoop MapReduce Applications}. In \bibinfo{booktitle}{\emph{SEFM}}.
+  \bibinfo{pages}{350--365}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Oortwijn, Blom, and Huisman}{Oortwijn
+  et~al\mbox{.}}{2016}]%
+        {oortwijn-PLACES2016}
+\bibfield{author}{\bibinfo{person}{Wytse Oortwijn}, \bibinfo{person}{Stefan
+  Blom}, {and} \bibinfo{person}{Marieke Huisman}.}
+  \bibinfo{year}{2016}\natexlab{}.
+\newblock \showarticletitle{Future-based Static Analysis of Message Passing
+  Programs}. In \bibinfo{booktitle}{\emph{PLACES}}. \bibinfo{pages}{65--72}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Padovani}{Padovani}{2014}]%
+        {padovani-CSL2014}
+\bibfield{author}{\bibinfo{person}{Luca Padovani}.}
+  \bibinfo{year}{2014}\natexlab{}.
+\newblock \showarticletitle{Deadlock and Lock Freedom in the Linear
+  $\pi$-Calculus}. In \bibinfo{booktitle}{\emph{CSL}}.
+  \bibinfo{pages}{72:1--72:10}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Padovani}{Padovani}{2017}]%
+        {padovani-JFP2017}
+\bibfield{author}{\bibinfo{person}{Luca Padovani}.}
+  \bibinfo{year}{2017}\natexlab{}.
+\newblock \showarticletitle{A Simple Library Implementation of Binary
+  Sessions}.
+\newblock \bibinfo{journal}{\emph{JFP}} \bibinfo{volume}{27},
+  \bibinfo{number}{2010} (\bibinfo{year}{2017}), \bibinfo{pages}{e4}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Sergey, Wilcox, and Tatlock}{Sergey
+  et~al\mbox{.}}{2018}]%
+        {sergey-POPL2018}
+\bibfield{author}{\bibinfo{person}{Ilya Sergey}, \bibinfo{person}{James~R.
+  Wilcox}, {and} \bibinfo{person}{Zachary Tatlock}.}
+  \bibinfo{year}{2018}\natexlab{}.
+\newblock \showarticletitle{Programming and Proving with Distributed
+  Protocols}.
+\newblock \bibinfo{journal}{\emph{{PACMPL}}} \bibinfo{volume}{2},
+  \bibinfo{number}{{POPL}} (\bibinfo{year}{2018}),
+  \bibinfo{pages}{28:1--28:30}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Svendsen and Birkedal}{Svendsen and
+  Birkedal}{2014}]%
+        {svendsen-ESOP2014}
+\bibfield{author}{\bibinfo{person}{Kasper Svendsen} {and} \bibinfo{person}{Lars
+  Birkedal}.} \bibinfo{year}{2014}\natexlab{}.
+\newblock \showarticletitle{Impredicative Concurrent Abstract Predicates}. In
+  \bibinfo{booktitle}{\emph{{ESOP}}}. \bibinfo{pages}{149--168}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Svendsen, Sieczkowski, and Birkedal}{Svendsen
+  et~al\mbox{.}}{2016}]%
+        {DBLP:conf/esop/SvendsenSB16}
+\bibfield{author}{\bibinfo{person}{Kasper Svendsen}, \bibinfo{person}{Filip
+  Sieczkowski}, {and} \bibinfo{person}{Lars Birkedal}.}
+  \bibinfo{year}{2016}\natexlab{}.
+\newblock \showarticletitle{Transfinite Step-Indexing: Decoupling Concrete and
+  Logical Steps}. In \bibinfo{booktitle}{\emph{ESOP}}.
+  \bibinfo{pages}{727--751}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Swamy, Rastogi, Fromherz, Merigoux, Ahman, and
+  Mart{\'{\i}}nez}{Swamy et~al\mbox{.}}{2020}]%
+        {DBLP:journals/pacmpl/SwamyRFMAM20}
+\bibfield{author}{\bibinfo{person}{Nikhil Swamy}, \bibinfo{person}{Aseem
+  Rastogi}, \bibinfo{person}{Aymeric Fromherz}, \bibinfo{person}{Denis
+  Merigoux}, \bibinfo{person}{Danel Ahman}, {and} \bibinfo{person}{Guido
+  Mart{\'{\i}}nez}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{{SteelCore}: An Extensible Concurrent Separation
+  Logic for Effectful Dependently Typed Programs}.
+\newblock \bibinfo{journal}{\emph{PACMPL}} \bibinfo{volume}{4},
+  \bibinfo{number}{{ICFP}} (\bibinfo{year}{2020}),
+  \bibinfo{pages}{121:1--121:30}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Tasharofi, Dinges, and Johnson}{Tasharofi
+  et~al\mbox{.}}{2013}]%
+        {tasharofi-ECOOP2013}
+\bibfield{author}{\bibinfo{person}{Samira Tasharofi}, \bibinfo{person}{Peter
+  Dinges}, {and} \bibinfo{person}{Ralph~E. Johnson}.}
+  \bibinfo{year}{2013}\natexlab{}.
+\newblock \showarticletitle{Why Do Scala Developers Mix the Actor Model with
+  Other Concurrency Models?}. In \bibinfo{booktitle}{\emph{{ECOOP}}}.
+  \bibinfo{pages}{302--326}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Tassarotti, Jung, and Harper}{Tassarotti
+  et~al\mbox{.}}{2017}]%
+        {tassarotti-ESOP2017}
+\bibfield{author}{\bibinfo{person}{Joseph Tassarotti}, \bibinfo{person}{Ralf
+  Jung}, {and} \bibinfo{person}{Robert Harper}.}
+  \bibinfo{year}{2017}\natexlab{}.
+\newblock \showarticletitle{A Higher-Order Logic for Concurrent
+  Termination-Preserving Refinement}. In \bibinfo{booktitle}{\emph{{ESOP}}}.
+  \bibinfo{pages}{909--936}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Thiemann and Vasconcelos}{Thiemann and
+  Vasconcelos}{2020}]%
+        {DBLP:journals/pacmpl/ThiemannV20}
+\bibfield{author}{\bibinfo{person}{Peter Thiemann} {and}
+  \bibinfo{person}{Vasco~T. Vasconcelos}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Label-Dependent Session Types}.
+\newblock \bibinfo{journal}{\emph{PACMPL}} \bibinfo{volume}{4},
+  \bibinfo{number}{{POPL}} (\bibinfo{year}{2020}),
+  \bibinfo{pages}{67:1--67:29}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Tu, Liu, Song, and Zhang}{Tu
+  et~al\mbox{.}}{2019}]%
+        {tu-ASPLOS2019}
+\bibfield{author}{\bibinfo{person}{Tengfei Tu}, \bibinfo{person}{Xiaoyu Liu},
+  \bibinfo{person}{Linhai Song}, {and} \bibinfo{person}{Yiying Zhang}.}
+  \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Understanding Real-World Concurrency Bugs in Go}.
+  In \bibinfo{booktitle}{\emph{ASPLOS}}. \bibinfo{pages}{865--878}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Villard, Lozes, and Calcagno}{Villard
+  et~al\mbox{.}}{2009}]%
+        {villard-APLAS2009}
+\bibfield{author}{\bibinfo{person}{Jules Villard},
+  \bibinfo{person}{{\'{E}}tienne Lozes}, {and} \bibinfo{person}{Cristiano
+  Calcagno}.} \bibinfo{year}{2009}\natexlab{}.
+\newblock \showarticletitle{Proving Copyless Message Passing}. In
+  \bibinfo{booktitle}{\emph{APLAS}}. \bibinfo{pages}{194--209}.
+\newblock
+
+
+\end{thebibliography}

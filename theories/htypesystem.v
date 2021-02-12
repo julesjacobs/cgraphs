@@ -5,59 +5,220 @@ From iris.proofmode Require Import tactics.
 Require Export diris.langdef.
 Require Export diris.logic.bi.
 Require Import diris.util.
+Ltac inv H := inversion H; clear H; simpl in *; simplify_eq.
 
-Canonical Structure chan_typeO := leibnizO chan_type.
-
-(*
 Inductive owner :=
   | Thread : nat -> owner
-  | Chan : endpoint -> owner.
+  | Chan : chan -> owner.
 
-Notation heapT := (gmap endpoint (chan_type * owner)).
+Canonical Structure chan_typeO := leibnizO (chan_type * owner).
 
-Σ : heapT
-G : graph owner
-
-(ep ↦ (t, w)) <-> (ep, w) ∈ G
-
-*)
 Notation heapT := (gmap endpoint chan_type).
+Notation heapTO := (gmap endpoint (chan_type * owner)).
 Notation heapTUR := (gmapUR endpoint (exclR chan_typeO)).
 
-(* ⌜ . ⌝ : Prop -> hProp
-   ⌜ p ⌝ := λ Σ, p
-   ⌜⌜ p ⌝⌝ := λ Σ, Σ = ∅ ∧ p *)
 Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 
 Notation hProp := (uPred heapTUR).
 
-Definition own (l : endpoint) (t : chan_type) : hProp :=
-  uPred_ownM (◯ {[ l := Excl t ]}).
+Definition own (l : endpoint) (t : chan_type) (o : owner) : hProp :=
+  uPred_ownM (◯ {[ l := Excl (t,o) ]}).
+
+Definition acyclic : heapTO -> Prop. Admitted.
+Definition related : heapTO -> heapT -> Prop. Admitted.
 
 Definition own_auth (h : heapT) : hProp :=
-  uPred_ownM (● (Excl <$> h)).
+  ∃ Δ, ⌜⌜ acyclic Δ ∧ related Δ h ⌝⌝ ∗ uPred_ownM (● (Excl <$> Δ)).
+
+Lemma own_lookup Σ l t o :
+  own_auth Σ ∗ own l t o -∗ ⌜ Σ !! l = Some t ⌝.
+Proof. Admitted.
+
+Lemma own_dealloc Σ l t o :
+  own_auth Σ ∗ own l t o ==∗ own_auth (delete l Σ).
+Proof. Admitted.
+
+Lemma own_alloc (i i' : nat) (l : endpoint) (Σ : heapT) (t t' : chan_type) :
+  i ≠ i' →
+  Σ !! l = None →
+  Σ !! other l = None →
+  own_auth Σ ==∗
+     own_auth (<[l:=t]> $ <[other l:=t']> Σ) ∗
+     own l t (Thread i) ∗ own (other l) t' (Thread i').
+Proof. Admitted.
+
+Lemma own_mutate Σ l t t' o :
+  own_auth Σ ∗ own l t o ==∗ own_auth (<[l:=t']> Σ) ∗ own l t' o.
+Proof. Admitted.
+
+Lemma own_move_tc Σ c t i t' l :
+  own_auth Σ ∗
+  own c t (Thread i) ∗
+  own l t' (Thread i)
+  ==∗
+  own_auth Σ ∗
+  own c t (Thread i) ∗
+  own l t' (Chan c.1).
+Proof. Admitted.
+
+Lemma own_move_ct Σ c t i t' l :
+  own_auth Σ ∗
+  own c t (Thread i) ∗
+  own l t' (Chan c.1)
+  ==∗
+  own_auth Σ ∗
+  own c t (Thread i) ∗
+  own l t' (Thread i).
+Proof. Admitted.
 
 
-Lemma own_ownM Σ l t : own_auth Σ ∗ own l t ⊣⊢ uPred_ownM (● (Excl <$> Σ) ⋅ ◯ {[ l := Excl t ]}).
+(*
+Operations we need:
+===================
+Σ : gmap endpoint chan_type
+
+own_auth Σ :=
+  ∃ Δ : gmap endpoint (chan_type * owner), uPred_ownM (● Δ) ∗ acyclic (mk_graph Δ) ∗ related Σ Δ
+
+own_auth Σ ∗ own l t o -∗ own_auth (delete l Σ)                               -- for close
+own_auth Σ ∗ own l t o -∗ ⌜ Σ !! l = Some t ⌝                                 -- used many times in the proof
+
+Σ !! l = None → Σ !! other l = None → own_auth Σ ⊢ |==> own_auth (<[l:=t]> Σ) ∗ own l t (Thread i)           -- for fork (alloc)
+
+i ≠ i' → Σ !! other l = None → own_auth Σ ∗ own l t (Thread i) ⊢
+  |==> own_auth (<[other l:=t]> Σ) ∗ own l t (Thread i) ∗ own (other l) t (Thread i')           -- for fork (alloc)
+
+
+Σ !! l = None →
+Σ !! other l = None →
+i ≠ i' →
+own_auth Σ ⊢
+  |==> own_auth (<[l:=t]> <[other l:= t']> Σ) ∗
+       own l t (Thread i) ∗ own (other l) t' (Thread i')
+
+
+
+own_auth Σ ∗ own l t o ⊢ |==> own_auth (<[l:=t']> Σ) ∗ own l t' o             -- for send/recv (updating the type)
+
+
+"connected o o'" ∗ own_auth Σ ∗ own l t o ⊢ |==> own_auth Σ ∗ own l t o'        -- for moving resources to a new owner (fork/send/recv)
+
+SEND:
+
+l
+|
+i --- c
+
+      l
+      |
+i --- c
+
+own_auth Σ
+own (c,b) t (Thread i)
+own l t' (Thread i)
+==∗
+own_auth Σ
+own (c,b) t (Thread i)
+own l t' (Chan c)
+
+RECV:
+
+
+      l
+      |
+i --- c
+
+l
+|
+i --- c
+
+own_auth Σ
+own (c,b) t (Thread i)
+own l t' (Chan c)
+==∗
+own_auth Σ
+own (c,b) t (Thread i)
+own l t' (Thread i)
+
+FORK:
+
+F
+|
+i -- c -- i'
+
+          F
+          |
+i -- c -- i'
+
+SEND+RECV
+
+
+
+(own_auth ∅ ⊢ |==> ⌜ φ ⌝) → φ                                                 -- simple adequacy for safety
+(own_auth ∅ ⊢ |==> ∃ Σ2, own_auth Σ2 ∧ ⌜ φ Σ2 ⌝) → φ ∅                        -- adequacy for leak freedom
+adequacy for deadlocks??
+
+Definition invariant (chans : heap) (threads : list expr) : hProp :=
+  ∃ Σ, own_auth Σ ∗
+       ([∗ list] id↦e∈threads, ptyped0 e UnitT (Thread id)) ∗
+       heap_typed chans Σ.
+
+Leak freedom:
+
+Definition invariant (chans : heap) (threads : list expr) : hProp :=
+  ∃ Σ, own_auth Σ ∗
+       heap_typed chans Σ.
+
+heap_typed chans Σ -∗ ∃ stuff, [∗ stuff'] s, own [..] (Chan c)
+
+We want to have (only channels exist -> contradiction).
+
+M(P) := λ x, global_valid x ∧ P x
+G := λ x, global_valid x
+M(P) := G ∧ P
+
+M(own_auth ∅) ⊢ M(|==> ∃ Σ, own_auth Σ ∗ stuff(Σ))
+
+Possibilities:
+1) Use current adequacy lemma for uPred_ownM
+  a) Find new adequacy lemma for uPred auth
+2) Use more internal version (like Iron)
+3) Use Iron
+
+*)
+
+Lemma strong_adequacy {A : ucmraT} (φ : A -> A -> Prop) :
+  (uPred_ownM (● ε) ⊢ |==> ∃ x y, uPred_ownM (● x ⋅ ◯ y) ∧ ⌜ φ x y ⌝) → ∃ x, φ x x.
+Proof.
+Admitted.
+
+Lemma P_to_own_frag {A : ucmraT} (x : A) (P : uPred A) :
+  uPred_ownM (● x) ∗ P ⊢ ∃ y, uPred_ownM (● x ⋅ ◯ y).
+Proof.
+Admitted.
+
+
+(* Lemma own_ownM Σ l t o : own_auth Σ ∗ own l t o ⊣⊢ uPred_ownM (● (Excl <$> Σ) ⋅ ◯ {[ l := Excl (t,o) ]}).
 Proof.
   unfold own, own_auth.
   rewrite <- uPred.ownM_op. done.
-Qed.
+Qed. *)
 
-Lemma own_lookup l t Σ :
-  own_auth Σ ∗ own l t ⊢ ⌜ Σ !! l = Some t ⌝.
+(* Lemma own_lookup l t o Σ :
+  own_auth Σ ∗ own l t o ⊢ ⌜ Σ !! l = Some (t,o) ⌝.
 Proof.
   rewrite own_ownM.
   rewrite uPred.ownM_valid.
   rewrite uPred.discrete_valid.
   iIntros "%". iPureIntro.
   apply auth_both_valid_discrete in H as [].
-  apply singleton_included_exclusive_l in H; last done; last apply _.
+  Check singleton_included_exclusive_l.
+Admitted. *)
+  (* apply singleton_included_exclusive_l in H; last done; last apply _.
   rewrite lookup_fmap in H.
   destruct (Σ !! l) eqn:E; simpl in *; simplify_eq. done.
-Qed.
+Qed. *)
 
-Ltac inv H := inversion H; clear H; simpl in *; simplify_eq.
 
 Lemma auth_update {A:ucmraT} (a b a' b' : A) :
   Cancelable a →
@@ -107,28 +268,19 @@ Proof.
   by rewrite right_id.
 Qed.
 
-Lemma allocate Σ l t :
+(* Lemma allocate Σ l t o :
   Σ !! l = None →
-  own_auth Σ ⊢ |==> own_auth (<[l:=t]> Σ) ∗ own l t.
+  own_auth Σ ⊢ |==> own_auth (<[l:=(t,o)]> Σ) ∗ own l t o.
 Proof.
   intros H.
   rewrite own_ownM.
   apply uPred.bupd_ownM_update.
   apply auth_update_alloc; first apply _.
   rewrite fmap_insert.
+Admitted. *)
+  (* Check alloc_singleton_local_update.
   apply alloc_singleton_local_update; last done.
   by rewrite lookup_fmap H.
-Qed.
-
-(* Definition local_update {A : cmra} (x y : A * A) := ∀ n mz,
-  ✓{n} x.1 → x.1 ≡{n}≡ x.2 ⋅? mz → ✓{n} y.1 ∧ y.1 ≡{n}≡ y.2 ⋅? mz. *)
-(*
-Lemma auth_update a b a' b' :
-  (a,b) ~l~> (a',b') → ● a ⋅ ◯ b ~~> ● a' ⋅ ◯ b'.
-Proof.
-  intros Hup. apply view_update=> n bf [[bf' Haeq] Hav].
-  destruct (Hup n (Some (bf ⋅ bf'))); simpl in *; [done|by rewrite assoc|].
-  split; [|done]. exists bf'. by rewrite -assoc.
 Qed. *)
 
 Lemma auth_update_dealloc {A:ucmraT} (a b a' : A) :
@@ -141,8 +293,8 @@ Proof.
   by rewrite right_id.
 Qed.
 
-Lemma deallocate Σ l t :
-  own_auth Σ ∗ own l t ⊢ |==> own_auth (delete l Σ).
+(* Lemma deallocate Σ l t o :
+  own_auth Σ ∗ own l t o ⊢ |==> own_auth (delete l Σ).
 Proof.
   iIntros "H".
   iDestruct (own_lookup with "H") as "%".
@@ -151,11 +303,12 @@ Proof.
   apply uPred.bupd_ownM_update.
   apply auth_update_dealloc; first apply _.
   rewrite fmap_delete.
+Admitted.
   apply delete_singleton_local_update_cancelable; first apply _.
   rewrite lookup_fmap. rewrite H. done.
-Qed.
+Qed. *)
 
-Lemma update Σ l t t' :
+(* Lemma update Σ l t t' :
   own_auth Σ ∗ own l t ⊢
   |==> own_auth (<[l:=t']> Σ) ∗ own l t'.
 Proof.
@@ -165,9 +318,10 @@ Proof.
     by apply fin_maps.insert_delete.
   iApply allocate. { apply lookup_delete. }
   iApply deallocate. iFrame.
-Qed.
+Qed. *)
 
-Lemma adequacy φ :
+
+(* Lemma adequacy φ :
   (own_auth ∅ ⊢ |==> ∃ Σ2, own_auth Σ2 ∧ ⌜ φ Σ2 ⌝) → φ ∅.
 Proof.
   unfold own_auth.
@@ -198,7 +352,7 @@ Proof.
     apply (discrete _) in R2.
     apply leibniz_equiv_iff in R2.
     by apply (fmap_empty_inv Excl) in R2 as ->.
-Qed.
+Qed. *)
 
 Lemma auth_global_valid_auth {A : ucmraT} n :
   auth_global_valid n (● (ε : A)).
@@ -209,65 +363,65 @@ Qed.
 
 Lemma simple_adequacy φ :
   (own_auth ∅ ⊢ |==> ⌜ φ ⌝) → φ.
-Proof.
-  unfold own_auth.
+Proof. Admitted.
+  (* unfold own_auth.
   apply uPred.ownM_simple_soundness.
   rewrite fmap_empty.
   apply: auth_global_valid_auth.
-Qed.
+Qed. *)
 
-Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
+Fixpoint ptyped (Γ : envT) (e : expr) (t : type) (o : owner) : hProp :=
  match e with
   | Val v =>
-      ⌜⌜ Γ = ∅ ⌝⌝ ∗ val_typed v t
+      ⌜⌜ Γ = ∅ ⌝⌝ ∗ val_typed v t o
   | Var x =>
       ⌜⌜ Γ = {[ x := t ]} ⌝⌝
   | App e1 e2 => ∃ t' Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-      ptyped Γ1 e1 (FunT t' t) ∗
-      ptyped Γ2 e2 t'
+      ptyped Γ1 e1 (FunT t' t) o ∗
+      ptyped Γ2 e2 t' o
   | Lam x e => ∃ t1 t2,
       ⌜⌜ t = FunT t1 t2 ∧ Γ !! x = None ⌝⌝ ∗
-      ptyped (Γ ∪ {[ x := t1 ]}) e t2
+      ptyped (Γ ∪ {[ x := t1 ]}) e t2 o
   | Send e1 e2 => ∃ r t' Γ1 Γ2,
       ⌜⌜ t = ChanT r ∧ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-      ptyped Γ1 e1 (ChanT (SendT t' r)) ∗
-      ptyped Γ2 e2 t'
+      ptyped Γ1 e1 (ChanT (SendT t' r)) o ∗
+      ptyped Γ2 e2 t' o
   | Recv e => ∃ t' r,
       ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗
-      ptyped Γ e (ChanT (RecvT t' r))
+      ptyped Γ e (ChanT (RecvT t' r)) o
   | Let x e1 e2 => ∃ (t' : type) (Γ1 Γ2 : envT),
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ∧ Γ2 !! x = None ⌝⌝ ∗
-      ptyped Γ1 e1 t' ∗
-      ptyped (Γ2 ∪ {[ x := t' ]}) e2 t
+      ptyped Γ1 e1 t' o ∗
+      ptyped (Γ2 ∪ {[ x := t' ]}) e2 t o
   | LetUnit e1 e2 => ∃ Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-      ptyped Γ1 e1 UnitT ∗
-      ptyped Γ2 e2 t
+      ptyped Γ1 e1 UnitT o ∗
+      ptyped Γ2 e2 t o
   | LetProd x1 x2 e1 e2 => ∃ t1 t2 Γ1 Γ2,
       ⌜⌜ x1 ≠ x2 ∧ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ∧ Γ2 !! x1 = None ∧ Γ2 !! x2 = None  ⌝⌝ ∗
-      ptyped Γ1 e1 (PairT t1 t2) ∗
-      ptyped (Γ2 ∪ {[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
+      ptyped Γ1 e1 (PairT t1 t2) o ∗
+      ptyped (Γ2 ∪ {[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t o
   | If e1 e2 e3 => ∃ Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-      ptyped Γ1 e1 NatT ∗
-      (ptyped Γ2 e2 t ∧ ptyped Γ2 e3 t)
+      ptyped Γ1 e1 NatT o ∗
+      (ptyped Γ2 e2 t o ∧ ptyped Γ2 e3 t o)
   | Fork e => ∃ r,
       ⌜⌜ t = ChanT r ⌝⌝ ∗
-      ptyped Γ e (FunT (ChanT (dual r)) UnitT)
+      ptyped Γ e (FunT (ChanT (dual r)) UnitT) o
   | Close e =>
-      ⌜⌜ t = UnitT ⌝⌝ ∗ ptyped Γ e (ChanT EndT)
+      ⌜⌜ t = UnitT ⌝⌝ ∗ ptyped Γ e (ChanT EndT) o
   end
-with val_typed (v : val) (t : type) : hProp := (* extra argument: owner*)
+with val_typed (v : val) (t : type) (o : owner) : hProp := (* extra argument: owner*)
   match v with
   | UnitV => ⌜⌜ t = UnitT ⌝⌝
   | NatV n => ⌜⌜ t = NatT ⌝⌝
-  | PairV a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
-  | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2
-  | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own c r (* own c r owner *)
+  | PairV a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 o ∗ val_typed b t2 o
+  | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2 o
+  | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own c r o (* own c r owner *)
   end.
 
-Lemma typed_ptyped Γ e t : ⌜⌜ typed Γ e t ⌝⌝ -∗ ptyped Γ e t.
+Lemma typed_ptyped Γ e t o : ⌜⌜ typed Γ e t ⌝⌝ -∗ ptyped Γ e t o.
 Proof.
   iIntros "%".
   iInduction H as [] "IH"; simpl;
@@ -301,9 +455,9 @@ Ltac foo := simpl; repeat iMatchHyp (fun H P =>
   | ⌜⌜ _ ⌝⌝%I => iDestruct H as %?
   end); simplify_map_eq.
 
-Lemma typed_no_var_subst e Γ t x v :
+Lemma typed_no_var_subst e Γ t x v o :
   Γ !! x = None ->
-  ptyped Γ e t -∗
+  ptyped Γ e t o -∗
   ⌜ subst x v e = e ⌝.
 Proof.
   iIntros (Hx) "Ht".
@@ -384,11 +538,11 @@ Proof.
   rewrite (delete_notin a x); solve_map_disjoint.
 Qed.
 
-Lemma subst_ptyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) :
+Lemma subst_ptyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) (o : owner):
   Γ !! x = Some vT ->
-  val_typed v vT -∗
-  ptyped Γ e eT -∗
-  ptyped (delete x Γ) (subst x v e) eT.
+  val_typed v vT o -∗
+  ptyped Γ e eT o -∗
+  ptyped (delete x Γ) (subst x v e) eT o.
 Proof.
   iIntros (H) "Hv He".
   iInduction e as [?|?|?|?|?|?|?|?|?|?|?|?] "IH" forall (eT Γ H); simpl.
@@ -610,43 +764,43 @@ Qed. *)
 
 (* ptyped with empty environment *)
 
-Fixpoint ptyped0 (e : expr) (t : type) : hProp :=
+Fixpoint ptyped0 (e : expr) (t : type) (o : owner): hProp :=
  match e with
   | Val v =>
-      val_typed v t
+      val_typed v t o
   | Var x =>
       False
   | App e1 e2 => ∃ t',
-      ptyped0 e1 (FunT t' t) ∗
-      ptyped0 e2 t'
+      ptyped0 e1 (FunT t' t) o ∗
+      ptyped0 e2 t' o
   | Lam x e => ∃ t1 t2,
       ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗
-      ptyped {[ x := t1 ]} e t2
+      ptyped {[ x := t1 ]} e t2 o
   | Send e1 e2 => ∃ r t',
       ⌜⌜ t = ChanT r⌝⌝ ∗
-      ptyped0 e1 (ChanT (SendT t' r)) ∗
-      ptyped0 e2 t'
+      ptyped0 e1 (ChanT (SendT t' r)) o ∗
+      ptyped0 e2 t' o
   | Recv e => ∃ t' r,
       ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗
-      ptyped0 e (ChanT (RecvT t' r))
+      ptyped0 e (ChanT (RecvT t' r)) o
   | Let x e1 e2 => ∃ (t' : type),
-      ptyped0 e1 t' ∗
-      ptyped {[ x := t' ]} e2 t
+      ptyped0 e1 t' o ∗
+      ptyped {[ x := t' ]} e2 t o
   | LetUnit e1 e2 =>
-      ptyped0 e1 UnitT ∗
-      ptyped0 e2 t
+      ptyped0 e1 UnitT o ∗
+      ptyped0 e2 t o
   | LetProd x1 x2 e1 e2 => ∃ t1 t2,
       ⌜⌜ x1 ≠ x2 ⌝⌝ ∗
-      ptyped0 e1 (PairT t1 t2) ∗
-      ptyped ({[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
+      ptyped0 e1 (PairT t1 t2) o ∗
+      ptyped ({[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t o
   | If e1 e2 e3 =>
-      ptyped0 e1 NatT ∗
-      (ptyped0 e2 t ∧ ptyped0 e3 t)
+      ptyped0 e1 NatT o ∗
+      (ptyped0 e2 t o ∧ ptyped0 e3 t o)
   | Fork e => ∃ r,
       ⌜⌜ t = ChanT r ⌝⌝ ∗
-      ptyped0 e (FunT (ChanT (dual r)) UnitT)
+      ptyped0 e (FunT (ChanT (dual r)) UnitT) o
   | Close e =>
-      ⌜⌜ t = UnitT ⌝⌝ ∗ ptyped0 e (ChanT EndT)
+      ⌜⌜ t = UnitT ⌝⌝ ∗ ptyped0 e (ChanT EndT) o
  end.
 
 Lemma both_emp (A B : envT) : ∅ = A ∪ B -> A = ∅ ∧ B = ∅.
@@ -660,8 +814,8 @@ Proof.
   done.
 Qed.
 
-Lemma ptyped_ptyped0 e t :
-  ptyped ∅ e t -∗ ptyped0 e t.
+Lemma ptyped_ptyped0 e t o :
+  ptyped ∅ e t o -∗ ptyped0 e t o.
 Proof.
   iIntros "H".
   iInduction e as [] "IH" forall (t); simpl.
@@ -719,8 +873,8 @@ Proof.
   - iDestruct "H" as "[? H]". iFrame. iApply "IH". done.
 Qed.
 
-Lemma ptyped0_ptyped e t :
-  ptyped0 e t -∗ ptyped ∅ e t.
+Lemma ptyped0_ptyped e t o :
+  ptyped0 e t o -∗ ptyped ∅ e t o.
 Proof.
   iIntros "H".
   iInduction e as [] "IH" forall (t); simpl.
@@ -783,13 +937,13 @@ Qed.
 
 
 Definition ctx_typed0 (k : expr -> expr)
-                     (A : type) (B : type) : hProp :=
+                     (A : type) (B : type) (o : owner) : hProp :=
     ∀ e,
-      ptyped0 e A -∗
-      ptyped0 (k e) B.
+      ptyped0 e A o -∗
+      ptyped0 (k e) B o.
 
-Lemma ctx_subst0 k A B e :
-  ctx_typed0 k A B -∗ ptyped0 e A -∗ ptyped0 (k e) B.
+Lemma ctx_subst0 k A B e o :
+  ctx_typed0 k A B o -∗ ptyped0 e A o -∗ ptyped0 (k e) B o.
 Proof.
   iIntros "Hctx Htyped".
   unfold ctx_typed0.
@@ -807,9 +961,9 @@ Proof.
   iApply ptyped0_ptyped. done.
 Qed. *)
 
-Lemma typed0_ctx1_typed0 B k e :
-  ctx1 k -> ptyped0 (k e) B -∗
-  ∃ A, ctx_typed0 k A B ∗ ptyped0 e A.
+Lemma typed0_ctx1_typed0 B k e o :
+  ctx1 k -> ptyped0 (k e) B o -∗
+  ∃ A, ctx_typed0 k A B o ∗ ptyped0 e A o.
 Proof.
   iIntros (Hctx) "H".
   destruct Hctx; simpl;
@@ -821,9 +975,9 @@ Proof.
   try iPureIntro; eauto.
 Qed.
 
-Lemma typed0_ctx_typed0 B k e :
-  ctx k -> ptyped0 (k e) B -∗
-  ∃ A, ctx_typed0 k A B ∗ ptyped0 e A.
+Lemma typed0_ctx_typed0 B k e o :
+  ctx k -> ptyped0 (k e) B o -∗
+  ∃ A, ctx_typed0 k A B o ∗ ptyped0 e A o.
 Proof.
   iIntros (Hctx) "H".
   iInduction Hctx as [] "IH" forall (B).

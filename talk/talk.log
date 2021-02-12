@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020) (preloaded format=pdflatex 2020.12.18)  4 FEB 2021 11:42
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020) (preloaded format=pdflatex 2020.12.18)  11 FEB 2021 09:59
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -861,7 +861,11 @@ Overfull \hbox (82.05316pt too wide) in paragraph at lines 21--30
 ]
 \openout4 = `talk.vrb'.
 
- (/Users/jules/git/diris/talk/talk.vrb) [5
+ (/Users/jules/git/diris/talk/talk.vrb)
+Overfull \vbox (4.32796pt too high) detected at line 206
+ []
+
+[5
 
 ]
 \openout4 = `talk.vrb'.
@@ -872,7 +876,7 @@ Overfull \hbox (82.05316pt too wide) in paragraph at lines 21--30
 \openout4 = `talk.vrb'.
 
  (/Users/jules/git/diris/talk/talk.vrb)
-Overfull \vbox (5.93625pt too high) detected at line 274
+Overfull \vbox (5.93625pt too high) detected at line 277
  []
 
 [7
@@ -886,7 +890,7 @@ Overfull \hbox (0.91556pt too wide) in paragraph at lines 20--21
  []
 
 )
-Overfull \vbox (7.67882pt too high) detected at line 310
+Overfull \vbox (7.67882pt too high) detected at line 313
  []
 
 [8
@@ -960,7 +964,7 @@ LaTeX Font Warning: Font shape `OT1/cmss/m/sc' in size <10> not available
 \openout4 = `talk.vrb'.
 
  (/Users/jules/git/diris/talk/talk.vrb)
-Overfull \vbox (3.50378pt too high) detected at line 635
+Overfull \vbox (3.50378pt too high) detected at line 638
  []
 
 [20
@@ -968,17 +972,34 @@ Overfull \vbox (3.50378pt too high) detected at line 635
 ]
 \openout4 = `talk.vrb'.
 
- (/Users/jules/git/diris/talk/talk.vrb) [21
+ (/Users/jules/git/diris/talk/talk.vrb)
+Overfull \vbox (57.22882pt too high) detected at line 676
+ []
+
+[21
 
 ]
 \openout4 = `talk.vrb'.
 
- (/Users/jules/git/diris/talk/talk.vrb) [22
+ (/Users/jules/git/diris/talk/talk.vrb)
+Overfull \vbox (133.81567pt too high) detected at line 708
+ []
+
+[22
 
 ]
 \openout4 = `talk.vrb'.
 
- (/Users/jules/git/diris/talk/talk.vrb) [23
+ (/Users/jules/git/diris/talk/talk.vrb
+Overfull \hbox (10.10892pt too wide) in paragraph at lines 44--44
+[]      \OT1/cmtt/m/n/10.95 "G := sym_closure ({ (ep.1, owner) : \Sigma !! ep = Some (owner,t) })"[] 
+ []
+
+)
+Overfull \vbox (460.21582pt too high) detected at line 764
+ []
+
+[23
 
 ]
 \openout4 = `talk.vrb'.
@@ -1001,6 +1022,16 @@ Overfull \vbox (3.50378pt too high) detected at line 635
  (/Users/jules/git/diris/talk/talk.vrb) [27
 
 ]
+\openout4 = `talk.vrb'.
+
+ (/Users/jules/git/diris/talk/talk.vrb) [28
+
+]
+\openout4 = `talk.vrb'.
+
+ (/Users/jules/git/diris/talk/talk.vrb) [29
+
+]
 \tf@nav=\write8
 \openout8 = `talk.nav'.
 
@@ -1010,27 +1041,27 @@ Overfull \vbox (3.50378pt too high) detected at line 635
 \tf@snm=\write10
 \openout10 = `talk.snm'.
 
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 967.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 967.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 1071.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 1071.
  (/Users/jules/git/diris/talk/talk.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 967.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 967.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 1071.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 1071.
 Package rerunfilecheck Info: File `talk.out' has not changed.
 (rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
  ) 
 Here is how much of TeX's memory you used:
- 26780 strings out of 480608
- 531683 string characters out of 5903629
- 798964 words of memory out of 5000000
- 41991 multiletter control sequences out of 15000+600000
+ 26796 strings out of 480608
+ 531976 string characters out of 5903629
+ 799066 words of memory out of 5000000
+ 41999 multiletter control sequences out of 15000+600000
  545357 words of font info for 71 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  58i,22n,80p,838b,1360s stack positions out of 5000i,500n,10000p,200000b,80000s
  </Users/jules/Library/texlive/2020/texmf-var/fonts/pk/ljfour/public/cm-mf-extra-bold/cmttb10.657pk></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmcsc10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss12.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss17.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmss8.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmssbx10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi8.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb></usr/local/texlive/2020/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on /Users/jules/git/diris/talk/talk.pdf (27 pages, 194009 bytes).
+Output written on /Users/jules/git/diris/talk/talk.pdf (29 pages, 198783 bytes).
 PDF statistics:
- 254 PDF objects out of 1000 (max. 8388607)
- 186 compressed objects within 2 object streams
- 55 named destinations out of 1000 (max. 500000)
+ 264 PDF objects out of 1000 (max. 8388607)
+ 194 compressed objects within 2 object streams
+ 59 named destinations out of 1000 (max. 500000)
  43 words of extra memory for PDF output out of 10000 (max. 10000000)
 

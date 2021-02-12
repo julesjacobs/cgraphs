@@ -1,6 +1,33 @@
 From stdpp Require Import gmap.
 From iris.bi Require Import bi.
 
+Lemma dec_exists_list {A} (P : A → Prop) (xs : list A) :
+  (∀ x, P x → x ∈ xs) → (∀ x, x ∈ xs → Decision (P x)) → Decision (∃ x, P x).
+Proof.
+  intros HPxs Hdec.
+  induction xs as [|x xs IHxs]. { right. set_solver. }
+  assert (Decision (P x)) as [] by (apply Hdec; set_solver).
+  { left. naive_solver. }
+  apply IHxs.
+  - intros x' HPx'. specialize (HPxs x' HPx').
+    assert (x' = x ∨ x' ∈ xs) as []; set_solver.
+  - intros ??. apply Hdec. set_solver.
+Qed.
+
+Lemma dec_forall_list {A} (P : A → Prop) (xs : list A) :
+  (∀ x, P x ∨ x ∈ xs) → (∀ x, x ∈ xs → Decision (P x)) → Decision (∀ x, P x).
+Proof.
+  intros HPxs Hdec.
+  induction xs as [|x xs IHxs]. { left. set_solver. }
+  assert (Decision (P x)) as [] by (apply Hdec; set_solver);
+    [|right;naive_solver].
+  apply IHxs.
+  - intros x'. destruct (HPxs x').
+    + set_solver.
+    + assert (x' = x ∨ x' ∈ xs) as []; set_solver.
+  - intros ??. apply Hdec. set_solver.
+Qed.
+
 Lemma lookup_app_lr {A} (l1 l2 : list A) {i : nat} :
   (l1 ++ l2) !! i = if decide (i < length l1) then l1 !! i else l2 !! (i - length l1).
 Proof.

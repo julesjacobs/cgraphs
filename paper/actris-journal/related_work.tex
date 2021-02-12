@@ -1,0 +1,248 @@
+\section{Related work}
+\label{sec:related_work}
+
+As \lname combines results from both the separation logic and session types
+community, there is an abundance of related
+work.
+This section briefly elaborates on the relation to
+message passing in separation logic (\Cref{sec:related_sep}) and
+process calculi (\Cref{sec:related_process}),
+session types (\Cref{sec:related_session}),
+endpoint sharing (\Cref{sec:related_manifest_sharing}),
+and verification efforts of map-reduce (\Cref{sec:related_map_reduce}).
+
+\subsection{Message passing and separation logic}
+\label{sec:related_sep}
+
+\citet{villard-ICE2012} proposed a
+logic, based on previous work by \citet{villard-APLAS2009}, to
+reason about programs written in a small imperative language with
+message passing using channels similar to ours.
+Messages are labelled, and protocols are handled with a combination of
+finite-state automata (FSA) with correspondingly labelled transitions and
+predicates associated with each state of the automata.
+This combination is similar to, but less general than, STSs in Iris.
+Their language does not support higher-order functions or delegation, but
+since their language is restricted to structured concurrency (\ie not fork-based)
+and their logic is linear (\ie not affine), they ensure that all resources like
+channels and memory are properly deallocated.
+
+\citet{cracium-ICECCS2015} introduced ``session logic'', a variant of
+separation logic that includes
+predicates for protocol specifications similar to ours. This work
+includes support for mutable state, ownership transfer via
+message-passing,
+delegation through higher-order
+channels, choice using a special type of disjunction operator on
+the protocol level, and a sketch of an approach to verify deadlock
+freedom of programs. Combined, these features allow them to verify
+interesting and non-trivial
+message-passing programs.
+Their logic as a whole is not
+higher-order, which means that sending functions over channels is not
+possible.
+Moreover, their logic does not support protocol-level \binders that can connect the
+transferred message with the tail protocol.
+It is therefore not possible to model dependent protocols like we do in \lname.
+Their work includes a notion of subtyping as weakening and strengthening of the
+payload predicates, however they do not consider swapping, and do not allow
+manipulation of resources (or binders by construction) as a part of their relation.
+There also exists
+no support for other concurrency primitives such as locks, which by
+extension means that manifest sharing is not possible.
+In \lname we get this for free by building on top of Iris, and reusing its ghost state mechanism.
+Their work has not been
+mechanised in a proof assistant, but example programs can
+be checked using the HIP/SLEEK verifier.
+
+The original Iris \cite{jung-POPL2015} includes a small
+message-passing language with
+channels that do not preserve message order.
+It was included to demonstrate that Iris is flexible enough to handle other
+concurrency models than standard shared-memory concurrency.
+Since the Hoare-triples for send and receive only reason about
+the entire channel buffer, protocol reasoning
+must be done via STSs or other forms of ghost state.
+
+\citet{hamin-ECOOP2019} take an orthogonal direction and use separation
+logic to prove deadlock freedom of programs that communicate via
+message passing using a custom logic tailored to this purpose.
+They did not provide abstractions akin to our session-type based protocols.
+Instead one has to reason using invariants and ghost state explicitly.
+
+\citet{mansky-OOPSLA2017} take yet another direction and verify the functional
+correctness of a message-passing system written in C using the VST framework
+in Coq~\cite{appel2014vst}.
+While they do not verify message-passing programs
+like we do, they do verify that the implementation of their message-passing
+system is resilient to faulty behaviour in the presence of malicious senders
+and receivers.
+
+\citet{tassarotti-ESOP2017} prove correctness
+and termination preservation of a compiler from a simple language with session
+types to a functional language with mutable state, where the channels are
+implemented using references on the heap.
+This work is also done in Iris.
+The session types they consider are more like standard session types, which
+cannot express functional properties of messages, but only their types.
+
+The Disel logic by \citet{sergey-POPL2018} and the Aneris logic
+by \citet{krogh-jespersen} can be used to reason about message-passing programs
+that work on network sockets.
+Channels can only be used to send strings, are not order preserving, and
+messages can be dropped but not duplicated.
+Since only strings are sent over channels complex data (such as functions) must
+be marshalled and unmarshalled in order to be sent over the network.
+Both Disel and Aneris therefore address a different problem than we do.
+
+The SteelCore framework by \cite{DBLP:journals/pacmpl/SwamyRFMAM20} is an
+extensible concurrent separation logic based in F\textsuperscript{$\star$},
+which has been used to encode unidirectional synchronous channels.
+The channels are encoded as a shallow embedding,
+which is tied together with ghost state to follow a protocol, using a trace of
+the communicated messages.
+Their protocols are defined as a dependent sequence of value obligations with
+associated separation logic predicates, dictating what can be sent over the channel,
+including the transfer of ownership.
+Their channels are first-class and can also be transferred, effectively
+achieving delegation.
+They have postulated that bidirectional asynchronous communication is possible,
+but have not yet done that.
+Finally, their protocols do not include higher-order protocol-level \binders,
+or any notion of subtyping.
+
+\subsection{Separation logic and process calculi}
+\label{sec:related_process}
+
+Another approach is to verify message-passing programs written in some dialect
+of process calculus.
+We focus on related work that combines process calculus with separation logic.
+Neither of the approaches below support delegation or concurrency paradigms
+other than message passing.
+
+\citet{francalanza-LMCS2011} use separation logic to verify
+programs written in a CCS-like language.
+Channels model memory location, which has the effect that their input-actions
+behave a lot like our updates of mutable state with variable
+substitutions updating the state. As a proof of concept they prove the
+correctness of an in-place quick-sort algorithm.
+
+\citet{oortwijn-PLACES2016} use separation logic and the mCRL2 process
+calculus to model communication protocols.
+The logic itself operates on a high level of abstraction and deals exclusively
+with intraprocess communication where a fractional separation logic is
+used to distribute channel resources to concurrent threads.
+Protocols are extracted from code, but there is no formal connection
+between the specification logic and the underlying language.
+
+\subsection{Session types}
+\label{sec:related_session}
+
+Seminal work on linear type systems for the pi calculus by
+\citet{kobayashi-POPL1996} led to the creation of binary session types
+by \citet{honda-ESOP1998}.
+
+\citet{bocchi-CONCUR2010} pushed the boundaries of
+what can be verified with multi-party session types while staying within a
+decidable fragment of first-order logic.
+They use first-order predicates to describe
+properties of values being sent and received.
+Decidability is maintained by imposing restrictions on these predicates, such
+as ensuring that nothing is sent that will be invalidated down the line.
+The constraints on the logic do, however, limit what programs can be
+verified.
+The work includes standard subtyping on communicated values and on choices,
+but no notion of swapping sends ahead of receives.
+
+Later work by \citet{dardha-PPDP2012} helped merge the linear type
+systems of Kobayashi with Honda's session types, which facilitated the
+incorporation of session types in mainstream programming
+languages like Go~\cite{lange-ICSE2018},
+OCaml~\cite{padovani-JFP2017, imai-soCP2019}, and
+Java~\cite{hu-ECOOP2010}.
+These works focus on adding session-typed support for the
+Actor model in existing languages, but do not
+target functional correctness.
+
+\citet{DBLP:journals/pacmpl/ThiemannV20} introduced label dependent
+session types, where tails of protocols can depend on the communicated message,
+which allows for encoding of the choice operators using send and receive.
+This is similar to our encoding of the choice operators in terms of Actris's
+dependent send and receive (\Cref{sec:choice}).
+
+\lname's subprotocol relation is inspired by the notion of session subtyping,
+for which seminal work was carried out by \citet{DBLP:journals/acta/GayH05}.
+\citet{mostrous-ESOP2009} extended session subtyping to
+multiparty asynchronous session types, and as part of that, introduced the notion of
+swapping sends ahead of receives for independent channels.
+\citet{mostrous-InfComput2015} later considered swapping over the same channel in
+the context of binary session types.
+Our subprotocol relation is most closely related to the work of
+\citet{mostrous-InfComput2015},
+although they define subtyping as a simulation on infinite trees,
+using so-called asynchronous contexts, whereas we define it using Iris's
+support for guarded recursion.
+It should be noted that the work by \citet{DBLP:journals/acta/GayH05} differs
+from the work by \citet{mostrous-ESOP2009} and
+\citet{mostrous-InfComput2015} in the orientation of the subtyping relation,
+as discussed by \citet{DBLP:conf/birthday/Gay16}.
+Our subprotocol relation uses the orientation of
+\citet{DBLP:journals/acta/GayH05}.
+
+Session subtyping for recursive type systems is universally carried out as a type
+simulation on infinite trees
+\cite{DBLP:journals/acta/GayH05, mostrous-ESOP2009,mostrous-InfComput2015},
+which complicates subtyping under the recursive operator.
+\citet{DBLP:journals/corr/abs-2004-01322} provide further insights on this
+problem, although they investigate duality rather than subtyping.
+To reason about recursive types, \citet{DBLP:journals/fuin/BrandtH98} present
+a coinductive formulation of subtyping (which they apply to regular type systems, rather
+than session types).
+We use a similar coinductive formulation, but instead of ordinary coinduction,
+we use Iris's support for guarded recursion, which lets us
+prove subtyping relations of recursive protocols using \ruleref{Loeb} induction.
+
+\subsection{Endpoint sharing}
+\label{sec:related_manifest_sharing}
+
+One of the key features of session types is that endpoints are owned
+by a single process.
+While these endpoints can be delegated (\ie transferred from one process to
+another), they typically cannot be shared (\ie be accessed by multiple processes
+concurrently).
+However, as we demonstrate in \Cref{sec:integration}, sharing channels
+endpoints is often desirable, and possible in \lname.
+
+In the pi calculus community there has been prior work
+on endpoint sharing, \eg by \citet{atkey2016, kobayashi-CONCUR2016, padovani-CSL2014}.
+The latest contribution in this line of work is by
+\citet{balzer-PACMPL2017,balzer-ESOP2019}, who
+developed a type system based on session types with
+support for manifest sharing.
+Manifest sharing is the notion of sharing a channel endpoint
+between multiple processes using a lock-like structure to ensure mutual
+exclusion.
+Their key idea to ensure mutual exclusion using a type system is to use
+adjoint modalities to connect two classes of types: types
+that are linear, and thus denote unique channel ownership, and types that are
+unrestricted, and thus can be shared.
+The approach to endpoint sharing in \lname is different:
+\pname do not include a built-in notion for endpoint sharing, but can be combined
+with Iris's general-purpose mechanisms for sharing, like locks.
+
+\subsection{Verification of map-reduce}
+\label{sec:related_map_reduce}
+
+To our knowledge the only verification related to the map-reduce model
+\cite{dean-OSDI2004} is by
+\citet{ono-SEFM2011}, who made two mechanisations in Coq. The first took
+a functional model of map-reduce and verified a few specific mappers
+and reducers, extracted these to Haskell, and ran them using Hadoop
+Streaming. The second did the same by annotating Java mappers and
+reducers using JML
+and proving them correct using the Krakatoa tool \cite{marche-JLAP2004}, using
+a combination of
+SAT-solvers and the Coq proof assistant. While they worked on
+verifying specific mappers and reducers, our case study focuses on
+verifying the communication of a map-reduce model that can later be parameterised with
+concrete mappers and reducers.

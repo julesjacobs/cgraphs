@@ -1,0 +1,131 @@
+This is BibTeX, Version 0.99d (TeX Live 2020/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main.aux
+The style file: ACM-Reference-Format.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Database file #1: bib.bib
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Warning--empty address in appel2014vst
+Warning--empty publisher in atkey2016
+Warning--empty address in atkey2016
+Warning--empty publisher in balzer-ESOP2019
+Warning--empty address in balzer-ESOP2019
+Warning--page numbers missing in both pages and numpages fields in birkedal-LMCS2012
+Warning--empty publisher in bocchi-CONCUR2010
+Warning--empty address in bocchi-CONCUR2010
+Warning--empty publisher in costea-APLAS2018
+Warning--empty address in costea-APLAS2018
+Warning--empty publisher in cracium-ICECCS2015
+Warning--empty address in cracium-ICECCS2015
+Warning--empty publisher in pinto-ECOOP2014
+Warning--empty address in pinto-ECOOP2014
+Warning--empty publisher in dardha-PPDP2012
+Warning--empty address in dardha-PPDP2012
+Warning--empty publisher in dean-OSDI2004
+Warning--empty address in dean-OSDI2004
+Warning--page numbers missing in both pages and numpages fields in francalanza-LMCS2011
+Warning--empty publisher in DBLP:conf/birthday/Gay16
+Warning--empty address in DBLP:conf/birthday/Gay16
+Warning--empty publisher in DBLP:journals/corr/abs-2004-01322
+Warning--empty address in DBLP:journals/corr/abs-2004-01322
+Warning--empty publisher in hamin-ECOOP2019
+Warning--empty address in hamin-ECOOP2019
+Warning--empty publisher in hewitt_IJCAI1973
+Warning--empty address in hewitt_IJCAI1973
+Warning--empty publisher in honda-ESOP1998
+Warning--empty address in honda-ESOP1998
+Warning--empty publisher in honda-POPL2008
+Warning--empty address in honda-POPL2008
+Warning--empty publisher in hu-ECOOP2010
+Warning--empty address in hu-ECOOP2010
+Warning--empty publisher in jung-ICFP06
+Warning--empty address in jung-ICFP06
+Warning--empty publisher in jung-POPL2015
+Warning--empty address in jung-POPL2015
+Warning--empty publisher in kobayashi-CONCUR2016
+Warning--empty address in kobayashi-CONCUR2016
+Warning--empty publisher in kobayashi-POPL1996
+Warning--empty address in kobayashi-POPL1996
+Warning--empty publisher in krebbers-ESOP2017
+Warning--empty address in krebbers-ESOP2017
+Warning--empty publisher in krebbers-POPL2017
+Warning--empty address in krebbers-POPL2017
+Warning--empty publisher in krogh-jespersen
+Warning--empty address in krogh-jespersen
+Warning--no number and no volume in lange-ICSE2018
+Warning--empty publisher in villard-ICE2012
+Warning--empty address in villard-ICE2012
+Warning--unusual to have number, but no volume, for marche-JLAP2004
+Warning--empty publisher in mostrous-COORDINATION2014
+Warning--empty address in mostrous-COORDINATION2014
+Warning--empty publisher in mostrous-ESOP2009
+Warning--empty address in mostrous-ESOP2009
+Warning--empty publisher in nakano-LICS2000
+Warning--empty address in nakano-LICS2000
+Warning--empty publisher in nanevski-ESOP2014
+Warning--empty address in nanevski-ESOP2014
+Warning--empty publisher in ono-SEFM2011
+Warning--empty address in ono-SEFM2011
+Warning--empty publisher in oortwijn-PLACES2016
+Warning--empty address in oortwijn-PLACES2016
+Warning--empty publisher in padovani-CSL2014
+Warning--empty address in padovani-CSL2014
+Warning--empty publisher in svendsen-ESOP2014
+Warning--empty address in svendsen-ESOP2014
+Warning--empty publisher in DBLP:conf/esop/SvendsenSB16
+Warning--empty address in DBLP:conf/esop/SvendsenSB16
+Warning--empty publisher in tasharofi-ECOOP2013
+Warning--empty address in tasharofi-ECOOP2013
+Warning--empty publisher in tassarotti-ESOP2017
+Warning--empty address in tassarotti-ESOP2017
+Warning--empty publisher in tu-ASPLOS2019
+Warning--empty address in tu-ASPLOS2019
+Warning--empty publisher in villard-APLAS2009
+Warning--empty address in villard-APLAS2009
+You've used 63 entries,
+            5719 wiz_defined-function locations,
+            1670 strings with 24922 characters,
+and the built_in function-call counts, 79677 in all, are:
+= -- 9847
+> -- 2792
+< -- 0
++ -- 933
+- -- 920
+* -- 5533
+:= -- 7846
+add.period$ -- 320
+call.type$ -- 63
+change.case$ -- 451
+chr.to.int$ -- 59
+cite$ -- 140
+duplicate$ -- 7229
+empty$ -- 5021
+format.name$ -- 1140
+if$ -- 19384
+int.to.chr$ -- 6
+int.to.str$ -- 1
+missing$ -- 270
+newline$ -- 514
+num.names$ -- 500
+pop$ -- 2795
+preamble$ -- 1
+purify$ -- 1010
+quote$ -- 0
+skip$ -- 2611
+stack$ -- 0
+substring$ -- 6288
+swap$ -- 809
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 1546
+warning$ -- 77
+while$ -- 492
+width$ -- 0
+write$ -- 1079
+(There were 77 warnings)

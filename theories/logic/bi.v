@@ -227,7 +227,7 @@ Lemma ownM_soundness (x : auth M) (φ : auth M → Prop) :
   (∀ x : M, Cancelable x) →
   auth_global_valid 0 x →
   (uPred_ownM x ⊢ |==> ∃ y, uPred_ownM y ∧ ⌜ φ y ⌝) →
-  ∃ y, auth_global_updateN 0 x y ∧ φ y.
+  ∃ y, auth_global_valid 0 y ∧ φ y.
 Proof. apply ownM_soundness. Qed.
 
 Lemma ownM_simple_soundness (x : auth M) (φ : Prop) :

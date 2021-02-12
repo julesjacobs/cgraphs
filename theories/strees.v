@@ -23,7 +23,7 @@ Section graph.
   Definition has_u_turn (xs : P) :=
     ∃ i x, xs !! i = Some x ∧ xs !! (i+2) = Some x.
 
-  Record forest (g : G) : Prop := forest {
+  Record forest (g : G) : Prop := {
     forest_undirected : undirected g;
     forest_u_turns : ∀ x xs, path g ([x] ++ xs ++ [x]) -> has_u_turn ([x] ++ xs ++ [x])
   }.

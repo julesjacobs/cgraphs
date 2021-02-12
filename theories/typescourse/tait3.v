@@ -10,7 +10,8 @@ Inductive expr :=
   | EProj : bool -> expr -> expr
   | EInj : bool -> expr -> expr
   | EMatch : expr -> expr -> expr -> expr
-  | EMatch0 : expr -> expr.
+  | EMatch0 : expr -> expr
+  | EAmb : expr -> expr -> expr.
 
 Fixpoint subst e x v :=
   match e with
@@ -24,6 +25,7 @@ Fixpoint subst e x v :=
   | EInj b e' => EInj b (subst e' x v)
   | EMatch e1 e2 e3 => EMatch (subst e1 x v) (subst e2 x v) (subst e3 x v)
   | EMatch0 e' => EMatch0 (subst e' x v)
+  | EAmb e1 e2 => EAmb (subst e1 x v) (subst e2 x v)
   end.
 
 Inductive val : expr -> Prop :=
@@ -41,7 +43,13 @@ Inductive head_step : expr -> expr -> Prop :=
       head_step (EProj b (EPair v1 v2)) (if b then v1 else v2)
   | head_step_match b v e1 e2 :
       val v ->
-      head_step (EMatch (EInj b v) e1 e2) (EApp (if b then e1 else e2) v).
+      head_step (EMatch (EInj b v) e1 e2) (EApp (if b then e1 else e2) v)
+  | head_step_amb_1 v1 v2 :
+      val v1 -> val v2 ->
+      head_step (EAmb v1 v2) v1
+  | head_step_amb_2 v1 v2 :
+      val v1 -> val v2 ->
+      head_step (EAmb v1 v2) v2.
 
 Inductive ctx1 : (expr -> expr) -> Prop :=
   | ctx1_app_l e : ctx1 (λ x, EApp x e)
@@ -51,7 +59,9 @@ Inductive ctx1 : (expr -> expr) -> Prop :=
   | ctx1_proj b : ctx1 (λ x, EProj b x)
   | ctx1_inj b : ctx1 (λ x, EInj b x)
   | ctx1_match e1 e2 : ctx1 (λ x, EMatch x e1 e2)
-  | ctx1_match0 : ctx1 (λ x, EMatch0 x).
+  | ctx1_match0 : ctx1 (λ x, EMatch0 x)
+  | ctx1_amb_l e2 : ctx1 (λ x, EAmb x e2)
+  | ctx1_amb_r v1 : ctx1 (λ x, EAmb v1 x).
 
 Inductive ctx : (expr -> expr) -> Prop :=
   | ctx_nil : ctx (λ x, x)
@@ -100,7 +110,11 @@ Inductive typed : envT -> expr -> ty -> Prop :=
       typed Γ (EMatch e1 e2 e3) t
   | typed_match0 Γ e t :
       typed Γ e TZero ->
-      typed Γ (EMatch0 e) t.
+      typed Γ (EMatch0 e) t
+  | typed_amb Γ e1 e2 t :
+      typed Γ e1 t ->
+      typed Γ e2 t ->
+      typed Γ (EAmb e1 e2) t.
 
 Definition steps := rtc step.
 
@@ -215,6 +229,8 @@ Proof.
   - inv Ht. inv H5.
     destruct b; done.
   - inv Ht. inv H4. destruct b; econstructor; eauto.
+  - inv Ht. done.
+  - inv Ht. done.
 Qed.
 
 Lemma step_typed e e' t :
@@ -307,6 +323,7 @@ Fixpoint env_subst (γ : env) (e : expr) :=
   | EInj b e' => EInj b (env_subst γ e')
   | EMatch e1 e2 e3 => EMatch (env_subst γ e1) (env_subst γ e2) (env_subst γ e3)
   | EMatch0 e' => EMatch0 (env_subst γ e')
+  | EAmb e1 e2 => EAmb (env_subst γ e1) (env_subst γ e2)
   end.
 
 Lemma typed_subst_id e t x v Γ :
@@ -589,6 +606,22 @@ Proof.
       eapply steps_typed in Hs1; eauto.
     + destruct x; simpl; eauto.
   - specialize (IHtyped γ Hγ). simpl in *. done.
+  - specialize (IHtyped1 γ Hγ).
+    specialize (IHtyped2 γ Hγ).
+    apply HT_val in IHtyped1.
+    apply HT_val in IHtyped2.
+    destruct IHtyped1 as (v1 & Hsteps1 & Hv1 & Ht1).
+    destruct IHtyped2 as (v2 & Hsteps2 & Hv2 & Ht2).
+    eapply HT_steps_rev.
+    { apply (steps_ctx (λ x, EAmb x _)); last done.
+      apply ctx1_ctx. constructor. }
+    eapply HT_steps_rev.
+    { apply (steps_ctx (λ x, EAmb _ x)); last done.
+      apply ctx1_ctx. constructor. }
+    eapply HT_steps_rev.
+    { apply rtc_once. eapply (step_head_step id); first by constructor.
+      constructor; eauto. }
+    simpl. done.
 Qed.
 
 Lemma env_HT_empty : env_HT ∅ ∅.
@@ -611,6 +644,8 @@ Proof.
   rewrite env_subst_empty in H.
   eauto.
 Qed.
+
+(* Below only works if we delete EAmb *)
 
 Lemma head_step_deterministic e e1 e2 :
   head_step e e1 -> head_step e e2 -> e1 = e2.

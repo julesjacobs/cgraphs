@@ -12,10 +12,11 @@
 -arg -w -arg -ambiguous-paths
 -arg -native-compiler -arg no
 
+theories/util.v
+theories/strees.v
 theories/logic/upred.v
 theories/logic/bi.v
 theories/langdef.v
-theories/util.v
 theories/htypesystem.v
 theories/preservation.v
 theories/bi/weakestpre.v

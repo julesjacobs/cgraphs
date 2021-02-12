@@ -1,0 +1,586 @@
+\section{Introduction}
+\label{sec:intro}
+
+Message-passing programs are ubiquitous in modern computer systems,
+emphasising the importance of their functional correctness.
+Programming languages, like Erlang, Elixir, and Go, have built-in
+primitives that handle spawning of processes and intra-process
+communication, while other mainstream languages, such as Java,
+Scala, F\#, and C\#, have introduced an Actor model
+\cite{hewitt_IJCAI1973} to achieve similar
+functionality. In both cases the goal remains the same---help design
+reliable systems, often with close to constant up-time, using
+lightweight processes that can be spawned by the hundreds of
+thousands and that communicate via asynchronous message passing.
+
+While message passing is a useful abstraction, it is not
+a silver bullet of concurrent programming. In a qualitative study of
+larger Scala projects \citet{tasharofi-ECOOP2013} write:
+
+\begin{quote}
+  We studied 15 large, mature, and actively maintained actor programs
+  written in Scala and found that 80\% of them mix the actor model
+  with another concurrency model.
+\end{quote}
+
+\noindent In this study, 12 out of 15 projects did not entirely stick to the Actor
+model, hinting that even for projects that embrace message passing,
+low-level concurrency primitives like locks (\ie mutexes) still have
+their place.
+\citet{tu-ASPLOS2019} came to a similar conclusion when studying 6 large and
+popular Go programs.
+A suitable solution for reasoning about message-passing
+programs should thus integrate with other programming and concurrency paradigms.
+
+In this paper we introduce \textbf{\lname}---a concurrent separation logic for
+proving functional correctness of programs that combine message passing with
+other programming and concurrency paradigms.
+\lname can be used to reason about programs written in a language that mimics the
+important features found in aforementioned languages such as higher-order functions,
+higher-order references, fork-based concurrency, locks, and primitives for
+asynchronous message passing over channels.
+The channels of our language are first-class and can be
+sent as arguments to functions, be sent over other channels
+(often referred to as delegation), and be stored in references.
+
+Program specifications in \lname are written in an impredicative higher-order
+concurrent separation logic built on top of the Iris framework
+\cite{jung-POPL2015,krebbers-ESOP2017,jung-ICFP06,jung-JFP2018}.
+In addition to the usual features of Iris, \lname
+provides a notion of \emph{\pname} to reason about message passing over
+channels, inspired by the affine variant~\cite{mostrous-COORDINATION2014} of
+binary session types~\cite{honda-ESOP1998}.
+We show that \pname integrate seamlessly with other concurrency
+paradigms, allow delegation of resources,
+support channel sharing over multiple concurrent threads using locks, and more.
+
+\subsection{Message passing in concurrent separation logic}
+\label{sec:intro_sep_logic}
+
+Over the last decade, there has been much work on
+extensions of concurrent separation logic with
+reasoning principles for message passing~\cite{oortwijn-PLACES2016,francalanza-LMCS2011,villard-ICE2012,cracium-ICECCS2015}.
+These logics typically include some form of mechanism for writing
+protocol specifications in a
+high-level manner.
+Unfortunately, these logics have shortcomings in terms of expressivity.
+Most importantly, they cannot be used to reason
+about programs that combine message-passing with other programming and
+concurrency paradigms, such as higher-order functions, fine-grained
+shared-memory concurrency, and locks.
+
+In a different line of work, researchers have developed expressive
+extensions of concurrent separation logic that do support proving strong
+specifications of programs involving some or all combinations of the
+aforementioned programming and concurrency paradigms.
+Examples of such logics are TaDA \cite{pinto-ECOOP2014}, iCAP~\cite{svendsen-ESOP2014},
+Iris~\cite{jung-POPL2015}, FCSL~\cite{nanevski-ESOP2014}, and
+VST~\cite{appel2014vst}.
+However, only a few variants and extensions of these logics address
+message-passing concurrency.
+
+First, there has been work on the use of separation logic to reason about programs that communicate via message passing over a network.
+The reasoning principles in such logics are geared towards different programming patterns than the ones used in high-level languages like Erlang, Elixir, Go, and Scala.
+Namely, on networks all data must be serialised, and packets can be lost or delivered out of order.
+In high-level languages messages cannot get lost, are ensured to be delivered in order, and are allowed to contain many types of data, including functions, references, and even channel endpoints.
+Two examples of network logics are Disel by \citet{sergey-POPL2018} and
+Aneris by \citet{krogh-jespersen}.
+Second, there has been work on the use of separation logic to prove compiler correctness of high-level message-passing languages.
+\citet{tassarotti-ESOP2017} verified a small compiler of a session-typed language into a language where channel buffers are modelled on the heap.
+
+The primary reasoning principle to model the interaction between processes in
+the aforementioned
+logics is the notion of a State Transition
+System (STS).
+As a simple example, consider the following program, which is
+borrowed from \citet{tassarotti-ESOP2017}:
+\[
+{\it prog}_1\eqdef\Let {(\chan, \chan')} = \newchan in \Fork{\send {\chan'} {42}}; \recv \chan
+\]
+\noindent This program creates two channel endpoints $c$ and $c'$, forks off a
+new thread, and sends the number $42$ over the channel $c'$, which is then
+received by the initiating thread.
+Modelling the behaviour of this program in an STS typically requires three states:
+\begin{equation*}
+\begin{tikzpicture}
+\node[ellipse,draw=black] (init) {$\mathsf{Init}$};
+\node[right=of init,ellipse,draw=black] (send) {$\mathsf{Sent}$};
+\node[right=of send,ellipse,draw=black] (received) {$\mathsf{Received}$};
+\draw[thick,->] (init) -- (send);
+\draw[thick,->] (send) -- (received);
+\end{tikzpicture}
+\end{equation*}
+\noindent The three states model that no message has been
+sent ($\mathsf{Init}$), that a message has been sent but not received
+($\mathsf{Sent}$),
+and finally that the message has been sent and received ($\mathsf{Received}$).
+Exactly what this STS represents is made precise by the underlying logic, which
+determines what constitutes a state and a transition, and how these are related
+to the channel buffers.
+
+While STSs appear like a flexible and intuitive abstraction to reason about
+message-passing concurrency, they have their problems:
+
+\begin{itemize}
+\item Coming up with a good STS that makes the appropriate abstractions is
+  difficult because
+  the STS has to keep track of all possible states that the channel buffers can
+  be in, including all possible interleavings of messages in transit.
+\item While STSs used for the verification of different modules
+  can be composed at the level of the logic, there is no canonical way of
+  composing them due to their unrestrained structure.
+\item Finally, STSs are first-order meaning that their states and
+  transitions cannot be indexed by propositions of the underlying logic, which
+  limits what they can express when sending messages containing functions or other channels.
+\end{itemize}
+
+\subsection{\lname 1.0: \Pname}
+\label{sec:intro_protocols}
+
+Instead of using STSs, \lname extends
+separation logic with a new notion called \emph{\pname}.
+This notion is inspired by the session type community, pioneered by
+\citet{honda-ESOP1998}, where channel endpoints are given types that describe
+the expected exchanges.
+Using binary session types, the channels $\chan$ and $\chan'$ in the program
+${\it prog}_1$ in \Cref{sec:intro_sep_logic}
+would have the types $\chan :\ \strecv {\integer} \stend$ and
+$\chan':\ \stsend {\integer} \stend$,
+where $\SEND T$ and $\RECV T$ denotes that a value of type $T$ is sent or
+received, respectively.
+Moreover, the types of the channels $\chan$ and $\chan'$ are \emph{duals}---when one does a send the other
+does a receive, and \viceversa.
+
+While session types provide a compact way of specifying the behaviour of channels,
+they can only be used to talk
+about the \emph{type} of data that is being passed around---not their \emph{payloads}.
+In this paper, we build on prior work by \citet{bocchi-CONCUR2010} and
+\citet{cracium-ICECCS2015} to attach logical predicates to session types to say more about the payloads, thus vastly extending the expressivity.
+Concretely, we port session types into separation logic in the
+form of a construct $\interp \chan \prot$, which denotes ownership of a channel
+$\chan$ with \pnameSingular $\prot$.
+\Pname $\prot$ are streams of
+$\sendprot {\xdots} \val \iprop \prot$ and
+$\recvprot {\xdots} \val \iprop \prot$ constructors that are either infinite or finite,
+where finite streams are ultimately terminated by an $\protend$ constructor.
+Here, $\val$ is the value that is
+being sent or received, $\iprop$ is a separation logic proposition denoting
+the ownership of the resources being transferred as part of the message, and the variables $\xdots$ bind into $\val$, $\iprop$, and $\prot$.
+The \pname for the above example are:
+\[
+\interp{\chan}{\recvprot {} {42} \TRUE \protend}
+\quad\mathtt{and}\quad
+\interp{\chan'}{\sendprot {} {42} \TRUE \protend}
+\]
+
+\noindent These protocols state that the endpoint $\chan$ expects the number $42$ to
+be sent along it, and that the endpoint $\chan'$ expects to send the number
+$42$.
+Using this protocol, we can show that ${\mathit prog}_1$
+has the specification
+$\hoare \TRUE {\mathit {prog}_1} {\Ret \val. \val = 42}$, where $\val$ is the result
+of the evaluation.
+
+\Pname $\sendprot \xdots \val \iprop \prot$ and
+$\recvprot \xdots \val \iprop \prot$ are \emph{dependent}, meaning that
+the tail $\prot$ can be defined in terms of the previously bound variables $\xdots$.
+A sample program showing the use of such dependency is:
+\[
+{\mathit {prog}_2}\eqdef
+\begin{array}[t]{@{} l}
+\Let {(\chan, \chan')} = \newchan in \\
+\Fork{ \Let {\var} = \recv {\chan'} in {\send {\chan'} (\var + 2 )} }; \\
+\send \chan 40;\ \recv \chan
+\end{array}
+\]
+In this program, the main thread sends the number $40$ to the forked-off thread, which then adds 2 to it, and sends it back.
+This program has the same specification as ${\mathit prog}_1$, while we change the
+\pnameSingular as follows (we omit the \pnameSingular for the dual endpoint $\chan'$):
+\[
+\interp{\chan}{\sendprot{(\var:\integer)}{\var}{\TRUE}{\recvprot{}{\var+2}{\TRUE} \protend}}
+\]
+This protocol states that the second exchanged value is exactly the first with 2 added to it.
+To do so, it makes use of a dependency on the variable $\var$, which is
+used to describe the contents of the first message, which the second message then
+depends on.
+This variable is bound in the protocol and it is instantiated only when a message is sent.
+This is different from the logic by \citet{cracium-ICECCS2015}, which does not support dependent protocols.
+Their logic is limited to protocols analogous to $\sendprot{}{\var}{\TRUE} \recvprot{}{\var+2}{\TRUE} \protend$ where $\var$ is free, which means the value of $\var$ must be known when the protocol is created.
+
+While the prior examples could have been type-checked and verified using
+the formalisms of \citet{bocchi-CONCUR2010} and \citet{cracium-ICECCS2015},
+the following stateful example cannot:
+\[
+{\mathit {prog}_3}\eqdef
+\begin{array}[t]{@{} l}
+  \Let {(\chan,\chan')} = \newchan in \\
+  \Fork{\Let{l} = \recv{\chan'} in l \leftarrow \deref{l} + 2;\ \send {\chan'} {\TT}}; \\
+  \Let l = \newref{40} in \send{\chan}{l};\ \recv {\chan};\ \deref l
+\end{array}
+\]
+Here, the main thread stores the value $40$ on the heap, and sends a
+reference $l$ over the channel $\chan$ to the forked-off thread.
+The main thread then awaits a signal $\TT$, notifying that the
+reference has been updated to $42$ by the forked-off thread.
+This program has the same specification as ${\mathit prog}_1$ and ${\mathit prog}_2$, but the \pnameSingular is updated:
+\[
+\interp{\chan}{\sendprot{(\loc: \Loc)\ (\var:\integer)}{\loc}{\loc \mapsto \var}
+               \recvprot{}{\TT}{\loc \mapsto (\var+2)}
+               \protend}
+\]
+
+\noindent
+This protocol denotes that the endpoints first exchange a reference $\loc$, as well as a
+\emph{points-to} connective $\loc\mapsto x$ that describes the ownership and
+value of the reference $\loc$.
+To perform the exchange $\chan$ has to give up ownership of the
+location, while $\chan'$ acquires it---which is why it can then safely
+update the received location to $42$ before sending the ownership back along with the
+notification $\TT$.
+
+The type system by \citet{bocchi-CONCUR2010} cannot verify this program because it does not support mutable state, while Actris can verify the program because it is a separation logic.
+The logic by \citet{cracium-ICECCS2015} cannot verify this program because it does not support dependent protocols, which are crucial here as they make it possible to
+delay picking the location $\loc$ used in the protocol until the send operation is performed.
+
+Dependent protocols are also useful to define recursive protocols to reason about programs that use a channel in a loop.
+Consider the following variant of ${\mathit prog}_1$:
+\[
+{\mathit {prog}_4}\eqdef
+\begin{array}[t]{@{} l}
+\Let {(\chan,\chan')} = \newchan in \\
+\Fork{\Let {\mathit{go}\ \TT} =
+  {\big(\send {\chan'} ({\recv {\chan'} + 2});\ \mathit{go}\ \TT\big)} in \mathit{go}\ \TT}; \\
+\send \chan 18;\ \Let \var = {\recv \chan} in \\
+\send \chan 20;\ \Let \varB = {\recv \chan} in \var + \varB
+\end{array}
+\]
+%
+The forked-off thread will repeatedly interleave receiving values with
+sending those values back incremented by two.
+The program ${\mathit prog}_4$ has the same specification as before, but now we use the following recursive \pnameSingular:
+\[
+\interp {\chan} {\MU \prot. \sendprot{(\var:\integer)}{\var}{\TRUE}
+                            \recvprot{}{\var+2}{\TRUE} \prot}
+\]
+%
+This protocol expresses that it is possible to make repeated exchanges with the forked-off thread to increment a number by 2.
+The fact that the variable $\var$ is bound in the protocol is once again crucial---it allows the use of different numbers for each exchange.
+
+Furthermore, \lname inherently captures some features of conventional
+session types.
+One such example is the \emph{delegation} of channels as seen in the following program:
+\[
+{\mathit prog}_5
+\eqdef{}
+\begin{array}[t]{@{} l}
+  \Let {(\chan_1, \chan_1')} = \newchan in \\
+  \Fork{ \Let \chan = \recv {\chan_1'} in
+    \Let \varB = \recv {\chan_1'} in
+    \send \chan \varB;\ \send {\chan_1'} \TT};\\
+  \Let {(\chan_2, \chan_2')} = \newchan in \\
+  \Fork{ \Let {\var} = \recv {\chan_2'} in {\send {\chan_2'} (\var + 2 )} }; \\
+  \send {\chan_1} {\chan_2};\ \send {\chan_1} {40};\ \recv {\chan_1};\ \recv {\chan_2}
+\end{array}
+\]
+This program uses the channel pair $\chan_2,\chan_2'$ to exchange the number $40$ with the second forked-off thread, which adds $2$ to it, and sends it back.
+Contrary to the programs we have seen before, it uses the
+additional channel pair $\chan_1,\chan_1'$ to delegate the endpoint
+$\chan_2$ to the first forked-off thread, which then sends the number over $\chan_2$.
+While this program is intricate, the following \pname describe the communication concisely:
+\begin{align*}
+\interp{\chan_1{}&}{
+  \begin{array}[t]{@{} l @{}}
+  \sendprot {(\chan:\Chan)} \chan {\textcolor{darkred}{
+    \interp \chan {
+      \sendprot {(\var:\integer)} \var \TRUE {
+      \recvprot {} {\var+2} \TRUE \protend}
+    }}} \\
+  \sendprot {(\varB:\integer)} \varB {\TRUE}
+  \recvprot {} \TT {\textcolor{darkred}{
+    \interp \chan {\recvprot {} {\varB+2} \TRUE \protend}
+  }} \protend
+  \end{array}} \\
+\interp{\chan_2{}&}{
+  \sendprot {(\var:\integer)} \var \TRUE
+  \recvprot {} {\var + 2} \TRUE \protend}
+\end{align*}
+
+\noindent
+The first protocol states that the initial value sent must be a channel
+endpoint with the protocol used in ${\mathit prog}_1$, meaning that the main thread must
+give up the ownership of the channel endpoint $\chan_2$, thereby delegating it.
+It then expects a value $\varB$ to be sent, and finally to receive a
+notification $\TT$, along with ownership of the channel $\chan_2$,
+which has since taken one step by sending $\varB$.
+
+Lastly, the dependencies in \pname are not limited to first-order data, but can also be used
+in combination with functions.
+For example:
+\[
+{\mathit prog}_6\eqdef
+\begin{array}[t]{@{} l}
+  \Let {(\chan,\chan')} = \newchan in \\
+  \Fork{\Let{f} = \recv{\chan'} in \send {\chan'} {(\Lam \TT. f\TT+2)}}; \\
+  \Let l = \newref{40} in \send{\chan}{(\Lam \TT. \deref l)};\ \recv {\chan}\ \TT
+\end{array}
+\]
+
+\noindent
+This program exchanges a value to which $2$ is added,
+but postpones the evaluation by wrapping the computation in a closure.
+The following protocol is used to verify this program:
+\begin{align*}
+\interp{\chan}{
+  \begin{array}[t]{@{} l}
+  \sendprot{(\iprop\,\ipropB : \iProp)\,(f:\Val)}{f}
+    {\textcolor{darkred}{\hoare \iprop {f\;\TT} {\Ret \val.\val \in \integer * \ipropB(\val)}}}
+  \\
+  \recvprot{(g:\Val)}{g}
+    {\textcolor{darkred}{\hoare \iprop {g\;\TT} {\Ret \val. \Exists \valB. (\val = \valB + 2) * \ipropB(\valB)}}}
+    \protend
+  \end{array}}
+\end{align*}
+
+\noindent
+The send constructor ($\SEND$) does not just bind the function value
+$f$, but also the precondition $\iprop$ and postcondition $\ipropB$ of its
+Hoare triple.
+In the second message, a Hoare triple is returned that maintains the original
+pre- and postconditions, but returns an integer of 2 higher.
+To send the function, the main thread would let $\iprop \eqdef \loc \mapsto 40$ and $Q(\val) \eqdef (\val = 40)$, and prove
+$\hoare { \iprop } {(\Lam \TT. \deref \loc)\ \TT} { \ipropB }$.
+This example demonstrates that the state space of \pname can be
+higher-order---it is indexed by the precondition $\iprop$ and postcondition
+$\ipropB$ of $f$---which means that they do not have to be agreed upon
+when creating the protocol, masking the internals of the function from the forked-off thread.
+
+It is worth noting that using dependent recursive protocols it is possible to
+keep track of a history of what actions have been performed, which, as is shown in
+\Cref{sec:integration},
+is especially useful when combining channels with locks.
+
+\subsection{\lname 2.0: Subprotocols}
+\label{sec:subprotocol_intro}
+While \lname 1.0's notion of \pname is expressive enough to capture advanced exchanges,
+as indicated by the examples in the previous section, they are more restrictive than necessary
+due to their dual nature.
+The dual nature of \pname requires that:
+\begin{itemize}
+\item Sends ($\sendprotHead {\xdots} \val \iprop$)
+  are matched up with receives ($\recvprotHead {\xdots} \val \iprop$), and \viceversa,
+\item The \binders $\xdots$ of matched sends and receives are the same, and,
+\item The propositions $\iprop$ of matched send and receives are the same.
+\end{itemize}
+With an asynchronous semantics for message passing, where messages are buffered in both directions,
+the above notion of duality excludes the verification of certain safe programs.
+In particular, while it is safe for sends ($\SEND$) to happen before the expected receives
+($\RECV$), duality does not allow that.
+This is demonstrated by the following safe program:
+\[
+{\mathit {prog}_7}\eqdef
+\begin{array}[t]{@{} l}
+\Let {(\chan,\chan')} = \newchan in \\
+\Fork{\send{\chan'}{20};\
+      \send {\chan'} ({\recv {\chan'} + 2})}; \\
+\send \chan 20; \\
+\Let \var = {\recv \chan} in\\
+\Let \varB = {\recv \chan} in \var + \varB
+\end{array}
+\]
+Here, both threads first send the value 20, and then receive the value of the other
+thread.
+After this, they follow a dual behaviour, where the forked-off thread sends a value,
+which the main thread receives.
+With asynchronous message passing, this interaction is safe as neither thread
+blocks when resolving their send, and
+both messages can be in transit at the same time because channels are buffered.
+However, with the features of \lname 1.0 presented in the conference version of
+this paper~\cite{DBLP:journals/pacmpl/HinrichsenBK20}, this program cannot be
+verified as the two \pname of channel endpoints must be strictly dual.
+
+Support for type checking such programs has been studied in the session type
+community,
+namely in the context of \emph{asynchronous session subtyping}
+\cite{mostrous-ESOP2009,mostrous-InfComput2015},
+in which a subtyping relation
+$\substype{\stype_1 \!}{\stype_2}$ is defined,
+capturing that the session type $\stype_2$ can be used in place of $\stype_1$
+when type checking a program.
+The relation captures that sends can be swapped ahead of receives
+$\substype{\strecv{\tvar}\stsend{\tvarB}\stype}
+{\stsend{\tvarB}\strecv{\tvar}\stype}$.
+We refer to this as messages being sent \textit{ahead of} the receives.
+
+In this paper, we show that \pname are compatible with the idea of asynchronous
+session subtyping.
+This gives rise to \textbf{\lname 2.0} that supports
+so-called \textit{subprotocols}.
+Subprotocols are formalised by a preorder $\subprot{\prot_1}{\prot_2}$,
+which captures (among others) a notion of swapping sends ahead of receives
+(provided that the send does not depend on the \binders of the receive).
+For example, we can prove that $\mathit{prog}_7$ results in $42$ by picking the
+following \pname:
+\[
+\begin{array}{@{} r @{} l l @{}}
+\interp{\chan &{}}{
+\sendprot{(\var:\integer)}{\var}{\TRUE}
+\recvprot{}{20}{\TRUE}
+\recvprot{}{\var+2}{\TRUE}
+\protend} & \mathtt{and}\\
+\interp{\chan' &{}}{
+\recvprot{(\var:\integer)}{\var}{\TRUE}
+\sendprot{}{20}{\TRUE}
+\sendprot{}{\var+2}{\TRUE}
+\protend}
+\end{array}
+\]
+While the main thread satisfies the protocol of $\chan$ immediately, the
+forked-off thread does not satisfy the protocol of $\chan'$, as it sends the
+first
+value before receiving.
+However, it is possible to weaken the protocol of $\chan'$ using \lname 2.0's
+notion of subprotocols:
+\[\begin{array}{@{} l @{\ } l}
+\subprot
+{&
+\color{darkgreen}\recvprot{(\var:\integer)}{\var}{\TRUE}
+\color{darkred}\sendprot{}{20}{\TRUE}
+\color{black}\sendprot{}{\var+2}{\TRUE}
+\protend\\}
+{&
+\color{darkred}\sendprot{}{20}{\TRUE}
+\color{darkgreen}\recvprot{(\var:\integer)}{\var}{\TRUE}
+\color{black}\sendprot{}{\var+2}{\TRUE}
+\protend}
+\end{array}\]
+This gives
+$\interp{\chan'}{
+\sendprot{}{20}{\TRUE}{
+\recvprot{(\var:\integer)}{\var}{\TRUE}{
+\sendprot{}{\var+2}{\TRUE}
+\protend}}}
+$.
+Since the first send (with value 20) is independent of the variable
+$\var$ bound by the receive, the subprotocol relation follows immediately from
+the swapping property.
+Note that it is \textit{not} possible to swap the second send
+(with value $\var+2$) ahead of the receive, as it does in fact depend on variable
+$\var$ bound by the receive.
+
+In addition to allowing the verification of a larger class of programs,
+\lname 2.0's subprotocols also provide a more extensional approach to reasoning about \pname.
+This is beneficial whenever we want to reuse existing specifications that might
+use a syntactically different protocol, but that nonetheless logically
+entail each another.
+For example, the ordering of \binders can be changed using the subprotocol
+relation:
+\[
+  \sendprot{(\var:\integer) (\varB:\integer)}{(\var,\varB)}{\TRUE}\prot
+  \subprotop
+  \sendprot{(\varB:\integer) (\var:\integer)}{(\var,\varB)}{\TRUE}\prot
+\]
+Since the subprotocol relation is a first-class logical of proposition of
+Actris 2.0, it also allows the manipulation of separation logic resources,
+such as moving in ownership.
+For example,
+we can show the following \emph{conditional} subprotocol relation:
+\[
+\begin{array}[b]{@{} l @{}}
+\loc_1' \mapsto 20 \  \wand \\
+  \sendprot {(\loc_1,\loc_2:\Loc)} {(\loc_1,\loc_2)}
+    {\loc_1 \mapsto 20 * \loc_2 \mapsto 22} \prot
+    \subprotop
+   \sendprot {(\loc_2:\Loc)} {(\loc_1',\loc_2)}
+    {\loc_2 \mapsto 22} \prot
+\end{array}
+\]
+Here, we move the ownership of $\loc_1' \mapsto 20$ into the protocol,
+to resolve the eventual obligation of sending it, while instantiating the
+\binder $\loc_1$ with $\loc_1'$.
+
+In addition to the demonstrated features, in the rest of this paper we show
+that \lname 2.0's subprotocol relation is capable of moving resources from one
+message to another.
+This gives rise to a principle similar to \emph{framing}, known from conventional
+separation logic, but applied to \pname.
+Moreover, inspired by the work of \citet{DBLP:journals/fuin/BrandtH98}, the
+subprotocol relation is defined coinductively, allowing us to use the principle of Löb induction
+to prove subprotocol relations for recursive protocols.
+
+\subsection{Formal correspondence to session types}
+
+Even though \lname's notion of \pname is influenced by binary session types, this paper does not
+provide a formal correspondence between the two systems.
+However, since \lname is built on top of Iris, it forms a suitable foundations
+for building logical relation models of type systems.
+In related work by \citet{actris-logrel}, \lname has been used to define a logical
+relations model of binary session types, with support for various forms of
+polymorphism and recursion, asynchronous subtyping, references, and locks/mutexes.
+Similar to the RustBelt project \cite{jung-POPL2018}, that work gives rise
+to an extensible approach for proving type safety, which can be
+used to manually prove the typing judgements of racy, but safe, programs that cannot
+be type checked using only the rules of the type system.
+
+\subsection{Contributions and outline}
+
+This paper introduces \textbf{\lname 2.0}: a higher-order impredicative concurrent
+separation logic build on top of the Iris framework for reasoning about
+functional correctness of programs with asynchronous message-passing that combine
+higher-order functions, higher-order references, fork-based concurrency, and locks.
+Concretely, this paper makes the following contributions:
+
+\begin{itemize}
+\item We introduce \emph{\pname} inspired by affine binary session types to
+  model the transfer of resources (including higher-order functions) between
+  channel endpoints.
+  We show that they can be used to handle choice, recursion, and delegation
+  (\Cref{sec:tour}).
+\item We introduce \emph{subprotocols} inspired by asynchronous session
+  subtyping.
+  This notion relaxes duality, allowing channels to send
+  messages before receiving others, and gives rise to a more extensional
+  approach to reasoning about \pname, providing more flexibility in the
+  design and reuse of protocols.
+  We moreover show how L\"ob induction is used to reason about recursive subprotocols
+  (\Cref{sec:subprotocols}).
+\item We demonstrate the benefits obtained from building \lname on top of Iris
+  by showing how Iris's support for ghost state and locks can be used to prove
+  functional correctness of programs using manifest
+  sharing, \ie channel endpoints shared by multiple parties (\Cref{sec:integration}).
+\item We provide a case study on \lname and its mechanisation in Coq by proving
+  functional correctness of a variant of the
+  map-reduce model by \citet{dean-OSDI2004} (\Cref{sec:map_reduce}).
+\item We give a model of \pname in the Iris framework to prove
+  safety (\ie session fidelity) and postcondition
+  validity of our Hoare triples (\Cref{sec:model}).
+\item We provide a full mechanisation of \lname~\cite{actris_coq}
+  using the interactive theorem prover Coq.
+  On top of our Coq mechanisation, we provide custom tactics, which we use to mechanise all
+  examples in the paper (\Cref{sec:coq}).
+\end{itemize}
+
+\subsection{Differences from the conference version}
+
+This paper is an extension of the paper
+``Actris: Session-type based reasoning in separation logic'' presented at
+the POPL'20 conference \cite{DBLP:journals/pacmpl/HinrichsenBK20}.
+In this paper we present Actris 2.0, which extends Actris 1.0 with the notion of
+subprotocols.
+This extension introduces new logical connectives and proof rules, but also
+involves a significant overhaul of the original model and
+its Coq mechanisation.
+We additionally extend the model and mechanisation sections substantially,
+with additional details, considerations, and examples, to give a better
+understanding of how Actris works and how it can be used.
+Concretely, this paper includes the following extensions compared to the
+conference version:
+
+\begin{itemize}
+\item An overview of subprotocols in the introduction (\Cref{sec:subprotocol_intro}).
+\item A new section on \lname 2.0's notion of subprotocols
+  (\Cref{sec:subprotocols}).
+\item An updated and expanded description of the model of \lname in
+  Iris (\Cref{sec:model}).
+\item An expanded section on the Coq mechanisation, with detailed examples of mechanised
+  proofs using the custom tactics for \lname that we have developed (\Cref{sec:coq}).
+\end{itemize}

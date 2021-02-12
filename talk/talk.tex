@@ -194,7 +194,7 @@ print(msg)
     \end{lstlisting}
 
     \remph{TODO: More examples of deadlock}
-    
+
     \item Not closing a channel \textbf{(leak)}:
     \begin{lstlisting}
       fork(fun c => recv(c))
@@ -645,21 +645,122 @@ Inductive head_step :
       \node (T1) [thread] {T1};
       \node (C1) [channel, below of = T1] {C1};
       \node (T2) [thread, below of = C1] {T2};
-      \draw [arrow] (T1) -- (C1);
-      \draw [arrow] (T2) -- (C1);
+      \draw [arrow] (T1) --node[right]{!Nat,End} (C1);
+      \draw [arrow] (T2) --node[right]{?Nat,End} (C1);
 
-      \node (C2) [channel, right of = C1] {C2};
-      \draw [arrow] (C1) -- (C2);
+      % \node (C2) [channel, right of = C1] {C2};
+      % \draw [arrow] (C1) -- (C2);
 
-      \node (T3) [thread, right of = C2] {T3};
-      \draw [arrow] (T3) -- (C2);
+      % \node (T3) [thread, right of = C2] {T3};
+      % \draw [arrow] (T3) -- (C2);
 
-      \node (C3) [channel, right of = T3] {C3};
-      \draw [arrow] (T3) -- (C3);
+      % \node (C3) [channel, right of = T3] {C3};
+      % \draw [arrow] (T3) -- (C3);
 
-      \node (T4) [thread, above of = C3] {T4};
-      \draw [arrow] (T4) -- (C3);
+      % \node (T4) [thread, above of = C3] {T4};
+      % \draw [arrow] (T4) -- (C3);
     \end{tikzpicture}}}
+    \begin{verbatim}
+      own_edge T1 c1 (true,t)
+      own_edge T2 c1 (false,dual(t))
+
+      c1 : !(?Nat, End), End.
+      T1 := let c1' = send(c1',3); close(c1')
+      T2 :=
+        let c4 = fork(fun c4' =>
+          let (c4',c1) = recv(c4')
+          let (c1,n) = recv(c1)
+          close(c1))
+        let c4 = send(c4, c1) in close(c4)
+    \end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{The evolution of the connectivity graph: initial}
+
+  \trimbox{-2cm 0cm 0cm 0cm}{
+    \fbox{\begin{tikzpicture}[node distance=1.5cm]
+      \node (T1) [thread] {T1};
+      \node (C1) [channel, below of = T1] {C1};
+      \node (T2) [thread, below of = C1] {T2};
+      \draw [arrow] (T1) --node[right]{!Nat,End} (C1);
+      \draw [arrow] (T2) --node[right]{?Nat,End} (C1);
+
+      \node (C4) [channel, right of = T2] {C4};
+      \draw [arrow] (T2) --node[left,rotate=90]{!(?Nat,End),End} (C4);
+
+      \node (T5) [thread, right of = C4] {T5};
+      \draw [arrow] (T5) --node[left,rotate=90]{?(?Nat,End),End} (C4);
+    \end{tikzpicture}}}
+    \begin{verbatim}
+      own_edge T1 c1 (true,(!Nat,End))
+      own_edge T2 c1 (false,(?Nat,End)
+      own_edge T2 c4 (true,(!(!Nat,End),End))
+      own_edge T5 c4 (false,(?(!Nat,End),End))
+
+      c1 : !(?Nat, End), End.
+      T1 := let c1' = send(c1',3); close(c1')
+      T2 := let c4 = send(c4, c1) in close(c4)
+      T5 = let (c4',c1) = recv(c4')
+            let (c1,n) = recv(c1)
+            close(c1)
+    \end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{The evolution of the connectivity graph: initial}
+
+  \trimbox{-2cm 0cm 0cm 0cm}{
+    \fbox{\begin{tikzpicture}[node distance=1.5cm]
+      \node (T1) [thread] {T1};
+      \node (C1) [channel, below of = T1] {C1};
+      \node (T2) [thread, below of = C1] {T2};
+      \draw [arrow] (T1) --node[right]{!Nat,End} (C1);
+      \draw [arrow] (C4) --node[right]{?Nat,End} (C1);
+
+      \node (C4) [channel, right of = T2] {C4};
+      \draw [arrow] (T2) --node[left,rotate=90]{!(?Nat,End),End} (C4);
+
+      \node (T5) [thread, right of = C4] {T5};
+      \draw [arrow] (T5) --node[left,rotate=90]{?(?Nat,End),End} (C4);
+    \end{tikzpicture}}}
+    \begin{verbatim}
+      own (c1,true) T1 (!Nat,End)
+      own (c1,false) c4 (?Nat,End)
+      own (c4,true) T2 (!(!Nat,End),End)
+      own (c4,false) T5 (?(!Nat,End),End)
+
+      c1 : !(?Nat, End), End.
+      T1 := let c1' = send(c1',3); close(c1')
+      T2 := close(c4)
+      T5 = let (c4',c1) = recv(c4')
+            let (c1,n) = recv(c1)
+            close(c1)
+
+      Inductive owner := Thread nat | Chan chan
+      own : endpoint -> owner -> chan_type -> hProp
+      \Sigma : heapT (= gmap endpoint (owner * chan_type))
+      own ep owner t :=
+        ownM (\frag {[ ep := (owner,t) ]})
+
+      A := owner
+      graph A := gset (A * A)
+
+      own_auth : heapT -> hProp
+      own_auth \Sigma :=
+        ownM (\auth \Sigma) \star
+        \exists G, related G \Sigma \and acyclic_forest G
+
+      "G := sym_closure ({ (ep.1, owner) : \Sigma !! ep = Some (owner,t) })"
+
+      related G \Sigma :=
+        symmetric G \and
+        \all ep owner t,
+          \Sigma !! ep = Some (owner,t)
+             ->
+          (Chan ep.1, owner) \in G
+
+    \end{verbatim}
 \end{frame}
 
 \begin{frame}[fragile]

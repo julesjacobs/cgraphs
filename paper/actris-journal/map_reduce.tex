@@ -1,0 +1,194 @@
+\section{Case study: map-reduce}
+\label{sec:map_reduce}
+
+As a means of demonstrating the use of \lname for verifying more
+realistic programs, we present a proof of functional correctness
+of a simple distributed load-balancing implementation of the map-reduce model
+by \citet{dean-OSDI2004}.
+
+Since \lname is not concerned with distributed systems over networks, we
+consider a version of map-reduce that distributes the work over forked-off
+threads on a single machine.
+This means that we do not consider mechanics like handling the failure,
+restarting, and rescheduling of nodes that a version that operates on a network
+has to consider.
+
+In order to implement and verify our map-reduce version we make use of the
+implementation and verification of the fine-grained distributed merge sort
+algorithm (\Cref{sec:dependent}) and the distributed load-balancing
+mapper (\Cref{sec:mapper}).
+As such, our map-reduce implementation is mostly a suitable client that glues
+together communication with these services.
+The purpose of this section is to give a high-level description of the
+implementation.
+The actual code and proofs can be found in the accompanied
+Coq development~\cite{actris_coq}.
+
+\subsection{A functional specification of map-reduce}
+\label{sec:map_reduce_functional}
+
+\newcommand{\mapreducename}{\defemph{map\_reduce}}
+\newcommand{\vmapreducename}{\valuefy{\mapreducename}}
+\newcommand{\curryvar}{\defemph{curry}}
+\newcommand{\redvar}{\logemph{g}}
+\newcommand{\vredvar}{\valuefy{\redvar}}
+\newcommand{\tvarK}{K}
+\newcommand{\maptype}{\tvar \to \List\ (\tvarK * \tvarB)}
+\newcommand{\redtype}{(\tvarK * \List\ \tvarB) \to \List\ \tvarC}
+\newcommand{\groupname}{\defemph{group}}
+
+The purpose of the map-reduce model is to transform an input set of type
+$\List\ \tvar$ into an output set of type $\List\ \tvarC$
+using two functions $\mapvar$ (often called ``map'') and $\redvar$ (often
+called ``reduce''):
+\[
+\mapvar : \maptype
+\quad\quad
+\redvar : \redtype
+\]
+
+\noindent
+An implementation of map-reduce performs the transformation in three steps:
+\begin{enumerate}
+\item First, the function $\mapvar$ is applied to each element of the input set.
+  This results in lists of key/value pairs which are then flattened
+  using a $\flatmapname$ operation (an operation that takes a list of lists and appends all nested lists):
+  \[
+  \flatmapname\ \mapvar \quad:\quad
+  \List\ \tvar \to \List\ (\tvarK * \tvarB)
+  \]
+\item Second, the resulting lists of key/value pairs are grouped together by
+  their key (this step is often called ``shuffling''):
+  \[
+  \groupname \quad:\quad
+  \List\ (\tvarK * \tvarB) \to \List\ (\tvarK * \List\ \tvarB)
+  \]
+\item Finally, the grouped key/value pairs are passed on to the $\redvar$
+  function, after which the results are flattened to aggregate the results.
+  This again is done using a $\flatmapname$ operation:
+  \[
+  \flatmapname\ \redvar \quad:\quad
+  \List\ (\tvarK * \List\ \tvarB) \to \List\ \tvarC
+  \]
+\end{enumerate}
+
+\noindent
+The complete functionality of map-reduce is equivalent to applying the following
+$\mapreducename$ function on the entire data set:
+\[
+  \mapreducename\quad
+  :
+  \quad
+  \List\ \tvar \to \List \tvarC
+  \quad \eqdef \quad
+      (\flatmapname\ \redvar) \circ \groupname \circ (\flatmapname\ \mapvar)
+\]
+
+\noindent
+A standard instance of map-reduce is counting word occurrences, where we let
+$\tvar \eqdef \tvarK \eqdef \String$ and $\tvarB \eqdef \nat$ and
+$\tvarC \eqdef \String * \nat$ with:
+%
+\begin{align*}
+\mapvar : \String \to \List\ (\String * \nat) \eqdef{}&
+  \Lam \var. [(\var,1)] \\
+\redvar : (\String * \List\ \nat) \to \List\ (\String * \nat) \eqdef{}&
+  \Lam (k,\vec n). [(k,\Sigma_{i<\listlength{\vec n}}.\ \vec n_i)]
+\end{align*}
+
+\subsection{Implementation of map-reduce}
+
+The general distributed model of map-reduce is achieved by distributing the
+phases of mapping, shuffling, and reducing, over a number of worker nodes
+(\eg nodes of a cluster or individual CPUs).
+To perform the computation in a distributed way, there is some work involved
+in coordinating the jobs over these worker nodes,
+which is usually done as follows:
+\begin{enumerate}
+\item Split the input data into chunks and delegate these chunks to the mapper
+  nodes, that each apply the ``map'' function $\mapvar$ to their given data in parallel.
+\item Collect the complete set of mapped results and ``shuffle'' them, \ie
+  group them by key.
+  The grouping is commonly implemented using a distributed sorting algorithm.
+\item Split the shuffled data into chunks and delegate these chunks to the
+  reducer nodes that each apply the ``reduce'' function $\redvar$ to their given
+  data in parallel.
+\item Collect and aggregate the complete set of result of the reducers.
+\end{enumerate}
+
+\noindent
+Our variant of the map-reduce model is defined as a function
+$\vmapreducename\ n\ m\ \vmapvar\ \vredvar\ \loc$, which coordinates the work
+for performing map-reduce on a linked list $\loc$ between $n$ mappers
+performing the ``map'' function $\vmapvar$ and $m$ workers
+performing the ``reduce`` function $\vredvar$.
+To make the implementation more interesting, we prevent storing intermediate
+values locally by forwarding/returning them immediately as they are
+available/requested.
+The global structure is as follows:
+\begin{enumerate}
+\item Start $n$ instances of the load-balancing
+  $\parmapperworkername$ from \Cref{sec:integration},
+  parameterised with the $\vmapvar$ function.
+  Additionally start an instance of $\listsortelemservicename$ from
+  \Cref{sec:tour}, parameterised by a concrete comparison
+  function on the keys, corresponding to $\Lam (k_1,\_)\ (k_2,\_). k_1 < k_2$.
+  Note that the type of keys are restricted to be $\integer$
+  for brevity's sake. % due to requirements on the type properties.
+\item Perform a loop that handles communication with the mappers.
+  If a mapper requests work, pop a value from the input list.
+  If a mapper returns work, forward it to the sorting service.
+  This process is repeated until all inputs have been mapped and forwarded.
+\item Start $m$ instances of the $\parmapperworkername$, parameterised by $\vredvar$.
+\item Perform a loop that handles communication with the mappers.
+  If a mapper requests work, group elements returned by the sort service.
+  If a mapper returns work, aggregate the returned value in a the linked
+  list.
+  Grouped elements are created by requesting and aggregating elements from the
+  sorter until the key changes.
+\end{enumerate}
+The aggregated linked list then contains the fully mapped input set upon
+completion.
+
+\subsection{Functional correctness of map-reduce}
+
+\newcommand{\tvarKey}{\integer}
+\newcommand{\tvarZB}{{\tvarKey * \tvarB}}
+\newcommand{\tvarZBs}{{\tvarKey * \List\ \tvarB}}
+
+The specification of the map-reduce program is as follows:
+\[
+  \begin{array}{@{} l @{}}
+    \hoareV
+    {
+    \begin{array}{@{} l @{}}
+      0 < n\ *\
+      0 < m\ *\
+      \mapspecname\ \interpvar_\tvar\ \interpvar_\tvarZB\
+      \mapvar\ \vmapvar\ * \
+      \mapspecname\ \interpvar_\tvarZBs\
+      \interpvar_\tvarC\ \redvar\ \vredvar\ * \
+      \listrefI{\interpvar_\tvar} \loc {\vec\var}
+    \end{array}
+    }
+    {\vmapreducename\ n\ m\ \vmapvar\ \vredvar\ \loc}
+    {
+    \Exists{\vec{\varC}}.
+    \vec{\varC} \equiv_p\ \mapreducename\ \mapvar\ \redvar\ \vec{\var} *
+    \listrefI{\interpvar_\tvarC}{\loc}{\vec\varC}
+    }
+  \end{array}
+\]
+
+\noindent
+The $\mapspecname$ predicates (as introduced in \Cref{sec:subprotocol_swapping})
+establish a connection between the functions $\mapvar$ and $\redvar$ on
+the logical level and the functions $\vmapvar$ and $\vredvar$ in the language.
+These make use of the various interpretation predicates $\interpvar_\tvar$,
+$\interpvar_\tvarZB$, $\interpvar_{\tvarZBs}$, and $\interpvar_\tvarC$ for
+the types in question.
+Lastly, the $\listrefI{\interpvar_\tvar} \loc {\vec\var}$ predicate determines
+that the input is a linked list of the initial type $\tvar$.
+The postcondition asserts that the result $\vec \varC$ is a permutation of the
+original linked list $\vec \var$ applied to the functional specification
+$\mapreducename$ of map-reduce from \Cref{sec:map_reduce_functional}.
