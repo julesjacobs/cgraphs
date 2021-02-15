@@ -6,7 +6,7 @@ Require Export diris.htypesystem.
   This predicate says that the types of the receives at the start of ct
   match the values in buf, and the rest of ct is equal to rest.
 *)
-Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) (o : owner) : hProp :=
+Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) (o : owner) : iProp :=
   match buf, ct with
                             (* add owner here *)
   | v::buf', RecvT t ct' => val_typed v t o ∗ buf_typed buf' ct' rest o
@@ -18,21 +18,21 @@ Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) (o : own
 
 Definition dom_chans {V} (Σ : gmap endpoint V) : gset nat := set_map fst (dom (gset endpoint) Σ).
 
-Definition buf_typed' (bufq : option (list val)) (ctq : option chan_type) (rest : chan_type) (o : owner) : hProp :=
+Definition buf_typed' (bufq : option (list val)) (ctq : option chan_type) (rest : chan_type) (o : owner) : iProp :=
     match bufq, ctq with
     | Some buf, Some ct => buf_typed buf ct rest o
     | None, None => ⌜⌜ rest = EndT ⌝⌝
     | _,_ => False
     end.
 
-Definition bufs_typed (chans : heap) (Σ : heapT) (i : chan) : hProp :=
+Definition bufs_typed (chans : heap) (Σ : heapT) (i : chan) : iProp :=
   ∃ rest, buf_typed' (chans !! (i,true)) (Σ !! (i,true)) rest (Chan i) ∗
           buf_typed' (chans !! (i,false)) (Σ !! (i,false)) (dual rest) (Chan i).
 
-Definition heap_typed (chans : heap) (Σ : heapT) : hProp :=
+Definition heap_typed (chans : heap) (Σ : heapT) : iProp :=
    ([∗ set] i∈dom_chans Σ ∪ dom_chans chans, bufs_typed chans Σ i)%I.
 
-Definition invariant (chans : heap) (threads : list expr) : hProp :=
+Definition invariant (chans : heap) (threads : list expr) : iProp :=
   ∃ Σ, own_auth Σ ∗
        ([∗ list] id↦e∈threads, ptyped0 e UnitT (Thread id)) ∗
        heap_typed chans Σ.
@@ -687,7 +687,7 @@ Definition ct_tail (ct : chan_type) : chan_type :=
     end.
 
 Lemma big_opL_insert_override {A} (l : list A) (k : nat) (y y' : A)
-                     (P : nat -> A -> hProp) :
+                     (P : nat -> A -> iProp) :
   l !! k = Some y ->
   (P k y -∗ P k y') -∗
   ([∗ list] i↦x∈l, P i x) -∗
@@ -710,7 +710,7 @@ Proof.
     iApply (ctx_subst0 with "Hct"). done.
 Qed.
 
-Lemma rw_helper1 {T} (P Q : T -> hProp) (R : hProp) :
+Lemma rw_helper1 {T} (P Q : T -> iProp) (R : iProp) :
   (∃ x, P x ∗ R ∗ Q x) ⊣⊢ R ∗ ∃ x, P x ∗ Q x.
 Proof.
   iIntros.
@@ -722,7 +722,7 @@ Proof.
     iExists x. iFrame.
 Qed.
 
-Lemma rw_helper2 {T} (P : T -> hProp) (Q : hProp) :
+Lemma rw_helper2 {T} (P : T -> iProp) (Q : iProp) :
   (∃ x, P x) ∗ Q ⊣⊢ ∃ x, P x ∗ Q.
 Proof.
   iIntros.
@@ -734,6 +734,33 @@ Proof.
     iExists x. iFrame.
 Qed.
 
+Fixpoint val_typed' (v : val) (t : type) (o : owner) : iProp := (* extra argument: owner*)
+  match t with
+  | UnitT => ⌜⌜ v = UnitV ⌝⌝
+  | NatT => ∃ n, ⌜⌜ v = NatV n ⌝⌝
+  | PairT t1 t2 => ∃ a b, ⌜⌜ v = PairV a b ⌝⌝ ∗ val_typed' a t1 o ∗ val_typed' b t2 o
+  | FunT t1 t2 => ∃ x e, ⌜⌜ v = FunV x e ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2 o
+  | ChanT r => ∃ c, ⌜⌜ v = ChanV c ⌝⌝ ∗ own c r o
+  end.
+
+Lemma val_typed_switch v t o :
+  val_typed v t o ⊣⊢ val_typed' v t o.
+Proof.
+  iIntros. iSplit; iIntros "H".
+  - iInduction t as [] "IH" forall (v); simpl; destruct v; simpl;
+    repeat iDestruct "H" as (?) "H"; try iDestruct "H" as "%";
+    simplify_eq; repeat iExists _; try done; iSplit; try done.
+    iDestruct "H" as "[H1 H2]".
+    iSplitL "H1". { by iApply "IH". }
+    by iApply "IH1".
+  - iInduction t as [] "IH" forall (v); simpl; destruct v; simpl;
+    repeat iDestruct "H" as (?) "H"; try iDestruct "H" as "%";
+    simplify_eq; repeat iExists _; try done; iSplit; try done.
+    iDestruct "H" as "[H1 H2]".
+    iSplitL "H1". { by iApply "IH". }
+    by iApply "IH1".
+Qed.
+
 Lemma val_typed_move_tc Σ c v t i t' :
   own_auth Σ ∗
   own c t (Thread i) ∗
@@ -741,8 +768,73 @@ Lemma val_typed_move_tc Σ c v t i t' :
   ==∗
   own_auth Σ ∗
   own c t (Thread i) ∗
-  val_typed v t' (Chan c.1).
-Proof. Admitted.
+  val_typed v t' (Chan c.1)
+with ptyped_move_tc Γ Σ c e t i t' :
+  own_auth Σ ∗
+  own c t (Thread i) ∗
+  ptyped Γ e t' (Thread i)
+  ==∗
+  own_auth Σ ∗
+  own c t (Thread i) ∗
+  ptyped Γ e t' (Chan c.1).
+Proof.
+  - iIntros "(Hown & H & Hv)". rewrite !val_typed_switch.
+    iInduction t' as [] "IH" forall (v); simpl.
+    + by iFrame.
+    + by iFrame.
+    + iDestruct "Hv" as (a b ->) "[Hv1 Hv2]".
+      iMod ("IH" with "Hown H Hv1") as "(Hown & H & Hv1)".
+      iMod ("IH1" with "Hown H Hv2") as "(Hown & H & Hv2)".
+      iFrame. iModIntro. iExists _,_.
+      iSplit; first done. iFrame.
+    + iDestruct "Hv" as (x e ->) "He".
+      iMod (ptyped_move_tc with "[Hown H He]") as "(Hown & H & He)"; first by iFrame.
+      iFrame. iModIntro. iExists _,_. iSplit; first done. iFrame.
+    + iDestruct "Hv" as (c' ->) "Hv".
+      iMod (own_move_tc with "[Hown Hv H]") as "(Hown & Hv & H)"; first by iFrame.
+      iFrame. eauto.
+  - iIntros "(Hown & H & Hv)".
+    iInduction e as [] "IH" forall (t' Γ); simpl.
+    + iDestruct "Hv" as (->) "Hv".
+      iMod (val_typed_move_tc with "[Hown H Hv]") as "(Hown & H & Hv)"; first by iFrame.
+      iFrame. done.
+    + by iFrame.
+    + iDestruct "Hv" as (? ? ?) "(? & He1 & He2)".
+      iMod ("IH" with "Hown H He1") as "(Hown & H & He1)".
+      iMod ("IH1" with "Hown H He2") as "(Hown & H & He2)".
+      iFrame. iModIntro. iExists _,_,_. iFrame.
+    + iDestruct "Hv" as (? ?) "(? & He)".
+      iMod ("IH" with "Hown H He") as "(Hown & H & He)".
+      iFrame. iModIntro. iExists _,_. iFrame.
+    + iDestruct "Hv" as (? ? ? ?) "(? & He1 & He2)".
+      iMod ("IH" with "Hown H He1") as "(Hown & H & He1)".
+      iMod ("IH1" with "Hown H He2") as "(Hown & H & He2)".
+      iFrame. iModIntro. repeat iExists _. iFrame.
+    + iDestruct "Hv" as (? ?) "(? & He)".
+      iMod ("IH" with "Hown H He") as "(Hown & H & He)".
+      iFrame. iModIntro. repeat iExists _. iFrame.
+    + iDestruct "Hv" as (? ? ?) "(? & He1 & He2)".
+      iMod ("IH" with "Hown H He1") as "(Hown & H & He1)".
+      iMod ("IH1" with "Hown H He2") as "(Hown & H & He2)".
+      iFrame. iModIntro. repeat iExists _. iFrame.
+    + iDestruct "Hv" as (? ?) "(? & He1 & He2)".
+      iMod ("IH" with "Hown H He1") as "(Hown & H & He1)".
+      iMod ("IH1" with "Hown H He2") as "(Hown & H & He2)".
+      iFrame. iModIntro. repeat iExists _. iFrame.
+    + iDestruct "Hv" as (? ? ? ?) "(? & He1 & He2)".
+      iMod ("IH" with "Hown H He1") as "(Hown & H & He1)".
+      iMod ("IH1" with "Hown H He2") as "(Hown & H & He2)".
+      iFrame. iModIntro. repeat iExists _. iFrame.
+    + iDestruct "Hv" as (? ?) "(? & He1 & He2)".
+      iMod ("IH" with "Hown H He1") as "(Hown & H & He1)".
+      admit.
+    + iDestruct "Hv" as (?) "(? & He)".
+      iMod ("IH" with "Hown H He") as "(Hown & H & He)".
+      iFrame. iModIntro. repeat iExists _. iFrame.
+    + iDestruct "Hv" as "[? Hv]".
+      iMod ("IH" with "Hown H Hv") as "(Hown & H & Hv)".
+      by iFrame.
+ Admitted.
 
 Lemma val_typed_move_ct Σ c v t i t' :
   own_auth Σ ∗
@@ -905,33 +997,6 @@ Proof.
     do 3 eexists.
     apply (Ctx_step (k ∘ k0)); last done.
     apply (Ctx_cons k); done.
-Qed.
-
-Fixpoint val_typed' (v : val) (t : type) (o : owner) : hProp := (* extra argument: owner*)
-  match t with
-  | UnitT => ⌜⌜ v = UnitV ⌝⌝
-  | NatT => ∃ n, ⌜⌜ v = NatV n ⌝⌝
-  | PairT t1 t2 => ∃ a b, ⌜⌜ v = PairV a b ⌝⌝ ∗ val_typed' a t1 o ∗ val_typed' b t2 o
-  | FunT t1 t2 => ∃ x e, ⌜⌜ v = FunV x e ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2 o
-  | ChanT r => ∃ c, ⌜⌜ v = ChanV c ⌝⌝ ∗ own c r o
-  end.
-
-Lemma val_typed_switch v t o :
-  val_typed v t o ⊣⊢ val_typed' v t o.
-Proof.
-  iIntros. iSplit; iIntros "H".
-  - iInduction t as [] "IH" forall (v); simpl; destruct v; simpl;
-    repeat iDestruct "H" as (?) "H"; try iDestruct "H" as "%";
-    simplify_eq; repeat iExists _; try done; iSplit; try done.
-    iDestruct "H" as "[H1 H2]".
-    iSplitL "H1". { by iApply "IH". }
-    by iApply "IH1".
-  - iInduction t as [] "IH" forall (v); simpl; destruct v; simpl;
-    repeat iDestruct "H" as (?) "H"; try iDestruct "H" as "%";
-    simplify_eq; repeat iExists _; try done; iSplit; try done.
-    iDestruct "H" as "[H1 H2]".
-    iSplitL "H1". { by iApply "IH". }
-    by iApply "IH1".
 Qed.
 
 Lemma heap_fresh (h : heap) :

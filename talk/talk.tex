@@ -738,7 +738,7 @@ Inductive head_step :
             close(c1)
 
       Inductive owner := Thread nat | Chan chan
-      own : endpoint -> owner -> chan_type -> hProp
+      own : endpoint -> owner -> chan_type -> iProp
       \Sigma : heapT (= gmap endpoint (owner * chan_type))
       own ep owner t :=
         ownM (\frag {[ ep := (owner,t) ]})
@@ -746,7 +746,7 @@ Inductive head_step :
       A := owner
       graph A := gset (A * A)
 
-      own_auth : heapT -> hProp
+      own_auth : heapT -> iProp
       own_auth \Sigma :=
         ownM (\auth \Sigma) \star
         \exists G, related G \Sigma \and acyclic_forest G

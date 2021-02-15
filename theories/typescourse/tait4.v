@@ -293,6 +293,7 @@ Fixpoint HTv (e : expr) (t : ty) : Prop :=
   end.
 
 Definition HTe (e : expr) (t : ty) : Prop := ∃ v, steps e v ∧ HTv v t.
+Definition HTe_SN (e : expr) (t : ty) : Prop := ∃ v, HTv v t ∧ ∀ e', steps e e' -> steps e' v.
 
 Definition env_HT (γ : env) (Γ : envT) :=
   ∀ x, match  (Γ !! x),(γ !! x) with

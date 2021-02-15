@@ -5,34 +5,71 @@ From iris.proofmode Require Import tactics.
 Require Export diris.langdef.
 Require Export diris.logic.bi.
 Require Import diris.util.
+Require Export diris.logic.bupd.
 Ltac inv H := inversion H; clear H; simpl in *; simplify_eq.
 
 Inductive owner :=
   | Thread : nat -> owner
   | Chan : chan -> owner.
 
-Canonical Structure chan_typeO := leibnizO (chan_type * owner).
+Canonical Structure ownerO := leibnizO owner.
+Canonical Structure chan_typeO := leibnizO chan_type.
+Canonical Structure chan_type_ownerO := prodO chan_typeO ownerO.
 
 Notation heapT := (gmap endpoint chan_type).
 Notation heapTO := (gmap endpoint (chan_type * owner)).
-Notation heapTUR := (gmapUR endpoint (exclR chan_typeO)).
+Notation heapT_UR := (gmapUR endpoint (exclR chan_typeO)).
+Notation heapTO_UR := (gmapUR endpoint (exclR chan_type_ownerO)).
+
+Notation oProp := (uPred heapT_UR).
+Notation iProp := (uPred (authUR heapTO_UR)).
 
 Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 
-Notation hProp := (uPred heapTUR).
+Definition attach_owner (o : owner) (h : heapT) := (λ t, Excl (t,o)) <$> h.
 
-Definition own (l : endpoint) (t : chan_type) (o : owner) : hProp :=
-  uPred_ownM (◯ {[ l := Excl (t,o) ]}).
+Definition owned (o : owner) (P : oProp) : iProp :=
+  ∃ (h : heapT), ⌜⌜ uPred_ownM (Excl <$> h) ⊢ P ⌝⌝ ∗ uPred_ownM (◯ (attach_owner o h)).
 
 Definition acyclic : heapTO -> Prop. Admitted.
-Definition related : heapTO -> heapT -> Prop. Admitted.
+Definition related (Δ : heapTO) (h : heapT) : Prop :=
+  (∀ (ep : endpoint) (ct : chan_type) (o : owner), Δ !! ep = Some (ct,o) -> h !! ep = Some ct) ∧
+  (∀ (ep : endpoint) (ct : chan_type), h !! ep = Some ct -> ∃ (o : owner), Δ !! ep = Some (ct,o)).
 
-Definition own_auth (h : heapT) : hProp :=
+Definition own_auth (h : heapT) : iProp :=
   ∃ Δ, ⌜⌜ acyclic Δ ∧ related Δ h ⌝⌝ ∗ uPred_ownM (● (Excl <$> Δ)).
+
+Definition own (l : endpoint) (t : chan_type) (o : owner) : iProp :=
+  uPred_ownM (◯ {[ l := Excl (t,o) ]}).
+
+
+
+
+
+Lemma own_ownM Δ l t o : uPred_ownM (● (Excl <$> Δ)) ∗ own l t o ⊢ uPred_ownM (● (Excl <$> Δ) ⋅ ◯ {[ l := Excl (t,o) ]}).
+Proof.
+  unfold own, own_auth.
+  rewrite <- uPred.ownM_op. done.
+Qed.
 
 Lemma own_lookup Σ l t o :
   own_auth Σ ∗ own l t o -∗ ⌜ Σ !! l = Some t ⌝.
-Proof. Admitted.
+Proof.
+  iIntros "[Hown H]".
+  iDestruct "Hown" as (Δ [Ha Hr]) "Hown".
+  iDestruct (own_ownM with "[Hown H]") as "H"; first by iFrame.
+  rewrite uPred.ownM_valid.
+  rewrite uPred.discrete_valid.
+  iDestruct "H" as %H. iPureIntro.
+  apply auth_both_valid_discrete in H as [].
+  destruct Hr as [H1 H2].
+  apply (H1 l t o).
+  pose proof @singleton_included_exclusive_l.
+  specialize (H3 endpoint _ _ (exclR chan_typeO) (Excl <$> Δ) l (Excl (t, o)) _ H0).
+  rewrite ->H3 in H.
+  rewrite lookup_fmap in H.
+  destruct (Δ !! l) eqn:E; simpl in *; simplify_eq. done.
+ Qed.
 
 Lemma own_dealloc Σ l t o :
   own_auth Σ ∗ own l t o ==∗ own_auth (delete l Σ).
@@ -51,6 +88,7 @@ Lemma own_mutate Σ l t t' o :
   own_auth Σ ∗ own l t o ==∗ own_auth (<[l:=t']> Σ) ∗ own l t' o.
 Proof. Admitted.
 
+(* Need to use consistent updates instead of basic updates here! *)
 Lemma own_move_tc Σ c t i t' l :
   own_auth Σ ∗
   own c t (Thread i) ∗
@@ -158,14 +196,14 @@ SEND+RECV
 (own_auth ∅ ⊢ |==> ∃ Σ2, own_auth Σ2 ∧ ⌜ φ Σ2 ⌝) → φ ∅                        -- adequacy for leak freedom
 adequacy for deadlocks??
 
-Definition invariant (chans : heap) (threads : list expr) : hProp :=
+Definition invariant (chans : heap) (threads : list expr) : iProp :=
   ∃ Σ, own_auth Σ ∗
        ([∗ list] id↦e∈threads, ptyped0 e UnitT (Thread id)) ∗
        heap_typed chans Σ.
 
 Leak freedom:
 
-Definition invariant (chans : heap) (threads : list expr) : hProp :=
+Definition invariant (chans : heap) (threads : list expr) : iProp :=
   ∃ Σ, own_auth Σ ∗
        heap_typed chans Σ.
 
@@ -370,7 +408,7 @@ Proof. Admitted.
   apply: auth_global_valid_auth.
 Qed. *)
 
-Fixpoint ptyped (Γ : envT) (e : expr) (t : type) (o : owner) : hProp :=
+Fixpoint ptyped (Γ : envT) (e : expr) (t : type) (o : owner) : iProp :=
  match e with
   | Val v =>
       ⌜⌜ Γ = ∅ ⌝⌝ ∗ val_typed v t o
@@ -412,7 +450,7 @@ Fixpoint ptyped (Γ : envT) (e : expr) (t : type) (o : owner) : hProp :=
   | Close e =>
       ⌜⌜ t = UnitT ⌝⌝ ∗ ptyped Γ e (ChanT EndT) o
   end
-with val_typed (v : val) (t : type) (o : owner) : hProp := (* extra argument: owner*)
+with val_typed (v : val) (t : type) (o : owner) : iProp := (* extra argument: owner*)
   match v with
   | UnitV => ⌜⌜ t = UnitT ⌝⌝
   | NatV n => ⌜⌜ t = NatT ⌝⌝
@@ -679,7 +717,7 @@ Proof.
 Qed.
 
 (* Definition ctx_typed (Γ : envT) (k : expr -> expr)
-                     (A : type) (B : type) : hProp :=
+                     (A : type) (B : type) : iProp :=
     (∀ e Γ',
       ⌜⌜ Γ ##ₘ Γ' ⌝⌝ -∗
       ptyped Γ' e A -∗
@@ -764,7 +802,7 @@ Qed. *)
 
 (* ptyped with empty environment *)
 
-Fixpoint ptyped0 (e : expr) (t : type) (o : owner): hProp :=
+Fixpoint ptyped0 (e : expr) (t : type) (o : owner): iProp :=
  match e with
   | Val v =>
       val_typed v t o
@@ -937,7 +975,7 @@ Qed.
 
 
 Definition ctx_typed0 (k : expr -> expr)
-                     (A : type) (B : type) (o : owner) : hProp :=
+                     (A : type) (B : type) (o : owner) : iProp :=
     ∀ e,
       ptyped0 e A o -∗
       ptyped0 (k e) B o.

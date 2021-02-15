@@ -127,7 +127,7 @@ that means
 that means
   φ Σ1
 
-Definition invariant (chans : heap) (threads : list expr) : hProp :=
+Definition invariant (chans : heap) (threads : list expr) : iProp :=
   ∃ Σ, own_auth Σ ∗
       (([∗ list] e∈threads, ptyped0 e UnitT) ∗
       heap_typed chans Σ) Σ.

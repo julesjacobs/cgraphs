@@ -16,6 +16,7 @@ theories/util.v
 theories/strees.v
 theories/logic/upred.v
 theories/logic/bi.v
+theories/logic/bupd.v
 theories/langdef.v
 theories/htypesystem.v
 theories/preservation.v

@@ -9,136 +9,136 @@ predicates over heaps (modeled as maps from integer locations to integer values)
 It shows that Iris's [bi] canonical structure can be inhabited, and the Iris
 proof mode can be used to prove lemmas in this separation logic. *)
 
-Record hProp := h_Prop {
-  hProp_holds :> heapT → Prop;
+Record iProp := h_Prop {
+  iProp_holds :> heapT → Prop;
 }.
-Bind Scope bi_scope with hProp.
-Arguments hProp_holds : simpl never.
-Add Printing Constructor hProp.
+Bind Scope bi_scope with iProp.
+Arguments iProp_holds : simpl never.
+Add Printing Constructor iProp.
 
 Section ofe.
-  Inductive hProp_equiv' (P Q : hProp) : Prop :=
-    { hProp_in_equiv : ∀ σ, P σ ↔ Q σ }.
-  Instance hProp_equiv : Equiv hProp := hProp_equiv'.
-  Instance hProp_equivalence : Equivalence (≡@{hProp}).
+  Inductive iProp_equiv' (P Q : iProp) : Prop :=
+    { iProp_in_equiv : ∀ σ, P σ ↔ Q σ }.
+  Instance iProp_equiv : Equiv iProp := iProp_equiv'.
+  Instance iProp_equivalence : Equivalence (≡@{iProp}).
   Proof. split; repeat destruct 1; constructor; naive_solver. Qed.
-  Canonical Structure hPropO := discreteO hProp.
+  Canonical Structure iPropO := discreteO iProp.
 End ofe.
 
 (** logical entailement *)
-Inductive hProp_entails (P Q : hProp) : Prop :=
-  { hProp_in_entails : ∀ σ, P σ → Q σ }.
+Inductive iProp_entails (P Q : iProp) : Prop :=
+  { iProp_in_entails : ∀ σ, P σ → Q σ }.
 
 (** logical connectives *)
-Definition hProp_emp_def : hProp :=
-  {| hProp_holds σ := σ = ∅ |}.
-Definition hProp_emp_aux : seal (@hProp_emp_def). Proof. by eexists. Qed.
-Definition hProp_emp := unseal hProp_emp_aux.
-Definition hProp_emp_eq :
-  @hProp_emp = @hProp_emp_def := seal_eq hProp_emp_aux.
+Definition iProp_emp_def : iProp :=
+  {| iProp_holds σ := σ = ∅ |}.
+Definition iProp_emp_aux : seal (@iProp_emp_def). Proof. by eexists. Qed.
+Definition iProp_emp := unseal iProp_emp_aux.
+Definition iProp_emp_eq :
+  @iProp_emp = @iProp_emp_def := seal_eq iProp_emp_aux.
 
-Definition hProp_has_type_def (l : endpoint) (t : chan_type) : hProp :=
-  {| hProp_holds σ := σ = {[ l := t ]} |}.
-Definition hProp_has_type_aux : seal (@hProp_has_type_def). Proof. by eexists. Qed.
-Definition hProp_has_type := unseal hProp_has_type_aux.
-Definition hProp_has_type_eq :
-  @hProp_has_type = @hProp_has_type_def := seal_eq hProp_has_type_aux.
+Definition iProp_has_type_def (l : endpoint) (t : chan_type) : iProp :=
+  {| iProp_holds σ := σ = {[ l := t ]} |}.
+Definition iProp_has_type_aux : seal (@iProp_has_type_def). Proof. by eexists. Qed.
+Definition iProp_has_type := unseal iProp_has_type_aux.
+Definition iProp_has_type_eq :
+  @iProp_has_type = @iProp_has_type_def := seal_eq iProp_has_type_aux.
 
-Definition hProp_pure_def (φ : Prop) : hProp :=
-  {| hProp_holds _ := φ |}.
-Definition hProp_pure_aux : seal (@hProp_pure_def). Proof. by eexists. Qed.
-Definition hProp_pure := unseal hProp_pure_aux.
-Definition hProp_pure_eq :
-  @hProp_pure = @hProp_pure_def := seal_eq hProp_pure_aux.
+Definition iProp_pure_def (φ : Prop) : iProp :=
+  {| iProp_holds _ := φ |}.
+Definition iProp_pure_aux : seal (@iProp_pure_def). Proof. by eexists. Qed.
+Definition iProp_pure := unseal iProp_pure_aux.
+Definition iProp_pure_eq :
+  @iProp_pure = @iProp_pure_def := seal_eq iProp_pure_aux.
 
-Definition hProp_own_def (σ : gmap endpoint chan_type) : hProp :=
-  {| hProp_holds σ' := σ' = σ |}.
-Definition hProp_own_aux : seal (@hProp_own_def). Proof. by eexists. Qed.
-Definition hProp_own := unseal hProp_own_aux.
-Definition hProp_own_eq :
-  @hProp_own= @hProp_own_def := seal_eq hProp_own_aux.
+Definition iProp_own_def (σ : gmap endpoint chan_type) : iProp :=
+  {| iProp_holds σ' := σ' = σ |}.
+Definition iProp_own_aux : seal (@iProp_own_def). Proof. by eexists. Qed.
+Definition iProp_own := unseal iProp_own_aux.
+Definition iProp_own_eq :
+  @iProp_own= @iProp_own_def := seal_eq iProp_own_aux.
 
-Definition own (σ : gmap endpoint chan_type) : hProp := hProp_own_def σ.
+Definition own (σ : gmap endpoint chan_type) : iProp := iProp_own_def σ.
 
-Definition hProp_and_def (P Q : hProp) : hProp :=
-  {| hProp_holds σ := P σ ∧ Q σ |}.
-Definition hProp_and_aux : seal (@hProp_and_def). Proof. by eexists. Qed.
-Definition hProp_and := unseal hProp_and_aux.
-Definition hProp_and_eq:
+Definition iProp_and_def (P Q : iProp) : iProp :=
+  {| iProp_holds σ := P σ ∧ Q σ |}.
+Definition iProp_and_aux : seal (@iProp_and_def). Proof. by eexists. Qed.
+Definition iProp_and := unseal iProp_and_aux.
+Definition iProp_and_eq:
 
-@hProp_and = @hProp_and_def := seal_eq hProp_and_aux.
-Definition hProp_or_def (P Q : hProp) : hProp :=
-  {| hProp_holds σ := P σ ∨ Q σ |}.
-Definition hProp_or_aux : seal (@hProp_or_def). Proof. by eexists. Qed.
-Definition hProp_or := unseal hProp_or_aux.
-Definition hProp_or_eq:
-  @hProp_or = @hProp_or_def := seal_eq hProp_or_aux.
+@iProp_and = @iProp_and_def := seal_eq iProp_and_aux.
+Definition iProp_or_def (P Q : iProp) : iProp :=
+  {| iProp_holds σ := P σ ∨ Q σ |}.
+Definition iProp_or_aux : seal (@iProp_or_def). Proof. by eexists. Qed.
+Definition iProp_or := unseal iProp_or_aux.
+Definition iProp_or_eq:
+  @iProp_or = @iProp_or_def := seal_eq iProp_or_aux.
 
-Definition hProp_impl_def (P Q : hProp) : hProp :=
-  {| hProp_holds σ := P σ → Q σ |}.
-Definition hProp_impl_aux : seal (@hProp_impl_def). Proof. by eexists. Qed.
-Definition hProp_impl := unseal hProp_impl_aux.
-Definition hProp_impl_eq :
-  @hProp_impl = @hProp_impl_def := seal_eq hProp_impl_aux.
+Definition iProp_impl_def (P Q : iProp) : iProp :=
+  {| iProp_holds σ := P σ → Q σ |}.
+Definition iProp_impl_aux : seal (@iProp_impl_def). Proof. by eexists. Qed.
+Definition iProp_impl := unseal iProp_impl_aux.
+Definition iProp_impl_eq :
+  @iProp_impl = @iProp_impl_def := seal_eq iProp_impl_aux.
 
-Definition hProp_forall_def {A} (Ψ : A → hProp) : hProp :=
-  {| hProp_holds σ := ∀ a, Ψ a σ |}.
-Definition hProp_forall_aux : seal (@hProp_forall_def). Proof. by eexists. Qed.
-Definition hProp_forall {A} := unseal hProp_forall_aux A.
-Definition hProp_forall_eq :
-  @hProp_forall = @hProp_forall_def := seal_eq hProp_forall_aux.
+Definition iProp_forall_def {A} (Ψ : A → iProp) : iProp :=
+  {| iProp_holds σ := ∀ a, Ψ a σ |}.
+Definition iProp_forall_aux : seal (@iProp_forall_def). Proof. by eexists. Qed.
+Definition iProp_forall {A} := unseal iProp_forall_aux A.
+Definition iProp_forall_eq :
+  @iProp_forall = @iProp_forall_def := seal_eq iProp_forall_aux.
 
-Definition hProp_exist_def {A} (Ψ : A → hProp) : hProp :=
-  {| hProp_holds σ := ∃ a, Ψ a σ |}.
-Definition hProp_exist_aux : seal (@hProp_exist_def). Proof. by eexists. Qed.
-Definition hProp_exist {A} := unseal hProp_exist_aux A.
-Definition hProp_exist_eq :
-  @hProp_exist = @hProp_exist_def := seal_eq hProp_exist_aux.
+Definition iProp_exist_def {A} (Ψ : A → iProp) : iProp :=
+  {| iProp_holds σ := ∃ a, Ψ a σ |}.
+Definition iProp_exist_aux : seal (@iProp_exist_def). Proof. by eexists. Qed.
+Definition iProp_exist {A} := unseal iProp_exist_aux A.
+Definition iProp_exist_eq :
+  @iProp_exist = @iProp_exist_def := seal_eq iProp_exist_aux.
 
-Definition hProp_sep_def (P Q : hProp) : hProp :=
-  {| hProp_holds σ := ∃ σ1 σ2, σ = σ1 ∪ σ2 ∧ σ1 ##ₘ σ2 ∧ P σ1 ∧ Q σ2 |}.
-Definition hProp_sep_aux : seal (@hProp_sep_def). Proof. by eexists. Qed.
-Definition hProp_sep := unseal hProp_sep_aux.
-Definition hProp_sep_eq:
-  @hProp_sep = @hProp_sep_def := seal_eq hProp_sep_aux.
+Definition iProp_sep_def (P Q : iProp) : iProp :=
+  {| iProp_holds σ := ∃ σ1 σ2, σ = σ1 ∪ σ2 ∧ σ1 ##ₘ σ2 ∧ P σ1 ∧ Q σ2 |}.
+Definition iProp_sep_aux : seal (@iProp_sep_def). Proof. by eexists. Qed.
+Definition iProp_sep := unseal iProp_sep_aux.
+Definition iProp_sep_eq:
+  @iProp_sep = @iProp_sep_def := seal_eq iProp_sep_aux.
 
-Definition hProp_wand_def (P Q : hProp) : hProp :=
-  {| hProp_holds σ := ∀ σ', σ ##ₘ σ' → P σ' → Q (σ ∪ σ') |}.
-Definition hProp_wand_aux : seal (@hProp_wand_def). Proof. by eexists. Qed.
-Definition hProp_wand := unseal hProp_wand_aux.
-Definition hProp_wand_eq:
-  @hProp_wand = @hProp_wand_def := seal_eq hProp_wand_aux.
+Definition iProp_wand_def (P Q : iProp) : iProp :=
+  {| iProp_holds σ := ∀ σ', σ ##ₘ σ' → P σ' → Q (σ ∪ σ') |}.
+Definition iProp_wand_aux : seal (@iProp_wand_def). Proof. by eexists. Qed.
+Definition iProp_wand := unseal iProp_wand_aux.
+Definition iProp_wand_eq:
+  @iProp_wand = @iProp_wand_def := seal_eq iProp_wand_aux.
 
-Definition hProp_persistently_def (P : hProp) : hProp :=
-  {| hProp_holds σ := P ∅ |}.
-Definition hProp_persistently_aux : seal (@hProp_persistently_def).
+Definition iProp_persistently_def (P : iProp) : iProp :=
+  {| iProp_holds σ := P ∅ |}.
+Definition iProp_persistently_aux : seal (@iProp_persistently_def).
 Proof. by eexists. Qed.
-Definition hProp_persistently := unseal hProp_persistently_aux.
-Definition hProp_persistently_eq:
-  @hProp_persistently = @hProp_persistently_def := seal_eq hProp_persistently_aux.
+Definition iProp_persistently := unseal iProp_persistently_aux.
+Definition iProp_persistently_eq:
+  @iProp_persistently = @iProp_persistently_def := seal_eq iProp_persistently_aux.
 
 (** Iris's [bi] class requires the presence of a later modality, but for non
 step-indexed logics, it can be defined as the identity. *)
-Definition hProp_later (P : hProp) : hProp := P.
+Definition iProp_later (P : iProp) : iProp := P.
 
 Definition unseal_eqs :=
-  (hProp_emp_eq, hProp_pure_eq, hProp_and_eq, hProp_or_eq,
-   hProp_impl_eq, hProp_forall_eq, hProp_exist_eq,
-   hProp_sep_eq, hProp_wand_eq, hProp_persistently_eq).
+  (iProp_emp_eq, iProp_pure_eq, iProp_and_eq, iProp_or_eq,
+   iProp_impl_eq, iProp_forall_eq, iProp_exist_eq,
+   iProp_sep_eq, iProp_wand_eq, iProp_persistently_eq).
 Ltac unseal := rewrite !unseal_eqs /=.
 
 Section mixins.
   (** Enable [simpl] locally, which is useful for proofs in the model. *)
-  Local Arguments hProp_holds !_ _ /.
+  Local Arguments iProp_holds !_ _ /.
 
-  Lemma hProp_bi_mixin :
+  Lemma iProp_bi_mixin :
     BiMixin
-      hProp_entails hProp_emp hProp_pure hProp_and hProp_or
-      hProp_impl (@hProp_forall) (@hProp_exist)
-      hProp_sep hProp_wand hProp_persistently.
+      iProp_entails iProp_emp iProp_pure iProp_and iProp_or
+      iProp_impl (@iProp_forall) (@iProp_exist)
+      iProp_sep iProp_wand iProp_persistently.
   Proof.
     split.
-    - (* [PreOrder hProp_entails] *)
+    - (* [PreOrder iProp_entails] *)
       split; repeat destruct 1; constructor; naive_solver.
     - (* [P ≡ Q ↔ (P ⊢ Q) ∧ (Q ⊢ P)] *)
       intros P Q; split.
@@ -225,22 +225,22 @@ Section mixins.
       split_and!; done || apply map_disjoint_empty_l.
   Qed.
 
-  Lemma hProp_bi_later_mixin :
+  Lemma iProp_bi_later_mixin :
     BiLaterMixin
-      hProp_entails hProp_pure hProp_or hProp_impl
-      (@hProp_forall) (@hProp_exist)
-      hProp_sep hProp_persistently hProp_later.
-  Proof. eapply bi_later_mixin_id; [done|apply hProp_bi_mixin]. Qed.
+      iProp_entails iProp_pure iProp_or iProp_impl
+      (@iProp_forall) (@iProp_exist)
+      iProp_sep iProp_persistently iProp_later.
+  Proof. eapply bi_later_mixin_id; [done|apply iProp_bi_mixin]. Qed.
 End mixins.
 
-Canonical Structure hPropI : bi :=
-  {| bi_ofe_mixin := ofe_mixin_of hProp;
-     bi_bi_mixin := hProp_bi_mixin; bi_bi_later_mixin := hProp_bi_later_mixin |}.
+Canonical Structure iPropI : bi :=
+  {| bi_ofe_mixin := ofe_mixin_of iProp;
+     bi_bi_mixin := iProp_bi_mixin; bi_bi_later_mixin := iProp_bi_later_mixin |}.
 
-Instance hProp_pure_forall : BiPureForall hPropI.
+Instance iProp_pure_forall : BiPureForall iPropI.
 Proof. intros A φ. rewrite /bi_forall /bi_pure /=. unseal. by split. Qed.
 
-Lemma hProp_proofmode_test {A} (P Q R : hProp) (Φ Ψ : A → hProp) :
+Lemma iProp_proofmode_test {A} (P Q R : iProp) (Φ Ψ : A → iProp) :
   P ∗ Q -∗
   □ R -∗
   □ (R -∗ ∃ x, Φ x) -∗

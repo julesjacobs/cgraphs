@@ -1,0 +1,9 @@
+- [x] Make everything compile again.
+- [x] Define two logics, oProp and iProp
+- [x] Define the modality
+- [ ] Define lemma's for the modality
+- [ ] Write down the right own_** lemma's
+- [ ] Figure out adequacy statement for deadlock and leak freedom
+- [ ] Prove deadlock and leak freedom
+- [ ] Multiset trees
+- [ ] Recursive types
