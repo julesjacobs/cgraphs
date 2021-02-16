@@ -9,6 +9,13 @@ Section graph.
   Context `{Countable A}.
   Context `{Inhabited A}.
   Notation G := (graph A).
+
+  Definition insert_edge (a : A) (b : A) (g : G) : G :=
+    let n := default 0 (g !! (a,b)) in
+    <[ (a,b) := n+1 ]> $ <[ (b,a) := n+1 ]> g.
+
+  
+
   Notation P := (list A).
 
   Local Notation "x ∈ g" := (g !! x = Some 1).

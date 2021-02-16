@@ -1,6 +1,49 @@
 From stdpp Require Import gmap.
 From iris.bi Require Import bi.
 
+Lemma fmap_map_disjoint `{Countable K} {V1 V2} (f : V1 -> V2) (m1 m2 : gmap K V1) :
+  m1 ##ₘ m2 -> f <$> m1 ##ₘ f <$> m2.
+Proof.
+  intros HH.
+  intros x. rewrite !lookup_fmap.
+  specialize (HH x).
+  destruct (m1 !! x); destruct (m2 !! x); try done.
+Qed.
+
+Lemma fmap_singleton_inv `{Countable K} {V1 V2} (f : V1 -> V2) (x : gmap K V1) (k : K) (v : V2) :
+  f <$> x = {[ k := v ]} -> ∃ v' : V1, x = {[ k := v' ]}.
+Proof.
+  intros HH.
+  rewrite ->map_eq_iff in HH.
+  pose proof (HH k) as H'.
+  rewrite lookup_fmap in H'.
+  rewrite lookup_singleton in H'.
+  destruct (x !! k) eqn:E; simpl in *; simplify_eq.
+  exists v0.
+  rewrite map_eq_iff.
+  intros. specialize (HH i).
+  rewrite lookup_fmap in HH.
+  destruct (decide (i = k)).
+  - subst. rewrite lookup_singleton in HH. rewrite lookup_singleton.
+    destruct (x !! k); simplify_eq. done.
+  - rewrite lookup_singleton_ne in HH; eauto.
+    rewrite lookup_singleton_ne; eauto.
+    destruct (x !! i); simplify_eq. done.
+Qed.
+
+Lemma singleton_eq_iff `{Countable K} {V} (k1 k2 : K) (v1 v2 : V) :
+  ({[ k1 := v1 ]} : gmap K V) = {[ k2 := v2 ]} <-> k1 = k2 ∧ v1 = v2.
+Proof.
+  split; last naive_solver.
+  intros HH.
+  rewrite ->map_eq_iff in HH.
+  specialize (HH k1).
+  rewrite lookup_singleton in HH.
+  destruct (decide (k1 = k2)); subst.
+  - rewrite lookup_singleton in HH. simplify_eq; done.
+  - rewrite lookup_singleton_ne in HH. simplify_eq. done.
+Qed.
+
 Lemma dec_exists_list {A} (P : A → Prop) (xs : list A) :
   (∀ x, P x → x ∈ xs) → (∀ x, x ∈ xs → Decision (P x)) → Decision (∃ x, P x).
 Proof.

@@ -18,6 +18,7 @@ theories/logic/upred.v
 theories/logic/bi.v
 theories/logic/bupd.v
 theories/langdef.v
+theories/hlogic.v
 theories/htypesystem.v
 theories/preservation.v
 theories/bi/weakestpre.v

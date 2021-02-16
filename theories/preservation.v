@@ -6,10 +6,10 @@ Require Export diris.htypesystem.
   This predicate says that the types of the receives at the start of ct
   match the values in buf, and the rest of ct is equal to rest.
 *)
-Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) (o : owner) : iProp :=
+Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : oProp :=
   match buf, ct with
                             (* add owner here *)
-  | v::buf', RecvT t ct' => val_typed v t o ∗ buf_typed buf' ct' rest o
+  | v::buf', RecvT t ct' => val_typed v t ∗ buf_typed buf' ct' rest
   (* | v::buf', SendT t ct' => ??? *)
   (* Add a rule for this to support asynchrous subtyping *)
   | [], ct => ⌜⌜ rest = ct ⌝⌝
@@ -18,23 +18,23 @@ Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) (o : own
 
 Definition dom_chans {V} (Σ : gmap endpoint V) : gset nat := set_map fst (dom (gset endpoint) Σ).
 
-Definition buf_typed' (bufq : option (list val)) (ctq : option chan_type) (rest : chan_type) (o : owner) : iProp :=
+Definition buf_typed' (bufq : option (list val)) (ctq : option chan_type) (rest : chan_type) : oProp :=
     match bufq, ctq with
-    | Some buf, Some ct => buf_typed buf ct rest o
+    | Some buf, Some ct => buf_typed buf ct rest
     | None, None => ⌜⌜ rest = EndT ⌝⌝
     | _,_ => False
     end.
 
-Definition bufs_typed (chans : heap) (Σ : heapT) (i : chan) : iProp :=
-  ∃ rest, buf_typed' (chans !! (i,true)) (Σ !! (i,true)) rest (Chan i) ∗
-          buf_typed' (chans !! (i,false)) (Σ !! (i,false)) (dual rest) (Chan i).
+Definition bufs_typed (chans : heap) (Σ : heapT) (i : chan) : oProp :=
+  ∃ rest, buf_typed' (chans !! (i,true)) (Σ !! (i,true)) rest ∗
+          buf_typed' (chans !! (i,false)) (Σ !! (i,false)) (dual rest).
 
 Definition heap_typed (chans : heap) (Σ : heapT) : iProp :=
-   ([∗ set] i∈dom_chans Σ ∪ dom_chans chans, bufs_typed chans Σ i)%I.
+   ([∗ set] i∈dom_chans Σ ∪ dom_chans chans, owned (Chan i) (bufs_typed chans Σ i))%I.
 
 Definition invariant (chans : heap) (threads : list expr) : iProp :=
   ∃ Σ, own_auth Σ ∗
-       ([∗ list] id↦e∈threads, ptyped0 e UnitT (Thread id)) ∗
+       ([∗ list] id↦e∈threads, owned (Thread id) (ptyped0 e UnitT)) ∗
        heap_typed chans Σ.
 
 Lemma elem_of_dom_chans_alt {A} (i : nat) (Σ : gmap endpoint A) :
@@ -165,6 +165,7 @@ Proof.
     rewrite !is_Some_alt; eauto.
 Qed.
 
+
 Lemma heap_typed_doms_eq chans Σ :
   heap_typed chans Σ -∗ ∀ ep, ⌜ is_Some (Σ !! ep) <-> is_Some (chans !! ep) ⌝.
 Proof.
@@ -243,11 +244,7 @@ Proof.
 Qed.
 
 
-Lemma other_neq ep :
-  ep ≠ other ep.
-Proof.
-  by destruct ep,b.
-Qed.
+
 
 Lemma dual_dual ct :
   dual (dual ct) = ct.

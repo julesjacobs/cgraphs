@@ -1,9 +1,19 @@
+15 feb 2021:
 - [x] Make everything compile again.
 - [x] Define two logics, oProp and iProp
 - [x] Define the modality
-- [ ] Define lemma's for the modality
-- [ ] Write down the right own_** lemma's
+- [x] Define lemma's for the modality
+- [x] Write down own_** lemma's
+- [x] Write lemma's for owned and ∗, ∃, emp, mono, persistently
+- [x] Fix htypesystem.v to use iProp/oProp
+
+16 feb 2021:
+- [x] Prove the owned lemma's
+- [ ] Prove the own_** lemma's, modulo acyclicity
+- [ ] Multiset trees
+- [ ] Make proofmode work with owned
+- [ ] Fix preservation.v to use iProp/oProp as appropriate
 - [ ] Figure out adequacy statement for deadlock and leak freedom
 - [ ] Prove deadlock and leak freedom
-- [ ] Multiset trees
 - [ ] Recursive types
+- [ ] Write ICFP paper

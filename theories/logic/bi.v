@@ -94,13 +94,24 @@ Notation "P ⊣⊢ Q" := (equiv (A:=uPredI M) P%I Q%I).
 Lemma pure_soundness φ : (⊢@{uPredI M} ⌜ φ ⌝) → φ.
 Proof. apply pure_soundness. Qed.
 
+Lemma ownM_unit : uPred_ownM ε ⊣⊢ emp.
+Proof. apply ownM_unit. Qed.
+
+Lemma ownM_op (a1 a2 : M) :
+  uPred_ownM (a1 ⋅ a2) ⊣⊢ uPred_ownM a1 ∗ uPred_ownM a2.
+Proof. apply ownM_op. Qed.
+
+Lemma ownM_valid (x : M) :
+  uPred_ownM x ⊢ ⌜ ✓ x ⌝.
+Proof. apply ownM_valid. Qed.
+
 End restate.
 
 (** New unseal tactic that also unfolds the BI layer.
     This is used by [base_logic.bupd_alt].
     TODO: Can we get rid of this? *)
 Ltac unseal := (* Coq unfold is used to circumvent bug #5699 in rewrite /foo *)
-  unfold uPred_emp, bi_pure,
+  unfold bi_emp, bi_pure,
     bi_and, bi_or, bi_impl, bi_forall, bi_exist,
     bi_sep, bi_wand, bi_persistently, bi_later; simpl;
   unfold uPred_later; simpl;

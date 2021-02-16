@@ -146,14 +146,6 @@ Qed.
 
 Global Instance uPred_bi_bupd M : BiBUpd (uPredI (authUR M)) := {| bi_bupd_mixin := uPred_bupd_mixin M |}.
 
-
-(** Re-exporting primitive lemmas that are not in any interface *)
-Lemma ownM_op {M : ucmraT} (a1 a2 : auth M) :
-  uPred_ownM (a1 ⋅ a2) ⊣⊢ uPred_ownM a1 ∗ uPred_ownM a2.
-Proof. exact: uPred_primitive.ownM_op. Qed.
-Lemma ownM_unit {M : ucmraT} : emp ⊢ (uPred_ownM (ε : M)).
-Proof. exact: uPred_primitive.ownM_unit. Qed.
-
 Local Arguments uPred_holds {_} !_ _ /.
 
 Lemma bupd_ownM_update {M : ucmraT} (x y : auth M) :

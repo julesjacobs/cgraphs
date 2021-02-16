@@ -446,8 +446,13 @@ Proof.
   - simpl. by intros (x1&x2 & -> & -> & ->).
 Qed.
 
-Lemma ownM_unit : emp ⊢ uPred_ownM ε.
-Proof. unseal; split=> /= x ??. done. Qed.
+Lemma ownM_unit : uPred_ownM ε ⊣⊢ emp.
+Proof. unseal. split; naive_solver. Qed.
+
+Lemma ownM_valid x : uPred_ownM x ⊢ ⌜ ✓ x ⌝.
+Proof.
+  unseal. split. simpl. intros. setoid_subst. done.
+Qed.
 
 (** Consistency/soundness statement *)
 (** The lemmas [pure_soundness] and [internal_eq_soundness] should become an
