@@ -14,6 +14,12 @@ Proof.
   by destruct ep,b.
 Qed.
 
+Lemma other_other ep :
+  other (other ep) = ep.
+Proof.
+  by destruct ep as [? []].
+Qed.
+
 Inductive owner :=
   | Thread : nat -> owner
   | Chan : chan -> owner.
@@ -38,6 +44,7 @@ Canonical Structure ownerO := leibnizO owner.
 Canonical Structure chan_typeO := leibnizO chan_type.
 
 Notation heapT := (gmap endpoint chan_type).
+Notation heapO := (gmap endpoint owner).
 Notation heapTO := (gmap endpoint (chan_type * owner)).
 Notation heapT_UR := (gmapUR endpoint (exclR chan_typeO)).
 Notation heapTO_UR := (gmapUR endpoint (exclR (prodO chan_typeO ownerO))).
@@ -51,10 +58,19 @@ Definition attach_owner (o : owner) (h : heapT) : heapTO := (λ t, (t,o)) <$> h.
 
 Section attach_owner.
   Lemma attach_owner_empty o : attach_owner o ∅ = ∅.
-  Proof. rewrite /attach_owner fmap_empty //. Qed.
+  Proof.
+    rewrite /attach_owner fmap_empty //.
+  Qed.
   Lemma attach_owner_union o m1 m2 :
     attach_owner o (m1 ∪ m2) = attach_owner o m1 ∪ attach_owner o m2.
-  Proof. rewrite /attach_owner map_fmap_union //. Qed.
+  Proof.
+    rewrite /attach_owner map_fmap_union //.
+  Qed.
+  Lemma attach_owner_insert o m k v :
+    attach_owner o (<[ k := v ]> m) = <[ k := (v,o) ]> $ attach_owner o m.
+  Proof.
+    rewrite /attach_owner fmap_insert //.
+  Qed.
   Lemma fmap_map_disjoint `{Countable K} {V1 V2} (f : V1 -> V2) (m1 m2 : gmap K V1) :
     m1 ##ₘ m2 <-> f <$> m1 ##ₘ f <$> m2.
   Proof.
@@ -325,11 +341,19 @@ Qed.
 
 
 
+(*
+V : gset A
+E : gset (A * A)
 
+own_graph (V,E)
+own_edge x y
 
-
-
-
+own_graph_lookup : (x,y) ∈ E -> own_graph (V,E) -∗ ⌜ x ∈ V ∧ y ∈ V ⌝
+own_graph (V,E) -∗ own_edge x y -∗ ⌜ (x,y) ∈ E ⌝
+own_graph (V,E) -∗ ⌜ acyclic (symmetric_closure E) ⌝
+x ∉ V -> own_graph (V,E) ==∗ own_graph ({[ x ]} ∪ V, E)
+x ∈ V -> own_graph (V,E) ==∗ own_graph (delete x V, E)
+*)
 
 
 
@@ -340,67 +364,235 @@ Qed.
   =================================
 *)
 
-Definition G : Type. Admitted.
-Definition acyclic : G -> Prop. Admitted.
-Definition mk_graph : gmap endpoint owner -> G. Admitted.
+Definition acyclic : gmap endpoint owner -> Prop. Admitted.
 
 Section graph_lemmas.
   Lemma acyclic_mk_delete Π l :
-    acyclic (mk_graph Π) -> acyclic (mk_graph (delete l Π)).
+    acyclic Π -> acyclic (delete l Π).
   Proof.
   Admitted.
+
+  Lemma acyclic_mk_alloc Π c i i' :
+    i ≠ i' ->
+    Π !! c = None ->
+    Π !! other c = None ->
+    (∀ x, Π !! x ≠ Some (Thread i')) ->
+    (∀ x, Π !! x ≠ Some (Chan c.1)) ->
+    acyclic Π ->
+    acyclic (<[ c := Thread i ]> $ <[ other c := Thread i' ]> Π).
+  Proof.
+  Admitted.
+
+  Lemma acyclic_mk_insert_tc (Π : heapO) c1 c2 (i : nat) :
+    c1 ≠ c2 ->
+    Π !! c1 = Some (Thread i) ->
+    Π !! c2 = Some (Thread i) ->
+    acyclic Π ->
+    acyclic (<[ c2 := Chan c1.1 ]> Π).
+  Proof.
+  Admitted.
+
+  Lemma acyclic_mk_insert_ct (Π : heapO) c1 c2 (i : nat) :
+    c1 ≠ c2 ->
+    Π !! c1 = Some (Thread i) ->
+    Π !! c2 = Some (Chan c1.1) ->
+    acyclic Π ->
+    acyclic (<[ c2 := Thread i ]> Π).
+  Proof.
+  Admitted.
+
+  Lemma acyclic_mk_union_tc (Π : heapO) (c1 : endpoint) (h : heapO) (i : nat) :
+    Π !! c1 = Some (Thread i) ->
+    (∀ c2 o, h !! c2 = Some o -> o = Chan c1.1 ∧ c1 ≠ c2 ∧ Π !! c2 = Some (Thread i)) ->
+    acyclic Π ->
+    acyclic (h ∪ Π).
+  Proof.
+    intros Hc1 Hh Hac.
+    induction h using map_ind.
+    - rewrite left_id //.
+    - rewrite -insert_union_l.
+      destruct (Hh i0 x) as (-> & H1 & H2). { rewrite lookup_insert //. }
+      eapply acyclic_mk_insert_tc; eauto.
+      + rewrite lookup_union Hc1.
+        destruct (m !! c1) eqn:E; rewrite E //. exfalso.
+        specialize (Hh c1). assert (i0 ≠ c1). { intro. simplify_eq. }
+        destruct (Hh o) as (-> & ? & ?). { rewrite lookup_insert_ne //. }
+        simplify_eq.
+      + rewrite lookup_union H2 H //.
+      + eapply IHh. intros. destruct (decide (i0 = c2)); subst.
+        * exfalso. rewrite H in H0. simplify_eq.
+        * apply Hh. rewrite lookup_insert_ne //.
+  Qed.
+
+  Lemma acyclic_mk_union_ct (Π : heapO) (c1 : endpoint) (h : heapO) (i : nat) :
+    Π !! c1 = Some (Thread i) ->
+    (∀ c2 o, h !! c2 = Some o -> o = Thread i ∧ c1 ≠ c2 ∧ Π !! c2 = Some (Chan c1.1)) ->
+    acyclic Π ->
+    acyclic (h ∪ Π).
+  Proof.
+    intros Hc1 Hh Hac.
+    induction h using map_ind.
+    - rewrite left_id //.
+    - rewrite -insert_union_l.
+      destruct (Hh i0 x) as (-> & H1 & H2). { rewrite lookup_insert //. }
+      eapply acyclic_mk_insert_ct; eauto.
+      + rewrite lookup_union Hc1.
+        destruct (m !! c1) eqn:E; rewrite E //. exfalso.
+        specialize (Hh c1). assert (i0 ≠ c1). { intro. simplify_eq. }
+        destruct (Hh o) as (-> & ? & ?). { rewrite lookup_insert_ne //. }
+        simplify_eq.
+      + rewrite lookup_union H2 H //.
+      + eapply IHh. intros. destruct (decide (i0 = c2)); subst.
+        * exfalso. rewrite H in H0. simplify_eq.
+        * apply Hh. rewrite lookup_insert_ne //.
+  Qed.
+
+  Lemma acyclic_mk_union_tc' (Π : heapO) (c1 : endpoint) (h : heapO) (i : nat) :
+    (∀ c2, is_Some (h !! c2) -> c1 ≠ c2) ->
+    Π !! c1 = Some (Thread i) ->
+    (∀ c2, is_Some (h !! c2) -> Π !! c2 = Some (Thread i)) ->
+    acyclic Π ->
+    acyclic (((λ o, Chan c1.1) <$> h) ∪ Π).
+  Proof.
+    intros Hnew Hc1 Hti Hac.
+    induction h using map_ind.
+    - rewrite fmap_empty left_id //.
+    - rewrite fmap_insert -insert_union_l.
+      eapply acyclic_mk_insert_tc.
+      + apply Hnew. rewrite lookup_insert; eauto.
+      + rewrite lookup_union !lookup_fmap Hc1.
+        destruct (m !! c1) eqn:E; rewrite E //. exfalso.
+        specialize (Hnew c1). assert (i0 ≠ c1). { intro. simplify_eq. }
+        apply Hnew; eauto. rewrite lookup_insert_ne // E; eauto.
+      + rewrite lookup_union lookup_fmap H Hti // lookup_insert; eauto.
+      + eapply IHh.
+        * intros. eapply Hnew. destruct (decide (i0 = c2)); subst;
+          rewrite ?lookup_insert ?lookup_insert_ne //; eauto.
+        * intros. eapply Hti. destruct (decide (i0 = c2)); subst;
+          rewrite ?lookup_insert ?lookup_insert_ne //; eauto.
+  Qed.
+
+  Lemma acyclic_mk_union_ct' (Π : heapO) (c1 : endpoint) (h : heapO) (i : nat) :
+    (∀ c2, is_Some (h !! c2) -> c1 ≠ c2) ->
+    Π !! c1 = Some (Thread i) ->
+    (∀ c2, is_Some (h !! c2) -> Π !! c2 = Some (Chan c1.1)) ->
+    acyclic Π ->
+    acyclic (((λ o, Thread i) <$> h) ∪ Π).
+  Proof.
+    intros Hnew Hc1 Hti Hac.
+    induction h using map_ind.
+    - rewrite fmap_empty left_id //.
+    - rewrite fmap_insert -insert_union_l.
+      eapply acyclic_mk_insert_ct.
+      + apply Hnew. rewrite lookup_insert; eauto.
+      + rewrite lookup_union !lookup_fmap Hc1.
+        destruct (m !! c1) eqn:E; rewrite E //.
+      + rewrite lookup_union lookup_fmap H Hti // lookup_insert; eauto.
+      + eapply IHh.
+        * intros. eapply Hnew. destruct (decide (i0 = c2)); subst;
+          rewrite ?lookup_insert ?lookup_insert_ne //; eauto.
+        * intros. eapply Hti. destruct (decide (i0 = c2)); subst;
+          rewrite ?lookup_insert ?lookup_insert_ne //; eauto.
+  Qed.
 End graph_lemmas.
 
-Definition owners_valid (Δ : heapTO) (Σ : heapT) : Prop :=
-  Σ = fst <$> Δ ∧ acyclic (mk_graph $ snd <$> Δ).
+
+Record owners_valid (Δ : heapTO) (Σ : heapT) (n : nat) := {
+  HΔΣ : Σ = fst <$> Δ;
+  Hac : acyclic (snd <$> Δ);
+  Hcon l t c : Δ !! c = None -> Δ !! other c = None -> Δ !! l = Some (t,Chan c.1) -> False;
+          (* we need this property to prove in alloc that the channel is fresh *)
+          (* there we have Σ !! c = None and Σ !! other c = None, from which it *)
+          (* follows that Δ !! l = Some (t,chan.c.1) can't happen *)
+  Hthread l t i : Δ !! l = Some (t, Thread i) -> i < n (* we need this property to prove in alloc that the thread is fresh *)
+}.
 
 Section owners_valid.
-  Lemma owners_valid_lookup Δ Σ l t o :
-    owners_valid Δ Σ -> Δ !! l = Some (t,o) -> Σ !! l = Some t.
+  Lemma owners_valid_lookup Δ Σ l t o n :
+    owners_valid Δ Σ n -> Δ !! l = Some (t,o) -> Σ !! l = Some t.
   Proof.
-    intros [-> H].
+    intros [-> ?].
     rewrite lookup_fmap. intros ->. done.
   Qed.
 
-  Lemma owners_valid_lookup_None Δ Σ l :
-    owners_valid Δ Σ ->
+  Lemma owners_valid_lookup_None Δ Σ l n :
+    owners_valid Δ Σ n ->
     Δ !! l = None <-> Σ !! l = None.
   Proof.
-    intros [-> H].
+    intros [-> ?].
     rewrite lookup_fmap.
     destruct (Δ !! l) eqn:E; simpl; done.
   Qed.
 
-  Lemma owners_valid_mutate Δ Σ l t t' o :
-    Δ !! l = Some (t, o) ->
-    owners_valid Δ Σ ->
-    owners_valid (<[l:=(t', o)]> Δ) (<[l:=t']> Σ).
+  Lemma lookup_insert_spec `{Countable K} {V} (A : gmap K V) i j v :
+    (<[ i := v]> A) !! j = if (decide (i = j)) then Some v else (A !! j).
   Proof.
-    intros Hl [-> H].
+    case_decide.
+    - subst. apply lookup_insert.
+    - by apply lookup_insert_ne.
+  Qed.
+
+  Lemma other_proj c :
+    (other c).1 = c.1.
+  Proof.
+    by destruct c.
+  Qed.
+
+  Lemma owners_valid_mutate Δ Σ l t t' o n :
+    Δ !! l = Some (t, o) ->
+    owners_valid Δ Σ n ->
+    owners_valid (<[l:=(t', o)]> Δ) (<[l:=t']> Σ) n.
+  Proof.
+    intros Hl [-> ?].
     split.
     - rewrite fmap_insert. simpl. done.
     - rewrite fmap_insert. simpl.
       assert (<[l:=o]>(snd <$> Δ) = snd <$> Δ) as ->; last done.
       apply insert_id.
       rewrite lookup_fmap Hl. done.
+    - intros l0 t0 c.
+      rewrite !lookup_insert_spec; intros;
+      repeat case_decide; simplify_eq; eapply Hcon0; eauto;
+      rewrite ?other_other ?other_proj; eauto.
+    - intros. rewrite lookup_insert_spec in H.
+      case_decide; simplify_eq;
+      eapply Hthread0; eauto.
   Qed.
 
-  Lemma owners_valid_delete Δ Σ l t o :
+  Lemma lookup_delete_spec `{Countable K} {V} (A : gmap K V) i j :
+    (delete i A) !! j = if (decide (i = j)) then None else A !! j.
+  Proof.
+    case_decide.
+    - apply lookup_delete_None; eauto.
+    - rewrite lookup_delete_ne; eauto.
+  Qed.
+
+  Lemma owners_valid_delete Δ Σ l t o n :
     Δ !! l = Some (t, o) ->
-    owners_valid Δ Σ ->
-    owners_valid (delete l Δ) (delete l Σ).
+    owners_valid Δ Σ n ->
+    owners_valid (delete l Δ) (delete l Σ) n.
   Proof.
     intros Hl [-> H].
     split.
     - rewrite fmap_delete. done.
     - rewrite fmap_delete. apply acyclic_mk_delete. done.
-  Qed.
+    - intros l0 t0 c.
+      rewrite !lookup_delete_spec; simpl; intros;
+      repeat case_decide; simplify_eq.
+      + eapply other_neq. done.
+      + admit.
+      + admit.
+      + eapply Hcon0; eauto; rewrite ?other_other ?other_proj; eauto.
+    - intros. rewrite lookup_delete_spec in H0.
+      case_decide; simplify_eq.
+      eapply Hthread0. done.
+  Admitted.
 End owners_valid.
 
 Definition ownΔ (Δ : heapTO) : iProp := uPred_ownM (● (map_Excl Δ)).
 
-Definition own_auth (h : heapT) : iProp :=
-  ∃ Δ, ⌜⌜ owners_valid Δ h ⌝⌝ ∗ ownΔ Δ.
+Definition own_auth (Σ : heapT) (n : nat) : iProp :=
+  ∃ Δ, ⌜⌜ owners_valid Δ Σ n ⌝⌝ ∗ ownΔ Δ.
 
 Definition ownI (l : endpoint) (t : chan_type) (o : owner) : iProp :=
   uPred_ownM (◯ {[ l := Excl (t,o) ]}).
@@ -479,8 +671,8 @@ Proof.
   destruct (Δ !! l) eqn:E; simpl in *; simplify_eq. done.
 Qed.
 
-Lemma own_lookup Σ l t o :
-  own_auth Σ ∗ ownI l t o -∗ ⌜ Σ !! l = Some t ⌝.
+Lemma own_lookup Σ l t o n :
+  own_auth Σ n ∗ ownI l t o -∗ ⌜ Σ !! l = Some t ⌝.
 Proof.
   iIntros "[H1 H2]".
   iDestruct "H1" as (Δ HΔ) "H1".
@@ -539,19 +731,208 @@ Proof.
   by eapply auth_update.
 Qed.
 
-Definition change_owner (o : owner) (h : heapT) (Δ : heapTO) : heapTO. Admitted.
+Lemma insert_subseteq_None `{Countable K} {V} (m m' : gmap K V) i v :
+  m !! i = None ->
+  <[ i := v ]> m ⊆ m' ->
+  m ⊆ m' ∧ m' !! i = Some v.
+Proof.
+  rewrite !map_subseteq_spec.
+  intros H1 H2.
+  split.
+  - intros. apply H2.
+    destruct (decide (i = i0)); simplify_eq.
+    rewrite lookup_insert_ne //.
+  - apply H2. rewrite lookup_insert //.
+Qed.
 
-(* Lemma owners_valid_chang_owner o o' :
-  connectedΔ Δ o o'
-  owners_valid Δ Σ ->
-  owners_valid (change_owner o h Δ) Σ *)
+Lemma change_owner_update Δ h o o' :
+  attach_owner o h ⊆ Δ ->
+  (map_Excl Δ, map_Excl (attach_owner o h))
+    ~l~>
+  (map_Excl (attach_owner o' h ∪ Δ), map_Excl (attach_owner o' h)).
+Proof.
+  revert Δ.
+  induction h using map_ind; intros Δ HH.
+  - rewrite !attach_owner_empty left_id //.
+  -
+    Check insert_local_update.
 
-Lemma own_move_tc Σ c t i P :
-  own_auth Σ ∗
+    rewrite !attach_owner_insert -insert_union_l.
+    rewrite !map_Excl_insert.
+    rewrite attach_owner_insert in HH.
+    eapply insert_subseteq_None in HH as [HH HH'].
+    2: { rewrite /attach_owner lookup_fmap H //. }
+
+    (* Check insert_local_update.
+    rewrite insert_id.
+    2: { rewrite /map_Excl lookup_fmap. admit. }
+    eapply transitivity.
+    + apply IHh.
+    + eapply insert_local_update.
+      3: { eapply exclusive_local_update. eapply _. }
+      * rewrite /map_Excl lookup_fmap lookup_union H'.  admit.
+      * admit.
+    Search (_ ∪ <[ _ := _ ]> _).
+    rewrite union_insert_r. *)
+Admitted.
+
+(*
+Lemma acyclic_mk_union_tc (Π : heapO) (c1 : endpoint) (h : heapO) (i : nat) :
+  (∀ c2, is_Some (h !! c2) -> c1.1 ≠ c2.1) ->
+  Π !! c1 = Some (Thread i) ->                               (ok)
+  (∀ c2, is_Some (h !! c2) -> Π !! c2 = Some (Thread i)) ->  (ok)
+  acyclic (mk_graph Π) ->
+  acyclic (mk_graph (((λ o, Chan c1.1) <$> h) ∪ Π)).
+*)
+
+(* Helps eauto out *)
+Lemma not_simultaneous_None_Some {A} x (a : A) :
+  x = None -> x = Some a -> False.
+Proof.
+  intros. simplify_eq.
+Qed.
+
+Lemma change_owner_owners_valid_tc Δ Σ h c i t n :
+  Δ !! c = Some (t, Thread i) ->
+  (∀ c2, is_Some (h !! c2) -> c ≠ c2) ->
+  attach_owner (Thread i) h ⊆ Δ ->
+  owners_valid Δ Σ n ->
+  owners_valid (attach_owner (Chan c.1) h ∪ Δ) Σ n.
+Proof.
+  intros Hconn Hdom Hsub.
+  intros [-> Hac].
+  split.
+  - rewrite map_fmap_union.
+    rewrite ->map_subseteq_spec in Hsub.
+    rewrite map_eq_iff. intros i1.
+    rewrite lookup_union !lookup_fmap.
+    specialize (Hsub i1).
+    destruct (attach_owner (Thread i) h !! i1) eqn:E.
+    + rewrite /attach_owner in E.
+      rewrite lookup_fmap in E.
+      destruct (h !! i1); simpl in *; simplify_eq.
+      specialize (Hsub (c0,Thread i)).
+      assert (Some (c0,Thread i) = Some (c0,Thread i)) by reflexivity.
+      specialize (Hsub H). simplify_eq. rewrite Hsub //.
+    + rewrite /attach_owner in E.
+      rewrite lookup_fmap in E.
+      destruct (h !! i1); simpl in *; simplify_eq.
+      destruct (Δ !! i1); simpl; try done.
+  - rewrite map_fmap_union.
+    apply (acyclic_mk_union_tc _ c _ i); eauto.
+    + rewrite lookup_fmap Hconn //.
+    + intros c2 o.
+      rewrite lookup_fmap /attach_owner lookup_fmap.
+      intros Ho.
+      destruct (h !! c2) eqn:E; simpl in *; simplify_eq.
+      split; eauto. split.
+      * apply Hdom. rewrite E. eauto.
+      * rewrite ->map_subseteq_spec in Hsub.
+        assert (Δ !! c2 = Some (c0, Thread i)).
+        { apply Hsub. rewrite /attach_owner lookup_fmap E //. }
+        rewrite lookup_fmap H //.
+  - intros l t0 co.
+    rewrite !lookup_union_None.
+    intros [] [].
+    rewrite !lookup_union /attach_owner !lookup_fmap.
+    destruct (h !! l) eqn:F;
+    destruct (Δ !! l) eqn:E; simpl; intros; simplify_eq; eauto;
+    destruct c,co; simpl in *; simplify_eq;
+    destruct b,b0; simpl in *; simplify_eq;
+    eauto using not_simultaneous_None_Some.
+  - intros l t0 i0.
+    rewrite lookup_union /attach_owner lookup_fmap.
+    destruct (h !! l); destruct (Δ !! l) eqn:E; simpl; intro; simplify_eq.
+    eapply Hthread0. done.
+Qed.
+
+Lemma change_owner_owners_valid_ct Δ Σ h c i t n :
+  Δ !! c = Some (t, Thread i) ->
+  (∀ c2, is_Some (h !! c2) -> c ≠ c2) ->
+  attach_owner (Chan c.1) h ⊆ Δ ->
+  owners_valid Δ Σ n ->
+  owners_valid (attach_owner (Thread i) h ∪ Δ) Σ n.
+Proof.
+  intros Hconn Hdom Hsub.
+  intros [-> Hac].
+  split.
+  - rewrite map_fmap_union.
+    rewrite ->map_subseteq_spec in Hsub.
+    rewrite map_eq_iff. intros i1.
+    rewrite lookup_union !lookup_fmap.
+    specialize (Hsub i1).
+    destruct (attach_owner (Chan c.1) h !! i1) eqn:E.
+    + rewrite /attach_owner in E.
+      rewrite lookup_fmap in E.
+      destruct (h !! i1); simpl in *; simplify_eq.
+      specialize (Hsub (c0,Chan c.1)).
+      assert (Some (c0,Chan c.1) = Some (c0,Chan c.1)) by reflexivity.
+      specialize (Hsub H). simplify_eq. rewrite Hsub //.
+    + rewrite /attach_owner in E.
+      rewrite lookup_fmap in E.
+      destruct (h !! i1); simpl in *; simplify_eq.
+      destruct (Δ !! i1); simpl; try done.
+  - rewrite map_fmap_union.
+    apply (acyclic_mk_union_ct _ c _ i); eauto.
+    + rewrite lookup_fmap Hconn //.
+    + intros c2 o.
+      rewrite lookup_fmap /attach_owner lookup_fmap.
+      intros Ho.
+      destruct (h !! c2) eqn:E; simpl in *; simplify_eq.
+      split; eauto. split.
+      * apply Hdom. rewrite E. eauto.
+      * rewrite ->map_subseteq_spec in Hsub.
+        assert (Δ !! c2 = Some (c0, Chan c.1)).
+        { apply Hsub. rewrite /attach_owner lookup_fmap E //. }
+        rewrite lookup_fmap H //.
+  - intros l t0 co.
+    rewrite !lookup_union_None.
+    intros [] [].
+    rewrite !lookup_union /attach_owner !lookup_fmap.
+    destruct (h !! l) eqn:F;
+    destruct (Δ !! l) eqn:E; simpl; intros; simplify_eq; eauto;
+    destruct c,co; simpl in *; simplify_eq;
+    destruct b,b0; simpl in *; simplify_eq;
+    eauto using not_simultaneous_None_Some.
+  - intros l t0 i0.
+    rewrite lookup_union /attach_owner lookup_fmap.
+    destruct (h !! l); destruct (Δ !! l) eqn:E; simpl; intro; simplify_eq;
+    eapply Hthread0; done.
+Qed.
+
+Lemma map_Excl_leq_subseteq (Δ Δ' : heapTO) :
+  map_Excl Δ' ≼ map_Excl Δ -> Δ' ⊆ Δ.
+Proof.
+Admitted.
+
+Lemma ownI_ownM_dom_disjoint c t o o' h :
+  ownI c t o -∗
+  uPred_ownM (◯ map_Excl (attach_owner o' h)) -∗
+  ⌜∀ c2, is_Some (h !! c2) -> c ≠ c2⌝.
+Proof.
+Admitted.
+
+Lemma ownΔ_ownM_subseteq Δ Δ' :
+  ownΔ Δ -∗
+  uPred_ownM (◯ map_Excl Δ') -∗
+  ⌜ Δ' ⊆ Δ ⌝.
+Proof.
+  iIntros "H1 H2".
+  rewrite /ownΔ.
+  iDestruct (uPred.ownM_op with "[H1 H2]") as "H"; iFrame.
+  rewrite uPred.ownM_valid.
+  iDestruct "H" as %H. iPureIntro.
+  rewrite ->(comm (⋅)) in H.
+  apply auth_both_valid_discrete in H as [H H'].
+  apply map_Excl_leq_subseteq. done.
+Qed.
+
+Lemma own_move_tc Σ c t i P n :
+  own_auth Σ n ∗
   ownI c t (Thread i) ∗
   owned (Thread i) P
   ==∗
-  own_auth Σ ∗
+  own_auth Σ n ∗
   ownI c t (Thread i) ∗
   owned (Chan c.1) P.
 Proof.
@@ -561,15 +942,15 @@ Proof.
   iDestruct (ownI_lookup with "H1 H2") as %H.
   rewrite /owned.
   iDestruct "H3" as (h Hh) "H3".
+  iDestruct (ownΔ_ownM_subseteq with "H1 H3") as %Hsub.
+  iDestruct (ownI_ownM_dom_disjoint with "H2 H3") as %HH.
   iDestruct (uPred.ownM_op with "[H3 H1]") as "H"; first iFrame.
   iMod (bupd_ownM_update with "H") as "H".
   {
     eapply (auth_update _ _
-        (map_Excl (change_owner (Chan c.1) h Δ))
+        (map_Excl (attach_owner (Chan c.1) h ∪ Δ))
         (map_Excl (attach_owner (Chan c.1) h))).
-    rewrite /attach_owner.
-    admit.
-    (* eapply (auth_update _ _ (Excl <$> (<[ l := (t',o) ]> Δ)) {[l := Excl (t', o)]}). *)
+    apply change_owner_update. done.
   }
   iFrame.
   rewrite uPred.ownM_op.
@@ -577,28 +958,81 @@ Proof.
   iModIntro.
   iSplitL "H1".
   - iExists _. iFrame. iPureIntro.
-
-    admit.
+    eapply change_owner_owners_valid_tc; eauto.
   - iExists _. iFrame. iPureIntro. done.
-Admitted.
+Qed.
 
-Lemma own_move_ct Σ c t i P :
-  own_auth Σ ∗
+Lemma own_move_ct Σ c t i P n :
+  own_auth Σ n ∗
   ownI c t (Thread i) ∗
   owned (Chan c.1) P
   ==∗
-  own_auth Σ ∗
+  own_auth Σ n ∗
   ownI c t (Thread i) ∗
   owned (Thread i) P.
-Proof. Admitted.
+Proof.
+  iIntros "(H1 & H2 & H3)".
+  rewrite /own_auth.
+  iDestruct "H1" as (Δ Hov) "H1".
+  iDestruct (ownI_lookup with "H1 H2") as %H.
+  rewrite /owned.
+  iDestruct "H3" as (h Hh) "H3".
+  iDestruct (ownΔ_ownM_subseteq with "H1 H3") as %Hsub.
+  iDestruct (ownI_ownM_dom_disjoint with "H2 H3") as %HH.
+  iDestruct (uPred.ownM_op with "[H3 H1]") as "H"; first iFrame.
+  iMod (bupd_ownM_update with "H") as "H".
+  {
+    eapply (auth_update _ _
+        (map_Excl (attach_owner (Thread i) h ∪ Δ))
+        (map_Excl (attach_owner (Thread i) h))).
+    apply change_owner_update. done.
+  }
+  iFrame.
+  rewrite uPred.ownM_op.
+  iDestruct "H" as "[H1 H3]".
+  iModIntro.
+  iSplitL "H1".
+  - iExists _. iFrame. iPureIntro.
+    eapply change_owner_owners_valid_ct; eauto.
+  - iExists _. iFrame. iPureIntro. done.
+Qed.
 
-Lemma own_alloc (i i' : nat) (l : endpoint) (Σ : heapT) (t t' : chan_type) :
-  i ≠ i' →
+Lemma owners_valid_alloc i n Δ Σ l t t' :
+  i < n ->
+  Δ !! l = None ->
+  Δ !! other l = None ->
+  owners_valid Δ Σ n ->
+  owners_valid (<[other l:=(t', Thread n)]> (<[l:=(t, Thread i)]> Δ))
+    (<[l:=t]> (<[other l:=t']> Σ)) (n + 1).
+Proof.
+  intros Hni Hl Hol [-> ?].
+  split.
+  - rewrite !fmap_insert /= insert_commute //. apply other_neq.
+  - rewrite insert_commute; eauto using other_neq.
+    rewrite !fmap_insert /=.
+    apply acyclic_mk_alloc; eauto with lia; rewrite ?lookup_fmap ?Hl ?Hol //;
+    intros x; rewrite lookup_fmap; destruct (Δ !! x) eqn:E; try done.
+    + destruct p. destruct o; try done. simpl. intro. simplify_eq.
+      apply Hthread0 in E. lia.
+    + simpl. intro. destruct p. simpl in *. simplify_eq.
+      apply Hcon0 in E; try done.
+  - intros l0 t0 c H.
+    rewrite !lookup_insert_spec in H.
+    repeat case_decide; simplify_eq.
+    rewrite !lookup_insert_spec.
+    repeat case_decide; intros; simplify_eq; eauto.
+  - intros l0 t0 i0. rewrite !lookup_insert_spec.
+    repeat case_decide; intros; simplify_eq; try lia.
+    apply Hthread0 in H1. lia.
+Qed.
+
+Lemma own_alloc (i n : nat) (l : endpoint) (Σ : heapT) (t t' : chan_type) :
+  i < n →
   Σ !! l = None →
   Σ !! other l = None →
-  own_auth Σ ==∗
-     own_auth (<[l:=t]> $ <[other l:=t']> Σ) ∗
-     ownI l t (Thread i) ∗ ownI (other l) t' (Thread i').
+  own_auth Σ n ==∗
+     own_auth (<[l:=t]> $ <[other l:=t']> Σ) (n+1) ∗
+     ownI l t (Thread i) ∗ ownI (other l) t' (Thread n).
 Proof.
   iIntros (Hi H1 H2) "H".
   rewrite /own_auth.
@@ -617,7 +1051,7 @@ Proof.
     { rewrite /map_Excl lookup_fmap H2. done. }
     eapply transitivity.
     - eapply (alloc_local_update _ _ l (Excl (t,Thread i))); try done.
-    - eapply (alloc_local_update _ _ (other l) (Excl (t',Thread i'))); try done.
+    - eapply (alloc_local_update _ _ (other l) (Excl (t',Thread n))); try done.
       rewrite /map_Excl lookup_insert_ne //.
       destruct l. simpl. destruct b; done.
   }
@@ -634,16 +1068,11 @@ Proof.
   rewrite -!map_Excl_insert_op //.
   2: { rewrite lookup_insert_ne //. apply other_neq. }
   iModIntro. iExists _. iFrame.
-  iPureIntro.
-  (* Need to track which threads are fresh in Δ:
-      own_auth Σ -> own_auth Σ k
-     where k is the current number of threads.
-     Then this lemma does own_auth Σ k -> own_auth Σ' (k + 1) *)
-  admit.
-Admitted.
+  iPureIntro. apply owners_valid_alloc; eauto.
+Qed.
 
-Lemma own_mutate Σ l t t' o :
-  own_auth Σ ∗ ownI l t o ==∗ own_auth (<[l:=t']> Σ) ∗ ownI l t' o.
+Lemma own_mutate Σ l t t' o n :
+  own_auth Σ n ∗ ownI l t o ==∗ own_auth (<[l:=t']> Σ) n ∗ ownI l t' o.
 Proof.
   iIntros "[H1 H2]".
   iDestruct "H1" as (Δ Hov) "H1".
@@ -671,8 +1100,8 @@ Proof.
   eapply owners_valid_mutate; eauto.
 Qed.
 
-Lemma own_dealloc Σ l t o :
-  own_auth Σ ∗ ownI l t o ==∗ own_auth (delete l Σ).
+Lemma own_dealloc Σ l t o n :
+  own_auth Σ n ∗ ownI l t o ==∗ own_auth (delete l Σ) n.
 Proof.
   iIntros "[H1 H2]".
   iDestruct "H1" as (Δ Hov) "H1".
@@ -706,59 +1135,6 @@ Lemma P_to_own_frag {A : ucmraT} (x : A) (P : uPred A) :
 Proof.
 Admitted.
  *)
-
-(* Lemma allocate Σ l t o :
-  Σ !! l = None →
-  own_auth Σ ⊢ |==> own_auth (<[l:=(t,o)]> Σ) ∗ own l t o.
-Proof.
-  intros H.
-  rewrite own_ownM.
-  apply uPred.bupd_ownM_update.
-  apply auth_update_alloc; first apply _.
-  rewrite fmap_insert.
-Admitted. *)
-  (* Check alloc_singleton_local_update.
-  apply alloc_singleton_local_update; last done.
-  by rewrite lookup_fmap H.
-Qed. *)
-
-(* Lemma auth_update_dealloc {A:ucmraT} (a b a' : A) :
-  Cancelable a →
-  (a,b) ~l~> (a',ε) → uPred_primitive.auth_global_update (● a ⋅ ◯ b) (● a').
-Proof.
-  intros Hcancel Hl.
-  eapply uPred_primitive.auth_global_update_proper, auth_update, Hl; auto.
-  rewrite (_ : (◯ ε) = ε); last done.
-  by rewrite right_id.
-Qed. *)
-
-(* Lemma deallocate Σ l t o :
-  own_auth Σ ∗ own l t o ⊢ |==> own_auth (delete l Σ).
-Proof.
-  iIntros "H".
-  iDestruct (own_lookup with "H") as "%".
-  iStopProof.
-  rewrite own_ownM.
-  apply uPred.bupd_ownM_update.
-  apply auth_update_dealloc; first apply _.
-  rewrite fmap_delete.
-Admitted.
-  apply delete_singleton_local_update_cancelable; first apply _.
-  rewrite lookup_fmap. rewrite H. done.
-Qed. *)
-
-(* Lemma update Σ l t t' :
-  own_auth Σ ∗ own l t ⊢
-  |==> own_auth (<[l:=t']> Σ) ∗ own l t'.
-Proof.
-  iIntros "[H1 H2]".
-  iApply bupd_trans.
-  replace (<[l:=t']> Σ) with (<[l := t']> (delete l Σ))
-    by apply fin_maps.insert_delete.
-  iApply allocate. { apply lookup_delete. }
-  iApply deallocate. iFrame.
-Qed. *)
-
 
 (* Lemma adequacy φ :
   (own_auth ∅ ⊢ |==> ∃ Σ2, own_auth Σ2 ∧ ⌜ φ Σ2 ⌝) → φ ∅.

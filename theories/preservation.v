@@ -252,11 +252,6 @@ Proof.
   induction ct; simpl; f_equal; eauto.
 Qed.
 
-Lemma other_other ep :
-  other (other ep) = ep.
-Proof.
-  by destruct ep as [? []].
-Qed.
 
 Lemma bufs_typed_alt (chans : heap) (Σ : heapT) (ep : endpoint) :
   bufs_typed chans Σ ep.1 ⊣⊢

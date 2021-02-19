@@ -1,6 +1,36 @@
 From stdpp Require Import gmap.
 From iris.bi Require Import bi.
 
+Lemma lookup_insert_spec `{Countable K} {V} (A : gmap K V) i j v :
+  (<[ i := v]> A) !! j = if (decide (i = j)) then Some v else (A !! j).
+Proof.
+  case_decide.
+  - subst. apply lookup_insert.
+  - by apply lookup_insert_ne.
+Qed.
+
+Lemma lookup_delete_spec `{Countable K} {V} (A : gmap K V) i j :
+  (delete i A) !! j = if (decide (i = j)) then None else A !! j.
+Proof.
+  case_decide.
+  - apply lookup_delete_None; eauto.
+  - rewrite lookup_delete_ne; eauto.
+Qed.
+
+Lemma insert_subseteq_None `{Countable K} {V} (m m' : gmap K V) i v :
+  m !! i = None ->
+  <[ i := v ]> m ⊆ m' ->
+  m ⊆ m' ∧ m' !! i = Some v.
+Proof.
+  rewrite !map_subseteq_spec.
+  intros H1 H2.
+  split.
+  - intros. apply H2.
+    destruct (decide (i = i0)); simplify_eq.
+    rewrite lookup_insert_ne //.
+  - apply H2. rewrite lookup_insert //.
+Qed.
+
 Lemma fmap_map_disjoint `{Countable K} {V1 V2} (f : V1 -> V2) (m1 m2 : gmap K V1) :
   m1 ##ₘ m2 -> f <$> m1 ##ₘ f <$> m2.
 Proof.
