@@ -43,13 +43,15 @@ Inductive in_to_σ12 : edges -> option chan_type -> option chan_type -> Prop :=
 Definition chan_inv (b1 b2 : option (list val)) (in_edges : edges) (out_edges : edges) : Prop :=
   ∃ σ1 σ2, in_to_σ12 in_edges σ1 σ2 ∧ holds (bufs_typed b1 b2 σ1 σ2) out_edges.
 
+Definition threads_inv (g : conngraph) (es : list expr) :=
+  ∀ i e, es !! i = Some e -> thread_inv e (c_out g (Thread i)) (c_in g (Thread i)).
 
+Definition chans_inv (g : conngraph) (h : heap) :=
+  ∀ i, chan_inv (h !! (i,true)) (h !! (i,false)) (c_out g (Chan i)) (c_in g (Chan i)).
 
 Definition invariant (es : list expr) (h : heap) :=
-  ∃ g : cgraph (V := object) (L := clabel), cgraph_wf g ∧
-    objects_match g es h ∧
-    (∀ i e, es !! i = Some e -> thread_inv e (c_out g (Thread i)) (c_in g (Thread i))) ∧
-    (∀ i, chan_inv (h !! (i,true)) (h !! (i,false)) (c_out g (Chan i)) (c_in g (Chan i))).
+  ∃ g : conngraph, cgraph_wf g ∧
+    objects_match g es h ∧ threads_inv g es ∧ chans_inv g h.
 
 
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
