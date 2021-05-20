@@ -8,15 +8,18 @@ Require Export diris.util.
 (* Require Export diris.logic.bupd. *)
 
 
-Canonical Structure chan_typeO := leibnizO chan_type.
+Definition clabel : Type := bool * chan_type.
+Canonical Structure clabelO := leibnizO clabel.
 
-Notation heapT := (gmap endpoint chan_type).
-Notation heapT_UR := (gmapUR endpoint (exclR chan_typeO)).
+Notation heapT := (gmap nat clabel).
+Notation heapT_UR := (gmapUR nat (exclR clabelO)).
 
 Notation hProp := (uPred heapT_UR).
 
+
 Definition own (l : endpoint) (t : chan_type) : hProp :=
-  uPred_ownM {[ l := Excl t ]}.
+  let (n,b) := l in
+  uPred_ownM {[ n := Excl (b,t) ]}.
 
 Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 
@@ -34,6 +37,7 @@ Section map_Excl.
   Proof.
     rewrite /map_Excl. intros G. apply fmap_empty_inv in G. done.
   Qed.
+
   Lemma map_Excl_insert m k v :
     map_Excl (<[ k := v ]> m) = <[ k := Excl v ]> $ map_Excl m.
   Proof.
@@ -117,6 +121,19 @@ Section map_Excl.
     destruct (m1 !! i),(m2 !! i); done.
   Qed.
 End map_Excl.
+Lemma map_Excl_singleton `{Countable K} {V} (a : K) (b : V) :
+  map_Excl {[ a := b ]} = {[ a := Excl b ]}.
+Proof.
+  rewrite /map_Excl map_fmap_singleton //.
+Qed.
+Lemma map_Excl_singleton_inv `{Countable K} {V} a b (Σ : gmap K V) :
+  map_Excl Σ = {[ a := Excl b ]} -> Σ = {[ a := b ]}.
+Proof.
+  intros HH.
+  pose proof (fmap_singleton_inv _ _ _ _ HH).
+  destruct H0 as [? ->]. rewrite map_Excl_singleton in HH.
+  apply singleton_eq_iff in HH. destruct HH. simplify_eq. done.
+Qed.
 
 Section uPred_lemmas.
   Context {A : ucmra}.
@@ -133,6 +150,17 @@ Section uPred_lemmas.
   Lemma uPred_emp_holds_L `{!LeibnizEquiv A} x :
     (emp%I : uPred A) x <-> x = ε.
   Proof. unfold_leibniz. apply uPred_emp_holds. Qed.
+
+  Lemma uPred_ownM_holds x y :
+    (uPred_ownM x : uPred A) y <-> x ≡ y.
+  Proof.
+    by uPred.unseal.
+  Qed.
+  Lemma uPred_ownM_holds_L `{!LeibnizEquiv A} x y :
+    (uPred_ownM x : uPred A) y <-> x = y.
+  Proof.
+    unfold_leibniz. apply uPred_ownM_holds.
+  Qed.
 
   Lemma uPred_sep_holds P Q x :
     (P ∗ Q)%I x <-> ∃ x1 x2, x ≡ x1 ⋅ x2 ∧ P x1 ∧ Q x2.
@@ -203,4 +231,14 @@ Lemma and_holds (P Q : hProp) Σ :
   holds (P ∧ Q) Σ <-> holds P Σ ∧ holds Q Σ.
 Proof.
   rewrite /holds uPred_and_holds. done.
+Qed.
+
+Lemma own_holds l t Σ :
+  holds (own l t) Σ <-> Σ = {[ l.1 := (l.2,t) ]}.
+Proof.
+  unfold holds, own. destruct l. simpl.
+  rewrite uPred_ownM_holds_L. split; intro.
+  - symmetry in H.
+    apply map_Excl_singleton_inv in H. done.
+  - subst. rewrite map_Excl_singleton. done.
 Qed.
