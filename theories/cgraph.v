@@ -4,8 +4,9 @@ From diris Require Export util.
 From stdpp Require Export gmap.
 
 Section cgraph.
+  Context {V : Type}.
   Context `{Countable V}.
-  Context (L : Type).
+  Context {L : Type}.
 
   Definition cgraph := gmap V (gmap V L).
 
@@ -184,7 +185,7 @@ Section cgraph.
     apply union_mono; eauto.
     apply set_map_mono; eauto. done.
   Qed.
-  
+
   Lemma gmap_curry_mono `{Countable A} {B} (g1 g2 : gmap A (gmap A B)) :
     g1 ⊆ g2 -> gmap_curry g1 ⊆ gmap_curry g2.
   Proof.
@@ -248,7 +249,9 @@ Section cgraph.
       + rewrite lookup_alter_ne in H2; eauto.
         unfold c_vertices. rewrite dom_alter.
         specialize (H0 _ _ H2). done.
-    - admit.
+    - unfold c_deleteE. unfold c_acyclic.
+      unfold c_to_uforest.
+      unfold c_dedges. admit.
   Admitted.
 
   Lemma c_deleteE_conn g v1 v2 :
