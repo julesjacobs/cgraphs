@@ -9,7 +9,7 @@ Definition edges := gmap object clabel.
 
 Definition objects_match (g : conngraph) (es : list expr) (h : heap) : Prop. Admitted.
 
-Definition thread_inv (e : expr) (in_edges : edges) (out_edges : edges) : Prop :=
+Definition thread_inv (e : expr) (out_edges : edges) (in_edges : edges) : Prop :=
     in_edges = ∅ ∧ holds (rtyped0 e UnitT) out_edges.
 
 
@@ -63,7 +63,9 @@ Proof.
   destruct H as [????????HH?].
   intros Hinv.
   destruct Hinv as (g & Hwf & Hom & Hthr & Hch).
-  pose proof (Hthr i (k e) H0).
+  pose proof (Hthr i (k e) H0) as Hti.
+  destruct Hti as [Htin Hti'].
+  unfold thread_inv in *.
 
   destruct HH; rewrite ?right_id.
   - admit.

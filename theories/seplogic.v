@@ -263,3 +263,8 @@ Proof.
     apply map_Excl_singleton_inv in H. done.
   - subst. rewrite map_Excl_singleton. done.
 Qed.
+
+Lemma holds_entails (P Q : hProp) Σ :
+  holds P Σ -> (P ⊢ Q) -> holds Q Σ.
+Proof.
+Admitted.
