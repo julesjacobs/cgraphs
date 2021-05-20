@@ -51,6 +51,8 @@ Proof.
   intros [].
   destruct H as [????????HH?].
   intros Hinv.
+  destruct Hinv as (g & Hwf & Hom & Hthr & Hch).
+  pose proof (Hthr i (k e) H0).
 
   destruct HH; rewrite ?right_id.
   - admit.
