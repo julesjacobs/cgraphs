@@ -18,10 +18,11 @@ Section cgraph.
     end.
 
   Definition c_in (g : cgraph) (v : V) : gmap V L :=
-    match g !! v with
-    | Some e => e
-    | None => ∅
-    end.
+    map_fold (λ v' ev' (ins : gmap V L),
+      match ev' !! v with
+      | Some l => <[ v' := l ]> ins
+      | None => ins
+      end) ∅ g.
 
   Definition c_insertV (g : cgraph) (v : V) := <[ v := ∅ ]> g.
   Definition c_deleteV (g : cgraph) (v : V) := delete v g.
@@ -31,7 +32,10 @@ Section cgraph.
   Definition c_deleteE (g : cgraph) (v1 v2 : V) :=
     alter (λ e, delete v2 e) v1 g.
 
-  Definition c_to_uforest (g : cgraph) : uforest V. Admitted.
+  Definition make_undirected (g : gset (V*V)) : gset (V*V) :=
+    g ∪ (set_map (λ '(x,y), (y,x)) g).
+  Definition c_to_uforest (g : cgraph) : uforest V :=
+    make_undirected $ dom (gset _) (gmap_curry g).
   Definition c_acyclic (g : cgraph) := is_uforest (c_to_uforest g).
 
   Definition c_dom_valid (g : cgraph) :=
@@ -90,6 +94,9 @@ Section cgraph.
   Lemma c_deleteE_in g v1 v2 v2' :
     c_in (c_deleteE g v1 v2) v2' = if decide (v2 = v2') then delete v1 (c_in g v2') else c_in g v2'.
   Proof.
+    rewrite /c_in /c_deleteE.
+    case_decide.
+    - subst. Search map_fold alter. admit.
   Admitted.
 
   (* Mutate/wf lemmas *)
@@ -97,14 +104,24 @@ Section cgraph.
   Lemma c_insertV_wf g v :
     cgraph_wf g -> cgraph_wf (c_insertV g v).
   Proof.
+    intros [].
+    split.
+    - unfold c_dom_valid. intros.
+      destruct (decide (v = v0)).
+      + subst. unfold c_insertV in *. rewrite lookup_insert in H2. simplify_eq.
+        rewrite dom_empty. set_solver.
+      + unfold c_insertV in *. rewrite lookup_insert_ne in H2; try done.
+        specialize (H0 _ _ H2). set_solver.
+    - admit.
   Admitted.
 
   Lemma c_deleteV_wf g v :
-    cgraph_wf g -> cgraph_wf (c_deleteV g v).
+    c_in g v = ∅ -> c_out g v = ∅ -> cgraph_wf g -> cgraph_wf (c_deleteV g v).
   Proof.
   Admitted.
 
   Lemma c_insertE_wf g v1 v2 l :
+    ¬ c_uconn g v1 v2 -> v1 ∈ c_vertices g -> v2 ∈ c_vertices g ->
     cgraph_wf g -> cgraph_wf (c_insertE g v1 v2 l).
   Proof.
   Admitted.
@@ -115,7 +132,7 @@ Section cgraph.
   Admitted.
 
   Lemma c_deleteE_conn g v1 v2 :
-    cgraph_wf g -> ¬ c_uconn (c_deleteE g v1 v2) v1 v2.
+    c_edge g v1 v2 -> cgraph_wf g -> ¬ c_uconn (c_deleteE g v1 v2) v1 v2.
   Proof.
   Admitted.
 
