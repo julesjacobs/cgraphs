@@ -36,6 +36,7 @@ Definition bufs_typed (b1 b2 : option (list val)) (σ1 σ2 : option chan_type): 
           buf_typed' b2 σ2 (dual rest).
 
 Inductive in_to_Σ : edges -> option chan_type -> option chan_type -> Prop :=.
+(* TODO *)
 
 Definition chan_inv (b1 b2 : option (list val)) (in_edges : edges) (out_edges : edges) : Prop :=
   ∃ σ1 σ2, in_to_Σ in_edges σ1 σ2 ∧ holds (bufs_typed b1 b2 σ1 σ2) out_edges.
