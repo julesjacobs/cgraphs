@@ -111,8 +111,8 @@ Qed.
 
 Lemma lookup_app_plus {A} (l1 l2 : list A) (i : nat) :
   (l1 ++ l2) !! (length l1 + i) = l2 !! i.
-Proof.
   by induction l1.
+  Proof.
 Qed.
 
 Lemma pigeon `{Countable A} (s : gset A) (xs : list A) :
