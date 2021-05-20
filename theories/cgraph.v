@@ -1,3 +1,4 @@
+From iris.proofmode Require Export tactics.
 Require Export diris.uforests.
 From diris Require Export util.
 From stdpp Require Export gmap.
@@ -44,17 +45,29 @@ Section cgraph.
   (* Mutate/reader lemmas *)
 
   Lemma c_vertices_insertV g v :
-    c_vertices (c_insertV g v) = c_vertices g ∪ {[ v ]}.
-  Proof. Admitted.
+    c_vertices (c_insertV g v) = {[ v ]} ∪ c_vertices g.
+  Proof.
+    apply dom_insert_L.
+  Qed.
 
   Lemma c_vertices_deleteV g v :
     c_vertices (c_deleteV g v) = c_vertices g ∖ {[ v ]}.
-  Proof. Admitted.
+  Proof.
+    apply dom_delete_L.
+  Qed.
 
   Lemma c_insertE_out g v1 v1' v2 l :
-    c_out (c_insertE g v1 v2 l) v1' = if decide (v1 = v1') then <[ v2 := l ]> (c_out g v1') else c_out g v1'.
+    v1 ∈ c_vertices g -> c_out (c_insertE g v1 v2 l) v1' = if decide (v1 = v1') then <[ v2 := l ]> (c_out g v1') else c_out g v1'.
   Proof.
-  Admitted.
+    intros Hin.
+    rewrite /c_out /c_insertE.
+    case_decide.
+    + subst. rewrite lookup_alter. destruct (g !! v1') eqn:E.
+      - rewrite E //.
+      - exfalso. rewrite /c_vertices in Hin. apply elem_of_dom in Hin.
+        rewrite E in Hin. destruct Hin. simplify_eq.
+    + rewrite lookup_alter_ne //.
+  Qed.
 
   Lemma c_insertE_in g v1 v2 v2' l :
     c_in (c_insertE g v1 v2 l) v2' = if decide (v2 = v2') then <[ v1 := l ]> (c_in g v2') else c_in g v2'.
@@ -64,7 +77,13 @@ Section cgraph.
   Lemma c_deleteE_out g v1 v1' v2 :
     c_out (c_deleteE g v1 v2) v1' = if decide (v1 = v1') then delete v2 (c_out g v1') else c_out g v1'.
   Proof.
-  Admitted.
+    rewrite /c_out /c_deleteE.
+    case_decide.
+    + subst. rewrite lookup_alter. destruct (g !! v1') eqn:E.
+      - rewrite E //.
+      - rewrite E /= delete_empty //.
+    + rewrite lookup_alter_ne //.
+  Qed.
 
   Lemma c_deleteE_in g v1 v2 v2' :
     c_in (c_deleteE g v1 v2) v2' = if decide (v2 = v2') then delete v1 (c_in g v2') else c_in g v2'.
