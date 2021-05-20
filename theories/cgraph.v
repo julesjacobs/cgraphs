@@ -32,8 +32,9 @@ Section cgraph.
   Definition c_deleteE (g : cgraph) (v1 v2 : V) :=
     alter (λ e, delete v2 e) v1 g.
 
+  Definition swap {A B} : (A*B -> B*A) := λ '(x,y), (y,x).
   Definition make_undirected (g : gset (V*V)) : gset (V*V) :=
-    g ∪ (set_map (λ '(x,y), (y,x)) g).
+    g ∪ (set_map swap g).
   Definition c_dedges (g : cgraph) : gset (V*V) :=
     dom (gset _) (gmap_curry g).
   Definition c_to_uforest (g : cgraph) : uforest V :=
@@ -103,6 +104,42 @@ Section cgraph.
 
   (* Mutate/wf lemmas *)
 
+  Lemma gmap_curry_empty `{Countable A} {B} : gmap_curry (∅ : gmap A (gmap A B)) = ∅.
+  Proof.
+    rewrite /gmap_curry map_fold_empty //.
+  Qed.
+
+  Lemma make_undirected_empty : make_undirected ∅ = ∅.
+  Proof.
+    unfold make_undirected. rewrite left_id_L. rewrite set_map_empty. done.
+  Qed.
+
+  Lemma c_to_uforest_empty : c_to_uforest ∅ = ∅.
+  Proof.
+    unfold c_to_uforest, c_dedges.
+    Search gmap_curry. rewrite gmap_curry_empty.
+    rewrite dom_empty_L. rewrite make_undirected_empty. done.
+  Qed.
+
+  Lemma c_empty_wf :
+    cgraph_wf ∅.
+  Proof.
+    split.
+    - unfold c_dom_valid. intros. rewrite lookup_empty in H0. simplify_eq.
+    - unfold c_acyclic. rewrite c_to_uforest_empty. apply forest_empty.
+  Qed.
+
+  Lemma gmap_curry_insert_empty `{Countable A} {B} (g : gmap A (gmap A B)) v :
+    gmap_curry (<[v:=∅]> g) = gmap_curry g.
+  Proof.
+  Admitted.
+
+
+  Lemma c_to_uforest_insert_empty g v : c_to_uforest (<[v:=∅]> g) = c_to_uforest g.
+  Proof.
+    unfold c_to_uforest. unfold c_dedges. rewrite gmap_curry_insert_empty //.
+  Qed.
+
   Lemma c_insertV_wf g v :
     cgraph_wf g -> cgraph_wf (c_insertV g v).
   Proof.
@@ -114,13 +151,53 @@ Section cgraph.
         rewrite dom_empty. set_solver.
       + unfold c_insertV in *. rewrite lookup_insert_ne in H2; try done.
         specialize (H0 _ _ H2). set_solver.
-    - admit.
-  Admitted.
+    - unfold c_acyclic. unfold c_insertV. rewrite c_to_uforest_insert_empty. apply H1.
+  Qed.
 
   Lemma c_in_empty g v :
     c_in g v = ∅ -> ∀ v' e, g !! v' = Some e -> e !! v = None.
   Proof.
   Admitted.
+
+  Lemma is_uforest_mono `{Countable A} (g1 g2 : uforest A) :
+    g1 ⊆ g2 -> is_uforest g2 -> undirected g1 -> is_uforest g1.
+  Proof.
+  Admitted.
+
+  Lemma make_undirected_undirected g :
+    undirected (make_undirected g).
+  Proof.
+    unfold undirected. intros.
+    unfold make_undirected in *.
+    rewrite elem_of_union.
+    apply elem_of_union in H0 as [].
+    - right. replace (y,x) with (swap (x,y)) by done. apply elem_of_map_2. done.
+    - left. apply elem_of_map_1 in H0 as (?&?&?). destruct x0. simpl in *.
+      simplify_eq. done.
+  Qed.
+
+  Lemma make_undirected_mono (g1 g2 : gset (V*V)) :
+    g1 ⊆ g2 -> make_undirected g1 ⊆ make_undirected g2.
+  Proof.
+    intros HH.
+    unfold make_undirected.
+    apply union_mono; eauto.
+    apply set_map_mono; eauto. done.
+  Qed.
+  
+  Lemma gmap_curry_mono `{Countable A} {B} (g1 g2 : gmap A (gmap A B)) :
+    g1 ⊆ g2 -> gmap_curry g1 ⊆ gmap_curry g2.
+  Proof.
+  Admitted.
+
+  Lemma c_to_uforest_mono (g1 g2 : cgraph) :
+    g1 ⊆ g2 -> c_to_uforest g1 ⊆ c_to_uforest g2.
+  Proof.
+    intros HH.
+    unfold c_to_uforest. apply make_undirected_mono.
+    unfold c_dedges. apply subseteq_dom.
+    apply gmap_curry_mono. done.
+  Qed.
 
   Lemma c_deleteV_wf g v :
     c_in g v = ∅ -> cgraph_wf g -> cgraph_wf (c_deleteV g v).
@@ -136,8 +213,10 @@ Section cgraph.
         unfold c_vertices in *.
         assert (v ∉ dom (gset V) e); last set_solver.
         rewrite not_elem_of_dom. eapply c_in_empty; eauto.
-    - admit.
-  Admitted.
+    - eapply is_uforest_mono. 2: eauto. 2: apply make_undirected_undirected.
+      apply c_to_uforest_mono. unfold c_deleteV.
+      apply delete_subseteq.
+  Qed.
 
   Lemma c_insertE_wf g v1 v2 l :
     ¬ c_uconn g v1 v2 -> v2 ∈ c_vertices g ->
