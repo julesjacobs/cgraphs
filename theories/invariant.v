@@ -12,8 +12,35 @@ Definition objects_match (g : conngraph) (es : list expr) (h : heap) : Prop. Adm
 Definition thread_inv (e : expr) (in_edges : edges) (out_edges : edges) : Prop :=
     in_edges = ∅ ∧ holds (rtyped0 e UnitT) out_edges.
 
-Definition buf := list val.
-Definition chan_inv (b1 b2 : option buf) (in_edges : edges) (out_edges : edges) : Prop. Admitted.
+
+
+Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : hProp :=
+  match buf, ct with
+                            (* add owner here *)
+  | v::buf', RecvT t ct' => val_typed v t ∗ buf_typed buf' ct' rest
+  (* | v::buf', SendT t ct' => ??? *)
+  (* Add a rule for this to support asynchrous subtyping *)
+  | [], ct => ⌜⌜ rest = ct ⌝⌝
+  | _,_ => False
+  end.
+
+Definition buf_typed' (bufq : option (list val)) (ctq : option chan_type) (rest : chan_type) : hProp :=
+    match bufq, ctq with
+    | Some buf, Some ct => buf_typed buf ct rest
+    | None, None => ⌜⌜ rest = EndT ⌝⌝
+    | _,_ => False
+    end.
+
+Definition bufs_typed (b1 b2 : option (list val)) (σ1 σ2 : option chan_type): hProp :=
+  ∃ rest, buf_typed' b1 σ1 rest ∗
+          buf_typed' b2 σ2 (dual rest).
+
+Inductive in_to_Σ : edges -> option chan_type -> option chan_type -> Prop :=.
+
+Definition chan_inv (b1 b2 : option (list val)) (in_edges : edges) (out_edges : edges) : Prop :=
+  ∃ σ1 σ2, in_to_Σ in_edges σ1 σ2 ∧ holds (bufs_typed b1 b2 σ1 σ2) out_edges.
+
+
 
 Definition invariant (es : list expr) (h : heap) :=
   ∃ g : cgraph (V := object) (L := clabel), cgraph_wf g ∧
