@@ -19,5 +19,5 @@ theories/logic/bi.v
 # theories/logic/bupd.v
 theories/langdef.v
 theories/seplogic.v
-theories/htypesystem.v
+theories/rtypesystem.v
 theories/langlemmas.v

@@ -34,7 +34,7 @@ Definition heap_typed (chans : heap) (Σ : heapT) : iProp :=
 
 Definition invariant (chans : heap) (threads : list expr) : iProp :=
   ∃ Σ, own_auth Σ ∗
-       ([∗ list] id↦e∈threads, owned (Thread id) (ptyped0 e UnitT)) ∗
+       ([∗ list] id↦e∈threads, owned (Thread id) (rtyped0 e UnitT)) ∗
        heap_typed chans Σ.
 
 Lemma elem_of_dom_chans_alt {A} (i : nat) (Σ : gmap endpoint A) :
@@ -608,8 +608,8 @@ Proof.
   iIntros. iApply big_sepS_empty. done.
 Qed.
 
-Lemma pure_step_ptyped e e' t o :
-  pure_step e e' -> ptyped ∅ e t o -∗ ptyped ∅ e' t o.
+Lemma pure_step_rtyped e e' t o :
+  pure_step e e' -> rtyped ∅ e t o -∗ rtyped ∅ e' t o.
 Proof.
   intros Hps.
   iIntros "Ht".
@@ -619,7 +619,7 @@ Proof.
     iDestruct "Ht1" as (t1 t2 HH) "Ht1".
     simplify_eq.
     replace (∅ : envT) with (delete x {[ x:= t1 ]} : envT) by (by rewrite delete_singleton).
-    iApply (subst_ptyped with "Ht2 Ht1").
+    iApply (subst_rtyped with "Ht2 Ht1").
     rewrite lookup_singleton. done.
   - iSplit; first done.
     iDestruct "Ht" as (t1 t2 [-> _]) "Ht".
@@ -642,7 +642,7 @@ Proof.
     subst. rewrite left_id in H. subst. rewrite left_id.
     replace (∅ : envT) with (delete x {[ x := t']} : envT); last first.
     { apply delete_singleton. }
-    iApply (subst_ptyped with "Hv Ht").
+    iApply (subst_rtyped with "Hv Ht").
     rewrite lookup_singleton. done.
   - iDestruct "Ht" as (Γ1 Γ2 (H & Hd)) "[% Ht]".
     destruct H0. subst. rewrite left_id in H. subst. done.
@@ -655,20 +655,20 @@ Proof.
     { rewrite delete_union delete_singleton right_id.
       rewrite delete_singleton_ne; eauto.
       apply delete_singleton. }
-    iApply (subst_ptyped with "Hv1 [Ht Hv2]").
+    iApply (subst_rtyped with "Hv1 [Ht Hv2]").
     + rewrite delete_union delete_singleton right_id.
       rewrite delete_singleton_ne; eauto. rewrite lookup_singleton. done.
-    + iApply (subst_ptyped with "Hv2 Ht").
+    + iApply (subst_rtyped with "Hv2 Ht").
       rewrite lookup_union lookup_singleton lookup_singleton_ne; eauto.
 Qed.
 
-Lemma pure_step_ptyped0 e e' t o :
-  pure_step e e' -> ptyped0 e t o -∗ ptyped0 e' t o.
+Lemma pure_step_rtyped0 e e' t o :
+  pure_step e e' -> rtyped0 e t o -∗ rtyped0 e' t o.
 Proof.
   iIntros (Hs) "Ht".
-  iApply ptyped_ptyped0.
-  iDestruct (ptyped0_ptyped with "Ht") as "Ht".
-  iApply (pure_step_ptyped with "Ht"). done.
+  iApply rtyped_rtyped0.
+  iDestruct (rtyped0_rtyped with "Ht") as "Ht".
+  iApply (pure_step_rtyped with "Ht"). done.
 Qed.
 
 Definition ct_tail (ct : chan_type) : chan_type :=
@@ -691,8 +691,8 @@ Proof.
 Qed.
 
 Lemma typed0_ctx_typed0_iff B k e o:
-  ctx k -> ptyped0 (k e) B o ⊣⊢
-  ∃ A, ctx_typed0 k A B o ∗ ptyped0 e A o.
+  ctx k -> rtyped0 (k e) B o ⊣⊢
+  ∃ A, ctx_typed0 k A B o ∗ rtyped0 e A o.
 Proof.
   intros Hk.
   iIntros.
@@ -731,7 +731,7 @@ Fixpoint val_typed' (v : val) (t : type) (o : owner) : iProp := (* extra argumen
   | UnitT => ⌜⌜ v = UnitV ⌝⌝
   | NatT => ∃ n, ⌜⌜ v = NatV n ⌝⌝
   | PairT t1 t2 => ∃ a b, ⌜⌜ v = PairV a b ⌝⌝ ∗ val_typed' a t1 o ∗ val_typed' b t2 o
-  | FunT t1 t2 => ∃ x e, ⌜⌜ v = FunV x e ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2 o
+  | FunT t1 t2 => ∃ x e, ⌜⌜ v = FunV x e ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2 o
   | ChanT r => ∃ c, ⌜⌜ v = ChanV c ⌝⌝ ∗ own c r o
   end.
 
@@ -761,14 +761,14 @@ Lemma val_typed_move_tc Σ c v t i t' :
   own_auth Σ ∗
   own c t (Thread i) ∗
   val_typed v t' (Chan c.1)
-with ptyped_move_tc Γ Σ c e t i t' :
+with rtyped_move_tc Γ Σ c e t i t' :
   own_auth Σ ∗
   own c t (Thread i) ∗
-  ptyped Γ e t' (Thread i)
+  rtyped Γ e t' (Thread i)
   ==∗
   own_auth Σ ∗
   own c t (Thread i) ∗
-  ptyped Γ e t' (Chan c.1).
+  rtyped Γ e t' (Chan c.1).
 Proof.
   - iIntros "(Hown & H & Hv)". rewrite !val_typed_switch.
     iInduction t' as [] "IH" forall (v); simpl.
@@ -780,7 +780,7 @@ Proof.
       iFrame. iModIntro. iExists _,_.
       iSplit; first done. iFrame.
     + iDestruct "Hv" as (x e ->) "He".
-      iMod (ptyped_move_tc with "[Hown H He]") as "(Hown & H & He)"; first by iFrame.
+      iMod (rtyped_move_tc with "[Hown H He]") as "(Hown & H & He)"; first by iFrame.
       iFrame. iModIntro. iExists _,_. iSplit; first done. iFrame.
     + iDestruct "Hv" as (c' ->) "Hv".
       iMod (own_move_tc with "[Hown Hv H]") as "(Hown & Hv & H)"; first by iFrame.
@@ -869,7 +869,7 @@ Proof.
 
   destruct Hstep; simpl;
   repeat (setoid_rewrite (right_id emp%I (∗)%I)).
-  - iExists Σ. iFrame. iModIntro. by iApply (pure_step_ptyped0 with "Ht").
+  - iExists Σ. iFrame. iModIntro. by iApply (pure_step_rtyped0 with "Ht").
   - iDestruct "Ht" as (r t' ->) "[H Hv]".
     iDestruct "H" as (r0 [=<-]) "H".
     iDestruct (own_lookup with "[$Hown $H]") as "%".
@@ -934,8 +934,8 @@ Proof.
   iExists ∅. iFrame. simpl.
   iSplit.
   - rewrite right_id.
-    iApply ptyped_ptyped0.
-    iApply typed_ptyped.
+    iApply rtyped_rtyped0.
+    iApply typed_rtyped.
     iPureIntro. done.
   - unfold heap_typed.
     unfold dom_chans.
@@ -1047,7 +1047,7 @@ Ltac fin := done || by constructor.
 Lemma progress1 Σ h e t o :
   own_auth Σ -∗
   heap_typed h Σ -∗
-  ptyped0 e t o -∗
+  rtyped0 e t o -∗
   ⌜is_val e ∨ waiting_or_reducible e h⌝.
 Proof.
   iIntros "Hown Hheap Ht".

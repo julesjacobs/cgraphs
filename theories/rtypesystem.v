@@ -1,7 +1,7 @@
 From diris Require Export seplogic.
 
 
-Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
+Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : hProp :=
  match e with
   | Val v =>
       ⌜⌜ Γ = ∅ ⌝⌝ ∗ val_typed v t
@@ -9,50 +9,50 @@ Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
       ⌜⌜ Γ = {[ x := t ]} ⌝⌝
   | App e1 e2 => ∃ t' Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-      ptyped Γ1 e1 (FunT t' t) ∗
-      ptyped Γ2 e2 t'
+      rtyped Γ1 e1 (FunT t' t) ∗
+      rtyped Γ2 e2 t'
   | Lam x e => ∃ t1 t2,
       ⌜⌜ t = FunT t1 t2 ∧ Γ !! x = None ⌝⌝ ∗
-      ptyped (Γ ∪ {[ x := t1 ]}) e t2
+      rtyped (Γ ∪ {[ x := t1 ]}) e t2
   | Send e1 e2 => ∃ r t' Γ1 Γ2,
       ⌜⌜ t = ChanT r ∧ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-      ptyped Γ1 e1 (ChanT (SendT t' r)) ∗
-      ptyped Γ2 e2 t'
+      rtyped Γ1 e1 (ChanT (SendT t' r)) ∗
+      rtyped Γ2 e2 t'
   | Recv e => ∃ t' r,
       ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗
-      ptyped Γ e (ChanT (RecvT t' r))
+      rtyped Γ e (ChanT (RecvT t' r))
   | Let x e1 e2 => ∃ (t' : type) (Γ1 Γ2 : envT),
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ∧ Γ2 !! x = None ⌝⌝ ∗
-      ptyped Γ1 e1 t' ∗
-      ptyped (Γ2 ∪ {[ x := t' ]}) e2 t
+      rtyped Γ1 e1 t' ∗
+      rtyped (Γ2 ∪ {[ x := t' ]}) e2 t
   | LetUnit e1 e2 => ∃ Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-      ptyped Γ1 e1 UnitT ∗
-      ptyped Γ2 e2 t
+      rtyped Γ1 e1 UnitT ∗
+      rtyped Γ2 e2 t
   | LetProd x1 x2 e1 e2 => ∃ t1 t2 Γ1 Γ2,
       ⌜⌜ x1 ≠ x2 ∧ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ∧ Γ2 !! x1 = None ∧ Γ2 !! x2 = None  ⌝⌝ ∗
-      ptyped Γ1 e1 (PairT t1 t2) ∗
-      ptyped (Γ2 ∪ {[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
+      rtyped Γ1 e1 (PairT t1 t2) ∗
+      rtyped (Γ2 ∪ {[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
   | If e1 e2 e3 => ∃ Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-      ptyped Γ1 e1 NatT ∗
-      (ptyped Γ2 e2 t ∧ ptyped Γ2 e3 t)
+      rtyped Γ1 e1 NatT ∗
+      (rtyped Γ2 e2 t ∧ rtyped Γ2 e3 t)
   | Fork e => ∃ r,
       ⌜⌜ t = ChanT r ⌝⌝ ∗
-      ptyped Γ e (FunT (ChanT (dual r)) UnitT)
+      rtyped Γ e (FunT (ChanT (dual r)) UnitT)
   | Close e =>
-      ⌜⌜ t = UnitT ⌝⌝ ∗ ptyped Γ e (ChanT EndT)
+      ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped Γ e (ChanT EndT)
   end
 with val_typed (v : val) (t : type) : hProp :=
   match v with
   | UnitV => ⌜⌜ t = UnitT ⌝⌝
   | NatV n => ⌜⌜ t = NatT ⌝⌝
   | PairV a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
-  | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2
+  | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
   | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own c r
   end.
 
-Lemma typed_ptyped Γ e t : ⌜⌜ typed Γ e t ⌝⌝ -∗ ptyped Γ e t.
+Lemma typed_rtyped Γ e t : ⌜⌜ typed Γ e t ⌝⌝ -∗ rtyped Γ e t.
 Proof.
   iIntros "%".
   iInduction H as [] "IH"; simpl;
@@ -88,7 +88,7 @@ Ltac foo := simpl; repeat iMatchHyp (fun H P =>
 
 Lemma typed_no_var_subst e Γ t x v :
   Γ !! x = None ->
-  ptyped Γ e t -∗
+  rtyped Γ e t -∗
   ⌜ subst x v e = e ⌝.
 Proof.
   iIntros (Hx) "Ht".
@@ -169,11 +169,11 @@ Proof.
   rewrite (delete_notin a x); solve_map_disjoint.
 Qed.
 
-Lemma subst_ptyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) :
+Lemma subst_rtyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) :
   Γ !! x = Some vT ->
   val_typed v vT -∗
-  ptyped Γ e eT -∗
-  ptyped (delete x Γ) (subst x v e) eT.
+  rtyped Γ e eT -∗
+  rtyped (delete x Γ) (subst x v e) eT.
 Proof.
   iIntros (H) "Hv He".
   iInduction e as [?|?|?|?|?|?|?|?|?|?|?|?] "IH" forall (eT Γ H); simpl.
@@ -313,8 +313,8 @@ Qed.
                      (A : type) (B : type) : iProp :=
     (∀ e Γ',
       ⌜⌜ Γ ##ₘ Γ' ⌝⌝ -∗
-      ptyped Γ' e A -∗
-      ptyped (Γ ∪ Γ') (k e) B)%I.
+      rtyped Γ' e A -∗
+      rtyped (Γ ∪ Γ') (k e) B)%I.
 
 Lemma md1 (Γ : envT) :
   Γ = ∅ ∪ Γ ∧ ∅ ##ₘ Γ.
@@ -332,7 +332,7 @@ Qed.
 Ltac smd := solve_map_disjoint || (rewrite map_union_comm; solve_map_disjoint).
 
 Lemma ctx_subst Γ1 Γ2 k A B e :
-  Γ1 ##ₘ Γ2 -> ctx_typed Γ1 k A B -∗ ptyped Γ2 e A -∗ ptyped (Γ1 ∪ Γ2) (k e) B.
+  Γ1 ##ₘ Γ2 -> ctx_typed Γ1 k A B -∗ rtyped Γ2 e A -∗ rtyped (Γ1 ∪ Γ2) (k e) B.
 Proof.
   intros Hdisj.
   iIntros "Hctx Htyped".
@@ -343,10 +343,10 @@ Proof.
 Qed. *)
 
 (* Lemma typed_ctx1_typed Γ B k e :
-  ctx1 k -> ptyped Γ (k e) B -∗
+  ctx1 k -> rtyped Γ (k e) B -∗
   ∃ Γ1 Γ2 A,
     ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-    ctx_typed Γ1 k A B ∗ ptyped Γ2 e A.
+    ctx_typed Γ1 k A B ∗ rtyped Γ2 e A.
 Proof.
   intros [];
   simpl;
@@ -367,10 +367,10 @@ Proof.
 Qed. *)
 
 (* Lemma typed_ctx_typed Γ B k e :
-  ctx k -> ptyped Γ (k e) B -∗
+  ctx k -> rtyped Γ (k e) B -∗
   ∃ Γ1 Γ2 A,
     ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-    ctx_typed Γ1 k A B ∗ ptyped Γ2 e A.
+    ctx_typed Γ1 k A B ∗ rtyped Γ2 e A.
 Proof.
   intros Hctx.
   iIntros "Htyped".
@@ -393,45 +393,45 @@ Proof.
       iApply "H3". solve_map_disjoint. done.
 Qed. *)
 
-(* ptyped with empty environment *)
+(* rtyped with empty environment *)
 
-Fixpoint ptyped0 (e : expr) (t : type) : hProp :=
+Fixpoint rtyped0 (e : expr) (t : type) : hProp :=
  match e with
   | Val v =>
       val_typed v t
   | Var x =>
       False
   | App e1 e2 => ∃ t',
-      ptyped0 e1 (FunT t' t) ∗
-      ptyped0 e2 t'
+      rtyped0 e1 (FunT t' t) ∗
+      rtyped0 e2 t'
   | Lam x e => ∃ t1 t2,
       ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗
-      ptyped {[ x := t1 ]} e t2
+      rtyped {[ x := t1 ]} e t2
   | Send e1 e2 => ∃ r t',
       ⌜⌜ t = ChanT r⌝⌝ ∗
-      ptyped0 e1 (ChanT (SendT t' r)) ∗
-      ptyped0 e2 t'
+      rtyped0 e1 (ChanT (SendT t' r)) ∗
+      rtyped0 e2 t'
   | Recv e => ∃ t' r,
       ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗
-      ptyped0 e (ChanT (RecvT t' r))
+      rtyped0 e (ChanT (RecvT t' r))
   | Let x e1 e2 => ∃ (t' : type),
-      ptyped0 e1 t' ∗
-      ptyped {[ x := t' ]} e2 t
+      rtyped0 e1 t' ∗
+      rtyped {[ x := t' ]} e2 t
   | LetUnit e1 e2 =>
-      ptyped0 e1 UnitT ∗
-      ptyped0 e2 t
+      rtyped0 e1 UnitT ∗
+      rtyped0 e2 t
   | LetProd x1 x2 e1 e2 => ∃ t1 t2,
       ⌜⌜ x1 ≠ x2 ⌝⌝ ∗
-      ptyped0 e1 (PairT t1 t2) ∗
-      ptyped ({[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
+      rtyped0 e1 (PairT t1 t2) ∗
+      rtyped ({[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
   | If e1 e2 e3 =>
-      ptyped0 e1 NatT ∗
-      (ptyped0 e2 t ∧ ptyped0 e3 t)
+      rtyped0 e1 NatT ∗
+      (rtyped0 e2 t ∧ rtyped0 e3 t)
   | Fork e => ∃ r,
       ⌜⌜ t = ChanT r ⌝⌝ ∗
-      ptyped0 e (FunT (ChanT (dual r)) UnitT)
+      rtyped0 e (FunT (ChanT (dual r)) UnitT)
   | Close e =>
-      ⌜⌜ t = UnitT ⌝⌝ ∗ ptyped0 e (ChanT EndT)
+      ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped0 e (ChanT EndT)
  end.
 
 Lemma both_emp (A B : envT) : ∅ = A ∪ B -> A = ∅ ∧ B = ∅.
@@ -445,8 +445,8 @@ Proof.
   done.
 Qed.
 
-Lemma ptyped_ptyped0 e t :
-  ptyped ∅ e t -∗ ptyped0 e t.
+Lemma rtyped_rtyped0 e t :
+  rtyped ∅ e t -∗ rtyped0 e t.
 Proof.
   iIntros "H".
   iInduction e as [] "IH" forall (t); simpl.
@@ -504,8 +504,8 @@ Proof.
   - iDestruct "H" as "[? H]". iFrame. iApply "IH". done.
 Qed.
 
-Lemma ptyped0_ptyped e t :
-  ptyped0 e t -∗ ptyped ∅ e t.
+Lemma rtyped0_rtyped e t :
+  rtyped0 e t -∗ rtyped ∅ e t.
 Proof.
   iIntros "H".
   iInduction e as [] "IH" forall (t); simpl.
@@ -570,11 +570,11 @@ Qed.
 Definition ctx_typed0 (k : expr -> expr)
                      (A : type) (B : type) : hProp :=
     ∀ e,
-      ptyped0 e A -∗
-      ptyped0 (k e) B.
+      rtyped0 e A -∗
+      rtyped0 (k e) B.
 
 Lemma ctx_subst0 k A B e :
-  ctx_typed0 k A B -∗ ptyped0 e A -∗ ptyped0 (k e) B.
+  ctx_typed0 k A B -∗ rtyped0 e A -∗ rtyped0 (k e) B.
 Proof.
   iIntros "Hctx Htyped".
   unfold ctx_typed0.
@@ -585,16 +585,16 @@ Qed.
   ctx_typed ∅ k A B -∗ ctx_typed0 k A B.
 Proof.
   iIntros "H" (e) "HH".
-  iApply ptyped_ptyped0.
+  iApply rtyped_rtyped0.
   unfold ctx_typed.
-  replace (ptyped ∅ (k e) B) with (ptyped (∅ ∪ ∅) (k e) B) by (by rewrite left_id).
+  replace (rtyped ∅ (k e) B) with (rtyped (∅ ∪ ∅) (k e) B) by (by rewrite left_id).
   iApply ("H" with "[%] [HH]"). solve_map_disjoint.
-  iApply ptyped0_ptyped. done.
+  iApply rtyped0_rtyped. done.
 Qed. *)
 
 Lemma typed0_ctx1_typed0 B k e :
-  ctx1 k -> ptyped0 (k e) B -∗
-  ∃ A, ctx_typed0 k A B ∗ ptyped0 e A.
+  ctx1 k -> rtyped0 (k e) B -∗
+  ∃ A, ctx_typed0 k A B ∗ rtyped0 e A.
 Proof.
   iIntros (Hctx) "H".
   destruct Hctx; simpl;
@@ -607,8 +607,8 @@ Proof.
 Qed.
 
 Lemma typed0_ctx_typed0 B k e :
-  ctx k -> ptyped0 (k e) B -∗
-  ∃ A, ctx_typed0 k A B ∗ ptyped0 e A.
+  ctx k -> rtyped0 (k e) B -∗
+  ∃ A, ctx_typed0 k A B ∗ rtyped0 e A.
 Proof.
   iIntros (Hctx) "H".
   iInduction Hctx as [] "IH" forall (B).

@@ -72,7 +72,7 @@ own_auth n Δ := ∃ M G, ownM (● M) ∗ rel G M ∗ acyclic G ∗
 Definition invariant es h := ∃ Δ : gmap endpoint (chan_type * owner),
   own_auth (length es) Δ ∗
   ([∗] i ↦ e ∈ es,
-     ∃ os, own_vertex 1 (Thread i) os ∗ ⌜ ptyped0 e UnitT os ⌝) ∗
+     ∃ os, own_vertex 1 (Thread i) os ∗ ⌜ rtyped0 e UnitT os ⌝) ∗
   ([∗] l ↦ vs; sts ∈ gmap_uncurry h; gmap_uncurry Δ,
      ∃ os, own_vertex 1 (Chan l) os ∗
        ⌜ (bufs_typed (vs !! false) (sts !! false) ∗
@@ -225,7 +225,7 @@ Proof. Admitted.
 Definition invariant es h := ∃ Δ : gmap endpoint (chan_type * owner),
   own_auth (length es) Δ ∗
   ([∗] i ↦ e ∈ es,
-     ∃ os, own_vertex 1 (Thread i) os ∗ ⌜ ptyped0 e UnitT os ⌝) ∗
+     ∃ os, own_vertex 1 (Thread i) os ∗ ⌜ rtyped0 e UnitT os ⌝) ∗
   ([∗] l ↦ vs; sts ∈ gmap_uncurry h; gmap_uncurry Δ,
      ∃ os, own_vertex 1 (Chan l) os ∗
        ⌜ (bufs_typed (vs !! false) (sts !! false) ∗

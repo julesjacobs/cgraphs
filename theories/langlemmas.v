@@ -1,10 +1,10 @@
 From iris.proofmode Require Export tactics.
 Require Export diris.langdef.
-Require Export diris.htypesystem.
+Require Export diris.rtypesystem.
 
 
-Lemma pure_step_ptyped e e' t :
-  pure_step e e' -> ptyped ∅ e t -∗ ptyped ∅ e' t.
+Lemma pure_step_rtyped e e' t :
+  pure_step e e' -> rtyped ∅ e t -∗ rtyped ∅ e' t.
 Proof.
   intros Hps.
   iIntros "Ht".
@@ -14,7 +14,7 @@ Proof.
     iDestruct "Ht1" as (t1 t2 HH) "Ht1".
     simplify_eq.
     replace (∅ : envT) with (delete x {[ x:= t1 ]} : envT) by (by rewrite delete_singleton).
-    iApply (subst_ptyped with "Ht2 Ht1").
+    iApply (subst_rtyped with "Ht2 Ht1").
     rewrite lookup_singleton. done.
   - iSplit; first done.
     iDestruct "Ht" as (t1 t2 [-> _]) "Ht".
@@ -37,7 +37,7 @@ Proof.
     subst. rewrite left_id in H. subst. rewrite left_id.
     replace (∅ : envT) with (delete x {[ x := t']} : envT); last first.
     { apply delete_singleton. }
-    iApply (subst_ptyped with "Hv Ht").
+    iApply (subst_rtyped with "Hv Ht").
     rewrite lookup_singleton. done.
   - iDestruct "Ht" as (Γ1 Γ2 (H & Hd)) "[% Ht]".
     destruct H0. subst. rewrite left_id in H. subst. done.
@@ -50,18 +50,18 @@ Proof.
     { rewrite delete_union delete_singleton right_id.
       rewrite delete_singleton_ne; eauto.
       apply delete_singleton. }
-    iApply (subst_ptyped with "Hv1 [Ht Hv2]").
+    iApply (subst_rtyped with "Hv1 [Ht Hv2]").
     + rewrite delete_union delete_singleton right_id.
       rewrite delete_singleton_ne; eauto. rewrite lookup_singleton. done.
-    + iApply (subst_ptyped with "Hv2 Ht").
+    + iApply (subst_rtyped with "Hv2 Ht").
       rewrite lookup_union lookup_singleton lookup_singleton_ne; eauto.
 Qed.
 
-Lemma pure_step_ptyped0 e e' t :
-  pure_step e e' -> ptyped0 e t -∗ ptyped0 e' t.
+Lemma pure_step_rtyped0 e e' t :
+  pure_step e e' -> rtyped0 e t -∗ rtyped0 e' t.
 Proof.
   iIntros (Hs) "Ht".
-  iApply ptyped_ptyped0.
-  iDestruct (ptyped0_ptyped with "Ht") as "Ht".
-  iApply (pure_step_ptyped with "Ht"). done.
+  iApply rtyped_rtyped0.
+  iDestruct (rtyped0_rtyped with "Ht") as "Ht".
+  iApply (pure_step_rtyped with "Ht"). done.
 Qed.
