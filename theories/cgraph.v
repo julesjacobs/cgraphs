@@ -38,6 +38,8 @@ Section cgraph.
 
   Definition cgraph_wf (g : cgraph) : Prop := c_dom_valid g ∧ c_acyclic g.
 
+  Definition c_conn (g : cgraph) (v1 v2 : V) := True.
+
 
   (* Mutate/reader lemmas *)
 
@@ -71,28 +73,30 @@ Section cgraph.
 
   (* Mutate/wf lemmas *)
 
+  Lemma c_insertV_wf g v :
+    cgraph_wf g -> cgraph_wf (c_insertV g v).
+  Proof.
+  Admitted.
 
-(*
-Define cgraph data type
-Define cgraph_wf
+  Lemma c_deleteV_wf g v :
+    cgraph_wf g -> cgraph_wf (c_deleteV g v).
+  Proof.
+  Admitted.
 
-Define reader operations:
-- in
-- out
-- vertices
+  Lemma c_insertE_wf g v1 v2 l :
+    cgraph_wf g -> cgraph_wf (c_insertE g v1 v2 l).
+  Proof.
+  Admitted.
 
-Define mutation operations:
-- insertV
-- deleteV
-- insertE
-- deleteE
+  Lemma c_deleteE_wf g v1 v2 :
+    cgraph_wf g -> cgraph_wf (c_deleteE g v1 v2).
+  Proof.
+  Admitted.
 
-Prove mutate/reader lemmas:
-- ...
+  Lemma c_deleteE_conn g v1 v2 :
+    cgraph_wf g -> ¬ c_conn (c_deleteE g v1 v2) v1 v2.
+  Proof.
+  Admitted.
 
-Prove mutate/wf lemmas:
-- ...
-
-Define adequacy lemmas:
-- ???
-*)
+  (* Todo: adequacy for acyclicity lemma *)
+End cgraph.
