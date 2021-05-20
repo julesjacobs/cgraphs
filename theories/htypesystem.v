@@ -1,7 +1,7 @@
-From diris Require Export hlogic.
+From diris Require Export seplogic.
 
 
-Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : oProp :=
+Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : hProp :=
  match e with
   | Val v =>
       ⌜⌜ Γ = ∅ ⌝⌝ ∗ val_typed v t
@@ -43,13 +43,13 @@ Fixpoint ptyped (Γ : envT) (e : expr) (t : type) : oProp :=
   | Close e =>
       ⌜⌜ t = UnitT ⌝⌝ ∗ ptyped Γ e (ChanT EndT)
   end
-with val_typed (v : val) (t : type) : oProp :=
+with val_typed (v : val) (t : type) : hProp :=
   match v with
   | UnitV => ⌜⌜ t = UnitT ⌝⌝
   | NatV n => ⌜⌜ t = NatT ⌝⌝
   | PairV a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
   | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ ptyped {[ x := t1 ]} e t2
-  | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ ownO c r
+  | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own c r
   end.
 
 Lemma typed_ptyped Γ e t : ⌜⌜ typed Γ e t ⌝⌝ -∗ ptyped Γ e t.
@@ -395,7 +395,7 @@ Qed. *)
 
 (* ptyped with empty environment *)
 
-Fixpoint ptyped0 (e : expr) (t : type) : oProp :=
+Fixpoint ptyped0 (e : expr) (t : type) : hProp :=
  match e with
   | Val v =>
       val_typed v t
@@ -568,7 +568,7 @@ Qed.
 
 
 Definition ctx_typed0 (k : expr -> expr)
-                     (A : type) (B : type) : oProp :=
+                     (A : type) (B : type) : hProp :=
     ∀ e,
       ptyped0 e A -∗
       ptyped0 (k e) B.

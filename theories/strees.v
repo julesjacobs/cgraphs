@@ -899,7 +899,6 @@ Section graph.
       apply lookup_lt_Some in H2. lia.
   Qed.
 
-
   Lemma forest_no_floops (g : G) (f : A -> option A) (x y : A) (xs : P) i j :
     valid g f -> no_u_turns f -> forest g -> x ∈ vertices g ->
     xs !! 0 = Some x -> i < j -> xs !! i = Some y -> xs !! j = Some y ->
@@ -975,4 +974,59 @@ Section graph.
     (* Duplicate vertex gives a u-turn -> contradiction *)
     eapply forest_no_floops; eauto; done.
   Qed.
+
+  Lemma search_in_vertices (g : graph A) (x : A) (f: A -> option A) :
+    forest g -> valid g f -> x ∈ vertices g -> search g x f ∈ vertices g.
+  Proof.
+    unfold search.
+    revert x.
+    induction (size _); simpl; eauto. intros.
+    destruct (f x) eqn:E; eauto. apply IHn; eauto.
+    unfold valid in *.
+    eapply edge_in_vertices; eauto.
+  Qed.
+
+  Lemma search_exists (g : graph A) (x : A) (f : A -> option A) :
+    forest g -> no_u_turns f -> valid g f ->
+    x ∈ vertices g -> ∃ y, f y = None ∧ y ∈ vertices g.
+  Proof.
+    intros. exists (search g x f).
+    split.
+    + apply search_lemma; eauto.
+    + apply search_in_vertices; eauto.
+  Qed.
+
+  (* Definition dag (R : A -> A -> Prop) := True.
+
+  Lemma dag_induction (R : A -> A -> Prop) x :
+    dag R -> ∃ y, rtc R x y ∧ ∀ z, ¬ R y z.
+
+    (∀ x, x ∈ vertices g -> P x ∨ ∃ y, (x,y) ∈ g) ->
+    x ∈ vertices g -> ∃ y, y ∈ vertices g ∧ P y.
+
+  Definition f o :=
+    match o with
+    | Thread i =>
+      if i is waiting on Chan j then Chan j else None
+    | Chan i =>
+      if owner of ep1 is o' and not waiting on Chan i then o'
+      else if owner of ep2 is o' and not waiting on Chan i then o'
+      else None
+       (* The last case can only happen if neither endpoint exists (impossible)
+          Or if both endpoints are waiting on o (also impossible)
+          In the proof we want to show that f (Chan i) ≠ None
+        *)
+    end *)
+
+
+  Lemma search_rel (g : graph A) (x : A) (R : A -> A -> Prop) :
+    forest g ->
+    (∀ x y, R x y -> (x,y) ∈ g) ->
+    (∀ x y, R x y -> ¬ R y x) ->
+    (∀ x, Decision (∃ y, y ∈ vertices g ∧ R x y)) ->
+    x ∈ vertices g -> ∃ y, y ∈ vertices g ∧ (∀ z, ¬ R y z).
+  Proof.
+  Admitted.
+
+
 End graph.

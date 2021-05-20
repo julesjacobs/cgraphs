@@ -14,7 +14,7 @@ Section graph.
     let n := default 0 (g !! (a,b)) in
     <[ (a,b) := n+1 ]> $ <[ (b,a) := n+1 ]> g.
 
-  
+
 
   Notation P := (list A).
 
@@ -988,4 +988,10 @@ Section graph.
     (* Duplicate vertex gives a u-turn -> contradiction *)
     eapply forest_no_floops; eauto; done.
   Qed.
+
+  Lemma search_lemma (g : graph A) (x : A) (f : A -> option A) :
+    forest g -> no_u_turns f -> valid g f ->
+    x ∈ vertices g -> ∃ y, f y = None ∧ y ∈ vertices g.
+  Proof.
+  Admitted.
 End graph.
