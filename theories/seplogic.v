@@ -8,18 +8,39 @@ Require Export diris.util.
 (* Require Export diris.logic.bupd. *)
 
 
+Inductive object :=
+  | Thread : nat -> object
+  | Chan : chan -> object.
+
+Instance object_eqdecision : EqDecision object.
+Proof.
+  intros [n|n] [m|m]; unfold Decision; destruct (decide (n = m));
+  subst; eauto; right; intro; simplify_eq.
+Qed.
+Instance object_countable : Countable object.
+Proof.
+  refine (inj_countable' (λ l, match l with
+  | Thread n => inl n
+  | Chan n => inr n
+  end) (λ l, match l with
+  | inl n => Thread n
+  | inr n => Chan n
+  end) _); by intros [].
+Qed.
+
+
 Definition clabel : Type := bool * chan_type.
 Canonical Structure clabelO := leibnizO clabel.
 
-Notation heapT := (gmap nat clabel).
-Notation heapT_UR := (gmapUR nat (exclR clabelO)).
+Notation heapT := (gmap object clabel).
+Notation heapT_UR := (gmapUR object (exclR clabelO)).
 
 Notation hProp := (uPred heapT_UR).
 
 
 Definition own (l : endpoint) (t : chan_type) : hProp :=
   let (n,b) := l in
-  uPred_ownM {[ n := Excl (b,t) ]}.
+  uPred_ownM {[ Chan n := Excl (b,t) ]}.
 
 Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 
@@ -234,7 +255,7 @@ Proof.
 Qed.
 
 Lemma own_holds l t Σ :
-  holds (own l t) Σ <-> Σ = {[ l.1 := (l.2,t) ]}.
+  holds (own l t) Σ <-> Σ = {[ Chan l.1 := (l.2,t) ]}.
 Proof.
   unfold holds, own. destruct l. simpl.
   rewrite uPred_ownM_holds_L. split; intro.

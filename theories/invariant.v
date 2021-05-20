@@ -3,25 +3,7 @@ Require Export diris.cgraph.
 Require Export diris.seplogic.
 Require Export diris.rtypesystem.
 
-Inductive object :=
-  | Thread : nat -> object
-  | Chan : chan -> object.
 
-Instance object_eqdecision : EqDecision object.
-Proof.
-  intros [n|n] [m|m]; unfold Decision; destruct (decide (n = m));
-  subst; eauto; right; intro; simplify_eq.
-Qed.
-Instance object_countable : Countable object.
-Proof.
-  refine (inj_countable' (λ l, match l with
-  | Thread n => inl n
-  | Chan n => inr n
-  end) (λ l, match l with
-  | inl n => Thread n
-  | inr n => Chan n
-  end) _); by intros [].
-Qed.
 
 Definition clabel : Type := bool * chan_type.
 
