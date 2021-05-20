@@ -1,5 +1,7 @@
 Require Export diris.langdef.
 Require Export diris.cgraph.
+Require Export diris.seplogic.
+Require Export diris.rtypesystem.
 
 Inductive object :=
   | Thread : nat -> object
@@ -28,10 +30,11 @@ Definition edges := gmap object clabel.
 
 Definition objects_match (g : conngraph) (es : list expr) (h : heap) : Prop. Admitted.
 
-Definition thread_inv (e : expr) (in_edges : edges) (out_edges : edges) : Prop. Admitted.
+Definition thread_inv (e : expr) (in_edges : edges) (out_edges : edges) : Prop :=
+    in_edges = ∅ ∧ holds (rtyped0 e UnitT) out_edges.
 
 Definition buf := list val.
-Definition chan_inv (b1 : option buf) (b2 : option buf) (in_edges : edges) (out_edges : edges) : Prop. Admitted.
+Definition chan_inv (b1 b2 : option buf) (in_edges : edges) (out_edges : edges) : Prop. Admitted.
 
 Definition invariant (es : list expr) (h : heap) :=
   ∃ g : cgraph (V := object) (L := clabel), cgraph_wf g ∧
