@@ -23,13 +23,13 @@ Section uforest.
   Definition has_u_turn (xs : P) :=
     ∃ i x, xs !! i = Some x ∧ xs !! (i+2) = Some x.
 
-  Record forest (g : G) : Prop := {
+  Record is_uforest (g : G) : Prop := {
     forest_undirected : undirected g;
     forest_u_turns : ∀ x xs, path g ([x] ++ xs ++ [x]) -> has_u_turn ([x] ++ xs ++ [x])
   }.
 
   Lemma forest_no_self_loops (g : G) :
-    forest g -> no_self_loops g.
+    is_uforest g -> no_self_loops g.
   Proof.
     intros Hforest x Hx.
     destruct (forest_u_turns g Hforest x []) as (i & a & H1 & H2).
@@ -472,7 +472,7 @@ Section uforest.
   Qed.
 
   Lemma has_u_turn_alt (g : G) xs x :
-    forest g -> path g xs -> length xs > 1 ->
+    is_uforest g -> path g xs -> length xs > 1 ->
     xs !! 0 = Some x -> last xs = Some x ->
     has_u_turn xs.
   Proof.
@@ -501,7 +501,7 @@ Section uforest.
   Qed.
 
   Lemma has_u_turn_mid (g : G) xs i1 i2 x :
-    forest g -> path g (drop i1 (take (S i2) xs)) -> i1 < i2 ->
+    is_uforest g -> path g (drop i1 (take (S i2) xs)) -> i1 < i2 ->
     xs !! i1 = Some x -> xs !! i2 = Some x ->
     has_u_turn xs.
   Proof.
@@ -518,7 +518,7 @@ Section uforest.
   Qed.
 
   Lemma forest_connect (g : G) (a b : A) :
-    forest g -> ¬ connected0 g a b -> forest (g ∪ edge a b).
+    is_uforest g -> ¬ connected0 g a b -> is_uforest (g ∪ edge a b).
   Proof.
     intros [] Hnconn.
     constructor.
@@ -652,7 +652,7 @@ Section uforest.
   Qed.
 
   Lemma forest_disconnect (g : G) (a b : A) :
-    forest g -> (a,b) ∈ g -> ¬ connected0 (g ∖ edge a b) a b.
+    is_uforest g -> (a,b) ∈ g -> ¬ connected0 (g ∖ edge a b) a b.
   Proof.
     intros [] Hedge [|Hconn].
     { subst. eapply forest_no_self_loops; try constructor; eauto. }
@@ -677,7 +677,7 @@ Section uforest.
   Qed.
 
   Lemma forest_delete (g : G) (a b : A) :
-    forest g -> forest (g ∖ edge a b).
+    is_uforest g -> is_uforest (g ∖ edge a b).
   Proof.
     intros [].
     constructor.
@@ -691,7 +691,7 @@ Section uforest.
       eauto using path_delete.
   Qed.
 
-  Lemma forest_empty : forest ∅.
+  Lemma forest_empty : is_uforest ∅.
   Proof.
     constructor.
     - intros ???.
@@ -713,7 +713,7 @@ Section uforest.
 
   Lemma forest_extend (x y : A) (g : uforest A) :
     x ≠ y → lone y g →
-    forest g → forest (g ∪ edge x y).
+    is_uforest g → is_uforest (g ∪ edge x y).
   Proof.
     intros Hneq Hlone [].
     apply forest_connect; [done..|].
@@ -744,8 +744,8 @@ Section uforest.
 
   Lemma forest_modify (x y z : A) (g : uforest A) :
     x ≠ z -> y ≠ z ->
-    forest g -> (x,y) ∈ g -> (x,z) ∈ g ->
-    forest ((g ∖ edge x z) ∪ edge y z).
+    is_uforest g -> (x,y) ∈ g -> (x,z) ∈ g ->
+    is_uforest ((g ∖ edge x z) ∪ edge y z).
   Proof.
     intros Hxnz Hynz Hforest Hxy Hxz.
     apply forest_connect; try done.
@@ -900,7 +900,7 @@ Section uforest.
   Qed.
 
   Lemma forest_no_floops (g : G) (f : A -> option A) (x y : A) (xs : P) i j :
-    valid g f -> no_u_turns f -> forest g -> x ∈ uvertices g ->
+    valid g f -> no_u_turns f -> is_uforest g -> x ∈ uvertices g ->
     xs !! 0 = Some x -> i < j -> xs !! i = Some y -> xs !! j = Some y ->
     fpath g f xs -> False.
   Proof.
@@ -915,7 +915,7 @@ Section uforest.
   Qed.
 
   Lemma forest_no_floops' (g : G) (f : A -> option A) (x : A) (xs : P) :
-    valid g f -> no_u_turns f -> forest g -> x ∈ uvertices g -> fpath g f ([x] ++ xs ++ [x]) -> False.
+    valid g f -> no_u_turns f -> is_uforest g -> x ∈ uvertices g -> fpath g f ([x] ++ xs ++ [x]) -> False.
   Proof.
     intros Hvalid Hnut [] Hvert Hfpath.
     apply fpath_path in Hfpath as Hpath; try done.
@@ -936,7 +936,7 @@ Section uforest.
   Qed.
 
   Lemma search_lemma (g : uforest A) (x : A) (f : A -> option A) :
-    forest g -> no_u_turns f -> valid g f ->
+    is_uforest g -> no_u_turns f -> valid g f ->
     x ∈ uvertices g -> f (search g x f) = None.
   Proof.
     intros Hforest Huturn Hvalid Hx.
@@ -976,7 +976,7 @@ Section uforest.
   Qed.
 
   Lemma search_in_uvertices (g : uforest A) (x : A) (f: A -> option A) :
-    forest g -> valid g f -> x ∈ uvertices g -> search g x f ∈ uvertices g.
+    is_uforest g -> valid g f -> x ∈ uvertices g -> search g x f ∈ uvertices g.
   Proof.
     unfold search.
     revert x.
@@ -987,7 +987,7 @@ Section uforest.
   Qed.
 
   Lemma search_exists (g : uforest A) (x : A) (f : A -> option A) :
-    forest g -> no_u_turns f -> valid g f ->
+    is_uforest g -> no_u_turns f -> valid g f ->
     x ∈ uvertices g -> ∃ y, f y = None ∧ y ∈ uvertices g.
   Proof.
     intros. exists (search g x f).
@@ -1020,7 +1020,7 @@ Section uforest.
 
 
   Lemma search_rel (g : uforest A) (x : A) (R : A -> A -> Prop) :
-    forest g ->
+    is_uforest g ->
     (∀ x y, R x y -> (x,y) ∈ g) ->
     (∀ x y, R x y -> ¬ R y x) ->
     (∀ x, Decision (∃ y, y ∈ uvertices g ∧ R x y)) ->

@@ -32,14 +32,16 @@ Section cgraph.
     alter (λ e, delete v2 e) v1 g.
 
   Definition c_to_uforest (g : cgraph) : uforest V. Admitted.
-  Definition c_acyclic (g : cgraph) : Prop := forest (c_to_uforest g).
+  Definition c_acyclic (g : cgraph) := is_uforest (c_to_uforest g).
 
-  Definition c_dom_valid (g : cgraph) : Prop :=
+  Definition c_dom_valid (g : cgraph) :=
     ∀ (v : V) e, g !! v = Some e -> dom (gset V) e ⊆ c_vertices g.
 
-  Definition cgraph_wf (g : cgraph) : Prop := c_dom_valid g ∧ c_acyclic g.
+  Definition cgraph_wf (g : cgraph) := c_dom_valid g ∧ c_acyclic g.
 
-  Definition c_conn (g : cgraph) (v1 v2 : V) := True.
+  Definition c_edge (g : cgraph) (v1 v2 : V) := is_Some (c_out g v1 !! v2).
+
+  Definition c_uconn (g : cgraph) := rtsc (c_edge g).
 
 
   (* Mutate/reader lemmas *)
@@ -113,7 +115,7 @@ Section cgraph.
   Admitted.
 
   Lemma c_deleteE_conn g v1 v2 :
-    cgraph_wf g -> ¬ c_conn (c_deleteE g v1 v2) v1 v2.
+    cgraph_wf g -> ¬ c_uconn (c_deleteE g v1 v2) v1 v2.
   Proof.
   Admitted.
 
