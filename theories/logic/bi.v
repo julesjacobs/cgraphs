@@ -8,7 +8,7 @@ terms of the BI interface. This file does *not* unseal. *)
 
 Local Existing Instance entails_po.
 
-Lemma uPred_bi_mixin (M : ucmraT) :
+Lemma uPred_bi_mixin (M : ucmra) :
   BiMixin
     uPred_entails uPred_emp uPred_pure uPred_and uPred_or uPred_impl
     (@uPred_forall M) (@uPred_exist M) uPred_sep uPred_wand
@@ -56,9 +56,9 @@ Proof.
   - exact: persistently_and_sep_elim.
 Qed.
 
-Definition uPred_later {M : ucmraT} (P : uPred M) := P.
+Definition uPred_later {M : ucmra} (P : uPred M) := P.
 
-Lemma uPred_bi_later_mixin (M : ucmraT) :
+Lemma uPred_bi_later_mixin (M : ucmra) :
   BiLaterMixin
     uPred_entails uPred_pure uPred_or uPred_impl
     (@uPred_forall M) (@uPred_exist M) uPred_sep uPred_persistently uPred_later.
@@ -67,7 +67,7 @@ Proof.
   apply uPred_bi_mixin.
 Qed.
 
-Canonical Structure uPredI (M : ucmraT) : bi :=
+Canonical Structure uPredI (M : ucmra) : bi :=
   {| bi_ofe_mixin := ofe_mixin_of (uPred M);
      bi_bi_mixin := uPred_bi_mixin M;
      bi_bi_later_mixin := uPred_bi_later_mixin M |}.
@@ -80,7 +80,7 @@ Proof. exact: @pure_forall_2. Qed.
 Module uPred.
 
 Section restate.
-Context {M : ucmraT}.
+Context {M : ucmra}.
 Implicit Types φ : Prop.
 Implicit Types P Q : uPred M.
 Implicit Types A : Type.

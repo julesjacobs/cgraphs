@@ -2,7 +2,7 @@ From iris.algebra Require Export cmra.
 From iris.bi Require Import notation.
 Local Hint Extern 10 (_ ≤ _) => lia : core.
 
-Record uPred (M : ucmraT) : Type := UPred {
+Record uPred (M : ucmra) : Type := UPred {
   uPred_holds :> M → Prop;
   uPred_proper : Proper ((≡) ==> iff) uPred_holds
 }.
@@ -13,7 +13,7 @@ Instance: Params (@uPred_holds) 2 := {}.
 Existing Instance uPred_proper.
 
 Section ofe.
-  Context {M : ucmraT}.
+  Context {M : ucmra}.
 
   Inductive uPred_equiv' (P Q : uPred M) : Prop :=
     { uPred_in_equiv : ∀ x, ✓ x → P x ↔ Q x }.
@@ -28,7 +28,7 @@ Section ofe.
       by trans (Q x);[apply HP|apply HQ].
   Qed.
 
-  Canonical Structure uPredO : ofeT := discreteO (uPred M).
+  Canonical Structure uPredO : ofe := discreteO (uPred M).
 End ofe.
 Arguments uPredO : clear implicits.
 
@@ -134,7 +134,7 @@ Arguments uPred_persistently {M}.
 Definition uPred_persistently_eq :
   @uPred_persistently = @uPred_persistently_def := uPred_persistently_aux.(seal_eq).
 
-Program Definition uPred_ownM_def {M : ucmraT} (a : M) : uPred M :=
+Program Definition uPred_ownM_def {M : ucmra} (a : M) : uPred M :=
   {| uPred_holds x := a ≡ x |}.
 Solve Obligations with solve_proper.
 Definition uPred_ownM_aux : seal (@uPred_ownM_def). Proof. by eexists. Qed.
@@ -155,7 +155,7 @@ Ltac unseal :=
   rewrite !unseal_eqs /=.
 
 Section primitive.
-Context {M : ucmraT}.
+Context {M : ucmra}.
 Implicit Types φ : Prop.
 Implicit Types P Q : uPred M.
 Implicit Types A : Type.

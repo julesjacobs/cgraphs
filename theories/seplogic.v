@@ -5,7 +5,7 @@ From iris.proofmode Require Export tactics.
 Require Export diris.langdef.
 Require Export diris.logic.bi.
 Require Export diris.util.
-Require Export diris.logic.bupd.
+(* Require Export diris.logic.bupd. *)
 
 
 Canonical Structure chan_typeO := leibnizO chan_type.
@@ -24,7 +24,7 @@ Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 Definition map_Excl `{Countable K} {V} (m : gmap K V) : gmap K (excl V) := Excl <$> m.
 
 Section map_Excl.
-  Context `{Countable K} {V : ofeT} `{!LeibnizEquiv V}.
+  Context `{Countable K} {V : ofe} `{!LeibnizEquiv V}.
   Implicit Type m : gmap K V.
   Lemma map_Excl_valid m : ✓ (map_Excl m).
   Proof. intros i. rewrite /map_Excl lookup_fmap. destruct (m !! i); done. Qed.
@@ -119,7 +119,7 @@ Section map_Excl.
 End map_Excl.
 
 Section uPred_lemmas.
-  Context {A : ucmraT}.
+  Context {A : ucmra}.
   Implicit Types P Q : uPred A.
   Arguments uPred_holds {_} !_/.
   Lemma owned_emp_helper (x : A) : ✓ x -> (uPred_ownM x ⊢ emp) -> x ≡ ε.

@@ -245,8 +245,8 @@ Lemma NoDup_delete {A} i (xs : list A) :
   NoDup xs -> NoDup (delete i xs).
 Proof.
   intro. revert i; induction xs; intros; destruct i; simpl in *; eauto.
-  - eapply NoDup_cons_12. done.
-  - eapply NoDup_cons_2; eauto using NoDup_cons_12.
+  - eapply NoDup_cons_1_2. done.
+  - eapply NoDup_cons_2; eauto using NoDup_cons_1_2.
     rewrite-> list.NoDup_cons in H. intro.
     apply in_delete in H0. naive_solver.
 Qed.

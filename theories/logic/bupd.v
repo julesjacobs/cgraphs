@@ -2,7 +2,7 @@ From iris.algebra Require Export cmra auth.
 From iris.bi Require Export updates.
 From diris Require Import bi.
 
-Definition auth_global_valid {A : ucmraT} (r : auth A) :=
+Definition auth_global_valid {A : ucmra} (r : auth A) :=
   ✓ r ∧
   view_auth_proj r ≡ Some (1%Qp, to_agree (view_frag_proj r)).
 Instance: Params (@auth_global_valid) 1 := {}.
@@ -13,18 +13,18 @@ Proof.
   f_equiv; by rewrite Hr.
 Qed.
 
-Lemma auth_global_valid_valid {A : ucmraT} (x : auth A) :
+Lemma auth_global_valid_valid {A : ucmra} (x : auth A) :
   auth_global_valid x → ✓ x.
 Proof.
   unfold auth_global_valid; naive_solver.
 Qed.
 
-Definition auth_global_update {A : ucmraT} (x y : auth A) := ∀ z,
+Definition auth_global_update {A : ucmra} (x y : auth A) := ∀ z,
   auth_global_valid (x ⋅ z) → auth_global_valid (y ⋅ z).
 
 Instance : Params (@auth_global_update) 1 := {}.
 
-Instance auth_global_update_proper {A : ucmraT}
+Instance auth_global_update_proper {A : ucmra}
   : Proper ((≡) ==> (≡) ==> iff) (auth_global_update (A:=A)).
 Proof.
   intros x1 x2 Hx y1 y2 Hy. unfold auth_global_update.
@@ -33,7 +33,7 @@ Proof.
   done.
 Qed.
 
-Lemma auth_global_valid_epsilon {A : ucmraT} (x y : auth A) :
+Lemma auth_global_valid_epsilon {A : ucmra} (x y : auth A) :
   CmraDiscrete A →
   (∀ (x : A), Cancelable x) →
   auth_global_valid (x ⋅ y) →
@@ -88,7 +88,7 @@ Proof.
     rewrite H5. reflexivity.
 Qed.
 
-Program Definition uPred_bupd_def {M : ucmraT} (Q : uPred (authUR M)) : uPred (authUR M) :=
+Program Definition uPred_bupd_def {M : ucmra} (Q : uPred (authUR M)) : uPred (authUR M) :=
   {| uPred_holds x := ∀ yf,
       auth_global_valid (x ⋅ yf) →
         ∃ x', auth_global_valid (x' ⋅ yf) ∧ Q x' |}.
@@ -148,7 +148,7 @@ Global Instance uPred_bi_bupd M : BiBUpd (uPredI (authUR M)) := {| bi_bupd_mixin
 
 Local Arguments uPred_holds {_} !_ _ /.
 
-Lemma bupd_ownM_update {M : ucmraT} (x y : auth M) :
+Lemma bupd_ownM_update {M : ucmra} (x y : auth M) :
   auth_global_update x y →
   uPred_ownM x ⊢ |==> uPred_ownM y.
 Proof.
@@ -164,7 +164,7 @@ Proof.
   - reflexivity.
 Qed.
 
-Lemma ownM_simple_soundness {M : ucmraT} (x : auth M) (φ : Prop) :
+Lemma ownM_simple_soundness {M : ucmra} (x : auth M) (φ : Prop) :
   auth_global_valid x →
   (uPred_ownM x ⊢ |==> ⌜ φ ⌝) →
   φ.
@@ -177,7 +177,7 @@ Proof.
   - destruct H0; done.
 Qed.
 
-Lemma ownM_soundness {M : ucmraT} (x : auth M) (φ : auth M → Prop) :
+Lemma ownM_soundness {M : ucmra} (x : auth M) (φ : auth M → Prop) :
   (∀ x : M, Cancelable x) →
   auth_global_valid x →
   (uPred_ownM x ⊢ |==> ∃ y, uPred_ownM y ∧ ⌜ φ y ⌝) →

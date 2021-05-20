@@ -13,12 +13,11 @@
 -arg -native-compiler -arg no
 
 theories/util.v
-theories/strees.v
+theories/uforests.v
 theories/logic/upred.v
 theories/logic/bi.v
-theories/logic/bupd.v
+# theories/logic/bupd.v
 theories/langdef.v
 theories/seplogic.v
 theories/htypesystem.v
 theories/langlemmas.v
-theories/uforests.v
