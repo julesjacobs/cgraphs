@@ -21,3 +21,4 @@ theories/langdef.v
 theories/seplogic.v
 theories/rtypesystem.v
 theories/langlemmas.v
+theories/cgraph.v

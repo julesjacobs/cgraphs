@@ -3,12 +3,12 @@ From iris.bi Require Import bi.
 From diris Require Import util.
 
 Ltac qed := done || eauto || naive_solver lia || set_solver.
-Definition graph A `{Countable A} := gset (A * A).
+Definition uforest A `{Countable A} := gset (A * A).
 
-Section graph.
+Section uforest.
   Context `{Countable A}.
   Context `{Inhabited A}.
-  Notation G := (graph A).
+  Notation G := (uforest A).
   Notation P := (list A).
 
   Definition path (g : G) (xs : P) :=
@@ -124,7 +124,7 @@ Section graph.
     - rewrite !app_assoc. done.
   Qed.
 
-  Definition edge (x y : A) : graph A := {[ (x,y); (y,x) ]}.
+  Definition edge (x y : A) : uforest A := {[ (x,y); (y,x) ]}.
 
   Lemma edge_sym x y : edge x y = edge y x.
   Proof. unfold edge. set_solver. Qed.
@@ -708,10 +708,10 @@ Section graph.
         apply not_elem_of_empty in Hpath; done.
   Qed.
 
-  Definition lone (x : A) (g : graph A) :=
+  Definition lone (x : A) (g : uforest A) :=
     ∀ y, (x,y) ∉ g.
 
-  Lemma forest_extend (x y : A) (g : graph A) :
+  Lemma forest_extend (x y : A) (g : uforest A) :
     x ≠ y → lone y g →
     forest g → forest (g ∪ edge x y).
   Proof.
@@ -742,7 +742,7 @@ Section graph.
     rewrite lookup_nil in Ha. simplify_eq.
   Qed.
 
-  Lemma forest_modify (x y z : A) (g : graph A) :
+  Lemma forest_modify (x y z : A) (g : uforest A) :
     x ≠ z -> y ≠ z ->
     forest g -> (x,y) ∈ g -> (x,z) ∈ g ->
     forest ((g ∖ edge x z) ∪ edge y z).
@@ -758,14 +758,14 @@ Section graph.
       unfold edge. set_solver.
   Qed.
 
-  Definition vertices (g : G) : gset A :=
+  Definition uvertices (g : G) : gset A :=
     set_map fst g ∪ set_map snd g.
 
   Definition no_u_turns (f : A -> option A) : Prop :=
       ∀ a b c, f a = Some b -> f b = Some c -> a ≠ c.
 
   Fixpoint search_iter
-    (g : graph A) (f : A -> option A) (a : A) (n : nat) : A :=
+    (g : uforest A) (f : A -> option A) (a : A) (n : nat) : A :=
     match n with
     | 0 => a
     | S n => match f a with
@@ -774,11 +774,11 @@ Section graph.
              end
     end.
 
-  Definition search (g : graph A) (x : A) (f : A -> option A) : A :=
-    search_iter g f x (size (vertices g)).
+  Definition search (g : uforest A) (x : A) (f : A -> option A) : A :=
+    search_iter g f x (size (uvertices g)).
 
   Fixpoint search_iter_list
-    (g : graph A) (f : A -> option A) (a : A) (n : nat) : list A :=
+    (g : uforest A) (f : A -> option A) (a : A) (n : nat) : list A :=
     match n with
     | 0 => []
     | S n => match f a with
@@ -787,8 +787,8 @@ Section graph.
              end
     end.
 
-  Definition valid (g : graph A) (f : A -> option A) :=
-    ∀ x y, x ∈ vertices g -> f x = Some y -> (x,y) ∈ g.
+  Definition valid (g : uforest A) (f : A -> option A) :=
+    ∀ x y, x ∈ uvertices g -> f x = Some y -> (x,y) ∈ g.
 
   Definition fpath (g : G) (f : A -> option A) (xs : P) :=
     ∀ i a b, xs !! i = Some a -> xs !! (i+1) = Some b -> f a = Some b.
@@ -804,17 +804,17 @@ Section graph.
       eapply lookup_lt_Some; done.
   Qed.
 
-  Lemma edge_in_vertices (g : G) (x y : A) :
-    (x,y) ∈ g -> y ∈ vertices g.
+  Lemma edge_in_uvertices (g : G) (x y : A) :
+    (x,y) ∈ g -> y ∈ uvertices g.
   Proof.
-    intro. unfold vertices.
+    intro. unfold uvertices.
     apply elem_of_union_r.
     apply elem_of_map.
     exists (x,y). simpl. eauto.
   Qed.
 
-  Lemma fpath_vertices (g : G) (f : A -> option A) (x : A) (xs : P) :
-    valid g f -> x ∈ vertices g -> fpath g f (x::xs) -> ∀ a, a ∈ (x::xs) -> a ∈ vertices g.
+  Lemma fpath_uvertices (g : G) (f : A -> option A) (x : A) (xs : P) :
+    valid g f -> x ∈ uvertices g -> fpath g f (x::xs) -> ∀ a, a ∈ (x::xs) -> a ∈ uvertices g.
   Proof.
     rewrite <- (reverse_involutive xs).
     generalize (reverse xs). clear xs.
@@ -830,10 +830,10 @@ Section graph.
     - assert (a = y) as <- by set_solver. clear H1.
       unfold valid in *.
       destruct xs; simpl in *.
-      + eapply edge_in_vertices. eapply Hvalid.
+      + eapply edge_in_uvertices. eapply Hvalid.
         done.
         eapply (Hfpath 0). done. done.
-      + eapply edge_in_vertices. eapply Hvalid.
+      + eapply edge_in_uvertices. eapply Hvalid.
         eapply IHxs.
         * eapply fpath_sub. done.
         * rewrite reverse_cons. rewrite app_comm_cons.
@@ -856,11 +856,11 @@ Section graph.
   Qed.
 
   Lemma fpath_path (g : G) (f : A -> option A) (x : A) (xs : P) :
-    x ∈ vertices g -> valid g f -> fpath g f (x::xs) -> path g (x::xs).
+    x ∈ uvertices g -> valid g f -> fpath g f (x::xs) -> path g (x::xs).
   Proof.
     intros Hvert Hvalid Hfpath i a b Ha Hb.
     apply Hvalid.
-    - eapply fpath_vertices; try done. eapply elem_of_list_lookup_2;done.
+    - eapply fpath_uvertices; try done. eapply elem_of_list_lookup_2;done.
     - unfold fpath in *. eapply Hfpath; done.
   Qed.
 
@@ -900,7 +900,7 @@ Section graph.
   Qed.
 
   Lemma forest_no_floops (g : G) (f : A -> option A) (x y : A) (xs : P) i j :
-    valid g f -> no_u_turns f -> forest g -> x ∈ vertices g ->
+    valid g f -> no_u_turns f -> forest g -> x ∈ uvertices g ->
     xs !! 0 = Some x -> i < j -> xs !! i = Some y -> xs !! j = Some y ->
     fpath g f xs -> False.
   Proof.
@@ -915,7 +915,7 @@ Section graph.
   Qed.
 
   Lemma forest_no_floops' (g : G) (f : A -> option A) (x : A) (xs : P) :
-    valid g f -> no_u_turns f -> forest g -> x ∈ vertices g -> fpath g f ([x] ++ xs ++ [x]) -> False.
+    valid g f -> no_u_turns f -> forest g -> x ∈ uvertices g -> fpath g f ([x] ++ xs ++ [x]) -> False.
   Proof.
     intros Hvalid Hnut [] Hvert Hfpath.
     apply fpath_path in Hfpath as Hpath; try done.
@@ -935,34 +935,34 @@ Section graph.
     eapply Hnut; eauto.
   Qed.
 
-  Lemma search_lemma (g : graph A) (x : A) (f : A -> option A) :
+  Lemma search_lemma (g : uforest A) (x : A) (f : A -> option A) :
     forest g -> no_u_turns f -> valid g f ->
-    x ∈ vertices g -> f (search g x f) = None.
+    x ∈ uvertices g -> f (search g x f) = None.
   Proof.
     intros Hforest Huturn Hvalid Hx.
     (* Suppose f (search g x f) = Some y *)
     destruct (f (search g x f)) eqn:Hss;[|done].
     exfalso.
     (* Have a long f-path in g *)
-    assert (∃ xs, fpath g f (x::xs) ∧ size (vertices g) < length (x::xs)).
+    assert (∃ xs, fpath g f (x::xs) ∧ size (uvertices g) < length (x::xs)).
     {
       unfold search in Hss.
-      exists (search_iter_list g f x (size (vertices g))).
+      exists (search_iter_list g f x (size (uvertices g))).
       revert x Hss Hx.
-      induction (size (vertices g)); simpl in *; intros.
+      induction (size (uvertices g)); simpl in *; intros.
       - split;last lia. unfold fpath. intros. destruct i; simpl in *; simplify_eq.
       - destruct (f x) eqn:E; simpl in *; simplify_eq.
         specialize (IHn _ Hss). destruct IHn. unfold valid in *.
-        eapply edge_in_vertices. eapply Hvalid; eauto.
+        eapply edge_in_uvertices. eapply Hvalid; eauto.
         split; last lia.
         unfold fpath in *.
         intros. destruct i; simpl in *; simplify_eq; eauto.
     }
     destruct H1 as (xs & Hpath & Hsize).
-    (* Since the path is longer than the number of vertices, there must be a duplicate vertex in the path *)
-    edestruct (pigeon (vertices g) (x::xs)) as (i & j & y & Hi & Hj & Hneq); eauto.
+    (* Since the path is longer than the number of uvertices, there must be a duplicate vertex in the path *)
+    edestruct (pigeon (uvertices g) (x::xs)) as (i & j & y & Hi & Hj & Hneq); eauto.
     {
-      intros. apply elem_of_list_lookup_2 in H1. eapply fpath_vertices; eauto.
+      intros. apply elem_of_list_lookup_2 in H1. eapply fpath_uvertices; eauto.
     }
     wlog: i j Hi Hj Hneq / i < j.
     {
@@ -975,25 +975,25 @@ Section graph.
     eapply forest_no_floops; eauto; done.
   Qed.
 
-  Lemma search_in_vertices (g : graph A) (x : A) (f: A -> option A) :
-    forest g -> valid g f -> x ∈ vertices g -> search g x f ∈ vertices g.
+  Lemma search_in_uvertices (g : uforest A) (x : A) (f: A -> option A) :
+    forest g -> valid g f -> x ∈ uvertices g -> search g x f ∈ uvertices g.
   Proof.
     unfold search.
     revert x.
     induction (size _); simpl; eauto. intros.
     destruct (f x) eqn:E; eauto. apply IHn; eauto.
     unfold valid in *.
-    eapply edge_in_vertices; eauto.
+    eapply edge_in_uvertices; eauto.
   Qed.
 
-  Lemma search_exists (g : graph A) (x : A) (f : A -> option A) :
+  Lemma search_exists (g : uforest A) (x : A) (f : A -> option A) :
     forest g -> no_u_turns f -> valid g f ->
-    x ∈ vertices g -> ∃ y, f y = None ∧ y ∈ vertices g.
+    x ∈ uvertices g -> ∃ y, f y = None ∧ y ∈ uvertices g.
   Proof.
     intros. exists (search g x f).
     split.
     + apply search_lemma; eauto.
-    + apply search_in_vertices; eauto.
+    + apply search_in_uvertices; eauto.
   Qed.
 
   (* Definition dag (R : A -> A -> Prop) := True.
@@ -1001,8 +1001,8 @@ Section graph.
   Lemma dag_induction (R : A -> A -> Prop) x :
     dag R -> ∃ y, rtc R x y ∧ ∀ z, ¬ R y z.
 
-    (∀ x, x ∈ vertices g -> P x ∨ ∃ y, (x,y) ∈ g) ->
-    x ∈ vertices g -> ∃ y, y ∈ vertices g ∧ P y.
+    (∀ x, x ∈ uvertices g -> P x ∨ ∃ y, (x,y) ∈ g) ->
+    x ∈ uvertices g -> ∃ y, y ∈ uvertices g ∧ P y.
 
   Definition f o :=
     match o with
@@ -1019,14 +1019,14 @@ Section graph.
     end *)
 
 
-  Lemma search_rel (g : graph A) (x : A) (R : A -> A -> Prop) :
+  Lemma search_rel (g : uforest A) (x : A) (R : A -> A -> Prop) :
     forest g ->
     (∀ x y, R x y -> (x,y) ∈ g) ->
     (∀ x y, R x y -> ¬ R y x) ->
-    (∀ x, Decision (∃ y, y ∈ vertices g ∧ R x y)) ->
-    x ∈ vertices g -> ∃ y, y ∈ vertices g ∧ (∀ z, ¬ R y z).
+    (∀ x, Decision (∃ y, y ∈ uvertices g ∧ R x y)) ->
+    x ∈ uvertices g -> ∃ y, y ∈ uvertices g ∧ (∀ z, ¬ R y z).
   Proof.
   Admitted.
 
 
-End graph.
+End uforest.
