@@ -34,8 +34,10 @@ Section cgraph.
 
   Definition make_undirected (g : gset (V*V)) : gset (V*V) :=
     g ∪ (set_map (λ '(x,y), (y,x)) g).
+  Definition c_dedges (g : cgraph) : gset (V*V) :=
+    dom (gset _) (gmap_curry g).
   Definition c_to_uforest (g : cgraph) : uforest V :=
-    make_undirected $ dom (gset _) (gmap_curry g).
+    make_undirected $ c_dedges g.
   Definition c_acyclic (g : cgraph) := is_uforest (c_to_uforest g).
 
   Definition c_dom_valid (g : cgraph) :=
@@ -115,20 +117,59 @@ Section cgraph.
     - admit.
   Admitted.
 
-  Lemma c_deleteV_wf g v :
-    c_in g v = ∅ -> c_out g v = ∅ -> cgraph_wf g -> cgraph_wf (c_deleteV g v).
+  Lemma c_in_empty g v :
+    c_in g v = ∅ -> ∀ v' e, g !! v' = Some e -> e !! v = None.
   Proof.
   Admitted.
 
+  Lemma c_deleteV_wf g v :
+    c_in g v = ∅ -> cgraph_wf g -> cgraph_wf (c_deleteV g v).
+  Proof.
+    intros Hin [].
+    split.
+    - intros ???. unfold c_vertices, c_deleteV in *.
+      unfold c_dom_valid in H0.
+      destruct (decide (v = v0)).
+      + subst. rewrite lookup_delete in H2. simplify_eq.
+      + rewrite lookup_delete_ne in H2; try done.
+        specialize (H0 _ _ H2). rewrite dom_delete_L.
+        unfold c_vertices in *.
+        assert (v ∉ dom (gset V) e); last set_solver.
+        rewrite not_elem_of_dom. eapply c_in_empty; eauto.
+    - admit.
+  Admitted.
+
   Lemma c_insertE_wf g v1 v2 l :
-    ¬ c_uconn g v1 v2 -> v1 ∈ c_vertices g -> v2 ∈ c_vertices g ->
+    ¬ c_uconn g v1 v2 -> v2 ∈ c_vertices g ->
     cgraph_wf g -> cgraph_wf (c_insertE g v1 v2 l).
   Proof.
+    intros Hcon Hv2 [].
+    split.
+    - intros ???.
+      unfold c_insertE, c_vertices in *.
+      rewrite dom_alter.
+      destruct (decide (v1 = v)).
+      + subst. rewrite lookup_alter in H2.
+        destruct (g !! v) eqn:E; rewrite E in H2; simpl in *; simplify_eq.
+        specialize (H0 _ _ E). rewrite dom_insert_L. set_solver.
+      + rewrite lookup_alter_ne in H2; eauto.
+    - admit.
   Admitted.
 
   Lemma c_deleteE_wf g v1 v2 :
     cgraph_wf g -> cgraph_wf (c_deleteE g v1 v2).
   Proof.
+    intros []. split.
+    - intros ???. unfold c_deleteE in *.
+      destruct (decide (v1 = v)).
+      + subst. rewrite lookup_alter in H2.
+        destruct (g !! v) eqn:E; rewrite E in H2; simpl in *; simplify_eq.
+        specialize (H0 _ _ E). unfold c_vertices in *. rewrite dom_alter.
+        rewrite dom_delete_L. set_solver.
+      + rewrite lookup_alter_ne in H2; eauto.
+        unfold c_vertices. rewrite dom_alter.
+        specialize (H0 _ _ H2). done.
+    - admit.
   Admitted.
 
   Lemma c_deleteE_conn g v1 v2 :
