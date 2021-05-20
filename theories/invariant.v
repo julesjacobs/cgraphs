@@ -31,15 +31,17 @@ Definition buf_typed' (bufq : option (list val)) (ctq : option chan_type) (rest 
     | _,_ => False
     end.
 
-Definition bufs_typed (b1 b2 : option (list val)) (σ1 σ2 : option chan_type): hProp :=
+Definition bufs_typed (b1 b2 : option (list val)) (σ1 σ2 : option chan_type) : hProp :=
   ∃ rest, buf_typed' b1 σ1 rest ∗
           buf_typed' b2 σ2 (dual rest).
 
-Inductive in_to_Σ : edges -> option chan_type -> option chan_type -> Prop :=.
-(* TODO *)
+Inductive in_to_σ12 : edges -> option chan_type -> option chan_type -> Prop :=
+  | in_to_σ12_both o o' σ1 σ2 : in_to_σ12 {[ o := (true,σ1); o' := (false,σ2)]} (Some σ1) (Some σ2)
+  | in_to_σ12_left o σ1 : in_to_σ12 {[ o := (true,σ1) ]} (Some σ1) None
+  | in_to_σ12_right o σ2 : in_to_σ12 {[ o := (false,σ2) ]} None (Some σ2).
 
 Definition chan_inv (b1 b2 : option (list val)) (in_edges : edges) (out_edges : edges) : Prop :=
-  ∃ σ1 σ2, in_to_Σ in_edges σ1 σ2 ∧ holds (bufs_typed b1 b2 σ1 σ2) out_edges.
+  ∃ σ1 σ2, in_to_σ12 in_edges σ1 σ2 ∧ holds (bufs_typed b1 b2 σ1 σ2) out_edges.
 
 
 
