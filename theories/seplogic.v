@@ -267,4 +267,19 @@ Qed.
 Lemma holds_entails (P Q : hProp) Σ :
   holds P Σ -> (P ⊢ Q) -> holds Q Σ.
 Proof.
-Admitted.
+  unfold holds.
+  intros. eapply uPred_in_entails; eauto.
+  apply map_Excl_valid.
+Qed.
+
+Instance holds_mono : Proper (uPred_entails ==> (=) ==> impl) holds.
+Proof.
+  intros ??????. subst. intro. eapply holds_entails; eauto.
+Qed.
+
+Instance holds_iff : Proper (uPred_equiv ==> (=) ==> iff) holds.
+Proof.
+  intros ??????. subst. destruct H. unfold holds.
+  rewrite uPred_in_equiv; eauto.
+  apply map_Excl_valid.
+Qed.
