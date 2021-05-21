@@ -2,6 +2,7 @@ Require Export diris.langdef.
 Require Export diris.cgraph.
 Require Export diris.seplogic.
 Require Export diris.rtypesystem.
+Require Export diris.langlemmas.
 
 
 Definition conngraph := cgraph (V := object) (L := clabel).
@@ -66,13 +67,67 @@ Proof.
   pose proof (Hthr i (k e) H0) as Hti.
   destruct Hti as [Htin Hti'].
   unfold thread_inv in *.
+  setoid_rewrite typed0_ctx_typed0 in Hti'; eauto.
+  apply exists_holds in Hti' as [b Hti'].
+  apply sep_holds in Hti' as (Σ1 & Σ2 & Hout & Hdisj & Hctx & He).
+  unfold invariant.
 
   destruct HH; rewrite ?right_id.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
+  - exists g. split_and!; eauto.
+    + admit.
+    + intros ???. apply list_lookup_insert_Some in H2 as [(-> & <- & Hlt)|(Hne & Hsome)].
+      * unfold thread_inv. split; eauto.
+        rewrite-> pure_step_rtyped0 in He; eauto.
+        eapply (holds_entails (ctx_typed0 k b UnitT ∗ rtyped0 e' b)%I).
+        { rewrite sep_holds. eauto 6. }
+        iIntros "[H1 H2]". iApply (ctx_subst0 with "H1 H2").
+      * apply Hthr. done.
+  - simpl in He.
+    apply exists_holds in He as (?&He).
+    apply exists_holds in He as (?&He).
+    apply sep_holds in He as (?&?&?&?&?&?He).
+    apply sep_holds in He as (?&?&?&?&?&?He).
+    apply exists_holds in H7 as (?&H7).
+    apply sep_holds in H7 as (?&?&?&?&?&?H7).
+    apply affinely_pure_holds in H4 as [].
+    apply affinely_pure_holds in H9 as [].
+    apply own_holds in H10.
+    simplify_eq.
+    simplify_map_eq.
+    rewrite !left_id_L in Hout.
+    admit.
+  - simpl in He.
+    apply exists_holds in He as (?&He).
+    apply exists_holds in He as (?&He).
+    apply sep_holds in He as (?&?&?&?&?&?He).
+    apply exists_holds in He as (?&He).
+    apply sep_holds in He as (?&?&?&?&?&?He).
+    apply affinely_pure_holds in H4 as [].
+    apply affinely_pure_holds in H7 as [].
+    apply own_holds in He.
+    simplify_eq.
+    simplify_map_eq.
+    rewrite !left_id_L in Hout.
+    admit.
+  - simpl in He.
+    apply sep_holds in He as (?&?&?&?&?&?He).
+    apply exists_holds in He as (?&He).
+    apply sep_holds in He as (?&?&?&?&?&?He).
+    apply affinely_pure_holds in H4 as [].
+    apply affinely_pure_holds in H7 as [].
+    apply own_holds in He.
+    simplify_eq.
+    simplify_map_eq.
+    rewrite !left_id_L in Hout.
+    admit.
+  - simpl in He.
+    apply exists_holds in He as (?&He).
+    apply sep_holds in He as (?&?&?&?&?&?He).
+    apply affinely_pure_holds in H5 as [].
+    simplify_eq.
+    simplify_map_eq.
+    rewrite !left_id_L in Hout.
+    admit.
 Admitted.
 
 
