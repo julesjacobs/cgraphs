@@ -2,91 +2,99 @@ From iris.proofmode Require Export tactics.
 Require Export diris.uforests.
 From diris Require Export util.
 From stdpp Require Export gmap.
+From stdpp Require Export gmultiset.
 
 Notation cgraph V L := (gmap V (gmap V L)).
+(* Definition uforest V := gset (V * V). *)
 
 Section cgraph.
   Context {V : Type}.
   Context `{Countable V}.
   Context {L : Type}.
 
-  Definition c_vertices (g : cgraph V L) : gset V := dom (gset V) g.
+  Definition vertices (g : cgraph V L) : gset V := dom (gset V) g.
 
-  Definition c_out (g : cgraph V L) (v : V) : gmap V L :=
+  Definition out_edges (g : cgraph V L) (v : V) : gmap V L :=
     match g !! v with
     | Some e => e
     | None => ∅
     end.
 
-  Definition mb_insert (v v' : V) (ev' ins : gmap V L) :=
+  (* Definition mb_insert (v v' : V) (ev' ins : gmap V L) :=
     match ev' !! v with | Some l => <[v':=l]> ins | None => ins end.
 
-  Definition c_in (g : cgraph V L) (v : V) : gmap V L :=
-    map_fold (mb_insert v) ∅ g.
+  Definition in_edges (g : cgraph V L) (v : V) : gmap V L :=
+    map_fold (mb_insert v) ∅ g. *)
 
-  Definition c_insertV (g : cgraph V L) (v : V) := <[ v := ∅ ]> g.
-  Definition c_deleteV (g : cgraph V L) (v : V) := delete v g.
+  Definition ms_insert (v v' : V) (ev' : gmap V L) (ins : list L) : list L :=
+    match ev' !! v with | Some l => l :: ins | None => ins end.
 
-  Definition c_insertE (g : cgraph V L) (v1 v2 : V) (l : L) :=
+  Definition in_labels (g : cgraph V L) (v : V) : list L :=
+    map_fold (ms_insert v) [] g.
+
+  Definition insert_vertex (g : cgraph V L) (v : V) := <[ v := ∅ ]> g.
+  Definition delete_vertex (g : cgraph V L) (v : V) := delete v g.
+
+  Definition insert_edge (g : cgraph V L) (v1 v2 : V) (l : L) :=
     alter <[ v2 := l ]> v1 g.
-  Definition c_deleteE (g : cgraph V L) (v1 v2 : V) :=
+  Definition delete_edge (g : cgraph V L) (v1 v2 : V) :=
     alter (delete v2) v1 g.
 
   Definition swap {A B} : (A*B -> B*A) := λ '(x,y), (y,x).
   Definition make_undirected (g : gset (V*V)) : gset (V*V) :=
     g ∪ (set_map swap g).
-  Definition c_dedges (g : cgraph V L) : gset (V*V) :=
+  Definition dedges (g : cgraph V L) : gset (V*V) :=
     dom (gset _) (gmap_curry g).
-  Definition c_to_uforest (g : cgraph V L) : uforest V :=
-    make_undirected $ c_dedges g.
-  Definition c_acyclic (g : cgraph V L) := is_uforest (c_to_uforest g).
+  Definition to_uforest (g : cgraph V L) : uforest V :=
+    make_undirected $ dedges g.
+  Definition acyclic (g : cgraph V L) := is_uforest (to_uforest g).
 
-  Definition c_dom_valid (g : cgraph V L) :=
-    ∀ (v : V) e, g !! v = Some e -> dom (gset V) e ⊆ c_vertices g.
+  Definition dom_valid (g : cgraph V L) :=
+    ∀ (v : V) e, g !! v = Some e -> dom (gset V) e ⊆ vertices g.
 
-  Definition cgraph_wf (g : cgraph V L) := c_dom_valid g ∧ c_acyclic g.
+  Definition cgraph_wf (g : cgraph V L) := dom_valid g ∧ acyclic g.
 
-  Definition c_edge (g : cgraph V L) (v1 v2 : V) := is_Some (c_out g v1 !! v2).
+  Definition edge (g : cgraph V L) (v1 v2 : V) := is_Some (out_edges g v1 !! v2).
 
-  Definition c_uconn (g : cgraph V L) := rtsc (c_edge g).
+  Definition uconn (g : cgraph V L) := rtsc (edge g).
 
 
   (* Mutate/reader lemmas *)
 
-  Lemma c_vertices_insertV g v :
-    c_vertices (c_insertV g v) = {[ v ]} ∪ c_vertices g.
+  Lemma vertices_insert_vertex g v :
+    vertices (insert_vertex g v) = {[ v ]} ∪ vertices g.
   Proof.
-    rewrite /c_insertV /c_vertices dom_insert_L //.
+    rewrite /insert_vertex /vertices dom_insert_L //.
   Qed.
 
-  Lemma c_vertices_deleteV g v :
-    c_vertices (c_deleteV g v) = c_vertices g ∖ {[ v ]}.
+  Lemma vertices_delete_vertex g v :
+    vertices (delete_vertex g v) = vertices g ∖ {[ v ]}.
   Proof.
-    rewrite /c_deleteV /c_vertices dom_delete_L //.
+    rewrite /delete_vertex /vertices dom_delete_L //.
   Qed.
 
-  Lemma c_insertE_out g v1 v1' v2 l :
-    v1 ∈ c_vertices g -> c_out (c_insertE g v1 v2 l) v1' = if decide (v1 = v1') then <[ v2 := l ]> (c_out g v1') else c_out g v1'.
+  Lemma insert_edge_out g v1 v1' v2 l :
+    v1 ∈ vertices g -> out_edges (insert_edge g v1 v2 l) v1' = if decide (v1 = v1') then <[ v2 := l ]> (out_edges g v1') else out_edges g v1'.
   Proof.
     intros Hin.
-    rewrite /c_out /c_insertE.
+    rewrite /out_edges /insert_edge.
     case_decide.
     + subst. rewrite lookup_alter. destruct (g !! v1') eqn:E.
       - done.
-      - exfalso. rewrite /c_vertices in Hin. apply elem_of_dom in Hin.
+      - exfalso. rewrite /vertices in Hin. apply elem_of_dom in Hin.
         rewrite E in Hin. destruct Hin. simplify_eq.
     + rewrite lookup_alter_ne //.
   Qed.
 
-  Lemma c_insertE_in g v1 v2 v2' l :
-    c_in (c_insertE g v1 v2 l) v2' = if decide (v2 = v2') then <[ v1 := l ]> (c_in g v2') else c_in g v2'.
+  (* Lemma insert_edge_in g v1 v2 v2' l :
+    in_edges (insert_edge g v1 v2 l) v2' = if decide (v2 = v2') then <[ v1 := l ]> (in_edges g v2') else in_edges g v2'.
   Proof.
-  Admitted.
+  Admitted. *)
 
-  Lemma c_deleteE_out g v1 v1' v2 :
-    c_out (c_deleteE g v1 v2) v1' = if decide (v1 = v1') then delete v2 (c_out g v1') else c_out g v1'.
+  Lemma delete_edge_out g v1 v1' v2 :
+    out_edges (delete_edge g v1 v2) v1' = if decide (v1 = v1') then delete v2 (out_edges g v1') else out_edges g v1'.
   Proof.
-    rewrite /c_out /c_deleteE.
+    rewrite /out_edges /delete_edge.
     case_decide.
     + subst. rewrite lookup_alter. destruct (g !! v1') eqn:E.
       - done.
@@ -94,13 +102,13 @@ Section cgraph.
     + rewrite lookup_alter_ne //.
   Qed.
 
-  Lemma c_deleteE_in g v1 v2 v2' :
-    c_in (c_deleteE g v1 v2) v2' = if decide (v2 = v2') then delete v1 (c_in g v2') else c_in g v2'.
+  (* Lemma delete_edge_in g v1 v2 v2' :
+    in_edges (delete_edge g v1 v2) v2' = if decide (v2 = v2') then delete v1 (in_edges g v2') else in_edges g v2'.
   Proof.
-    rewrite /c_in /c_deleteE.
+    rewrite /in_edges /delete_edge.
     case_decide.
     - subst. Search map_fold alter. admit.
-  Admitted.
+  Admitted. *)
 
   (* Mutate/wf lemmas *)
 
@@ -114,19 +122,19 @@ Section cgraph.
     unfold make_undirected. rewrite left_id_L. rewrite set_map_empty. done.
   Qed.
 
-  Lemma c_to_uforest_empty : c_to_uforest ∅ = ∅.
+  Lemma to_uforest_empty : to_uforest ∅ = ∅.
   Proof.
-    unfold c_to_uforest, c_dedges.
+    unfold to_uforest, dedges.
     Search gmap_curry. rewrite gmap_curry_empty.
     rewrite dom_empty_L. rewrite make_undirected_empty. done.
   Qed.
 
-  Lemma c_empty_wf :
+  Lemma empty_wf :
     cgraph_wf ∅.
   Proof.
     split.
-    - unfold c_dom_valid. intros. rewrite lookup_empty in H0. simplify_eq.
-    - unfold c_acyclic. rewrite c_to_uforest_empty. apply forest_empty.
+    - unfold dom_valid. intros. rewrite lookup_empty in H0. simplify_eq.
+    - unfold acyclic. rewrite to_uforest_empty. apply forest_empty.
   Qed.
 
   Lemma gmap_curry_insert_empty `{Countable A} {B} (g : gmap A (gmap A B)) v :
@@ -138,30 +146,31 @@ Section cgraph.
   Qed.
 
 
-  Lemma c_to_uforest_insert_empty g v : c_to_uforest (<[v:=∅]> g) = c_to_uforest g.
+  Lemma to_uforest_insert_empty g v : g !! v = None -> to_uforest (<[v:=∅]> g) = to_uforest g.
   Proof.
-    unfold c_to_uforest. unfold c_dedges. rewrite gmap_curry_insert_empty //.
+    unfold to_uforest. unfold dedges. intro. rewrite gmap_curry_insert_empty //.
   Qed.
 
-  Lemma c_insertV_wf g v :
-    cgraph_wf g -> cgraph_wf (c_insertV g v).
+  Lemma insert_vertex_wf g v :
+    v ∉ vertices g -> cgraph_wf g -> cgraph_wf (insert_vertex g v).
   Proof.
+    intros Hin.
     intros [].
     split.
-    - unfold c_dom_valid. intros.
+    - unfold dom_valid. intros.
       destruct (decide (v = v0)).
-      + subst. unfold c_insertV in *. rewrite lookup_insert in H2. simplify_eq.
+      + subst. unfold insert_vertex in *. rewrite lookup_insert in H2. simplify_eq.
         rewrite dom_empty. set_solver.
-      + unfold c_insertV in *. rewrite lookup_insert_ne in H2; try done.
-        specialize (H0 _ _ H2). unfold c_vertices in *. set_solver.
-    - unfold c_acyclic. unfold c_insertV. rewrite c_to_uforest_insert_empty. apply H1.
-  Qed.
+      + unfold insert_vertex in *. rewrite lookup_insert_ne in H2; try done.
+        specialize (H0 _ _ H2). unfold vertices in *. set_solver.
+    - unfold acyclic. unfold insert_vertex. rewrite to_uforest_insert_empty. apply H1.
+  Admitted.
 
 
-  Lemma mb_insert_fold g v v' e :
-    g !! v' = Some e -> c_in g v = mb_insert v v' e (c_in (delete v' g) v).
+  (* Lemma mb_insert_fold g v v' e :
+    g !! v' = Some e -> in_edges g v = mb_insert v v' e (in_edges (delete v' g) v).
   Proof.
-    intros Hv'. unfold c_in.
+    intros Hv'. unfold in_edges.
     assert (g = <[ v' := e ]> $ delete v' g) as Heq.
     {
       rewrite insert_delete.
@@ -175,17 +184,9 @@ Section cgraph.
       apply insert_commute; done.
     }
     apply lookup_delete.
-  Qed.
+  Qed. *)
 
-  Lemma c_in_empty g v :
-    c_in g v = ∅ -> ∀ v' e, g !! v' = Some e -> e !! v = None.
-  Proof.
-    intros H1 v' e Hv'.
-    erewrite mb_insert_fold in H1; try done.
-    unfold mb_insert in *.
-    destruct (e !! v); try done.
-    by apply insert_non_empty in H1.
-  Qed.
+
 
   Lemma is_uforest_mono `{Countable A} (g1 g2 : uforest A) :
     g1 ⊆ g2 -> is_uforest g2 -> undirected g1 -> is_uforest g1.
@@ -218,42 +219,53 @@ Section cgraph.
   Proof.
   Admitted.
 
-  Lemma c_to_uforest_mono (g1 g2 : cgraph V L) :
-    g1 ⊆ g2 -> c_to_uforest g1 ⊆ c_to_uforest g2.
+  Lemma to_uforest_mono (g1 g2 : cgraph V L) :
+    g1 ⊆ g2 -> to_uforest g1 ⊆ to_uforest g2.
   Proof.
     intros HH.
-    unfold c_to_uforest. apply make_undirected_mono.
-    unfold c_dedges. apply subseteq_dom.
+    unfold to_uforest. apply make_undirected_mono.
+    unfold dedges. apply subseteq_dom.
     apply gmap_curry_mono. done.
   Qed.
 
-  Lemma c_deleteV_wf g v :
-    c_in g v = ∅ -> cgraph_wf g -> cgraph_wf (c_deleteV g v).
+  Lemma in_labels_empty g v :
+    in_labels g v = [] -> ∀ v' e, g !! v' = Some e -> e !! v = None.
+  Proof.
+    intros H1 v' e Hv'.
+  Admitted.
+    (* erewrite mb_insert_fold in H1; try done.
+    unfold mb_insert in *.
+    destruct (e !! v); try done.
+    by apply insert_non_empty in H1.
+  Qed. *)
+
+  Lemma delete_vertex_wf g v :
+    in_labels g v = [] -> cgraph_wf g -> cgraph_wf (delete_vertex g v).
   Proof.
     intros Hin [].
     split.
-    - intros ???. unfold c_vertices, c_deleteV in *.
-      unfold c_dom_valid in H0.
+    - intros ???. unfold vertices, delete_vertex in *.
+      unfold dom_valid in H0.
       destruct (decide (v = v0)).
       + subst. rewrite lookup_delete in H2. simplify_eq.
       + rewrite lookup_delete_ne in H2; try done.
         specialize (H0 _ _ H2). rewrite dom_delete_L.
-        unfold c_vertices in *.
+        unfold vertices in *.
         assert (v ∉ dom (gset V) e); last set_solver.
-        rewrite not_elem_of_dom. eapply c_in_empty; eauto.
+        rewrite not_elem_of_dom. eapply in_labels_empty; eauto.
     - eapply is_uforest_mono. 2: eauto. 2: apply make_undirected_undirected.
-      apply c_to_uforest_mono. unfold c_deleteV.
+      apply to_uforest_mono. unfold delete_vertex.
       apply delete_subseteq.
   Qed.
 
-  Lemma c_insertE_wf g v1 v2 l :
-    ¬ c_uconn g v1 v2 -> v2 ∈ c_vertices g ->
-    cgraph_wf g -> cgraph_wf (c_insertE g v1 v2 l).
+  Lemma insert_edge_wf g v1 v2 l :
+    ¬ uconn g v1 v2 -> v2 ∈ vertices g ->
+    cgraph_wf g -> cgraph_wf (insert_edge g v1 v2 l).
   Proof.
     intros Hcon Hv2 [].
     split.
     - intros ???.
-      unfold c_insertE, c_vertices in *.
+      unfold insert_edge, vertices in *.
       rewrite dom_alter.
       destruct (decide (v1 = v)).
       + subst. rewrite lookup_alter in H2.
@@ -263,26 +275,26 @@ Section cgraph.
     - admit.
   Admitted.
 
-  Lemma c_deleteE_wf g v1 v2 :
-    cgraph_wf g -> cgraph_wf (c_deleteE g v1 v2).
+  Lemma delete_edge_wf g v1 v2 :
+    cgraph_wf g -> cgraph_wf (delete_edge g v1 v2).
   Proof.
     intros []. split.
-    - intros ???. unfold c_deleteE in *.
+    - intros ???. unfold delete_edge in *.
       destruct (decide (v1 = v)).
       + subst. rewrite lookup_alter in H2.
         destruct (g !! v) eqn:E; simpl in *; simplify_eq.
-        specialize (H0 _ _ E). unfold c_vertices in *. rewrite dom_alter.
+        specialize (H0 _ _ E). unfold vertices in *. rewrite dom_alter.
         rewrite dom_delete_L. set_solver.
       + rewrite lookup_alter_ne in H2; eauto.
-        unfold c_vertices. rewrite dom_alter.
+        unfold vertices. rewrite dom_alter.
         specialize (H0 _ _ H2). done.
-    - unfold c_deleteE. unfold c_acyclic.
-      unfold c_to_uforest.
-      unfold c_dedges. admit.
+    - unfold delete_edge. unfold acyclic.
+      unfold to_uforest.
+      unfold dedges. admit.
   Admitted.
 
-  Lemma c_deleteE_conn g v1 v2 :
-    c_edge g v1 v2 -> cgraph_wf g -> ¬ c_uconn (c_deleteE g v1 v2) v1 v2.
+  Lemma delete_edge_conn g v1 v2 :
+    edge g v1 v2 -> cgraph_wf g -> ¬ uconn (delete_edge g v1 v2) v1 v2.
   Proof.
   Admitted.
 

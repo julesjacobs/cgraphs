@@ -13,7 +13,9 @@
 -arg -native-compiler -arg no
 
 theories/util.v
+theories/mapexcl.v
 theories/uforests.v
+theories/cgraph.v
 theories/logic/upred.v
 theories/logic/bi.v
 # theories/logic/bupd.v
@@ -21,4 +23,3 @@ theories/langdef.v
 theories/seplogic.v
 theories/rtypesystem.v
 theories/langlemmas.v
-theories/cgraph.v
