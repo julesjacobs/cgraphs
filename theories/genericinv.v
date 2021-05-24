@@ -1,7 +1,7 @@
 Require Export diris.cgraph.
 Require Export diris.seplogic.
 
-Section invtools.
+Section genericinv.
   Context {V : Type}.
   Context `{Countable V}.
   Context {L : Type}.
@@ -49,8 +49,9 @@ Section invtools.
       + rewrite /vertices. set_solver.
   Admitted.
 
-  Lemma inv_move f (h : V -> Prop) :
-    inv f h ->
+  (* Lemma inv_move f (h : V -> Prop) :
+    inv f h -> *)
     (* We need to be able to express connectivity relationships here. *)
     (* But we need that anyway for progress. *)
     (* Think about how to handle that. *)
+End genericinv.

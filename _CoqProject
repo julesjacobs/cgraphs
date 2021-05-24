@@ -18,8 +18,9 @@ theories/uforests.v
 theories/cgraph.v
 theories/logic/upred.v
 theories/logic/bi.v
+theories/seplogic.v
+theories/genericinv.v
 # theories/logic/bupd.v
 theories/langdef.v
-theories/seplogic.v
 theories/rtypesystem.v
 theories/langlemmas.v
