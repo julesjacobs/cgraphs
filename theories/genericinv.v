@@ -276,13 +276,38 @@ Section genericinv.
     f !! v3 = None ->
     v2 ≠ v3 ->
     (∀ i, P i ∗ own1 v2 l ⊢ P' i) ->
-    (emp ⊢ Q [l;l']) ->
-    (own1 v2 l ⊢ R []) ->
+    (emp ⊢ Q [l';l]) ->
+    (own1 v2 l' ⊢ R []) ->
     inv f ->
     inv (<[ v1 := P' ]> $ <[ v2 := Q ]> $ <[ v3 := R ]> f).
   Proof.
     intros.
-  Admitted.
+    set f' := (<[ v1 := (λ i, P i ∗ own1 v2 l)%I ]> $ <[ v2 := λ i, ⌜⌜ i = [l] ⌝⌝%I ]> f).
+    assert (inv f').
+    { eapply inv_alloc1; eauto. }
+    clear H7.
+    set f'' := (<[ v2 := Q ]> $ <[ v3 := R ]> f').
+    assert (f' !! v2 = Some (λ i : list L, ⌜⌜ i = [l] ⌝⌝%I)).
+    {
+      subst f'. rewrite !lookup_insert_spec.
+      repeat case_decide; set_solver.
+    }
+    assert (f' !! v3 = None).
+    {
+      subst f'. rewrite !lookup_insert_spec.
+      repeat case_decide; set_solver.
+    }
+    assert (inv f'').
+    {
+      eapply inv_alloc2; eauto. intros i. iIntros "%".
+      subst. iApply H5. done.
+    }
+    clear H8.
+    eapply inv_impl; last done.
+    subst f''. subst f'.
+    intros v. rewrite !lookup_insert_spec.
+    repeat case_decide; simplify_eq; eauto using local_impl_refl.
+  Qed.
 
   Lemma inv_alloc12_move : True. Admitted.
 
