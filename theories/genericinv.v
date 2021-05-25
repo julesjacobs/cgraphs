@@ -46,7 +46,6 @@ Section genericinv.
       simpl in *. destruct (f' !! v); done.
   Qed.
 
-
   Lemma inv_init :
     inv ∅.
   Proof.
