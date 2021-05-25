@@ -1,7 +1,34 @@
 From diris Require Export seplogic.
 
+Inductive object :=
+  | Thread : nat -> object
+  | Chan : chan -> object.
 
-Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : hProp :=
+Instance object_eqdecision : EqDecision object.
+Proof.
+  intros [n|n] [m|m]; unfold Decision; destruct (decide (n = m));
+  subst; eauto; right; intro; simplify_eq.
+Qed.
+Instance object_countable : Countable object.
+Proof.
+  refine (inj_countable' (λ l, match l with
+  | Thread n => inl n
+  | Chan n => inr n
+  end) (λ l, match l with
+  | inl n => Thread n
+  | inr n => Chan n
+  end) _); by intros [].
+Qed.
+
+Definition clabel : Type := bool * chan_type.
+
+Definition rProp := (hProp object clabel).
+
+Definition own_ep (c : endpoint) (σ : chan_type) : rProp :=
+  let '(chan,b) := c in
+    own1 (Chan chan) (b,σ).
+
+Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
  match e with
   | Val v =>
       ⌜⌜ Γ = ∅ ⌝⌝ ∗ val_typed v t
@@ -42,15 +69,15 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : hProp :=
       rtyped Γ e (FunT (ChanT (dual r)) UnitT)
   | Close e =>
       ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped Γ e (ChanT EndT)
-  end
-with val_typed (v : val) (t : type) : hProp :=
+  end%I
+with val_typed (v : val) (t : type) : hProp object clabel :=
   match v with
   | UnitV => ⌜⌜ t = UnitT ⌝⌝
   | NatV n => ⌜⌜ t = NatT ⌝⌝
   | PairV a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
   | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
-  | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own c r
-  end.
+  | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own_ep c r
+  end%I.
 
 Lemma typed_rtyped Γ e t : ⌜⌜ typed Γ e t ⌝⌝ -∗ rtyped Γ e t.
 Proof.
@@ -395,7 +422,7 @@ Qed. *)
 
 (* rtyped with empty environment *)
 
-Fixpoint rtyped0 (e : expr) (t : type) : hProp :=
+Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
  match e with
   | Val v =>
       val_typed v t
@@ -432,7 +459,7 @@ Fixpoint rtyped0 (e : expr) (t : type) : hProp :=
       rtyped0 e (FunT (ChanT (dual r)) UnitT)
   | Close e =>
       ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped0 e (ChanT EndT)
- end.
+ end%I.
 
 Lemma both_emp (A B : envT) : ∅ = A ∪ B -> A = ∅ ∧ B = ∅.
 Proof.
@@ -568,10 +595,10 @@ Qed.
 
 
 Definition ctx_typed0 (k : expr -> expr)
-                     (A : type) (B : type) : hProp :=
-    ∀ e,
+                     (A : type) (B : type) : rProp :=
+    (∀ e,
       rtyped0 e A -∗
-      rtyped0 (k e) B.
+      rtyped0 (k e) B)%I.
 
 Lemma ctx_subst0 k A B e :
   ctx_typed0 k A B -∗ rtyped0 e A -∗ rtyped0 (k e) B.

@@ -4,6 +4,11 @@ From diris Require Export util.
 From stdpp Require Export gmap.
 From stdpp Require Export gmultiset.
 
+Search map_to_list insert.
+
+Definition map_fold `{FinMapToList K A M} {B}
+  (f : K → A → B → B) (b : B) : M → B := foldr (curry f) b ∘ map_to_list.
+
 Notation cgraph V L := (gmap V (gmap V L)).
 (* Definition uforest V := gset (V * V). *)
 
@@ -30,7 +35,10 @@ Section cgraph.
     match ev' !! v with | Some l => l :: ins | None => ins end.
 
   Definition in_labels (g : cgraph V L) (v : V) : list L :=
-    map_fold (ms_insert v) [] g.
+    ev' ← map_to_list g ; option_list (ev'.2 !! v).
+
+  About bind_Permutation.
+    (* map_fold (ms_insert v) [] g. *)
 
   Definition insert_vertex (g : cgraph V L) (v : V) := <[ v := ∅ ]> g.
   Definition delete_vertex (g : cgraph V L) (v : V) := delete v g.

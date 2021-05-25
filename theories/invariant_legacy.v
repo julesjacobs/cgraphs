@@ -3,7 +3,6 @@ Require Export diris.cgraph.
 Require Export diris.seplogic.
 Require Export diris.rtypesystem.
 Require Export diris.langlemmas.
-Require Export diris.genericinv.
 
 Definition conngraph := cgraph object clabel.
 Definition edges := gmap object clabel.

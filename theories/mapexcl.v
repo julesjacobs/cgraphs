@@ -22,9 +22,13 @@ Section map_Excl.
   Lemma map_Excl_injective m1 m2 :
     map_Excl m1 = map_Excl m2 -> m1 = m2.
   Proof.
-    rewrite /map_Excl.
+    rewrite /map_Excl !map_eq_iff.
     intros HH.
-  Admitted.
+    intros i.
+    specialize (HH i).
+    rewrite !lookup_fmap in HH.
+    destruct (m1 !! i),(m2 !! i); naive_solver.
+  Qed.
   Lemma map_Excl_insert m k v :
     map_Excl (<[ k := v ]> m) = <[ k := Excl v ]> $ map_Excl m.
   Proof.

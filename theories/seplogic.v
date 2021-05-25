@@ -20,6 +20,7 @@ Section seplogic.
 
   Notation hProp' := (uPred heapT_UR).
   Definition hProp_internal := hProp'.
+  Definition heapT_UR_internal := heapT_UR.
 
   Definition own (Σ : gmap V L) : hProp' :=
     uPred_ownM (map_Excl Σ).
@@ -187,4 +188,5 @@ Section seplogic.
   Qed.
 End seplogic.
 
-Definition hProp (V L : Type) `{Countable V} := hProp_internal (V:=V) (L:=L).
+Notation hProp V L := (hProp_internal (V:=V) (L:=L)).
+Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
