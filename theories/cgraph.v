@@ -1,4 +1,4 @@
-From iris.proofmode Require Export tactics.
+From iris.proofmode Require Import tactics.
 Require Export diris.uforests.
 From diris Require Export util.
 From stdpp Require Export gmap.

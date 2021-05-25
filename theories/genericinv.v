@@ -74,19 +74,46 @@ Section genericinv.
     inv (<[ v1 := λ i, (P i ∗ own1 v2 l)%I ]> $ <[ v2 := λ i, (Q i ∗ W)%I ]> f).
   Proof. Admitted.
 
-  Lemma inv_delete f v :
-    f !! v = Some (λ i, ⌜⌜ i = [] ⌝⌝%I) ->
-    inv f ->
-    inv (delete v f).
-  Proof.
-  Admitted.
 
-  Lemma inv_delete f v :
-    (∀ i, Q i ⊢ ⌜⌜ i = [] ⌝⌝) ->
-    f !! v = Some Q ->
+  Lemma inv_delete_vertex f (v : V) :
+    (∀ Q i, f !! v = Some Q -> Q i ⊢ ⌜⌜ i = [] ⌝⌝) ->
     inv f ->
     inv (delete v f).
   Proof.
+    intros HH'.
+    destruct (f !! v) as [Q|] eqn:Hv; last first.
+    rewrite delete_notin; eauto.
+    specialize (HH' Q).
+    assert (∀ i : list L, Q i -∗ ⌜⌜ i = [] ⌝⌝) as HH by set_solver.
+    clear HH'.
+    intros Hinv.
+    unfold inv in *.
+    destruct Hinv as (g & Hwf & Hg).
+    pose proof (Hg v) as [Hgv1 Hgv2].
+    destruct Hgv1 as (Qv & HQv1 & HQv2). { rewrite Hv in Hgv2. set_solver. }
+    rewrite HQv1 in Hv.
+    simplify_eq.
+    eapply holds_entails in HQv2; last eauto.
+    eapply affinely_pure_holds in HQv2 as [].
+    exists (delete v g).
+    split.
+    - admit.
+    - intros v'.
+      split.
+      + intros Hv'. pose proof (Hg v') as [Hg1 Hg2].
+        destruct Hg1 as (Q' & HQ'1 & HQ'2); first set_solver.
+        exists Q'. split.
+        * rewrite lookup_delete_ne; last set_solver. done.
+        * assert (v ≠ v') by set_solver.
+          assert (in_labels (delete v g) v' = in_labels g v') as -> by admit.
+          assert (out_edges (delete v g) v' = out_edges g v') as -> by admit.
+          done.
+      + intros Hv'.
+        destruct (decide (v = v')).
+        * subst. apply lookup_delete.
+        * assert (v' ∉ vertices g) by set_solver.
+          rewrite lookup_delete_ne; eauto.
+          set_solver.
   Admitted.
 (*
   Lemma inv_update f v1 v2 :
