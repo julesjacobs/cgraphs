@@ -23,6 +23,12 @@ Section genericinv.
     | _,_ => False
     end.
 
+  Lemma local_impl_refl X :
+    local_impl X X.
+  Proof.
+    destruct X; simpl; eauto.
+  Qed.
+
   Lemma inv_impl f f' :
     (∀ v, local_impl (f !! v) (f' !! v)) ->
     inv f -> inv f'.
@@ -116,17 +122,122 @@ Section genericinv.
           set_solver.
   Admitted.
 
-    Lemma inv_exchange f (P P' Q Q' P1 P1' : list L -> hProp V L) v1 v2 l l' :
-      f !! v1 = Some P ->
-      f !! v2 = Some Q ->
-      (∀ i, P i ⊢ P1 i ∗ own1 v2 l) ->
-      (∀ i1 i2, P1 i1 ∗ Q (l :: i2) ⊢ P1' i1 ∗ Q' (l' :: i2)) ->
-      (∀ i, P1' i ∗ own1 v2 l' ⊢ P' i) ->
-      inv f ->
-      inv (<[ v1 := P' ]> $ <[ v2 := Q' ]> f).
-    Proof. Admitted.
+  Lemma inv_relabel f (P1 P1' Q Q' : list L -> hProp V L) v1 v2 l l' :
+    f !! v1 = Some (λ i, P1 i ∗ own1 v2 l)%I ->
+    f !! v2 = Some Q ->
+    (∀ i, P1 i ⊢ P1' i) ->
+    (∀ i, Q (l :: i) ⊢ Q' (l' :: i)) ->
+    inv f ->
+    inv (<[ v1 := (λ i, P1' i ∗ own1 v2 l')%I ]> $ <[ v2 := Q' ]> f).
+  Proof. Admitted.
 
-      
+  Lemma inv_exchange f (P1 P1' Q Q' : list L -> hProp V L) v1 v2 l l' :
+    f !! v1 = Some (λ i, P1 i ∗ own1 v2 l)%I ->
+    f !! v2 = Some Q ->
+    (∀ i1 i2, P1 i1 ∗ Q (l :: i2) ⊢ P1' i1 ∗ Q' (l' :: i2)) ->
+    inv f ->
+    inv (<[ v1 := (λ i, P1' i ∗ own1 v2 l')%I ]> $ <[ v2 := Q' ]> f).
+  Proof.
+    intros Hv1 Hv2 Himpl Hinv.
+    unfold inv in *.
+    destruct Hinv as (g & Hgwf & Hg).
+    pose proof (Hg v1) as [Hgv1 Hgv1'].
+    pose proof (Hg v2) as [Hgv2 Hgv2'].
+    destruct Hgv1 as (Q1 & HQ1 & HQ1').
+    { unfold vertices in *. rewrite Hv1 in Hgv1'. set_solver. }
+    rewrite HQ1 in Hv1. simplify_eq.
+    destruct Hgv2 as (Q2 & HQ2 & HQ2').
+    { unfold vertices in *. rewrite Hv2 in Hgv2'. set_solver. }
+    rewrite HQ2 in Hv2. simplify_eq.
+    clear Hgv1' Hgv2'.
+    apply sep_holds in HQ1' as (Σ1 & Σ2 & HΣ12eq & HΣ12disj & HΣ1 & HΣ2).
+    apply own1_holds in HΣ2. subst.
+    assert (l ∈ in_labels g v2) as Htmp. { admit. }
+    eapply elem_of_Permutation in Htmp as [ls Hls].
+    assert (holds (Q (l :: ls)) (out_edges g v2)) as HQ2''. { admit. }
+    assert ({[ v2 := l ]} ##ₘ out_edges g v2) as Hdisj. { admit. }
+    assert (Σ1 ##ₘ out_edges g v2) as Htmp. { admit. }
+    pose proof (sep_combine _ _ _ _ HΣ1 HQ2'' Htmp) as HPQ. clear Htmp.
+    eapply holds_entails in HPQ; last by eauto.
+    eapply sep_holds in HPQ as (Σ2 & Σ3 & H23eq & H23disj & HΣ2 & HΣ3).
+    (* Now we can instantiate the existential *)
+    exists (<[ v1 := Σ2 ∪ {[ v2 := l' ]}]> $ <[ v2 := Σ3 ]> g).
+    split.
+    - admit.
+    - intros v. split.
+      + intros Hv.
+        destruct (decide (v = v1)); subst.
+        {
+          eexists.
+          rewrite !lookup_insert_spec.
+          repeat case_decide; simplify_eq.
+          split; first done.
+          rewrite /out_edges. rewrite lookup_insert.
+          assert (in_labels (<[v1:=Σ2 ∪ {[v2 := l']}]> (<[v2:=Σ3]> g)) v1 = in_labels g v1) as Htmp. { admit. }
+          rewrite Htmp. clear Htmp.
+          rewrite sep_holds. eexists _,_.
+          split; first done.
+          split. {
+            assert ({[ v2 := l ]} ##ₘ (Σ1 ∪ out_edges g v2)) as Htmp by solve_map_disjoint.
+            rewrite H23eq in Htmp.
+            solve_map_disjoint.
+          }
+          split; eauto.
+          rewrite own_holds. done.
+        }
+        destruct (decide (v = v2)); subst.
+        {
+          eexists.
+          rewrite !lookup_insert_spec.
+          repeat case_decide; simplify_eq.
+          split; first done.
+          rewrite /out_edges. rewrite !lookup_insert_spec.
+          repeat case_decide; simplify_eq.
+          assert (in_labels (<[v1:=Σ2 ∪ {[v2 := l']}]> (<[v2:=Σ3]> g)) v2 = l' :: ls) as Htmp. { admit. }
+          rewrite Htmp. clear Htmp. done.
+        }
+        {
+          specialize (Hg v) as [Hg1 Hg2].
+          destruct Hg1 as (Q2 & HQ2s & HQ2h). { unfold vertices in *. set_solver. }
+          eexists.
+          rewrite !lookup_insert_spec. repeat case_decide; simplify_eq.
+          split; eauto.
+          rewrite /out_edges. rewrite !lookup_insert_spec.
+          repeat case_decide; simplify_eq.
+          assert (in_labels (<[v1:=Σ2 ∪ {[v2 := l']}]> (<[v2:=Σ3]> g)) v = in_labels g v) as ->. { admit. }
+          done.
+        }
+      + intros Hv.
+        rewrite !lookup_insert_spec.
+        unfold vertices in *.
+        repeat case_decide; set_solver.
+  Admitted.
+
+  (* This version of the lemma is more convenient because unification can help us apply it *)
+  Lemma inv_exchange' f (P P' Q Q' P1 P1' : list L -> hProp V L) v1 v2 l l' :
+    f !! v1 = Some P ->
+    f !! v2 = Some Q ->
+    (∀ i, P i ⊢ P1 i ∗ own1 v2 l) ->
+    (∀ i1 i2, P1 i1 ∗ Q (l :: i2) ⊢ P1' i1 ∗ Q' (l' :: i2)) ->
+    (∀ i, P1' i ∗ own1 v2 l' ⊢ P' i) ->
+    inv f ->
+    inv (<[ v1 := P' ]> $ <[ v2 := Q' ]> f).
+  Proof.
+    intros.
+    eapply (inv_impl _ (<[ v1 := (λ i, P1 i ∗ own1 v2 l)%I ]> f)) in H5.
+    - eapply inv_impl; last first.
+      + eapply inv_exchange in H5; eauto.
+        * eapply lookup_insert.
+        * rewrite lookup_insert_ne; eauto.
+          admit. (* This goal v1 ≠ v2 follows from acyclicity and the fact that v1 owns v2, but we can also add it as a premise.
+                    In our use case, v1 ≠ v2 is easy to establish because v1 is a thread and v2 is a chanel. *)
+      + intros v. rewrite !lookup_insert_spec.
+        repeat case_decide; subst; eauto using local_impl_refl.
+    - intros v. rewrite !lookup_insert_spec.
+      repeat case_decide; subst; rewrite ?H0; eauto using local_impl_refl.
+  Admitted.
+
+
 (*
   Lemma inv_update f v1 v2 :
     inv' (<[ v1 := λ i, P i ∗ own v2 l ]> f) ->
