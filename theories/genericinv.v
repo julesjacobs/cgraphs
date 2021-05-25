@@ -62,24 +62,18 @@ Section genericinv.
   Proof.
     intros HH.
     exists {[ v := ∅ ]}. split.
-    - admit.
+    - admit. (* well formedness of graph *)
     - intros v'. split.
       + intros Hv. rewrite /vertices in Hv.
         assert (v' = v) by set_solver. subst.
         exists P. rewrite lookup_singleton.
         split; first done.
-        assert (in_labels ({[v := ∅]} : gmap V (gmap V L)) v = []) as HH1 by admit.
+        assert (in_labels ({[v := ∅]} : gmap V (gmap V L)) v = []) as HH1 by admit. (* lemma about in_labels *)
         rewrite /out_edges. rewrite lookup_singleton. rewrite HH1. eauto.
       + rewrite /vertices. intros.
         assert (v' ≠ v); first set_solver.
         rewrite lookup_singleton_ne //.
   Admitted.
-
-  Lemma inv_move f v1 v2 l W P Q :
-    inv (<[ v1 := λ i, (P i ∗ own1 v2 l ∗ W)%I ]> $ <[ v2 := λ i, Q i ]> f) ->
-    inv (<[ v1 := λ i, (P i ∗ own1 v2 l)%I ]> $ <[ v2 := λ i, (Q i ∗ W)%I ]> f).
-  Proof. Admitted.
-
 
   Lemma inv_delete_vertex f (v : V) :
     (∀ Q i, f !! v = Some Q -> Q i ⊢ ⌜⌜ i = [] ⌝⌝) ->
@@ -103,7 +97,7 @@ Section genericinv.
     eapply affinely_pure_holds in HQv2 as [].
     exists (delete v g).
     split.
-    - admit.
+    - admit. (* well formedness of graph *)
     - intros v'.
       split.
       + intros Hv'. pose proof (Hg v') as [Hg1 Hg2].
@@ -111,8 +105,8 @@ Section genericinv.
         exists Q'. split.
         * rewrite lookup_delete_ne; last set_solver. done.
         * assert (v ≠ v') by set_solver.
-          assert (in_labels (delete v g) v' = in_labels g v') as -> by admit.
-          assert (out_edges (delete v g) v' = out_edges g v') as -> by admit.
+          assert (in_labels (delete v g) v' = in_labels g v') as -> by admit. (* lemma about in_labels *)
+          assert (out_edges (delete v g) v' = out_edges g v') as -> by admit. (* lemma about in_labels *)
           done.
       + intros Hv'.
         destruct (decide (v = v')).
@@ -122,14 +116,14 @@ Section genericinv.
           set_solver.
   Admitted.
 
-  Lemma inv_relabel f (P1 P1' Q Q' : list L -> hProp V L) v1 v2 l l' :
+  (* Lemma inv_relabel f (P1 P1' Q Q' : list L -> hProp V L) v1 v2 l l' :
     f !! v1 = Some (λ i, P1 i ∗ own1 v2 l)%I ->
     f !! v2 = Some Q ->
     (∀ i, P1 i ⊢ P1' i) ->
     (∀ i, Q (l :: i) ⊢ Q' (l' :: i)) ->
     inv f ->
     inv (<[ v1 := (λ i, P1' i ∗ own1 v2 l')%I ]> $ <[ v2 := Q' ]> f).
-  Proof. Admitted.
+  Proof. Admitted. *)
 
   Lemma inv_exchange f (P1 P1' Q Q' : list L -> hProp V L) v1 v2 l l' :
     f !! v1 = Some (λ i, P1 i ∗ own1 v2 l)%I ->
@@ -152,18 +146,18 @@ Section genericinv.
     clear Hgv1' Hgv2'.
     apply sep_holds in HQ1' as (Σ1 & Σ2 & HΣ12eq & HΣ12disj & HΣ1 & HΣ2).
     apply own1_holds in HΣ2. subst.
-    assert (l ∈ in_labels g v2) as Htmp. { admit. }
+    assert (l ∈ in_labels g v2) as Htmp. { admit. } (* lemma about in_labels *)
     eapply elem_of_Permutation in Htmp as [ls Hls].
-    assert (holds (Q (l :: ls)) (out_edges g v2)) as HQ2''. { admit. }
-    assert ({[ v2 := l ]} ##ₘ out_edges g v2) as Hdisj. { admit. }
-    assert (Σ1 ##ₘ out_edges g v2) as Htmp. { admit. }
+    assert (holds (Q (l :: ls)) (out_edges g v2)) as HQ2''. { admit. } (* Need proper for Q under permutations *)
+    assert ({[ v2 := l ]} ##ₘ out_edges g v2) as Hdisj. { admit. } (* disjointness of connected vertices *)
+    assert (Σ1 ##ₘ out_edges g v2) as Htmp. { admit. } (* disjointness of connected vertices *)
     pose proof (sep_combine _ _ _ _ HΣ1 HQ2'' Htmp) as HPQ. clear Htmp.
     eapply holds_entails in HPQ; last by eauto.
     eapply sep_holds in HPQ as (Σ2 & Σ3 & H23eq & H23disj & HΣ2 & HΣ3).
     (* Now we can instantiate the existential *)
     exists (<[ v1 := Σ2 ∪ {[ v2 := l' ]}]> $ <[ v2 := Σ3 ]> g).
     split.
-    - admit.
+    - admit. (* well formedness of graph *)
     - intros v. split.
       + intros Hv.
         destruct (decide (v = v1)); subst.
@@ -173,7 +167,8 @@ Section genericinv.
           repeat case_decide; simplify_eq.
           split; first done.
           rewrite /out_edges. rewrite lookup_insert.
-          assert (in_labels (<[v1:=Σ2 ∪ {[v2 := l']}]> (<[v2:=Σ3]> g)) v1 = in_labels g v1) as Htmp. { admit. }
+          assert (in_labels (<[v1:=Σ2 ∪ {[v2 := l']}]> (<[v2:=Σ3]> g)) v1 = in_labels g v1) as Htmp.
+          { admit. } (* lemma about in_labels *)
           rewrite Htmp. clear Htmp.
           rewrite sep_holds. eexists _,_.
           split; first done.
@@ -193,7 +188,8 @@ Section genericinv.
           split; first done.
           rewrite /out_edges. rewrite !lookup_insert_spec.
           repeat case_decide; simplify_eq.
-          assert (in_labels (<[v1:=Σ2 ∪ {[v2 := l']}]> (<[v2:=Σ3]> g)) v2 = l' :: ls) as Htmp. { admit. }
+          assert (in_labels (<[v1:=Σ2 ∪ {[v2 := l']}]> (<[v2:=Σ3]> g)) v2 = l' :: ls) as Htmp.
+          { admit. } (* lemma about in_labels *)
           rewrite Htmp. clear Htmp. done.
         }
         {
@@ -204,7 +200,8 @@ Section genericinv.
           split; eauto.
           rewrite /out_edges. rewrite !lookup_insert_spec.
           repeat case_decide; simplify_eq.
-          assert (in_labels (<[v1:=Σ2 ∪ {[v2 := l']}]> (<[v2:=Σ3]> g)) v = in_labels g v) as ->. { admit. }
+          assert (in_labels (<[v1:=Σ2 ∪ {[v2 := l']}]> (<[v2:=Σ3]> g)) v = in_labels g v) as ->.
+          { admit. } (* lemma about in_labels *)
           done.
         }
       + intros Hv.
@@ -237,30 +234,23 @@ Section genericinv.
       repeat case_decide; subst; rewrite ?H0; eauto using local_impl_refl.
   Admitted.
 
+  (* Special case of the previous lemma where we only change the label and don't exchange resources. *)
+  Lemma inv_relabel f (P P' Q Q' P1 : list L -> hProp V L) v1 v2 l l' :
+    f !! v1 = Some P ->
+    f !! v2 = Some Q ->
+    (∀ i, P i ⊢ P1 i ∗ own1 v2 l) ->
+    (∀ i, Q (l :: i) ⊢ Q' (l' :: i)) ->
+    (∀ i, P1 i ∗ own1 v2 l' ⊢ P' i) ->
+    inv f ->
+    inv (<[ v1 := P' ]> $ <[ v2 := Q' ]> f).
+  Proof.
+    intros.
+    eapply inv_exchange'; eauto.
+    intros. iIntros "[A B]". iFrame.
+    by iApply H3.
+  Qed.
 
-(*
-  Lemma inv_update f v1 v2 :
-    inv' (<[ v1 := λ i, P i ∗ own v2 l ]> f) ->
-    inv' (<[ v1 := λ i, P i ∗ own v2 l' ]> f)
 
-
-
-  inv g (λ v' ins, f v' ins ∗ if decide (v1 = v') W else emp) h ->
-  inv g' (λ v' ins, f v' ins ∗ if decide (v2 = v') W else emp) h. *)
-
-  (* Lemma inv_move g f (h : V -> Prop) v1 v2 (W : hProp V L) :
-    conn g v1 v2 ->
-    inv g (λ v' ins, f v' ins ∗ if decide (v1 = v') W else emp) h ->
-    inv g' (λ v' ins, f v' ins ∗ if decide (v2 = v') W else emp) h.
- *)
-    (* We need to be able to express connectivity relationships here. *)
-    (* But we need that anyway for progress. *)
-    (* Think about how to handle that. *)
-
-    (* v ↦ P ∗ V
-    w ↦ Q
-
-    v ↦ P
-    w ↦ Q ∗ V *)
+  (* Need lemma that allocates a vertex *)
 
 End genericinv.
