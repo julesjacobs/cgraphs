@@ -258,6 +258,25 @@ Section genericinv.
     inv f ->
     inv (<[ v1 := P' ]> $ <[ v2 := Q ]> f).
   Proof.
+    intros Hv1 Hv2 HP HQ Hinv.
+    destruct Hinv as (g & Hg & Hinv).
+    exists (insert_edge (insert_vertex g v2) v1 v2 l).
+    split.
+    - assert (v2 ∉ vertices g).
+      {
+        intro.
+        specialize (Hinv v2) as [(QQ & HQQ & HQQ') ?]; eauto.
+        rewrite Hv2 in HQQ.
+        simplify_eq.
+      }
+      admit. (* well formedness of graph *)
+    - intros v. split.
+      + intros Hv. admit.
+      + intros Hv. rewrite !lookup_insert_spec.
+        repeat case_decide; subst.
+        * set_solver.
+        * exfalso. admit. (* lemma about insert_vertex *)
+        * set_solver.
   Admitted.
 
   Lemma inv_alloc2 (f : gmap V (list L -> hProp V L)) (P P' Q : list L -> hProp V L) (v1 v2 : V) (l : L) :
@@ -268,6 +287,25 @@ Section genericinv.
     inv f ->
     inv (<[ v1 := P' ]> $ <[ v2 := Q ]> f).
   Proof.
+    intros Hv1 Hv2 HP HQ Hinv.
+    destruct Hinv as (g & Hg & Hinv).
+    exists (insert_edge (insert_vertex g v2) v2 v1 l).
+    split.
+    - assert (v2 ∉ vertices g).
+      {
+        intro.
+        specialize (Hinv v2) as [(QQ & HQQ & HQQ') ?]; eauto.
+        rewrite Hv2 in HQQ.
+        simplify_eq.
+      }
+      admit. (* well formedness of graph *)
+    - intros v. split.
+      + intros Hv. admit.
+      + intros Hv. rewrite !lookup_insert_spec.
+        repeat case_decide; subst.
+        * set_solver.
+        * exfalso. admit. (* lemma about insert_vertex *)
+        * set_solver.
   Admitted.
 
   Lemma inv_alloc12 (f : gmap V (list L -> hProp V L)) (P P' Q R : list L -> hProp V L) (v1 v2 v3 : V) (l l' : L) :
