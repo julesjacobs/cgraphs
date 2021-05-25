@@ -115,6 +115,18 @@ Section genericinv.
           rewrite lookup_delete_ne; eauto.
           set_solver.
   Admitted.
+
+    Lemma inv_exchange f (P P' Q Q' P1 P1' : list L -> hProp V L) v1 v2 l l' :
+      f !! v1 = Some P ->
+      f !! v2 = Some Q ->
+      (∀ i, P i ⊢ P1 i ∗ own1 v2 l) ->
+      (∀ i1 i2, P1 i1 ∗ Q (l :: i2) ⊢ P1' i1 ∗ Q' (l' :: i2)) ->
+      (∀ i, P1' i ∗ own1 v2 l' ⊢ P' i) ->
+      inv f ->
+      inv (<[ v1 := P' ]> $ <[ v2 := Q' ]> f).
+    Proof. Admitted.
+
+      
 (*
   Lemma inv_update f v1 v2 :
     inv' (<[ v1 := λ i, P i ∗ own v2 l ]> f) ->

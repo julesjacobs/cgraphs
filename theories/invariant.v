@@ -61,6 +61,11 @@ Lemma state_inv_lookup_chan es h i :
   state_inv es h !! (Chan i) = chans_inv h !! (Chan i).
 Proof. Admitted.
 
+Lemma state_inv_insert_thread es h i e :
+  state_inv (<[ i := e ]> es) h = <[ Thread i := thread_inv e ]> (state_inv es h).
+Proof. Admitted.
+
+
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
   invariant threads chans ->
@@ -93,6 +98,7 @@ Proof.
       admit.
     + admit.
   - (* Send *)
+    rewrite state_inv_insert_thread.
     admit.
   - (* Receive *)
     admit.
