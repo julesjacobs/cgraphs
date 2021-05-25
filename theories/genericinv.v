@@ -74,7 +74,7 @@ Section genericinv.
         rewrite lookup_singleton_ne //.
   Admitted.
 
-  Lemma inv_delete_vertex f (v : V) :
+  Lemma inv_dealloc f (v : V) :
     (∀ Q i, f !! v = Some Q -> Q i ⊢ ⌜⌜ i = [] ⌝⌝) ->
     inv f ->
     inv (delete v f).
@@ -309,6 +309,17 @@ Section genericinv.
     repeat case_decide; simplify_eq; eauto using local_impl_refl.
   Qed.
 
-  Lemma inv_alloc12_move : True. Admitted.
+  Lemma inv_alloc12_move (f : gmap V (list L -> hProp V L)) (P P' Q R : list L -> hProp V L) (v1 v2 v3 : V) (l l' : L) :
+    f !! v1 = Some P ->
+    f !! v2 = None ->
+    f !! v3 = None ->
+    v2 ≠ v3 ->
+    (∀ i, P i ∗ own1 v2 l ⊢ P' i ∗ S) ->
+    (emp ⊢ Q [l';l]) ->
+    (own1 v2 l' ⊢ R []) ->
+    inv f ->
+    inv (<[ v1 := P' ]> $ <[ v2 := Q ]> $ <[ v3 := R ]> f).
+  Proof.
+  Qed.
 
 End genericinv.
