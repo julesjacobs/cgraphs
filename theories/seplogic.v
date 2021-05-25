@@ -190,3 +190,4 @@ End seplogic.
 
 Notation hProp V L := (hProp_internal (V:=V) (L:=L)).
 Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
+Bind Scope bi_scope with hProp.

@@ -22,7 +22,7 @@ Qed.
 
 Definition clabel : Type := bool * chan_type.
 
-Definition rProp := (hProp object clabel).
+Notation rProp := (hProp object clabel).
 
 Definition own_ep (c : endpoint) (σ : chan_type) : rProp :=
   let '(chan,b) := c in
@@ -69,7 +69,7 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
       rtyped Γ e (FunT (ChanT (dual r)) UnitT)
   | Close e =>
       ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped Γ e (ChanT EndT)
-  end%I
+  end
 with val_typed (v : val) (t : type) : hProp object clabel :=
   match v with
   | UnitV => ⌜⌜ t = UnitT ⌝⌝
@@ -77,7 +77,7 @@ with val_typed (v : val) (t : type) : hProp object clabel :=
   | PairV a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
   | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
   | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own_ep c r
-  end%I.
+  end.
 
 Lemma typed_rtyped Γ e t : ⌜⌜ typed Γ e t ⌝⌝ -∗ rtyped Γ e t.
 Proof.

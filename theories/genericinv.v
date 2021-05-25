@@ -13,47 +13,61 @@ Section genericinv.
 
   Definition inv (f : gmap V (list L -> hProp V L)) : Prop :=
     ∃ g : cgraph V L ,cgraph_wf g ∧ ∀ v : V,
-      (v ∈ vertices g -> ∃ Q, f !! v = Some Q -> holds (Q (in_labels g v)) (out_edges g v)) ∧
+      (v ∈ vertices g -> ∃ Q, f !! v = Some Q ∧ holds (Q (in_labels g v)) (out_edges g v)) ∧
       (v ∉ vertices g -> f !! v = None).
-(*
-  Lemma inv_impl g f f' (h h' : V -> Prop) :
-    (∀ v ins, f v ins ⊢ f' v ins) ->
-    (∀ v, h v -> h' v) ->
-    inv g f h -> inv g f' h'.
+
+  Definition local_impl (q q' : option (list L -> hProp V L)) : Prop :=
+    match q,q' with
+    | None,None => True
+    | Some P,Some P' => ∀ ins, P ins ⊢ P' ins
+    | _,_ => False
+    end.
+
+  Lemma inv_impl f f' :
+    (∀ v, local_impl (f !! v) (f' !! v)) ->
+    inv f -> inv f'.
   Proof.
-    intros Hf Hh (Hg & HH).
-    split; first done.
-    intros v. split; last naive_solver.
-    intros Hv.
-    specialize (HH v) as [HH ?].
-    eauto using holds_entails.
+    intros Himpl (g & Hg & HH).
+    exists g. split; first done.
+    intros v. specialize (HH v) as [H1 H2]. specialize (Himpl v).
+    split.
+    - intros Hv. destruct H1 as (Q & HQ1 & HQ2); first done.
+      rewrite HQ1 in Himpl. simpl in *.
+      destruct (f' !! v); try done.
+      eexists. split; first done.
+      eapply holds_entails; eauto.
+    - intros Hv. rewrite H2 in Himpl; try done.
+      simpl in *. destruct (f' !! v); done.
   Qed.
 
 
-  Lemma inv_init f (h : V -> Prop) :
-    (∀ v, h v) -> inv ∅ f h.
+  Lemma inv_init :
+    inv ∅.
   Proof.
-    intros HH.
+    exists ∅.
     split.
     - apply empty_wf.
     - set_solver.
   Qed.
 
-  Lemma inv_singleton f (h : V -> Prop) (v : V) :
-    holds (f v []) ∅ ->
-    (∀ v', v' ≠ v -> h v') ->
-    inv {[ v := ∅ ]} f h.
+  Lemma inv_singleton v (P : list L -> hProp V L) :
+    holds (P []) ∅ ->
+    inv {[ v := P ]}.
   Proof.
     intros HH.
-    split.
+    exists {[ v := ∅ ]}. split.
     - admit.
     - intros v'. split.
       + intros Hv. rewrite /vertices in Hv.
         assert (v' = v) by set_solver. subst.
+        exists P. rewrite lookup_singleton.
+        split; first done.
         assert (in_labels ({[v := ∅]} : gmap V (gmap V L)) v = []) as HH1 by admit.
         rewrite /out_edges. rewrite lookup_singleton. rewrite HH1. eauto.
-      + rewrite /vertices. set_solver.
-  Admitted. *)
+      + rewrite /vertices. intros.
+        assert (v' ≠ v); first set_solver.
+        rewrite lookup_singleton_ne //.
+  Admitted.
 
   Lemma inv_move f v1 v2 l W P Q :
     inv (<[ v1 := λ i, (P i ∗ own1 v2 l ∗ W)%I ]> $ <[ v2 := λ i, Q i ]> f) ->
