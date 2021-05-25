@@ -147,7 +147,7 @@ Section genericinv.
     apply own1_holds in HΣ2. subst.
     assert (l ∈ in_labels g v2) as Htmp. { admit. } (* lemma about in_labels *)
     eapply elem_of_Permutation in Htmp as [ls Hls].
-    assert (holds (Q (l :: ls)) (out_edges g v2)) as HQ2''. { admit. } (* Need proper for Q under permutations *)
+    assert (holds (Q (l :: ls)) (out_edges g v2)) as HQ2''. { admit. } (* Need Proper for Q under permutations *)
     assert ({[ v2 := l ]} ##ₘ out_edges g v2) as Hdisj. { admit. } (* disjointness of connected vertices *)
     assert (Σ1 ##ₘ out_edges g v2) as Htmp. { admit. } (* disjointness of connected vertices *)
     pose proof (sep_combine _ _ _ _ HΣ1 HQ2'' Htmp) as HPQ. clear Htmp.
@@ -250,6 +250,40 @@ Section genericinv.
   Qed.
 
 
-  (* Need lemma that allocates a vertex *)
+  Lemma inv_alloc1 (f : gmap V (list L -> hProp V L)) (P P' Q : list L -> hProp V L) (v1 v2 : V) (l : L) :
+    f !! v1 = Some P ->
+    f !! v2 = None ->
+    (∀ i, P i ∗ own1 v2 l ⊢ P' i) ->
+    (emp ⊢ Q [l]) ->
+    inv f ->
+    inv (<[ v1 := P' ]> $ <[ v2 := Q ]> f).
+  Proof.
+  Admitted.
+
+  Lemma inv_alloc2 (f : gmap V (list L -> hProp V L)) (P P' Q : list L -> hProp V L) (v1 v2 : V) (l : L) :
+    f !! v1 = Some P ->
+    f !! v2 = None ->
+    (∀ i, P i ⊢ P' (l :: i)) ->
+    (own1 v1 l ⊢ Q []) ->
+    inv f ->
+    inv (<[ v1 := P' ]> $ <[ v2 := Q ]> f).
+  Proof.
+  Admitted.
+
+  Lemma inv_alloc12 (f : gmap V (list L -> hProp V L)) (P P' Q R : list L -> hProp V L) (v1 v2 v3 : V) (l l' : L) :
+    f !! v1 = Some P ->
+    f !! v2 = None ->
+    f !! v3 = None ->
+    v2 ≠ v3 ->
+    (∀ i, P i ∗ own1 v2 l ⊢ P' i) ->
+    (emp ⊢ Q [l;l']) ->
+    (own1 v2 l ⊢ R []) ->
+    inv f ->
+    inv (<[ v1 := P' ]> $ <[ v2 := Q ]> $ <[ v3 := R ]> f).
+  Proof.
+    intros.
+  Admitted.
+
+  Lemma inv_alloc12_move : True. Admitted.
 
 End genericinv.
