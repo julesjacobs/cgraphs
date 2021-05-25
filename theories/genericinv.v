@@ -12,7 +12,7 @@ Section genericinv.
       (v ∉ vertices g -> h v). *)
 
   Definition inv (f : gmap V (list L -> hProp V L)) : Prop :=
-    ∃ g : cgraph V L ,cgraph_wf g ∧ ∀ v : V,
+    ∃ g : cgraph V L, cgraph_wf g ∧ ∀ v : V,
       (v ∈ vertices g -> ∃ Q, f !! v = Some Q ∧ holds (Q (in_labels g v)) (out_edges g v)) ∧
       (v ∉ vertices g -> f !! v = None).
 
@@ -75,7 +75,15 @@ Section genericinv.
   Proof. Admitted.
 
   Lemma inv_delete f v :
-    f !! v = Some (λ i, ⌜ i = [] ⌝%I) ->
+    f !! v = Some (λ i, ⌜⌜ i = [] ⌝⌝%I) ->
+    inv f ->
+    inv (delete v f).
+  Proof.
+  Admitted.
+
+  Lemma inv_delete f v :
+    (∀ i, Q i ⊢ ⌜⌜ i = [] ⌝⌝) ->
+    f !! v = Some Q ->
     inv f ->
     inv (delete v f).
   Proof.
