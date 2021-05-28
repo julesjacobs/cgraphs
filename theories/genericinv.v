@@ -11,49 +11,45 @@ Section genericinv.
       (v ∈ vertices g -> holds (f v (in_labels g v)) (out_edges g v)) ∧
       (v ∉ vertices g -> h v). *)
 
-  Definition inv (f : gmap V (list L -> hProp V L)) : Prop :=
+      (* own_in l
+      own_out v l
+
+      hProp V L := list L -> gmap V L -> Prop
+      f : V -> (list L -> gmap V L -> Prop)
+      f (Thread i) inlabels :=
+        match es !! i with
+        | Some e => ⌜⌜ inlabels = [] ⌝⌝ ∗ rtyped0 e UnitT
+        | None => ⌜⌜ inlabels = [] ⌝⌝
+        end
+      f (Chan i) inlabels :=
+        match h !! (i,true), h !! (i,false) with
+        | Some b1, Some b2 => ??
+        | Some b1, None | None, Some b1 => ??
+        | None, None => ⌜⌜ inlabels = [] ⌝⌝
+        end. *)
+
+  Definition inv (f : V -> hProp V L) : Prop :=
     ∃ g : cgraph V L, cgraph_wf g ∧ ∀ v : V,
-      (v ∈ vertices g -> ∃ Q, f !! v = Some Q ∧ holds (Q (in_labels g v)) (out_edges g v)) ∧
-      (v ∉ vertices g -> f !! v = None).
-
-  Definition local_impl (q q' : option (list L -> hProp V L)) : Prop :=
-    match q,q' with
-    | None,None => True
-    | Some P,Some P' => ∀ ins, P ins ⊢ P' ins
-    | _,_ => False
-    end.
-
-  Lemma local_impl_refl X :
-    local_impl X X.
-  Proof.
-    destruct X; simpl; eauto.
-  Qed.
+      holds (f v) (out_edges g v) (in_labels g v).
 
   Lemma inv_impl f f' :
-    (∀ v, local_impl (f !! v) (f' !! v)) ->
+    (∀ v, f v ⊢ f' v) ->
     inv f -> inv f'.
   Proof.
     intros Himpl (g & Hg & HH).
     exists g. split; first done.
-    intros v. specialize (HH v) as [H1 H2]. specialize (Himpl v).
-    split.
-    - intros Hv. destruct H1 as (Q & HQ1 & HQ2); first done.
-      rewrite HQ1 in Himpl. simpl in *.
-      destruct (f' !! v); try done.
-      eexists. split; first done.
-      eapply holds_entails; eauto.
-    - intros Hv. rewrite H2 in Himpl; try done.
-      simpl in *. destruct (f' !! v); done.
+    intros v. specialize (HH v). specialize (Himpl v).
+    eapply holds_entails; eauto.
   Qed.
 
   Lemma inv_init :
-    inv ∅.
+    inv (λ v, emp%I).
   Proof.
     exists ∅.
     split.
     - apply empty_wf.
-    - set_solver.
-  Qed.
+    - intros v. rewrite emp_holds. admit.
+  Admitted.
 
   Lemma inv_singleton v (P : list L -> hProp V L) :
     holds (P []) ∅ ->
@@ -300,7 +296,11 @@ Section genericinv.
       }
       admit. (* well formedness of graph *)
     - intros v. split.
-      + intros Hv. admit.
+      + intros Hv. setoid_rewrite lookup_insert_spec.
+        case_decide; subst;[|setoid_rewrite lookup_insert_spec]; repeat case_decide; subst; eexists.
+        * split; first done. admit.
+        * split; first done. admit.
+        * admit.
       + intros Hv. rewrite !lookup_insert_spec.
         repeat case_decide; subst.
         * set_solver.
@@ -347,7 +347,7 @@ Section genericinv.
     repeat case_decide; simplify_eq; eauto using local_impl_refl.
   Qed.
 
-  Lemma inv_alloc12_move (f : gmap V (list L -> hProp V L)) (P P' Q R : list L -> hProp V L) (v1 v2 v3 : V) (l l' : L) :
+  (* Lemma inv_alloc12_move (f : gmap V (list L -> hProp V L)) (P P' Q R : list L -> hProp V L) (v1 v2 v3 : V) (l l' : L) :
     f !! v1 = Some P ->
     f !! v2 = None ->
     f !! v3 = None ->
@@ -358,6 +358,6 @@ Section genericinv.
     inv f ->
     inv (<[ v1 := P' ]> $ <[ v2 := Q ]> $ <[ v3 := R ]> f).
   Proof.
-  Qed.
+  Qed. *)
 
 End genericinv.

@@ -26,7 +26,7 @@ Notation rProp := (hProp object clabel).
 
 Definition own_ep (c : endpoint) (σ : chan_type) : rProp :=
   let '(chan,b) := c in
-    own1 (Chan chan) (b,σ).
+    own_out (Chan chan) (b,σ).
 
 Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
  match e with

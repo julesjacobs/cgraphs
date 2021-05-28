@@ -5,10 +5,25 @@ Require Export diris.rtypesystem.
 Require Export diris.langlemmas.
 Require Export diris.genericinv.
 
+Definition state_inv (es : list expr) (h : heap) (x : object) : hProp :=
+  match x with
+  | Thread n =>
+    match es !! n with
+    | Some e => rtyped0 e UnitT
+    | None => emp
+    end
+  | Chan n =>
+    maybe_own_σ_in (h !! (n,true)) true
+    match h !! (n,true), h !! (n,false) with
+    | Some b1, Some b2 => ∃ σ1 σ2, own_in σ1 ∗ own_in σ2 ∗ bufs_typed ???
+    | Some b1, None => ???
+    | None, Some b2 => ???
+    | None, None => emp
+    end
+  end.
 
 Definition thread_inv (e : expr) (inlabels : list clabel) : hProp object clabel :=
     ⌜⌜ inlabels = [] ⌝⌝ ∗ rtyped0 e UnitT.
-
 
 Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : rProp :=
   match buf, ct with
@@ -45,8 +60,11 @@ Definition chan_inv (b1 b2 : option (list val)) (inlabels : list clabel) : rProp
 Definition chans_inv (g : conngraph) (h : heap) :=
   ∀ i, chan_inv (h !! (i,true)) (h !! (i,false)) (in_labels g (Chan i)) (out_edges g (Chan i)). *)
 
-Definition threads_inv (es : list expr) : gmap object (list clabel -> rProp). Admitted.
+Definition threads_inv (es : list expr) : gmap object (list clabel -> rProp) :=
+  map_kmap Thread (map_seq 0 (thread_inv <$> es)).
+
 Definition chans_inv (h : heap) : gmap object (list clabel -> rProp). Admitted.
+
 Definition state_inv (es : list expr) (h : heap) : gmap object (list clabel -> rProp) :=
   threads_inv es ∪ chans_inv h.
 

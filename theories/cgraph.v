@@ -2,9 +2,7 @@ From iris.proofmode Require Import tactics.
 Require Export diris.uforests.
 From diris Require Export util.
 From stdpp Require Export gmap.
-From stdpp Require Export gmultiset.
-
-Search map_to_list insert.
+Require Export diris.multiset.
 
 Definition map_fold `{FinMapToList K A M} {B}
   (f : K → A → B → B) (b : B) : M → B := foldr (curry f) b ∘ map_to_list.
@@ -34,10 +32,9 @@ Section cgraph.
   Definition ms_insert (v v' : V) (ev' : gmap V L) (ins : list L) : list L :=
     match ev' !! v with | Some l => l :: ins | None => ins end.
 
-  Definition in_labels (g : cgraph V L) (v : V) : list L :=
-    ev' ← map_to_list g ; option_list (ev'.2 !! v).
+  Definition in_labels (g : cgraph V L) (v : V) : multiset L. Admitted.
+    (* ev' ← map_to_list g ; option_list (ev'.2 !! v). *)
 
-  About bind_Permutation.
     (* map_fold (ms_insert v) [] g. *)
 
   Definition insert_vertex (g : cgraph V L) (v : V) := <[ v := ∅ ]> g.
@@ -236,18 +233,18 @@ Section cgraph.
     apply gmap_curry_mono. done.
   Qed.
 
-  Lemma in_labels_empty g v :
-    in_labels g v = [] -> ∀ v' e, g !! v' = Some e -> e !! v = None.
+  (* Lemma in_labels_empty g v :
+    in_labels g v ≡ ε -> ∀ v' e, g !! v' = Some e -> e !! v = None.
   Proof.
     intros H1 v' e Hv'.
-  Admitted.
+  Admitted. *)
     (* erewrite mb_insert_fold in H1; try done.
     unfold mb_insert in *.
     destruct (e !! v); try done.
     by apply insert_non_empty in H1.
   Qed. *)
 
-  Lemma delete_vertex_wf g v :
+  (* Lemma delete_vertex_wf g v :
     in_labels g v = [] -> cgraph_wf g -> cgraph_wf (delete_vertex g v).
   Proof.
     intros Hin [].
@@ -264,7 +261,7 @@ Section cgraph.
     - eapply is_uforest_mono. 2: eauto. 2: apply make_undirected_undirected.
       apply to_uforest_mono. unfold delete_vertex.
       apply delete_subseteq.
-  Qed.
+  Qed. *)
 
   Lemma insert_edge_wf g v1 v2 l :
     ¬ uconn g v1 v2 -> v2 ∈ vertices g ->

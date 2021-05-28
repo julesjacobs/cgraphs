@@ -1,5 +1,89 @@
 From stdpp Require Import gmap.
-From iris.bi Require Import bi.
+
+Definition map_kmap `{∀ A, Insert K2 A (M2 A), ∀ A, Empty (M2 A),
+    ∀ A, FinMapToList K1 A (M1 A)} {A} (f : K1 → K2) (m : M1 A) : M2 A :=
+  list_to_map (fmap (prod_map f id) (map_to_list m)).
+
+Section map_kmap.
+  Context `{FinMap K1 M1} `{FinMap K2 M2}.
+  Context (f : K1 → K2) `{!Inj (=) (=) f}.
+  Local Notation map_kmap := (map_kmap (M1:=M1) (M2:=M2)).
+
+  Lemma lookup_map_kmap_Some {A} (m : M1 A) (j : K2) x :
+    map_kmap f m !! j = Some x ↔ ∃ i, j = f i ∧ m !! i = Some x.
+  Proof.
+    assert (∀ x',
+      (j, x) ∈ prod_map f id <$> map_to_list m →
+      (j, x') ∈ prod_map f id <$> map_to_list m → x = x').
+    { intros x'. rewrite !elem_of_list_fmap.
+      intros [[? y1] [??]] [[? y2] [??]]; simplify_eq/=.
+      by apply (map_to_list_unique m k). }
+    unfold map_kmap. rewrite <-elem_of_list_to_map', elem_of_list_fmap by done.
+    setoid_rewrite elem_of_map_to_list'. split.
+    - intros [[??] [??]]; naive_solver.
+    - intros [? [??]]. eexists (_, _); naive_solver.
+  Qed.
+  Lemma lookup_map_kmap_is_Some {A} (m : M1 A) (j : K2) :
+    is_Some (map_kmap f m !! j) ↔ ∃ i, j = f i ∧ is_Some (m !! i).
+  Proof. unfold is_Some. setoid_rewrite lookup_map_kmap_Some. naive_solver. Qed.
+  Lemma lookup_map_kmap_None {A} (m : M1 A) (j : K2) :
+    map_kmap f m !! j = None ↔ ∀ i, j = f i → m !! i = None.
+  Proof.
+    setoid_rewrite eq_None_not_Some.
+    rewrite lookup_map_kmap_is_Some. naive_solver.
+  Qed.
+  Lemma lookup_map_kmap {A} (m : M1 A) (i : K1) :
+    map_kmap f m !! f i = m !! i.
+  Proof. apply option_eq. setoid_rewrite lookup_map_kmap_Some. naive_solver. Qed.
+  Lemma lookup_total_map_kmap `{Inhabited A} (m : M1 A) (i : K1) :
+    map_kmap f m !!! f i = m !!! i.
+  Proof. by rewrite !lookup_total_alt, lookup_map_kmap. Qed.
+
+  Lemma map_kmap_empty {A} : map_kmap f ∅ =@{M2 A} ∅.
+  Proof. unfold map_kmap. by rewrite map_to_list_empty. Qed.
+  Lemma map_kmap_singleton {A} i (x : A) : map_kmap f {[ i := x ]} = {[ f i := x ]}.
+  Proof. unfold map_kmap. by rewrite map_to_list_singleton. Qed.
+
+  Lemma map_kmap_partial_alter {A} (g : option A → option A) (m : M1 A) i :
+    map_kmap f (partial_alter g i m) = partial_alter g (f i) (map_kmap f m).
+  Proof.
+    apply map_eq; intros j. apply option_eq; intros y.
+    destruct (decide (j = f i)) as [->|?].
+    { by rewrite lookup_partial_alter, !lookup_map_kmap, lookup_partial_alter. }
+    rewrite lookup_partial_alter_ne, !lookup_map_kmap_Some by done. split.
+    - intros [i' [? Hm]]; simplify_eq/=.
+      rewrite lookup_partial_alter_ne in Hm by naive_solver. naive_solver.
+    - intros [i' [? Hm]]; simplify_eq/=. exists i'.
+      rewrite lookup_partial_alter_ne by naive_solver. naive_solver.
+  Qed.
+  Lemma map_kmap_insert {A} (m : M1 A) i x :
+    map_kmap f (<[i:=x]> m) = <[f i:=x]> (map_kmap f m).
+  Proof. apply map_kmap_partial_alter. Qed.
+  Lemma map_kmap_delete {A} (m : M1 A) i :
+    map_kmap f (delete i m) = delete (f i) (map_kmap f m).
+  Proof. apply map_kmap_partial_alter. Qed.
+  Lemma map_kmap_alter {A} (g : A → A) (m : M1 A) i :
+    map_kmap f (alter g i m) = alter g (f i) (map_kmap f m).
+  Proof. apply map_kmap_partial_alter. Qed.
+
+  Lemma map_kmap_imap {A B} (g : K2 → A → option B) (m : M1 A) :
+    map_kmap f (map_imap (g ∘ f) m) = map_imap g (map_kmap f m).
+  Proof.
+    apply map_eq; intros j. apply option_eq; intros y.
+    rewrite map_lookup_imap, bind_Some. setoid_rewrite lookup_map_kmap_Some.
+    setoid_rewrite map_lookup_imap. setoid_rewrite bind_Some. naive_solver.
+  Qed.
+  Lemma map_kmap_omap {A B} (g : A → option B) (m : M1 A) :
+    map_kmap f (omap g m) = omap g (map_kmap f m).
+  Proof.
+    apply map_eq; intros j. apply option_eq; intros y.
+    rewrite lookup_omap, bind_Some. setoid_rewrite lookup_map_kmap_Some.
+    setoid_rewrite lookup_omap. setoid_rewrite bind_Some. naive_solver.
+  Qed.
+  Lemma map_kmap_fmap {A B} (g : A → B) (m : M1 A) :
+    map_kmap f (g <$> m) = g <$> (map_kmap f m).
+  Proof. by rewrite !map_fmap_alt, map_kmap_omap. Qed.
+End map_kmap.
 
 Lemma lookup_insert_spec `{Countable K} {V} (A : gmap K V) i j v :
   (<[ i := v]> A) !! j = if (decide (i = j)) then Some v else (A !! j).
@@ -16,6 +100,8 @@ Proof.
   - apply lookup_delete_None; eauto.
   - rewrite lookup_delete_ne; eauto.
 Qed.
+
+From iris.bi Require Import bi.
 
 Lemma insert_subseteq_None `{Countable K} {V} (m m' : gmap K V) i v :
   m !! i = None ->
@@ -89,8 +175,8 @@ Qed.
 
 Lemma dec_forall_list {A} (P : A → Prop) (xs : list A) :
   (∀ x, P x ∨ x ∈ xs) → (∀ x, x ∈ xs → Decision (P x)) → Decision (∀ x, P x).
-Proof.
   intros HPxs Hdec.
+  Proof.
   induction xs as [|x xs IHxs]. { left. set_solver. }
   assert (Decision (P x)) as [] by (apply Hdec; set_solver);
     [|right;naive_solver].

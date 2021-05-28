@@ -6,7 +6,71 @@ Require Export diris.langdef.
 Require Export diris.logic.bi.
 Require Export diris.util.
 Require Export diris.mapexcl.
+Require Export diris.multiset.
 
+(*
+P Q : hProp V L
+Σ Σ1 Σ2 : gmap V L
+ls ls1 ls2 : list L
+φ : Prop
+l : L
+v : V
+
+ls1 ≡ₚ ls2 → (⊢ P) (Σ,ls1) → (⊢ P) (Σ,ls2)
+(⊢ own (Σ1,ls1)) (Σ1,ls2) ↔ Σ1 = Σ2 ∧ ls1 ≡ₚ ls2
+(⊢ P ∗ Q) (Σ,ls) ↔ ∃ Σ1 Σ2 ls1 ls2, Σ = Σ1 ∪ Σ2 ∧ Σ1 ##ₘ Σ2 ∧ ls ≡ₚ ls1 ++ ls2 ∧ (⊢ P) (Σ1,ls1) ∧ (⊢ Q) (Σ2,ls2)
+(⊢ P ∧ Q) (Σ,ls) ↔ (⊢ P) (Σ,ls) ∧ (⊢ Q) (Σ,ls)
+(⊢ ⌜ φ ⌝) (Σ,ls) ↔ φ
+(⊢ ⌜⌜ φ ⌝⌝) (Σ,ls) ↔ φ ∧ Σ = ∅ ∧ ls = []
+own (Σ1,ls1) ∗ own (Σ2,ls2) ⊣⊢ ⌜⌜ Σ1 ##ₘ Σ2 ⌝⌝ ∗ own (Σ1 ∪ Σ2) (ls1 ++ ls2)
+ls1 ≡ₚ ls2 → own (Σ,ls1) ⊢ own (Σ,ls2)
+
+
+derived lemmas:
+
+(⊢ ⌜⌜ φ ⌝⌝ ∗ P) (Σ,ls) ↔ φ ∧ (⊢ P) (Σ,ls)
+Σ1 ##ₘ Σ2 → (⊢ P) (Σ1,ls1) → (⊢ Q) (Σ2,ls2) → (⊢ P ∗ Q) (Σ1 ∪ Σ2) (ls1 ++ ls2)
+
+derived definitions:
+
+own_ins ls := own (∅,ls)
+own_outs ∅ := own (Σ,[])
+own_in l := own_ins [l]
+own_outs v l := own_outs {[ v := l ]}
+
+adequacy lemma:
+
+(⊢ ∃ Σ ls, own (Σ,ls) ∗ ⌜⌜ φ v (Σ,ls) ⌝⌝) (Σ',ls') → φ (Σ',ls')
+P ⊢ ⊢ ∃ Σ ls, ⌜⌜ φ v (Σ,ls) ⌝⌝
+
+(∀ v, f v ⊢ ⊢ ∃ Σ ls, ⌜⌜ φ v (Σ,ls) ⌝⌝ ∗ own (Σ,ls)) → inv f →
+∃ g, cgraph_wf g ∧ ∀ v, φ v (in_labels g v) (out_edges g v)
+
+Verder was ik aan het nadenken over progress. High level gaat het argument als volgt:
+We willen laten zien dat één van de volgende twee altijd geldt:
+1. Alle threads zijn unit en de heap is leeg.
+2. Er is een thread die kan stappen.
+Omdat (1) decidable is kunnen we bewijzen (not (1) => (2)).
+We nemen dus aan dat er een thread is die niet unit is, of een buffer in de heap.
+We gaan vervolgens stapjes zetten in de connectivity graph, beginnend bij de thread of channel die er is.
+Er zijn de volgende mogelijkheden:
+1. We zitten bij een thread.
+  a. De thread is aan het receiven op een channel met een lege buffer.
+  b. De thread is niet aan het receiven op een channel met een lege buffer.
+2. We zitten bij een channel.
+  a. Beide buffers zijn leeg / er bestaat nog maar 1 buffer en die is leeg.
+  b. Er is een buffer die niet leeg is
+
+Bij 1a stappen we naar het desbetreffende channel.
+Bij 1b weten we uit de invariant dat de thread getypeerd is, en dan uit local progress dat die thread een stapje kan zetten.
+Bij 2a weten we uit de invariant dat de session types duaal zijn, en stappen we naar degene die niet een receive is (dus een send of end, dat kan ivm dualiteit).
+Bij 2b stappen we naar de vertex die het endpoint heeft van de buffer die niet leeg is (die bestaat omdat we ivm de invariant weten dat het channel dan een inkomende edge heeft van die buffer).
+
+Als we kunnen bewijzen dat dit proces niet direct terug stapt waar het vandaan kwam dan geeft een uforest lemma dat het proces termineert (dus bij case 1b).
+Als we tussen twee channels heen en weer stappen dan hebben ze beide een edge naar elkaar, en dat kan niet ivm cycles.
+Tussen twee threads heen en weer stappen kan ook niet, want een thread stapt altijd naar een channel.
+Tussen een thread en een channel heen en weer stappen betekent dat de thread staat te wachten op het channel omdat hij een receive wil doen maar de buffer leeg is. In dit geval zal het channel niet terug stappen naar de thread, omdat een channel altijd stapt naar een endpoint van een niet-lege buffer, of als beide buffers leeg zijn dan stapt hij naar de kant die geen receive vooraan zijn session type heeft.
+*)
 
 Section seplogic.
   Context {V : Type}.
@@ -15,18 +79,15 @@ Section seplogic.
 
   Canonical Structure LO := leibnizO L.
 
-  Notation heapT := (gmap V L).
-  Notation heapT_UR := (gmapUR V (exclR LO)).
+  Notation heapT := (gmap V L * multiset L).
+  Notation heapT_UR := (prodUR (gmapUR V (exclR LO)) (multisetUR LO)).
 
   Notation hProp' := (uPred heapT_UR).
   Definition hProp_internal := hProp'.
   Definition heapT_UR_internal := heapT_UR.
 
-  Definition own (Σ : gmap V L) : hProp' :=
-    uPred_ownM (map_Excl Σ).
-
-  Definition own1 (v : V) (l : L) : hProp' :=
-    own {[ v := l ]}.
+  Definition own (Σ : gmap V L) (ls : multiset L) : hProp' :=
+    uPred_ownM (map_Excl Σ, ls).
 
   Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 
@@ -81,79 +142,79 @@ Section seplogic.
     Proof. unfold_leibniz. apply uPred_affinely_pure_holds. Qed.
   End uPred_lemmas.
 
-  Definition holds (P : hProp') (Σ : heapT) := uPred_holds P (map_Excl Σ).
+  Definition holds (P : hProp') (Σ : gmap V L) (ls : multiset L) := uPred_holds P (map_Excl Σ, ls).
 
-  Lemma sep_holds (P Q : hProp') Σ :
-    holds (P ∗ Q) Σ <-> ∃ Σ1 Σ2, Σ = Σ1 ∪ Σ2 ∧ Σ1 ##ₘ Σ2 ∧ holds P Σ1 ∧ holds Q Σ2.
-  Proof.
-    unfold holds.
+  Lemma sep_holds (P Q : hProp') Σ ls :
+    holds (P ∗ Q) Σ ls <-> ∃ Σ1 Σ2 ls1 ls2, Σ = Σ1 ∪ Σ2 ∧ Σ1 ##ₘ Σ2 ∧ ls = ls1 ⋅ ls2 ∧ holds P Σ1 ls1 ∧ holds Q Σ2 ls2.
+  Proof. Admitted.
+    (* unfold holds.
     rewrite uPred_sep_holds_L. split.
     - intros (?&?&HH&?&?). apply map_Excl_union_inv in HH.
       destruct HH as (?&?&?&?&?&?). subst. eauto 6.
     - intros (?&?&?&?&?&?). subst. eexists _,_. split_and!; eauto.
       apply map_Excl_union. done.
-  Qed.
+  Qed. *)
 
-  Lemma sep_combine (P Q : hProp') Σ1 Σ2 :
-    holds P Σ1 -> holds Q Σ2 -> Σ1 ##ₘ Σ2 -> holds (P ∗ Q) (Σ1 ∪ Σ2).
-  Proof.
-    intros.
+  Lemma sep_combine (P Q : hProp') Σ1 Σ2 ls1 ls2 :
+    holds P Σ1 ls1 -> holds Q Σ2 ls2 -> Σ1 ##ₘ Σ2 -> holds (P ∗ Q) (Σ1 ∪ Σ2) (ls1 ⋅ ls2).
+  Proof. Admitted.
+    (* intros.
     apply sep_holds.
     eauto 6.
-  Qed.
+  Qed. *)
 
-  Lemma emp_holds Σ :
-    holds emp%I Σ <-> Σ = ∅.
-  Proof.
-    unfold holds. rewrite uPred_emp_holds_L. split.
+  Lemma emp_holds Σ ls :
+    holds emp%I Σ ls <-> Σ = ∅ ∧ ls = ε.
+  Proof. Admitted.
+    (* unfold holds. rewrite uPred_emp_holds_L. split.
     - intros HH. apply map_Excl_empty_inv in HH. done.
     - intros ->. apply map_Excl_empty.
-  Qed.
+  Qed. *)
 
-  Lemma pure_holds Σ φ:
-    holds ⌜ φ ⌝ Σ <-> φ.
-  Proof.
-    unfold holds. rewrite uPred_pure_holds. done.
-  Qed.
+  Lemma pure_holds Σ ls φ:
+    holds ⌜ φ ⌝ Σ ls <-> φ.
+  Proof. Admitted.
+    (* unfold holds. rewrite uPred_pure_holds. done.
+  Qed. *)
 
-  Lemma affinely_pure_holds Σ φ:
-    holds ⌜⌜ φ ⌝⌝ Σ <-> Σ = ∅ ∧ φ.
-  Proof.
-    unfold holds. rewrite uPred_affinely_pure_holds_L. split.
+  Lemma affinely_pure_holds Σ ls φ:
+    holds ⌜⌜ φ ⌝⌝ Σ ls <-> Σ = ∅ ∧ ls = ε ∧ φ.
+  Proof. Admitted.
+    (* unfold holds. rewrite uPred_affinely_pure_holds_L. split.
     - intros []. split; eauto. apply map_Excl_empty_inv. done.
     - intros []. subst. split; eauto. apply map_Excl_empty.
-  Qed.
+  Qed. *)
 
-  Lemma exists_holds {B} (Φ : B -> hProp') Σ :
-    holds (∃ b, Φ b)%I Σ <-> ∃ b, holds (Φ b) Σ.
-  Proof.
-    unfold holds. rewrite uPred_exists_holds. done.
-  Qed.
+  Lemma exists_holds {B} (Φ : B -> hProp') Σ ls :
+    holds (∃ b, Φ b)%I Σ ls <-> ∃ b, holds (Φ b) Σ ls.
+  Proof. Admitted.
+    (* unfold holds. rewrite uPred_exists_holds. done.
+  Qed. *)
 
-  Lemma and_holds (P Q : hProp') Σ :
-    holds (P ∧ Q) Σ <-> holds P Σ ∧ holds Q Σ.
-  Proof.
-    rewrite /holds uPred_and_holds. done.
-  Qed.
+  Lemma and_holds (P Q : hProp') Σ ls :
+    holds (P ∧ Q) Σ ls <-> holds P Σ ls ∧ holds Q Σ ls.
+  Proof. Admitted.
+    (* rewrite /holds uPred_and_holds. done.
+  Qed. *)
 
-  Lemma own_holds Σ1 Σ2 :
-    holds (own Σ1) Σ2 <-> Σ1 = Σ2.
-  Proof.
-    unfold holds, own. simpl.
+  Lemma own_holds Σ1 Σ2 ls1 ls2 :
+    holds (own Σ1 ls1) Σ2 ls2 <-> Σ1 = Σ2 ∧ ls1 ≡ ls2.
+  Proof. Admitted.
+    (* unfold holds, own. simpl.
     rewrite uPred_ownM_holds_L. split; intro HH; subst; eauto.
     eapply map_Excl_injective; eauto.
-  Qed.
+  Qed. *)
 
-  Lemma own1_holds v l Σ :
+  (* Lemma own1_holds v l Σ :
     holds (own1 v l) Σ <-> Σ = {[ v := l ]}.
   Proof.
     unfold own1. rewrite own_holds. naive_solver.
-  Qed.
+  Qed. *)
 
-  Lemma pure_sep_holds φ P Σ :
-    holds (⌜⌜ φ ⌝⌝ ∗ P) Σ <-> φ ∧ holds P Σ.
-  Proof.
-    rewrite sep_holds.
+  Lemma pure_sep_holds φ P Σ ls :
+    holds (⌜⌜ φ ⌝⌝ ∗ P) Σ ls <-> φ ∧ holds P Σ ls.
+  Proof. Admitted.
+    (* rewrite sep_holds.
     split.
     - intros (?&?&?&?&HH&?).
       apply affinely_pure_holds in HH as [].
@@ -165,27 +226,30 @@ Section seplogic.
       split; eauto. split; first solve_map_disjoint.
       split; eauto.
       apply affinely_pure_holds. split; eauto.
-  Qed.
+  Qed. *)
 
-  Lemma holds_entails (P Q : hProp') Σ :
-    holds P Σ -> (P ⊢ Q) -> holds Q Σ.
-  Proof.
-    unfold holds.
+  Lemma holds_entails (P Q : hProp') Σ ls :
+    holds P Σ ls -> (P ⊢ Q) -> holds Q Σ ls.
+  Proof. Admitted.
+    (* unfold holds.
     intros. eapply uPred_in_entails; eauto.
     apply map_Excl_valid.
-  Qed.
+  Qed. *)
 
-  Instance holds_mono : Proper (uPred_entails ==> (=) ==> impl) holds.
-  Proof.
-    intros ??????. subst. intro. eapply holds_entails; eauto.
-  Qed.
+  Instance holds_mono : Proper (uPred_entails ==> (=) ==> (≡) ==> impl) holds.
+  Proof. Admitted.
+    (* intros ?????????. subst. ofe_subst. unfold holds. ofe_subst. intro. eapply holds_entails; eauto.
+  Qed. *)
 
-  Instance holds_iff : Proper (uPred_equiv ==> (=) ==> iff) holds.
-  Proof.
-    intros ?? HH ???. subst. destruct HH. unfold holds.
+  Instance holds_iff : Proper (uPred_equiv ==> (=) ==> (≡) ==> iff) holds.
+  Proof. Admitted.
+    (* intros ?? HH ???. subst. destruct HH. unfold holds.
     rewrite uPred_in_equiv; eauto.
     apply map_Excl_valid.
-  Qed.
+  Qed. *)
+
+  Definition own_in l := own ∅ {[ l ]}.
+  Definition own_out v l := own {[ v := l ]} ε.
 End seplogic.
 
 Notation hProp V L := (hProp_internal (V:=V) (L:=L)).
