@@ -58,6 +58,21 @@ Definition invariant (es : list expr) (h : heap) :=
     ∀ v, state_inv es h v (in_labels g v) (out_edges g v).
 
 
+Lemma dual_dual σ : dual (dual σ) = σ.
+Proof.
+  induction σ; simpl; rewrite ?IHσ; eauto.
+Qed.
+
+Lemma bufs_typed_sym b1 b2 σ1 σ2 :
+  bufs_typed b1 b2 σ1 σ2 -∗
+  bufs_typed b2 b1 σ2 σ1.
+Proof.
+  iIntros "H". unfold bufs_typed.
+  iDestruct "H" as (rest) "[H1 H2]".
+  iExists (dual rest).
+  rewrite dual_dual. iFrame.
+Qed.
+
 Lemma bufs_typed_push b1 b2 σ1 σ2 v t :
   bufs_typed b1 b2 (SendT t σ1) σ2 -∗
   val_typed v t -∗
@@ -78,20 +93,17 @@ Proof.
     simpl. done.
 Qed.
 
-Lemma dual_dual σ : dual (dual σ) = σ.
+Lemma bufs_typed_pop b1 b2 σ1 σ2 (v : val) t :
+  bufs_typed (v :: b1) b2 (RecvT t σ1) σ2 -∗
+  val_typed v t ∗ bufs_typed b1 b2 σ1 σ2.
 Proof.
-  induction σ; simpl; rewrite ?IHσ; eauto.
+  iIntros "H".
+  iDestruct "H" as (rest) "[H1 H2]". simpl.
+  iDestruct "H1" as "[H1 H3]". iFrame.
+  iExists rest. iFrame.
 Qed.
 
-Lemma bufs_typed_sym b1 b2 σ1 σ2 :
-  bufs_typed b1 b2 σ1 σ2 -∗
-  bufs_typed b2 b1 σ2 σ1.
-Proof.
-  iIntros "H". unfold bufs_typed.
-  iDestruct "H" as (rest) "[H1 H2]".
-  iExists (dual rest).
-  rewrite dual_dual. iFrame.
-Qed.
+
 
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
