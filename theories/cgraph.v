@@ -83,7 +83,7 @@ Section cgraph.
   Admitted.
 
   Lemma in_labels_empty v :
-    in_labels ∅ v = ε.
+    in_labels ∅ v ≡ ε.
   Proof.
   Admitted.
 
@@ -115,7 +115,7 @@ Section cgraph.
   Qed.
 
   Lemma in_labels_insert_edge (g : cgraph V L) (v1 v2 v3 : V) (l : L) :
-    in_labels (insert_edge g v1 v2 l) v3 =
+    in_labels (insert_edge g v1 v2 l) v3 ≡
       if decide (v2 = v3) then in_labels g v3 ⋅ {[ l ]}
       else in_labels g v3.
   Proof.
@@ -123,8 +123,8 @@ Section cgraph.
 
   Lemma in_labels_delete_edge (g : cgraph V L) (v1 v2 v3 : V) (l : L) (x : multiset L) :
     out_edges g v1 !! v2 = Some l ->
-    in_labels g v3 = x ⋅ {[ l ]} ->
-    in_labels (delete_edge g v1 v2) v3 =
+    in_labels g v3 ≡ x ⋅ {[ l ]} ->
+    in_labels (delete_edge g v1 v2) v3 ≡
       if decide (v2 = v3) then x
       else in_labels g v3.
   Proof.
@@ -165,7 +165,7 @@ Section cgraph.
 
   Lemma exchange_in_labels g v1 v2 v3 l l' e1 e2 x :
     exchange_valid g v1 v2 e1 e2 ->
-    in_labels g v2 = x ⋅ {[ l ]} ->
+    in_labels g v2 ≡ x ⋅ {[ l ]} ->
     cgraph_wf g ->
     in_labels (exchange g v1 v2 l' e1 e2) v3 =
       if decide (v3 = v2) then x ⋅ {[ l' ]}
