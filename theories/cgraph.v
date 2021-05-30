@@ -65,16 +65,22 @@ Section cgraph.
   Definition uconn (g : cgraph V L) := rtsc (edge g).
 
 
-  Lemma empty_wf :
-    cgraph_wf ∅.
-  Proof.
-  Admitted.
-
   Lemma out_edges_empty v :
     out_edges ∅ v = ∅.
   Proof.
     unfold out_edges. rewrite lookup_empty //.
   Qed.
+
+  Lemma empty_wf :
+    cgraph_wf ∅.
+  Proof.
+    split.
+    - intros ??[[] []].
+      rewrite out_edges_empty in H0.
+      rewrite lookup_empty in H0.
+      simplify_eq.
+    - admit.
+  Admitted.
 
   Lemma in_labels_empty v :
     in_labels ∅ v = ε.
@@ -188,7 +194,6 @@ Section cgraph.
   Admitted.
 
 (*
-
   Lemma vertices_insert_vertex g v :
     vertices (insert_vertex g v) = {[ v ]} ∪ vertices g.
   Proof.

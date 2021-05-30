@@ -3,7 +3,7 @@ Require Export diris.cgraph.
 Require Export diris.seplogic.
 Require Export diris.rtypesystem.
 Require Export diris.langlemmas.
-Require Export diris.genericinv.
+(* Require Export diris.genericinv. *)
 
 Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : rProp :=
   match buf, ct with
@@ -20,20 +20,33 @@ Definition bufs_typed (b1 b2 : list val) (σ1 σ2 : chan_type) : rProp :=
           buf_typed b2 σ2 (dual rest).
 
 Definition maybe_own_σ_in (h : heap) (c : endpoint) (b : list val) (σ : chan_type) : rProp :=
-  (⌜⌜ h !! c = Some b ⌝⌝ ∗ own_in (c.2,σ)) ∨ ⌜⌜ h !! c = None ∧ σ = EndT ∧ b = [] ⌝⌝.
+  (own_ep c σ ∧ ⌜⌜ h !! c = Some b ⌝⌝) ∨ ⌜⌜ σ = EndT ∧ b = [] ⌝⌝.
 
-Definition state_inv (es : list expr) (h : heap) (x : object) : rProp :=
+Definition qProp := multiset clabel -> gmap object clabel -> Prop.
+
+Definition thread_inv (e : expr) (in_l : multiset clabel) (out_e : gmap object clabel) :=
+  in_l = ε ∧ holds (rtyped0 e UnitT) out_e ε.
+
+Definition chan_inv (b1 b2 : option (list val)) (in_l : multiset clabel) (out_e : gmap object clabel) :=
+  
+
+Definition state_inv (es : list expr) (h : heap) (x : object) : qProp :=
   match x with
   | Thread n =>
-      rtyped0 (default (Val $ UnitV) (es !! n)) UnitT
-  | Chan n => ∃ σ1 σ2 b1 b2,
-      maybe_own_σ_in h (n,true) b1 σ1 ∗
-      maybe_own_σ_in h (n,false) b2 σ2 ∗
-      bufs_typed b1 b2 σ1 σ2
+      thread_inv (default (Val $ UnitV) (es !! n)) in_l out_e
+  | Chan n => in_l out_e
+      chan_inv (h !! (n,true)) (h !! (n,false))
   end.
+(*
+  ∃ σ1 σ2 b1 b2,
+      maybe_have_σ_in h (n,true) b1 σ1 ∗
+      maybe_have_σ_in h (n,false) b2 σ2 ∗
+      bufs_typed b1 b2 σ1 σ2
+  end. *)
 
 Definition invariant (es : list expr) (h : heap) :=
-  inv (state_inv es h).
+  ∃ g, cgraph_wf g ∧
+    ∀ v, state_inv es h v (in_labels g v) (out_edges g v).
 
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->

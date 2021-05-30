@@ -253,8 +253,8 @@ Section seplogic.
     holds (in_emp P) Σ ls ↔ holds P Σ ε ∧ ls ≡ ε.
   Proof. Admitted.
 
-  Definition own_in l := own ∅ {[ l ]}.
-  Definition own_out v l := own {[ v := l ]} ε.
+  Definition own_in (l : L) := own ∅ {[ l ]}.
+  Definition own_out (v : V) (l : L) := own {[ v := l ]} ε.
 End seplogic.
 
 Notation hProp V L := (hProp_internal (V:=V) (L:=L)).
