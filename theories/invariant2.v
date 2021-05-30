@@ -24,17 +24,19 @@ Definition qProp := multiset clabel -> gmap object clabel -> Prop.
 Definition thread_inv (e : expr) (in_l : multiset clabel) (out_e : gmap object clabel) :=
   in_l = ε ∧ holds (rtyped0 e UnitT) out_e ε.
 
-Inductive link_σs : bool -> option (list val) -> list val -> chan_type -> multiset clabel -> Prop :=
-  | link_present (which : bool) buf (σ : chan_type) : link_σs which (Some buf) buf σ {[ (which,σ) : clabel ]}
-  | link_absent which : link_σs which None [] EndT ε.
+(* Inductive link_σ : bool -> option (list val) -> list val -> chan_type -> multiset clabel -> Prop :=
+  | link_present (which : bool) buf (σ : chan_type) : link_σ which (Some buf) buf σ {[ (which,σ) : clabel ]}
+  | link_absent which : link_σ which None [] EndT ε. *)
+
+Definition link_σ (which : bool) (b' : option (list val)) (b : list val) (σ : chan_type) (x : multiset clabel) :=
+  (b' = Some b ∧ x = {[ (which, σ) : clabel]}) ∨ (b' = None ∧ b = [] ∧ σ = EndT ∧ x = ε).
 
 Definition chan_inv (b1' b2' : option (list val)) (in_l : multiset clabel) (out_e : gmap object clabel) :=
   ∃ b1 b2 σ1 σ2 x1 x2,
     in_l ≡ x1 ⋅ x2 ∧
-    link_σs true b1' b1 σ1 x1 ∧
-    link_σs false b2' b2 σ2 x2 ∧
+    link_σ true b1' b1 σ1 x1 ∧
+    link_σ false b2' b2 σ2 x2 ∧
     holds (bufs_typed b1 b2 σ1 σ2) out_e ε.
-
 
 Definition state_inv (es : list expr) (h : heap) (x : object) : qProp :=
   match x with
@@ -43,6 +45,7 @@ Definition state_inv (es : list expr) (h : heap) (x : object) : qProp :=
   | Chan n =>
       chan_inv (h !! (n,true)) (h !! (n,false))
   end.
+
 (*
   ∃ σ1 σ2 b1 b2,
       maybe_have_σ_in h (n,true) b1 σ1 ∗

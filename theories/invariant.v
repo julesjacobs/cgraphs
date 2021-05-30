@@ -19,17 +19,23 @@ Definition bufs_typed (b1 b2 : list val) (σ1 σ2 : chan_type) : rProp :=
   ∃ rest, buf_typed b1 σ1 rest ∗
           buf_typed b2 σ2 (dual rest).
 
-Definition maybe_own_σ_in (h : heap) (c : endpoint) (b : list val) (σ : chan_type) : rProp :=
-  (⌜⌜ h !! c = Some b ⌝⌝ ∗ own_in (c.2,σ)) ∨ ⌜⌜ h !! c = None ∧ σ = EndT ∧ b = [] ⌝⌝.
+Definition link_σ (which : bool) (b' : option (list val)) (b : list val) (σ : chan_type) : rProp :=
+  (⌜⌜ b' = Some b ⌝⌝ ∗ own_in (which,σ)) ∨ ⌜⌜ b' = None ∧ σ = EndT ∧ b = [] ⌝⌝.
+
+Definition thread_inv (e : expr) := rtyped0 e UnitT.
+
+Definition chan_inv (b1' b2' : option (list val)) : rProp :=
+  ∃ σ1 σ2 b1 b2,
+    link_σ true b1' b1 σ1 ∗
+    link_σ false b2' b2 σ2 ∗
+    bufs_typed b1 b2 σ1 σ2.
 
 Definition state_inv (es : list expr) (h : heap) (x : object) : rProp :=
   match x with
   | Thread n =>
       rtyped0 (default (Val $ UnitV) (es !! n)) UnitT
-  | Chan n => ∃ σ1 σ2 b1 b2,
-      maybe_own_σ_in h (n,true) b1 σ1 ∗
-      maybe_own_σ_in h (n,false) b2 σ2 ∗
-      bufs_typed b1 b2 σ1 σ2
+  | Chan n =>
+      chan_inv (h !! (n,true)) (h !! (n,false))
   end.
 
 Definition invariant (es : list expr) (h : heap) :=
