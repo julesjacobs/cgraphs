@@ -155,11 +155,11 @@ Section cgraph.
   Proof.
   Admitted.
 
-  Definition exchange_valid g v1 v2 e1 e2 :=
-    edge g v1 v2 ∧ e1 ##ₘ e2 ∧ e1 ∪ e2 = (delete v2 $ out_edges g v1) ∪ out_edges g v2.
-
   Definition exchange (g : cgraph V L) v1 v2 l' e1 e2 :=
     <[ v1 := e1 ∪ {[ v2 := l' ]} ]> $ <[ v2 := e2 ]> g.
+
+  Definition exchange_valid g v1 v2 e1 e2 :=
+    edge g v1 v2 ∧ e1 ##ₘ e2 ∧ e1 ∪ e2 = (delete v2 $ out_edges g v1) ∪ out_edges g v2.
 
   Lemma exchange_wf g v1 v2 l' e1 e2 :
     exchange_valid g v1 v2 e1 e2 ->

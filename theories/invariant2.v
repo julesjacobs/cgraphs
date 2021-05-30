@@ -124,6 +124,9 @@ Proof.
        that we therefore have an invariant with a Σ for it.
        We'll use this Σ in the exchange. *)
     (* exchange (g : cgraph V L) v1 v2 l' e1 e2 := *)
+    pose proof (Hvs (Chan c.1)) as Hc.
+    simpl in *.
+
     eexists (exchange g (Thread i) (Chan c.1) (c.2, σ) _ _).
     simpl in *.
     apply exists_holds in H1 as (r & HH).
