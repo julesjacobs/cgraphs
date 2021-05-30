@@ -64,6 +64,11 @@ Section cgraph.
 
   Definition uconn (g : cgraph V L) := rtsc (edge g).
 
+  Lemma out_edges_in_labels g v1 v2 l :
+    out_edges g v1 !! v2 = Some l ->
+    ∃ x, in_labels g v2 = x ⋅ {[ l ]}.
+  Proof.
+  Admitted.
 
   Lemma out_edges_empty v :
     out_edges ∅ v = ∅.
