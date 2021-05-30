@@ -248,6 +248,11 @@ Section seplogic.
     apply map_Excl_valid.
   Qed. *)
 
+  Definition in_emp (P : hProp') : hProp'. Admitted.
+  Lemma holds_in_emp (P : hProp') Σ ls :
+    holds (in_emp P) Σ ls ↔ holds P Σ ε ∧ ls ≡ ε.
+  Proof. Admitted.
+
   Definition own_in l := own ∅ {[ l ]}.
   Definition own_out v l := own {[ v := l ]} ε.
 End seplogic.

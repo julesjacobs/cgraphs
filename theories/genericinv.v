@@ -29,8 +29,8 @@ Section genericinv.
         end. *)
 
   Definition inv (f : V -> hProp V L) : Prop :=
-    ∃ g : cgraph V L, cgraph_wf g ∧ ∀ v : V,
-      holds (f v) (out_edges g v) (in_labels g v).
+    ∃ g : cgraph V L, cgraph_wf g ∧
+      ∀ v : V, holds (f v) (out_edges g v) (in_labels g v).
 
   Lemma inv_impl f f' :
     (∀ v, f v ⊢ f' v) ->
@@ -51,7 +51,87 @@ Section genericinv.
     - intros v. rewrite emp_holds. admit.
   Admitted.
 
-  Lemma inv_singleton v (P : list L -> hProp V L) :
+  Lemma inv_exchange {v1 v2 l l'} {P1 P2 P1' P2' H1 H2 : hProp V L} {f f' : V -> hProp V L} :
+    (∀ v, v ≠ v1 -> v ≠ v2 -> f v ⊢ f' v) ->
+    (f v1 ⊢ own_out v2 l ∗ H1 ∗ (in_emp P1)) ->
+    (f v2 ⊢ own_in l ∗ H2 ∗ (in_emp P2)) ->
+    (P1 ∗ P2 ⊢ P1' ∗ P2') ->
+    (own_out v2 l' ∗ H1 ∗ (in_emp P1') ⊢ f' v1) ->
+    (own_in l' ∗ H2 ∗ (in_emp P2') ⊢ f' v2) ->
+    inv f -> inv f'.
+  Proof.
+    intros Himp Hsplit1 Hsplit2 Hexch Hcomb1 Hcomb2 Hinv.
+  Admitted.
+
+  Lemma inv_delete v1 v2 l (H1 H2 : hProp V L) (f f' : V -> hProp V L) :
+    (∀ v, v ≠ v1 -> v ≠ v2 -> f v ⊢ f' v) ->
+    (f v1 ⊢ own_out v2 l ∗ H1) ->
+    (f v2 ⊢ own_in l ∗ H2) ->
+    (H1 ⊢ f' v1) ->
+    (H2 ⊢ f' v2) ->
+    inv f -> inv f'.
+  Proof.
+  Admitted.
+
+  Lemma inv_create1 {v1 v2 l} (f f' : V -> hProp V L) :
+    v1 ≠ v2 ->
+    (∀ v, v ≠ v1 -> v ≠ v2 -> f v ⊢ f' v) ->
+    (f v2 ⊢ emp) ->
+    (f v1 ∗ own_out v2 l ⊢ f' v1) ->
+    (own_in l ⊢ f' v2) ->
+    inv f -> inv f'.
+  Proof.
+  Admitted.
+
+  Lemma inv_create2 {v2 v3 l} (f f' : V -> hProp V L) :
+    v2 ≠ v3 ->
+    (∀ v, v ≠ v2 -> v ≠ v3 -> f v ⊢ f' v) ->
+    (f v3 ⊢ emp) ->
+    (f v2 ∗ own_in l ⊢ f' v2) ->
+    (own_out v2 l ⊢ f' v3) ->
+    inv f -> inv f'.
+  Proof.
+  Admitted.
+
+  Lemma inv_create_in_out {v1 v2 v3 l12 l32} (f f' : V -> hProp V L) :
+    v1 ≠ v2 ∧ v1 ≠ v3 ∧ v2 ≠ v3 ->
+    (∀ v, v ≠ v1 -> v ≠ v2 -> v ≠ v3 -> f v ⊢ f' v) ->
+    (f v2 ⊢ emp) ->
+    (f v3 ⊢ emp) ->
+    (f v1 ∗ own_out v2 l12 ⊢ f' v1) ->
+    (own_in l12 ∗ own_in l32 ⊢ f' v2) ->
+    (own_out v2 l32 ⊢ f' v3) ->
+    inv f -> inv f'.
+  Proof.
+    intros Hneq Himp Hemp2 Hemp3 H1 H2 H3 Hinv.
+    assert (inv (λ v,
+      if decide (v = v1) then f v1 ∗ own_out v2 l12
+      else if decide (v = v2) then own_in l12
+      else f v)%I) as Hinv'.
+    {
+      eapply (inv_create1 (v1:=v1) (v2:=v2)); last done.
+      - naive_solver.
+      - intros. repeat case_decide; naive_solver.
+      - done.
+      - case_decide; eauto. done.
+      - repeat case_decide; subst; eauto; naive_solver.
+    }
+    clear Hinv.
+    eapply (inv_create2 (v2:=v2) (v3:=v3)); last done.
+    - naive_solver.
+    - intros. simpl. repeat case_decide; simplify_eq; eauto.
+    - simpl. repeat case_decide; simplify_eq; naive_solver.
+    - simpl. repeat case_decide; simplify_eq; eauto. naive_solver.
+    - eauto.
+  Qed.
+
+  (* Lemma inv_create_in_out_exchange {v1 v2 v3 l12 l32} (f f' : V -> hProp V L) : *)
+
+
+
+
+
+  (* Lemma inv_singleton v (P : list L -> hProp V L) :
     holds (P []) ∅ ->
     inv {[ v := P ]}.
   Proof.
@@ -68,9 +148,9 @@ Section genericinv.
       + rewrite /vertices. intros.
         assert (v' ≠ v); first set_solver.
         rewrite lookup_singleton_ne //.
-  Admitted.
+  Admitted. *)
 
-  Lemma inv_dealloc f (v : V) :
+  (* Lemma inv_dealloc f (v : V) :
     (∀ Q i, f !! v = Some Q -> Q i ⊢ ⌜⌜ i = [] ⌝⌝) ->
     inv f ->
     inv (delete v f).
@@ -109,7 +189,18 @@ Section genericinv.
         * assert (v' ∉ vertices g) by set_solver.
           rewrite lookup_delete_ne; eauto.
           set_solver.
-  Admitted.
+  Admitted. *)
+
+  (*
+    De situatie die je hebt is dat:
+      f v1 = (<in_emp> P) ∗ own_out v2 l
+      f v2 = Q ∗ own_in l
+    En je wil updaten naar:
+      f v1 = (<in_emp> P') ∗ own_out v2 l'
+      f v2 = Q' ∗ own_in l'
+    Waarbij:
+      P ∗ Q ⊢ (<in_emp> P') ∗ Q'
+  *)
 
   (* Lemma inv_relabel f (P1 P1' Q Q' : list L -> hProp V L) v1 v2 l l' :
     f !! v1 = Some (λ i, P1 i ∗ own1 v2 l)%I ->
@@ -120,12 +211,13 @@ Section genericinv.
     inv (<[ v1 := (λ i, P1' i ∗ own1 v2 l')%I ]> $ <[ v2 := Q' ]> f).
   Proof. Admitted. *)
 
-  Lemma inv_exchange f (P1 P1' Q Q' : list L -> hProp V L) v1 v2 l l' :
-    f !! v1 = Some (λ i, P1 i ∗ own1 v2 l)%I ->
-    f !! v2 = Some Q ->
-    (∀ i1 i2, P1 i1 ∗ Q (l :: i2) ⊢ P1' i1 ∗ Q' (l' :: i2)) ->
+  (* Lemma inv_exchange f (P1 P1' Q Q' : hProp V L) v1 v2 l l' :
+    f v1 = (P1 ∗ own_out v2 l)%I ->
+    f v2 = Q ->
+    (P1 ∗ Q ⊢ P1' ∗ Q') ->
+    (* (∀ i1 i2, P1 i1 ∗ Q (l :: i2) ⊢ P1' i1 ∗ Q' (l' :: i2)) -> *)
     inv f ->
-    inv (<[ v1 := (λ i, P1' i ∗ own1 v2 l')%I ]> $ <[ v2 := Q' ]> f).
+    inv (<[ v1 := (P1' ∗ own_out v2 l')%I ]> $ <[ v2 := Q' ]> f).
   Proof.
     intros Hv1 Hv2 Himpl Hinv.
     unfold inv in *.
@@ -358,6 +450,6 @@ Section genericinv.
     inv f ->
     inv (<[ v1 := P' ]> $ <[ v2 := Q ]> $ <[ v3 := R ]> f).
   Proof.
-  Qed. *)
+  Qed. *) *)
 
 End genericinv.

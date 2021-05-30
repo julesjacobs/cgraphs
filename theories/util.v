@@ -93,6 +93,16 @@ Proof.
   - by apply lookup_insert_ne.
 Qed.
 
+Lemma list_lookup_insert_spec {V} (xs : list V) i j v :
+  (<[ i := v]> xs) !! j = if (decide (i = j ∧ i < length xs)) then Some v else (xs !! j).
+Proof.
+  case_decide.
+  - destruct H. subst. apply list_lookup_insert; done.
+  - destruct (decide (i < length xs)).
+    + assert (i ≠ j) by naive_solver. apply list_lookup_insert_ne. done.
+    + rewrite list_insert_ge; [done|lia].
+Qed.
+
 Lemma lookup_delete_spec `{Countable K} {V} (A : gmap K V) i j :
   (delete i A) !! j = if (decide (i = j)) then None else A !! j.
 Proof.
