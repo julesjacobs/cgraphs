@@ -66,17 +66,70 @@ Proof.
   destruct H as [????????HH].
   intros Hinv.
   unfold invariant in *.
+  destruct Hinv as (g & Hwf & Hvs).
+  pose proof (Hvs (Thread i)) as Hthr. simpl in Hthr.
+  rewrite H0 in Hthr. simpl in Hthr.
+  destruct Hthr as [Hthr_in Hthr].
+  assert (∃ t Σ1 Σ2, Σ1 ##ₘ Σ2 ∧ (Σ1 ∪ Σ2 = out_edges g (Thread i)) ∧
+    holds (rtyped0 e t) Σ1 ε ∧ holds (ctx_typed0 k t UnitT) Σ2 ε)
+    as (t & Σ1 & Σ2 & HΣdisj & HΣ & H1 & H2).
+  { admit. }
+
+  (* (* The following doesn't work since we don't know yet
+    what the resources for the thread should become.
+    We only know this after destructing HH. *)
+  cut (∃ g', cgraph_wf g' ∧
+    in_labels g' (Thread i) = ε ∧
+    holds (rtyped0 e' t) (out_edges g' (Thread i)) ε ∧
+    ∀ v, v ≠ Thread i ->
+      state_inv (<[i:=k e']> es ++ ts) h' v (in_labels g' v) (out_edges g' v)).
+  {
+    intros (g' & Hwf' & Hthr_in' & Hthr' & Hvs').
+    exists g'. split; eauto.
+    intros v'.
+    destruct (decide (v' = Thread i)); last by eauto.
+    subst. simpl.
+    assert (i < length es) by (eapply lookup_lt_Some; eauto).
+    rewrite lookup_app_l; last by rewrite insert_length.
+    rewrite list_lookup_insert_spec. case_decide; last naive_solver.
+    simpl. split; first done.
+    eapply (holds_entails (rtyped0 e' t ∗ ctx_typed0 k t UnitT)).
+    - rewrite sep_holds.
+      admit.
+    - iIntros "[H1 H2]".
+      iApply (ctx_subst0 with "H2"). done.
+  }
+  clear H H2 Hthr H0. *)
+
   destruct HH; rewrite ?right_id.
   - (* Pure step *)
-    eapply inv_impl; last done.
-    iIntros (v) "H". destruct v; simpl; eauto.
+    exists g. split; first done. intros v.
+    specialize (Hvs v).
+    destruct v; simpl in *; eauto.
     rewrite list_lookup_insert_spec. case_decide; eauto.
-    destruct H2; subst. rewrite H0. simpl.
-    iDestruct (typed0_ctx_typed0 with "H") as (t) "[Hctx Ht]"; eauto.
-    iApply (ctx_subst0 with "Hctx").
-    iApply pure_step_rtyped0; eauto.
+    destruct H4; subst.
+    simpl. split; eauto.
+    eapply (holds_entails (rtyped0 e' t ∗ ctx_typed0 k t UnitT)).
+    + admit.
+    + iIntros "[H1 H2]".
+      by iApply (ctx_subst0 with "H2").
   - (* Send *)
-
+    assert (∃ Σ1' σ tv,
+      t = ChanT σ ∧
+      Σ1 = Σ1' ∪ {[ Chan c.1 := (c.2,SendT tv σ) ]} ∧
+      holds (val_typed y tv) Σ1' ε
+      ) as (Σ1' & σ & t' & -> & -> & HH).
+    { admit. }
+    (* Need to figure out that the channel is actually in the heap and
+       that we therefore have an invariant with a Σ for it.
+       We'll use this Σ in the exchange. *)
+    (* exchange (g : cgraph V L) v1 v2 l' e1 e2 := *)
+    eexists (exchange g (Thread i) (Chan c.1) (c.2, σ) _ _).
+    simpl in *.
+    apply exists_holds in H1 as (r & HH).
+    apply exists_holds in HH as (t' & HH).
+    apply pure_sep_holds in HH as (-> & HH).
+    apply sep_holds in HH.
     destruct c.
     eapply (inv_exchange (v1 := Thread i) (v2 := Chan c)); last done.
     + intros. iIntros "H". destruct v; simpl.
