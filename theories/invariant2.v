@@ -19,22 +19,28 @@ Definition bufs_typed (b1 b2 : list val) (σ1 σ2 : chan_type) : rProp :=
   ∃ rest, buf_typed b1 σ1 rest ∗
           buf_typed b2 σ2 (dual rest).
 
-Definition maybe_own_σ_in (h : heap) (c : endpoint) (b : list val) (σ : chan_type) : rProp :=
-  (own_ep c σ ∧ ⌜⌜ h !! c = Some b ⌝⌝) ∨ ⌜⌜ σ = EndT ∧ b = [] ⌝⌝.
-
 Definition qProp := multiset clabel -> gmap object clabel -> Prop.
 
 Definition thread_inv (e : expr) (in_l : multiset clabel) (out_e : gmap object clabel) :=
   in_l = ε ∧ holds (rtyped0 e UnitT) out_e ε.
 
-Definition chan_inv (b1 b2 : option (list val)) (in_l : multiset clabel) (out_e : gmap object clabel) :=
-  
+Inductive link_σs : bool -> option (list val) -> list val -> chan_type -> multiset clabel -> Prop :=
+  | link_present (which : bool) buf (σ : chan_type) : link_σs which (Some buf) buf σ {[ (which,σ) : clabel ]}
+  | link_absent which : link_σs which None [] EndT ε.
+
+Definition chan_inv (b1' b2' : option (list val)) (in_l : multiset clabel) (out_e : gmap object clabel) :=
+  ∃ b1 b2 σ1 σ2 x1 x2,
+    in_l ≡ x1 ⋅ x2 ∧
+    link_σs true b1' b1 σ1 x1 ∧
+    link_σs false b2' b2 σ2 x2 ∧
+    holds (bufs_typed b1 b2 σ1 σ2) out_e ε.
+
 
 Definition state_inv (es : list expr) (h : heap) (x : object) : qProp :=
   match x with
   | Thread n =>
-      thread_inv (default (Val $ UnitV) (es !! n)) in_l out_e
-  | Chan n => in_l out_e
+      thread_inv (default (Val $ UnitV) (es !! n))
+  | Chan n =>
       chan_inv (h !! (n,true)) (h !! (n,false))
   end.
 (*
