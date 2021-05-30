@@ -57,6 +57,42 @@ Definition invariant (es : list expr) (h : heap) :=
   ∃ g, cgraph_wf g ∧
     ∀ v, state_inv es h v (in_labels g v) (out_edges g v).
 
+
+Lemma bufs_typed_push b1 b2 σ1 σ2 v t :
+  bufs_typed b1 b2 (SendT t σ1) σ2 -∗
+  val_typed v t -∗
+  ⌜⌜ b1 = [] ⌝⌝ ∗ bufs_typed [] (b2 ++ [v]) σ1 σ2.
+Proof.
+  iIntros "Hb Hv".
+  unfold bufs_typed. destruct b1. simpl.
+  - iSplitL ""; first done.
+    iDestruct "Hb" as (rest ->) "H2".
+    iExists σ1. iSplitL ""; first done. simpl.
+    iInduction b2 as [] "IH" forall (σ2) ""; simpl.
+    + iDestruct "H2" as "%". subst. iFrame. done.
+    + destruct σ2; eauto.
+      iDestruct "H2" as "[H1 H2]". iFrame.
+      iApply ("IH" with "H2"). iFrame.
+  - iExFalso.
+    iDestruct "Hb" as (rest) "[H1 H2]".
+    simpl. done.
+Qed.
+
+Lemma dual_dual σ : dual (dual σ) = σ.
+Proof.
+  induction σ; simpl; rewrite ?IHσ; eauto.
+Qed.
+
+Lemma bufs_typed_sym b1 b2 σ1 σ2 :
+  bufs_typed b1 b2 σ1 σ2 -∗
+  bufs_typed b2 b1 σ2 σ1.
+Proof.
+  iIntros "H". unfold bufs_typed.
+  iDestruct "H" as (rest) "[H1 H2]".
+  iExists (dual rest).
+  rewrite dual_dual. iFrame.
+Qed.
+
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
   invariant threads chans ->
