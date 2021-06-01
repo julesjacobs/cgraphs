@@ -28,32 +28,50 @@ Section genericinv.
         | None, None => ⌜⌜ inlabels = [] ⌝⌝
         end. *)
 
-  Definition inv (f : V -> hProp V L) : Prop :=
+  Definition inv (f : V -> multiset L -> hProp V L) : Prop :=
     ∃ g : cgraph V L, cgraph_wf g ∧
-      ∀ v : V, holds (f v) (out_edges g v) (in_labels g v).
+      ∀ v : V, holds (f v (in_labels g v)) (out_edges g v).
 
   Lemma inv_impl f f' :
-    (∀ v, f v ⊢ f' v) ->
+    (∀ v x, f v x ⊢ f' v x) ->
     inv f -> inv f'.
   Proof.
     intros Himpl (g & Hg & HH).
-    exists g. split; first done.
-    intros v. specialize (HH v). specialize (Himpl v).
-    eapply holds_entails; eauto.
+    exists g. eauto using holds_entails.
   Qed.
 
   Lemma inv_init :
-    inv (λ v, emp%I).
+    inv (λ v x, ⌜⌜ x = ε ⌝⌝ ∗ emp)%I.
   Proof.
     exists ∅.
     split.
     - apply empty_wf.
-    - intros v. rewrite emp_holds. admit.
+    - intros v. rewrite pure_sep_holds emp_holds. split.
+      + admit.
+      + admit.
   Admitted.
 
+
+  Lemma inv_exchange (v1 v2 : V) (f f' : V -> multiset L -> hProp V L) :
+    (∀ v x, v ≠ v1 ∧ v ≠ v2 -> f v x ⊢ f' v x) ->
+    (∀ y, f v1 y ⊢ ∃ l,
+      own_out v2 l ∗
+      (∀ x,
+        f v2 ({[ l ]} ⋅ x) -∗ ∃ l',
+          (own_out v2 l' -∗ f' v1 y) ∗
+          f' v2 ({[ l' ]} ⋅ x))) ->
+    inv f -> inv f'.
+  Proof.
+  Admitted.
+(*
   Lemma inv_exchange {v1 v2 l l'} {P1 P2 P1' P2' H1 H2 : hProp V L} {f f' : V -> hProp V L} :
     (∀ v, v ≠ v1 -> v ≠ v2 -> f v ⊢ f' v) ->
-    (f v1 ⊢ own_out v2 l ∗ H1 ∗ (in_emp P1)) ->
+    (f v1 ⊢ ∃ l P1, own_out v2 l ∗ H1 ∗ (in_emp P1) ∗
+              (□ (f v2 -∗ own_in l) -∗
+                □ (P1 ∗ P2 -∗ P1' ∗ P2') ∗
+                □ (own_out v2 l' ∗ H1 ∗ (in_emp P1') -∗ f' v1) ∗
+                □ (own_in l' ∗ H2 ∗ (in_emp P2') -∗ f' v2)
+                ->                   (*  ∗ H2 ∗ (in_emp P2)) *)
     (f v2 ⊢ own_in l ∗ H2 ∗ (in_emp P2)) ->
     (P1 ∗ P2 ⊢ P1' ∗ P2') ->
     (own_out v2 l' ∗ H1 ∗ (in_emp P1') ⊢ f' v1) ->
@@ -123,7 +141,7 @@ Section genericinv.
     - simpl. repeat case_decide; simplify_eq; naive_solver.
     - simpl. repeat case_decide; simplify_eq; eauto. naive_solver.
     - eauto.
-  Qed.
+  Qed. *)
 
   (* Lemma inv_create_in_out_exchange {v1 v2 v3 l12 l32} (f f' : V -> hProp V L) : *)
 

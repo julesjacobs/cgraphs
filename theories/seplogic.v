@@ -79,15 +79,15 @@ Section seplogic.
 
   Canonical Structure LO := leibnizO L.
 
-  Notation heapT := (gmap V L * multiset L).
-  Notation heapT_UR := (prodUR (gmapUR V (exclR LO)) (multisetUR LO)).
+  Notation heapT := (gmap V L).
+  Notation heapT_UR := (gmapUR V (exclR LO)).
 
   Notation hProp' := (uPred heapT_UR).
   Definition hProp_internal := hProp'.
   Definition heapT_UR_internal := heapT_UR.
 
-  Definition own (Σ : gmap V L) (ls : multiset L) : hProp' :=
-    uPred_ownM (map_Excl Σ, ls).
+  Definition own (Σ : gmap V L) : hProp' :=
+    uPred_ownM (map_Excl Σ).
 
   Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 
@@ -142,68 +142,68 @@ Section seplogic.
     Proof. unfold_leibniz. apply uPred_affinely_pure_holds. Qed.
   End uPred_lemmas.
 
-  Definition holds (P : hProp') (Σ : gmap V L) (ls : multiset L) := uPred_holds P (map_Excl Σ, ls).
+  Definition holds (P : hProp') (Σ : gmap V L) := uPred_holds P (map_Excl Σ).
 
-  Lemma sep_holds (P Q : hProp') Σ ls :
-    holds (P ∗ Q) Σ ls <-> ∃ Σ1 Σ2 ls1 ls2, Σ = Σ1 ∪ Σ2 ∧ Σ1 ##ₘ Σ2 ∧ ls = ls1 ⋅ ls2 ∧ holds P Σ1 ls1 ∧ holds Q Σ2 ls2.
-  Proof. Admitted.
-    (* unfold holds.
+  Lemma sep_holds (P Q : hProp') Σ :
+    holds (P ∗ Q) Σ <-> ∃ Σ1 Σ2, Σ = Σ1 ∪ Σ2 ∧ Σ1 ##ₘ Σ2 ∧ holds P Σ1 ∧ holds Q Σ2.
+  Proof.
+    unfold holds.
     rewrite uPred_sep_holds_L. split.
     - intros (?&?&HH&?&?). apply map_Excl_union_inv in HH.
       destruct HH as (?&?&?&?&?&?). subst. eauto 6.
     - intros (?&?&?&?&?&?). subst. eexists _,_. split_and!; eauto.
       apply map_Excl_union. done.
-  Qed. *)
+  Qed.
 
-  Lemma sep_combine (P Q : hProp') Σ1 Σ2 ls1 ls2 :
-    holds P Σ1 ls1 -> holds Q Σ2 ls2 -> Σ1 ##ₘ Σ2 -> holds (P ∗ Q) (Σ1 ∪ Σ2) (ls1 ⋅ ls2).
-  Proof. Admitted.
-    (* intros.
+  Lemma sep_combine (P Q : hProp') Σ1 Σ2 :
+    holds P Σ1 -> holds Q Σ2 -> Σ1 ##ₘ Σ2 -> holds (P ∗ Q) (Σ1 ∪ Σ2).
+  Proof.
+    intros.
     apply sep_holds.
     eauto 6.
-  Qed. *)
+  Qed.
 
-  Lemma emp_holds Σ ls :
-    holds emp%I Σ ls <-> Σ = ∅ ∧ ls = ε.
-  Proof. Admitted.
-    (* unfold holds. rewrite uPred_emp_holds_L. split.
+  Lemma emp_holds Σ :
+    holds emp%I Σ <-> Σ = ∅.
+  Proof.
+    unfold holds. rewrite uPred_emp_holds_L. split.
     - intros HH. apply map_Excl_empty_inv in HH. done.
     - intros ->. apply map_Excl_empty.
-  Qed. *)
+  Qed.
 
-  Lemma pure_holds Σ ls φ:
-    holds ⌜ φ ⌝ Σ ls <-> φ.
-  Proof. Admitted.
-    (* unfold holds. rewrite uPred_pure_holds. done.
-  Qed. *)
+  Lemma pure_holds Σ φ:
+    holds ⌜ φ ⌝ Σ <-> φ.
+  Proof.
+    unfold holds. rewrite uPred_pure_holds. done.
+  Qed.
 
-  Lemma affinely_pure_holds Σ ls φ:
-    holds ⌜⌜ φ ⌝⌝ Σ ls <-> Σ = ∅ ∧ ls = ε ∧ φ.
-  Proof. Admitted.
-    (* unfold holds. rewrite uPred_affinely_pure_holds_L. split.
+  Lemma affinely_pure_holds Σ φ:
+    holds ⌜⌜ φ ⌝⌝ Σ <-> Σ = ∅ ∧ φ.
+  Proof.
+    unfold holds. rewrite uPred_affinely_pure_holds_L. split.
     - intros []. split; eauto. apply map_Excl_empty_inv. done.
     - intros []. subst. split; eauto. apply map_Excl_empty.
-  Qed. *)
+  Qed.
 
-  Lemma exists_holds {B} (Φ : B -> hProp') Σ ls :
-    holds (∃ b, Φ b)%I Σ ls <-> ∃ b, holds (Φ b) Σ ls.
-  Proof. Admitted.
-    (* unfold holds. rewrite uPred_exists_holds. done.
-  Qed. *)
+  Lemma exists_holds {B} (Φ : B -> hProp') Σ :
+    holds (∃ b, Φ b)%I Σ <-> ∃ b, holds (Φ b) Σ.
+  Proof.
+    unfold holds. rewrite uPred_exists_holds. done.
+  Qed.
 
-  Lemma and_holds (P Q : hProp') Σ ls :
-    holds (P ∧ Q) Σ ls <-> holds P Σ ls ∧ holds Q Σ ls.
-  Proof. Admitted.
-    (* rewrite /holds uPred_and_holds. done.
-  Qed. *)
+  Lemma and_holds (P Q : hProp') Σ :
+    holds (P ∧ Q) Σ <-> holds P Σ ∧ holds Q Σ.
+  Proof.
+    rewrite /holds uPred_and_holds. done.
+  Qed.
 
-  Lemma own_holds Σ1 Σ2 ls1 ls2 :
-    holds (own Σ1 ls1) Σ2 ls2 <-> Σ1 = Σ2 ∧ ls1 ≡ ls2.
-  Proof. Admitted.
-    (* unfold holds, own. simpl.
+  Lemma own_holds Σ1 Σ2 :
+    holds (own Σ1) Σ2 <-> Σ1 = Σ2.
+  Proof.
+    unfold holds, own. simpl.
     rewrite uPred_ownM_holds_L. split; intro HH; subst; eauto.
     eapply map_Excl_injective; eauto.
-  Qed. *)
+  Qed.
 
   (* Lemma own1_holds v l Σ :
     holds (own1 v l) Σ <-> Σ = {[ v := l ]}.
@@ -211,10 +211,10 @@ Section seplogic.
     unfold own1. rewrite own_holds. naive_solver.
   Qed. *)
 
-  Lemma pure_sep_holds φ P Σ ls :
-    holds (⌜⌜ φ ⌝⌝ ∗ P) Σ ls <-> φ ∧ holds P Σ ls.
-  Proof. Admitted.
-    (* rewrite sep_holds.
+  Lemma pure_sep_holds φ P Σ :
+    holds (⌜⌜ φ ⌝⌝ ∗ P) Σ <-> φ ∧ holds P Σ.
+  Proof.
+    rewrite sep_holds.
     split.
     - intros (?&?&?&?&HH&?).
       apply affinely_pure_holds in HH as [].
@@ -226,35 +226,17 @@ Section seplogic.
       split; eauto. split; first solve_map_disjoint.
       split; eauto.
       apply affinely_pure_holds. split; eauto.
-  Qed. *)
+  Qed.
 
-  Lemma holds_entails (P Q : hProp') Σ ls :
-    holds P Σ ls -> (P ⊢ Q) -> holds Q Σ ls.
-  Proof. Admitted.
-    (* unfold holds.
+  Lemma holds_entails (P Q : hProp') Σ :
+    holds P Σ -> (P ⊢ Q) -> holds Q Σ.
+  Proof.
+    unfold holds.
     intros. eapply uPred_in_entails; eauto.
     apply map_Excl_valid.
-  Qed. *)
+  Qed.
 
-  Instance holds_mono : Proper (uPred_entails ==> (=) ==> (≡) ==> impl) holds.
-  Proof. Admitted.
-    (* intros ?????????. subst. ofe_subst. unfold holds. ofe_subst. intro. eapply holds_entails; eauto.
-  Qed. *)
-
-  Instance holds_iff : Proper (uPred_equiv ==> (=) ==> (≡) ==> iff) holds.
-  Proof. Admitted.
-    (* intros ?? HH ???. subst. destruct HH. unfold holds.
-    rewrite uPred_in_equiv; eauto.
-    apply map_Excl_valid.
-  Qed. *)
-
-  Definition in_emp (P : hProp') : hProp'. Admitted.
-  Lemma holds_in_emp (P : hProp') Σ ls :
-    holds (in_emp P) Σ ls ↔ holds P Σ ε ∧ ls ≡ ε.
-  Proof. Admitted.
-
-  Definition own_in (l : L) := own ∅ {[ l ]}.
-  Definition own_out (v : V) (l : L) := own {[ v := l ]} ε.
+  Definition own_out (v : V) (l : L) := own {[ v := l ]}.
 End seplogic.
 
 Notation hProp V L := (hProp_internal (V:=V) (L:=L)).

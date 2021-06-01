@@ -3,107 +3,114 @@ Require Export diris.cgraph.
 Require Export diris.seplogic.
 Require Export diris.rtypesystem.
 Require Export diris.langlemmas.
-(* Require Export diris.genericinv. *)
+Require Export diris.genericinv.
 
-Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : rProp :=
-  match buf, ct with
-                            (* add owner here *)
-  | v::buf', RecvT t ct' => val_typed v t ∗ buf_typed buf' ct' rest
-  (* | v::buf', SendT t ct' => ??? *)
-  (* Add a rule for this to support asynchrous subtyping *)
-  | [], ct => ⌜⌜ rest = ct ⌝⌝
-  | _,_ => False
-  end.
+Section bufs_typed.
+  Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : rProp :=
+    match buf, ct with
+                              (* add owner here *)
+    | v::buf', RecvT t ct' => val_typed v t ∗ buf_typed buf' ct' rest
+    (* | v::buf', SendT t ct' => ??? *)
+    (* Add a rule for this to support asynchrous subtyping *)
+    | [], ct => ⌜⌜ rest = ct ⌝⌝
+    | _,_ => False
+    end.
 
-Definition bufs_typed (b1 b2 : list val) (σ1 σ2 : chan_type) : rProp :=
-  ∃ rest, buf_typed b1 σ1 rest ∗
-          buf_typed b2 σ2 (dual rest).
+  Definition bufs_typed (b1 b2 : list val) (σ1 σ2 : chan_type) : rProp :=
+    ∃ rest, buf_typed b1 σ1 rest ∗
+            buf_typed b2 σ2 (dual rest).
 
-Definition qProp := multiset clabel -> gmap object clabel -> Prop.
+  Lemma dual_dual σ : dual (dual σ) = σ.
+  Proof.
+    induction σ; simpl; rewrite ?IHσ; eauto.
+  Qed.
 
-Definition thread_inv (e : expr) (in_l : multiset clabel) (out_e : gmap object clabel) :=
-  in_l = ε ∧ holds (rtyped0 e UnitT) out_e ε.
+  Lemma bufs_typed_sym b1 b2 σ1 σ2 :
+    bufs_typed b1 b2 σ1 σ2 -∗
+    bufs_typed b2 b1 σ2 σ1.
+  Proof.
+    iIntros "H". unfold bufs_typed.
+    iDestruct "H" as (rest) "[H1 H2]".
+    iExists (dual rest).
+    rewrite dual_dual. iFrame.
+  Qed.
 
-(* Inductive link_σ : bool -> option (list val) -> list val -> chan_type -> multiset clabel -> Prop :=
-  | link_present (which : bool) buf (σ : chan_type) : link_σ which (Some buf) buf σ {[ (which,σ) : clabel ]}
-  | link_absent which : link_σ which None [] EndT ε. *)
+  Lemma bufs_typed_push b1 b2 σ1 σ2 v t :
+    bufs_typed b1 b2 (SendT t σ1) σ2 -∗
+    val_typed v t -∗
+    ⌜⌜ b1 = [] ⌝⌝ ∗ bufs_typed [] (b2 ++ [v]) σ1 σ2.
+  Proof.
+    iIntros "Hb Hv".
+    unfold bufs_typed. destruct b1. simpl.
+    - iSplitL ""; first done.
+      iDestruct "Hb" as (rest ->) "H2".
+      iExists σ1. iSplitL ""; first done. simpl.
+      iInduction b2 as [] "IH" forall (σ2) ""; simpl.
+      + iDestruct "H2" as "%". subst. iFrame. done.
+      + destruct σ2; eauto.
+        iDestruct "H2" as "[H1 H2]". iFrame.
+        iApply ("IH" with "H2"). iFrame.
+    - iExFalso.
+      iDestruct "Hb" as (rest) "[H1 H2]".
+      simpl. done.
+  Qed.
 
-Definition link_σ (which : bool) (b' : option (list val)) (b : list val) (σ : chan_type) (x : multiset clabel) :=
-  (b' = Some b ∧ x = {[ (which, σ) : clabel]}) ∨ (b' = None ∧ b = [] ∧ σ = EndT ∧ x = ε).
-
-Definition chan_inv (b1' b2' : option (list val)) (in_l : multiset clabel) (out_e : gmap object clabel) :=
-  ∃ b1 b2 σ1 σ2 x1 x2,
-    in_l ≡ x1 ⋅ x2 ∧
-    link_σ true b1' b1 σ1 x1 ∧
-    link_σ false b2' b2 σ2 x2 ∧
-    holds (bufs_typed b1 b2 σ1 σ2) out_e ε.
-
-Definition state_inv (es : list expr) (h : heap) (x : object) : qProp :=
-  match x with
-  | Thread n =>
-      thread_inv (default (Val $ UnitV) (es !! n))
-  | Chan n =>
-      chan_inv (h !! (n,true)) (h !! (n,false))
-  end.
-
-(*
-  ∃ σ1 σ2 b1 b2,
-      maybe_have_σ_in h (n,true) b1 σ1 ∗
-      maybe_have_σ_in h (n,false) b2 σ2 ∗
-      bufs_typed b1 b2 σ1 σ2
-  end. *)
-
-Definition invariant (es : list expr) (h : heap) :=
-  ∃ g, cgraph_wf g ∧
-    ∀ v, state_inv es h v (in_labels g v) (out_edges g v).
-
-
-Lemma dual_dual σ : dual (dual σ) = σ.
-Proof.
-  induction σ; simpl; rewrite ?IHσ; eauto.
-Qed.
-
-Lemma bufs_typed_sym b1 b2 σ1 σ2 :
-  bufs_typed b1 b2 σ1 σ2 -∗
-  bufs_typed b2 b1 σ2 σ1.
-Proof.
-  iIntros "H". unfold bufs_typed.
-  iDestruct "H" as (rest) "[H1 H2]".
-  iExists (dual rest).
-  rewrite dual_dual. iFrame.
-Qed.
-
-Lemma bufs_typed_push b1 b2 σ1 σ2 v t :
-  bufs_typed b1 b2 (SendT t σ1) σ2 -∗
-  val_typed v t -∗
-  ⌜⌜ b1 = [] ⌝⌝ ∗ bufs_typed [] (b2 ++ [v]) σ1 σ2.
-Proof.
-  iIntros "Hb Hv".
-  unfold bufs_typed. destruct b1. simpl.
-  - iSplitL ""; first done.
-    iDestruct "Hb" as (rest ->) "H2".
-    iExists σ1. iSplitL ""; first done. simpl.
-    iInduction b2 as [] "IH" forall (σ2) ""; simpl.
-    + iDestruct "H2" as "%". subst. iFrame. done.
-    + destruct σ2; eauto.
-      iDestruct "H2" as "[H1 H2]". iFrame.
-      iApply ("IH" with "H2"). iFrame.
-  - iExFalso.
-    iDestruct "Hb" as (rest) "[H1 H2]".
-    simpl. done.
-Qed.
-
-Lemma bufs_typed_pop b1 b2 σ1 σ2 (v : val) t :
-  bufs_typed (v :: b1) b2 (RecvT t σ1) σ2 -∗
-  val_typed v t ∗ bufs_typed b1 b2 σ1 σ2.
-Proof.
-  iIntros "H".
-  iDestruct "H" as (rest) "[H1 H2]". simpl.
-  iDestruct "H1" as "[H1 H3]". iFrame.
-  iExists rest. iFrame.
-Qed.
+  Lemma bufs_typed_pop b1 b2 σ1 σ2 (v : val) t :
+    bufs_typed (v :: b1) b2 (RecvT t σ1) σ2 -∗
+    val_typed v t ∗ bufs_typed b1 b2 σ1 σ2.
+  Proof.
+    iIntros "H".
+    iDestruct "H" as (rest) "[H1 H2]". simpl.
+    iDestruct "H1" as "[H1 H3]". iFrame.
+    iExists rest. iFrame.
+  Qed.
+End bufs_typed.
 
 
+Section invariant.
+  Definition qProp := multiset clabel -> gmap object clabel -> Prop.
+
+  Definition thread_inv (e : expr) (in_l : multiset clabel) : rProp :=
+    ⌜⌜ in_l ≡ ε ⌝⌝ ∗ rtyped0 e UnitT.
+
+  Definition link_σ (which : bool) (b' : option (list val)) (b : list val) (σ : chan_type) (x : multiset clabel) :=
+    (b' = Some b ∧ x ≡ {[ (which, σ) : clabel]}) ∨ (b' = None ∧ b = [] ∧ σ = EndT ∧ x ≡ ε).
+
+  Definition link_σs b1' b2' b1 b2 σ1 σ2 in_l :=
+    ∃ x1 x2,
+      in_l ≡ x1 ⋅ x2 ∧
+      link_σ true b1' b1 σ1 x1 ∧
+      link_σ false b2' b2 σ2 x2.
+
+  Definition chan_inv (b1' b2' : option (list val)) (in_l : multiset clabel) : rProp :=
+    ∃ b1 b2 σ1 σ2,
+      ⌜⌜ link_σs b1' b2' b1 b2 σ1 σ2 in_l ⌝⌝ ∗
+      bufs_typed b1 b2 σ1 σ2.
+
+  Global Instance link_σ_proper which b' b σ : Proper ((≡) ==> (iff)) (link_σ which b' b σ).
+  Proof. solve_proper. Qed.
+  Instance link_σ_params : Params (@link_σ) 4. Qed.
+
+  Global Instance link_σs_proper b1' b2' b1 b2 σ1 σ2 : Proper ((≡) ==> (iff)) (link_σs b1' b2' b1 b2 σ1 σ2).
+  Proof. solve_proper. Qed.
+  Instance link_σs_params : Params (@link_σs) 6. Qed.
+
+  Global Instance chan_inv_proper b1' b2' : Proper ((≡) ==> (⊣⊢)) (chan_inv b1' b2').
+  Proof. Fail solve_proper. Admitted.
+  Instance chan_inv_params : Params (@chan_inv) 2. Qed.
+
+  Definition state_inv (es : list expr) (h : heap) (x : object) (in_l : multiset clabel) : rProp :=
+    match x with
+    | Thread n =>
+        thread_inv (default (Val $ UnitV) (es !! n)) in_l
+    | Chan n =>
+        chan_inv (h !! (n,true)) (h !! (n,false)) in_l
+    end.
+
+  Definition invariant (es : list expr) (h : heap) :=
+    ∃ g, cgraph_wf g ∧
+      ∀ v, holds (state_inv es h v (in_labels g v)) (out_edges g v).
+End invariant.
 
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
@@ -113,7 +120,7 @@ Proof.
   intros [].
   destruct H as [????????HH].
   intros Hinv.
-  unfold invariant in *.
+  (* unfold invariant in *.
   destruct Hinv as (g & Hwf & Hvs).
   pose proof (Hvs (Thread i)) as Hthr. simpl in Hthr.
   rewrite H0 in Hthr. simpl in Hthr.
@@ -121,7 +128,7 @@ Proof.
   assert (∃ t Σ1 Σ2, Σ1 ##ₘ Σ2 ∧ (Σ1 ∪ Σ2 = out_edges g (Thread i)) ∧
     holds (rtyped0 e t) Σ1 ε ∧ holds (ctx_typed0 k t UnitT) Σ2 ε)
     as (t & Σ1 & Σ2 & HΣdisj & HΣ & H1 & H2).
-  { admit. }
+  { admit. } *)
 
   (* (* The following doesn't work since we don't know yet
     what the resources for the thread should become.
@@ -151,7 +158,8 @@ Proof.
 
   destruct HH; rewrite ?right_id.
   - (* Pure step *)
-    exists g. split; first done. intros v.
+    admit.
+    (* exists g. split; first done. intros v.
     specialize (Hvs v).
     destruct v; simpl in *; eauto.
     rewrite list_lookup_insert_spec. case_decide; eauto.
@@ -160,20 +168,31 @@ Proof.
     eapply (holds_entails (rtyped0 e' t ∗ ctx_typed0 k t UnitT)).
     + admit.
     + iIntros "[H1 H2]".
-      by iApply (ctx_subst0 with "H2").
+      by iApply (ctx_subst0 with "H2"). *)
   - (* Send *)
-    assert (∃ Σ1' σ tv,
-      t = ChanT σ ∧
-      Σ1 = Σ1' ∪ {[ Chan c.1 := (c.2,SendT tv σ) ]} ∧
-      holds (val_typed y tv) Σ1' ε
-      ) as (Σ1' & σ & t' & -> & -> & HH).
-    { admit. }
+    eapply (inv_exchange (Thread i) (Chan c.1)); last done.
+    + intros v x []. iIntros "H".
+      destruct v; simpl.
+      * rewrite list_lookup_insert_spec. case_decide; naive_solver.
+      * rewrite !lookup_insert_spec. repeat case_decide; eauto; destruct c; simpl in *; simplify_eq.
+    + iIntros (y0) "H". simpl. rewrite H0. simpl.
+      iDestruct "H" as (HH) "H".
+      iDestruct (typed0_ctx_typed0 with "H") as "H"; eauto.
+      iDestruct "H" as (t) "[H1 H2]". simpl.
+      iDestruct "H2" as (r t' ->) "[H2 H2']".
+      iDestruct "H2" as (r0 HH') "H2". simplify_eq.
+      unfold own_ep. destruct c. simpl.
+      iExists _. iFrame.
+      iIntros (x) "H".
+      iExists (b, r).
+      rewrite list_lookup_insert; last by eapply lookup_lt_Some.
+
     (* Need to figure out that the channel is actually in the heap and
        that we therefore have an invariant with a Σ for it.
        We'll use this Σ in the exchange. *)
     (* exchange (g : cgraph V L) v1 v2 l' e1 e2 := *)
-    pose proof (Hvs (Chan c.1)) as Hc.
-    simpl in *.
+    (* pose proof (Hvs (Chan c.1)) as Hc.
+    simpl in Hc.
 
     eexists (exchange g (Thread i) (Chan c.1) (c.2, σ) _ _).
     simpl in *.
@@ -195,7 +214,7 @@ Proof.
       iSplitL "H". iFrame. iExact "H". iFrame.
 
       iDestruct (typed0_ct)
-    admit.
+    admit. *)
   - (* Receive *)
     admit.
   - (* Close *)
