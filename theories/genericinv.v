@@ -73,9 +73,14 @@ Section genericinv.
     apply own_holds in H2. subst.
 
     pose proof (Hvs v2) as Hv2.
+    assert (out_edges g v1 ##ₘ out_edges g v2) as Hdisj_out.
+    {
+      apply edge_out_disjoint.
+      unfold edge. rewrite HΣ12. rewrite lookup_union lookup_singleton.
+      destruct (_ !! _); eauto.
+    }
     assert (Σ2 ##ₘ out_edges g v2) as Hdisj. {
-      assert (out_edges g v1 ##ₘ out_edges g v2) as Hdisj'. { admit. }
-      rewrite HΣ12 in Hdisj'.
+      rewrite HΣ12 in Hdisj_out.
       solve_map_disjoint.
     }
     assert (∃ x, in_labels g v2 = {[ b ]} ⋅ x) as [x Hx].
@@ -94,8 +99,25 @@ Section genericinv.
 
     apply exists_holds in Hcomb as [b' Hb].
     apply sep_holds in Hb as (Σ1' & Σ2' & HΣ12' & Hdisj' & H1' & H2').
-    assert (v1 ≠ v2). { admit. }
-    assert (exchange_valid g v1 v2 Σ1' Σ2'). { admit. }
+    assert (v1 ≠ v2). {
+      intro. subst. rewrite HΣ12 in Hdisj_out.
+      specialize (Hdisj_out v2).
+      rewrite lookup_union in Hdisj_out.
+      rewrite lookup_singleton in Hdisj_out.
+      destruct (_ !! _); done.
+    }
+
+    assert (exchange_valid g v1 v2 Σ1' Σ2'). {
+      unfold exchange_valid. split_and!.
+      - unfold edge. rewrite HΣ12.
+        rewrite lookup_union. rewrite lookup_singleton.
+        destruct (_ !! _); simpl; eauto.
+      - solve_map_disjoint.
+      - rewrite HΣ12.
+        rewrite delete_union delete_singleton left_id_L.
+        rewrite delete_notin; eauto.
+        solve_map_disjoint.
+    }
     exists (exchange g v1 v2 b' Σ1' Σ2').
     split.
     - apply exchange_wf; eauto.
@@ -106,11 +128,20 @@ Section genericinv.
       + assert (holds (own_out v2 b') {[ v2 := b' ]}) as Hown.
         { apply own_holds. done. }
         eapply holds_entails.
-        * eapply sep_combine; eauto. admit.
+        * eapply sep_combine; eauto.
+          assert (out_edges g v2 !! v2 = None). {
+            specialize (Hdisj_out v2).
+            rewrite HΣ12 in Hdisj_out.
+            rewrite lookup_union in Hdisj_out.
+            rewrite lookup_singleton in Hdisj_out.
+            destruct (_ !! _); destruct (_ !! _); done.
+          }
+          assert (Σ1' ∪ Σ2' ##ₘ {[v2 := b']}); try solve_map_disjoint.
+          rewrite <-HΣ12'. solve_map_disjoint.
         * iIntros "[H1 H2]". iApply "H1". done.
       + eapply holds_entails. 2: apply Hrest; naive_solver.
         eauto.
-  Admitted.
+  Qed.
 (*
   Lemma inv_exchange {v1 v2 l l'} {P1 P2 P1' P2' H1 H2 : hProp V L} {f f' : V -> hProp V L} :
     (∀ v, v ≠ v1 -> v ≠ v2 -> f v ⊢ f' v) ->
