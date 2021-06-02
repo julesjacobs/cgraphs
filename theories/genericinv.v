@@ -32,6 +32,27 @@ Section genericinv.
     ∃ g : cgraph V L, cgraph_wf g ∧
       ∀ v : V, holds (f v (in_labels g v)) (out_edges g v).
 
+  Lemma adequacy f (φ : V -> multiset L -> gmap V L -> Prop) :
+    inv f ->
+    (∀ v x, f v x ⊢ ∃ Σ, ⌜⌜ φ v x Σ ⌝⌝ ∗ own Σ) ->
+    ∃ g, cgraph_wf g ∧ ∀ v, φ v (in_labels g v) (out_edges g v).
+  Proof.
+    intros Hinv HH.
+    destruct Hinv as (g & Hwf & H1).
+    exists g. split; eauto.
+    intros v.
+    specialize (H1 v).
+    specialize (HH v (in_labels g v)).
+    eapply holds_entails in H1. 2: {
+      iIntros "H".
+      iDestruct (HH with "H") as "H".
+      iExact "H".
+    }
+    apply exists_holds in H1 as (Σ & H1).
+    apply pure_sep_holds in H1 as (H1 & H2).
+    apply own_holds in H2. subst. done.
+  Qed.
+
   Lemma inv_impl f f' :
     (∀ v x, f v x ⊢ f' v x) ->
     inv f -> inv f'.
@@ -50,7 +71,6 @@ Section genericinv.
       + admit.
       + admit.
   Admitted.
-
 
   Lemma inv_exchange (v1 v2 : V) (f f' : V -> multiset L -> hProp V L) :
     (∀ v x, v ≠ v1 ∧ v ≠ v2 -> f v x ⊢ f' v x) ->
@@ -86,8 +106,9 @@ Section genericinv.
       solve_map_disjoint.
     }
 
-    assert (∃ x, in_labels g v2 = {[ b ]} ⋅ x) as [x Hx]
-      by by eapply out_edges_in_labels.
+    assert (∃ x, in_labels g v2 = {[ b ]} ⋅ x) as [x Hx].
+    { admit. }
+      (* by by eapply out_edges_in_labels. *)
 
     pose proof (sep_combine _ _ _ _ H3 Hv2 Hdisj) as Hcomb.
     eapply holds_entails in Hcomb. 2: {
@@ -133,7 +154,7 @@ Section genericinv.
         * iIntros "[H1 H2]". iApply "H1". done.
       + eapply holds_entails. 2: apply Hrest; naive_solver.
         eauto.
-  Qed.
+  Admitted.
 (*
   Lemma inv_exchange {v1 v2 l l'} {P1 P2 P1' P2' H1 H2 : hProp V L} {f f' : V -> hProp V L} :
     (∀ v, v ≠ v1 -> v ≠ v2 -> f v ⊢ f' v) ->

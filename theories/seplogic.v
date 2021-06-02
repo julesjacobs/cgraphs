@@ -206,7 +206,7 @@ Section seplogic.
     rewrite /holds uPred_and_holds. done.
   Qed.
 
-  Lemma own_holds Σ1 Σ2 :
+  Lemma own_holds (Σ1 Σ2 : gmap V L) :
     holds (own Σ1) Σ2 <-> Σ1 = Σ2.
   Proof.
     unfold holds, own. simpl.

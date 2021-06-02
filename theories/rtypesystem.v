@@ -646,6 +646,21 @@ Proof.
     iApply "Hctx". iApply "Hctx'". done.
 Qed.
 
+Lemma rtyped0_ctx k e B :
+  ctx k ->
+  rtyped0 (k e) B ⊣⊢ ∃ t,
+    rtyped0 e t ∗ ∀ e', rtyped0 e' t -∗ rtyped0 (k e') B.
+Proof.
+  intros Hctx.
+  iSplit.
+  - iIntros "H".
+    iDestruct (typed0_ctx_typed0 with "H") as (t) "[H1 H2]";
+    eauto with iFrame.
+  - iIntros "H".
+    iDestruct "H" as (t) "[H1 H2]".
+    iApply "H2". iFrame.
+Qed.
+
 (*
   Asynchronous subtyping:
   -----------------------
