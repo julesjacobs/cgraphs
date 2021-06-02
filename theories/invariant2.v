@@ -66,34 +66,50 @@ Section bufs_typed.
   Qed.
 End bufs_typed.
 
+Section bufs_typed'.
+  Definition link_opt (b' : option (list val)) (σ' : option chan_type) :=
+    match b',σ' with
+    | Some b, Some σ => Some (b,σ)
+    | None, None => Some ([], EndT)
+    | _, _ => None
+    end.
+
+  Definition bufs_typed' (b1' b2' : option (list val)) (σ1' σ2' : option chan_type) : rProp :=
+    ∃ b1 b2 σ1 σ2,
+      ⌜⌜ link_opt b1' σ1' = Some (b1,σ1) ∧
+        link_opt b2' σ2' = Some (b2,σ2) ⌝⌝ ∗
+      bufs_typed b1 b2 σ1 σ2.
+(*
+  Lemma bufs_typed_push'
+"H2'" : val_typed y t'
+"H" : chan_inv (Some buf) (h !! (c, false)) ({[(false, SendT t' r)]} ⋅ x)
+--------------------------------------∗
+chan_inv (Some (buf ++ [y])) (h !! (c, false)) ({[(false, r)]} ⋅ x)
+ *)
+End bufs_typed'.
 
 Section invariant.
-  Definition qProp := multiset clabel -> gmap object clabel -> Prop.
-
   Definition thread_inv (e : expr) (in_l : multiset clabel) : rProp :=
     ⌜⌜ in_l ≡ ε ⌝⌝ ∗ rtyped0 e UnitT.
 
-  Definition link_σ (which : bool) (b' : option (list val)) (b : list val) (σ : chan_type) (x : multiset clabel) :=
-    (b' = Some b ∧ x ≡ {[ (which, σ) : clabel]}) ∨ (b' = None ∧ b = [] ∧ σ = EndT ∧ x ≡ ε).
-
-  Definition link_σs b1' b2' b1 b2 σ1 σ2 in_l :=
-    ∃ x1 x2,
-      in_l ≡ x1 ⋅ x2 ∧
-      link_σ true b1' b1 σ1 x1 ∧
-      link_σ false b2' b2 σ2 x2.
+  Inductive link_σs : option chan_type -> option chan_type -> multiset clabel -> Prop :=
+    | link_left r : link_σs (Some r) None {[ (true,r):clabel ]}
+    | link_right r : link_σs None (Some r) {[ (false,r):clabel ]}
+    | link_left_right r1 r2 x : x ≡ {[ (true,r1):clabel ]} ⋅ {[ (false,r2):clabel ]} ->
+          link_σs (Some r1) (Some r2) x.
 
   Definition chan_inv (b1' b2' : option (list val)) (in_l : multiset clabel) : rProp :=
-    ∃ b1 b2 σ1 σ2,
-      ⌜⌜ link_σs b1' b2' b1 b2 σ1 σ2 in_l ⌝⌝ ∗
-      bufs_typed b1 b2 σ1 σ2.
+    ∃ σ1' σ2',
+      ⌜⌜ link_σs σ1' σ2' in_l ⌝⌝ ∗
+      bufs_typed' b1' b2' σ1' σ2'.
 
-  Global Instance link_σ_proper which b' b σ : Proper ((≡) ==> (iff)) (link_σ which b' b σ).
+  Global Instance thread_inv_proper e : Proper ((≡) ==> (⊣⊢)) (thread_inv e).
   Proof. solve_proper. Qed.
-  Instance link_σ_params : Params (@link_σ) 4. Qed.
+  Instance thread_inv_params : Params (@thread_inv) 1. Qed.
 
-  Global Instance link_σs_proper b1' b2' b1 b2 σ1 σ2 : Proper ((≡) ==> (iff)) (link_σs b1' b2' b1 b2 σ1 σ2).
-  Proof. solve_proper. Qed.
-  Instance link_σs_params : Params (@link_σs) 6. Qed.
+  Global Instance link_σs_proper σ1' σ2' : Proper ((≡) ==> (iff)) (link_σs σ1' σ2').
+  Proof. solve_proper_prepare. Admitted.
+  Instance link_σs_params : Params (@link_σs) 2. Qed.
 
   Global Instance chan_inv_proper b1' b2' : Proper ((≡) ==> (⊣⊢)) (chan_inv b1' b2').
   Proof. Fail solve_proper. Admitted.
@@ -108,8 +124,7 @@ Section invariant.
     end.
 
   Definition invariant (es : list expr) (h : heap) :=
-    ∃ g, cgraph_wf g ∧
-      ∀ v, holds (state_inv es h v (in_labels g v)) (out_edges g v).
+    inv (state_inv es h).
 End invariant.
 
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :

@@ -71,7 +71,7 @@ Section cgraph.
   Qed.
 
   Lemma edge_out_disjoint g v1 v2 :
-    edge g v1 v2 -> out_edges g v1 ##ₘ out_edges g v2.
+    cgraph_wf g -> edge g v1 v2 -> out_edges g v1 ##ₘ out_edges g v2.
   Proof.
   Admitted.
 

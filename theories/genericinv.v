@@ -98,6 +98,7 @@ Section genericinv.
 
     apply exists_holds in Hcomb as [b' Hb].
     apply sep_holds in Hb as (Σ1' & Σ2' & HΣ12' & Hdisj' & H1' & H2').
+
     assert (v1 ≠ v2). {
       intros ->. specialize (Hdisj_out v2). by rewrite Hv1outv2 in Hdisj_out.
     }
