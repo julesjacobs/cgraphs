@@ -62,6 +62,54 @@ Section genericinv.
           f' v2 ({[ l' ]} ⋅ x))) ->
     inv f -> inv f'.
   Proof.
+    intros Hrest Hexch Hinv.
+    unfold inv in *.
+    destruct Hinv as (g & Hwf & Hvs).
+    pose proof (Hvs v1) as Hv1.
+    specialize (Hexch (in_labels g v1)).
+    eapply holds_entails in Hexch; last done.
+    apply exists_holds in Hexch as (b & HH).
+    apply sep_holds in HH as (Σ1 & Σ2 & HΣ12 & H1 & H2 & H3).
+    apply own_holds in H2. subst.
+
+    pose proof (Hvs v2) as Hv2.
+    assert (Σ2 ##ₘ out_edges g v2) as Hdisj. {
+      assert (out_edges g v1 ##ₘ out_edges g v2) as Hdisj'. { admit. }
+      rewrite HΣ12 in Hdisj'.
+      solve_map_disjoint.
+    }
+    assert (∃ x, in_labels g v2 = {[ b ]} ⋅ x) as [x Hx].
+    {
+      eapply out_edges_in_labels. erewrite HΣ12.
+      rewrite lookup_union. rewrite lookup_singleton.
+      destruct (_ !! _); done.
+    }
+
+    pose proof (sep_combine _ _ _ _ H3 Hv2 Hdisj) as Hcomb.
+    eapply holds_entails in Hcomb. 2: {
+      iIntros "[H1 H2]".
+      rewrite Hx.
+      iApply ("H1" with "H2").
+    }
+
+    apply exists_holds in Hcomb as [b' Hb].
+    apply sep_holds in Hb as (Σ1' & Σ2' & HΣ12' & Hdisj' & H1' & H2').
+    assert (v1 ≠ v2). { admit. }
+    assert (exchange_valid g v1 v2 Σ1' Σ2'). { admit. }
+    exists (exchange g v1 v2 b' Σ1' Σ2').
+    split.
+    - apply exchange_wf; eauto.
+    - intros v.
+      erewrite exchange_out_edges; erewrite exchange_in_labels; eauto.
+      2: { rewrite Hx. done. }
+      repeat case_decide; simplify_eq; eauto.
+      + assert (holds (own_out v2 b') {[ v2 := b' ]}) as Hown.
+        { apply own_holds. done. }
+        eapply holds_entails.
+        * eapply sep_combine; eauto. admit.
+        * iIntros "[H1 H2]". iApply "H1". done.
+      + eapply holds_entails. 2: apply Hrest; naive_solver.
+        eauto.
   Admitted.
 (*
   Lemma inv_exchange {v1 v2 l l'} {P1 P2 P1' P2' H1 H2 : hProp V L} {f f' : V -> hProp V L} :

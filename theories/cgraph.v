@@ -66,7 +66,7 @@ Section cgraph.
 
   Lemma out_edges_in_labels g v1 v2 l :
     out_edges g v1 !! v2 = Some l ->
-    ∃ x, in_labels g v2 = x ⋅ {[ l ]}.
+    ∃ x, in_labels g v2 = {[ l ]} ⋅ x.
   Proof.
   Admitted.
 
@@ -170,10 +170,10 @@ Section cgraph.
 
   Lemma exchange_in_labels g v1 v2 v3 l l' e1 e2 x :
     exchange_valid g v1 v2 e1 e2 ->
-    in_labels g v2 ≡ x ⋅ {[ l ]} ->
+    in_labels g v2 ≡ {[ l ]} ⋅ x ->
     cgraph_wf g ->
     in_labels (exchange g v1 v2 l' e1 e2) v3 =
-      if decide (v3 = v2) then x ⋅ {[ l' ]}
+      if decide (v3 = v2) then {[ l' ]} ⋅ x
       else in_labels g v3.
   Proof.
   Admitted.

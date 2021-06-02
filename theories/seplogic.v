@@ -134,6 +134,9 @@ Section seplogic.
     Lemma uPred_exists_holds {B} (Φ : B -> uPred A) x :
       (∃ b, Φ b)%I x <-> ∃ b, Φ b x.
     Proof. by uPred.unseal. Qed.
+    Lemma uPred_forall_holds {B} (Φ : B -> uPred A) x :
+      (∀ b, Φ b)%I x <-> ∀ b, Φ b x.
+    Proof. by uPred.unseal. Qed.
     Lemma uPred_affinely_pure_holds φ x :
       (⌜⌜ φ ⌝⌝ : uPred A)%I x <-> x ≡ ε ∧ φ.
     Proof. rewrite /bi_affinely uPred_and_holds uPred_pure_holds uPred_emp_holds. done. Qed.
@@ -189,6 +192,12 @@ Section seplogic.
     holds (∃ b, Φ b)%I Σ <-> ∃ b, holds (Φ b) Σ.
   Proof.
     unfold holds. rewrite uPred_exists_holds. done.
+  Qed.
+
+  Lemma forall_holds {B} (Φ : B -> hProp') Σ :
+    holds (∀ b, Φ b)%I Σ <-> ∀ b, holds (Φ b) Σ.
+  Proof.
+    unfold holds. rewrite uPred_forall_holds. done.
   Qed.
 
   Lemma and_holds (P Q : hProp') Σ :

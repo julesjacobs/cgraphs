@@ -186,6 +186,17 @@ Proof.
       iIntros (x) "H".
       iExists (b, r).
       rewrite list_lookup_insert; last by eapply lookup_lt_Some.
+      iSplitL "H1".
+      * iIntros "H2".
+        unfold thread_inv. iSplit; eauto. simpl.
+        iApply (ctx_subst0 with "H1"). simpl. eauto.
+      * rewrite !lookup_insert_spec; repeat case_decide; destruct b; simplify_eq.
+        -- simpl in *. rewrite H1.
+           unfold chan_inv in *.
+           iDestruct "H" as (b1 b2 σ1 σ2 HH2) "H".
+           admit.
+        -- admit.
+
 
     (* Need to figure out that the channel is actually in the heap and
        that we therefore have an invariant with a Σ for it.
@@ -233,3 +244,18 @@ Lemma preservationN (threads threads' : list expr) (chans chans' : heap) :
 Proof.
   induction 1; eauto using preservation.
 Qed.
+
+Lemma invariant_init (e : expr) :
+  typed ∅ e UnitT -> invariant [e] ∅.
+Proof.
+  intros H.
+  eapply inv_impl; last eauto using inv_init.
+  intros. simpl. iIntros "[% H]".
+  unfold state_inv. destruct v.
+  - destruct n; simpl.
+    + admit.
+    + unfold thread_inv. simpl. iSplit; eauto.
+      iPureIntro. subst. done.
+  - rewrite !lookup_empty. unfold chan_inv.
+    admit.
+Admitted.
