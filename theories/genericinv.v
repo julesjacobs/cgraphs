@@ -72,23 +72,22 @@ Section genericinv.
     apply sep_holds in HH as (Σ1 & Σ2 & HΣ12 & H1 & H2 & H3).
     apply own_holds in H2. subst.
 
-    pose proof (Hvs v2) as Hv2.
-    assert (out_edges g v1 ##ₘ out_edges g v2) as Hdisj_out.
-    {
-      apply edge_out_disjoint.
-      unfold edge. rewrite HΣ12. rewrite lookup_union lookup_singleton.
+    assert (out_edges g v1 !! v2 = Some b) as Hv1outv2. {
+      rewrite HΣ12. rewrite lookup_union lookup_singleton.
       destruct (_ !! _); eauto.
     }
+
+    pose proof (Hvs v2) as Hv2.
+    assert (out_edges g v1 ##ₘ out_edges g v2) as Hdisj_out
+      by eauto using edge_out_disjoint, some_edge.
+
     assert (Σ2 ##ₘ out_edges g v2) as Hdisj. {
       rewrite HΣ12 in Hdisj_out.
       solve_map_disjoint.
     }
-    assert (∃ x, in_labels g v2 = {[ b ]} ⋅ x) as [x Hx].
-    {
-      eapply out_edges_in_labels. erewrite HΣ12.
-      rewrite lookup_union. rewrite lookup_singleton.
-      destruct (_ !! _); done.
-    }
+
+    assert (∃ x, in_labels g v2 = {[ b ]} ⋅ x) as [x Hx]
+      by by eapply out_edges_in_labels.
 
     pose proof (sep_combine _ _ _ _ H3 Hv2 Hdisj) as Hcomb.
     eapply holds_entails in Hcomb. 2: {
@@ -100,41 +99,33 @@ Section genericinv.
     apply exists_holds in Hcomb as [b' Hb].
     apply sep_holds in Hb as (Σ1' & Σ2' & HΣ12' & Hdisj' & H1' & H2').
     assert (v1 ≠ v2). {
-      intro. subst. rewrite HΣ12 in Hdisj_out.
-      specialize (Hdisj_out v2).
-      rewrite lookup_union in Hdisj_out.
-      rewrite lookup_singleton in Hdisj_out.
-      destruct (_ !! _); done.
+      intros ->. specialize (Hdisj_out v2). by rewrite Hv1outv2 in Hdisj_out.
     }
 
     assert (exchange_valid g v1 v2 Σ1' Σ2'). {
       unfold exchange_valid. split_and!.
-      - unfold edge. rewrite HΣ12.
-        rewrite lookup_union. rewrite lookup_singleton.
-        destruct (_ !! _); simpl; eauto.
+      - eauto using some_edge.
       - solve_map_disjoint.
       - rewrite HΣ12.
         rewrite delete_union delete_singleton left_id_L.
         rewrite delete_notin; eauto.
         solve_map_disjoint.
     }
+
     exists (exchange g v1 v2 b' Σ1' Σ2').
     split.
     - apply exchange_wf; eauto.
     - intros v.
-      erewrite exchange_out_edges; erewrite exchange_in_labels; eauto.
-      2: { rewrite Hx. done. }
+      erewrite exchange_out_edges; erewrite exchange_in_labels; eauto; last by rewrite Hx.
       repeat case_decide; simplify_eq; eauto.
-      + assert (holds (own_out v2 b') {[ v2 := b' ]}) as Hown.
-        { apply own_holds. done. }
+      + assert (holds (own_out v2 b') {[ v2 := b' ]}) as Hown
+          by by apply own_holds.
         eapply holds_entails.
         * eapply sep_combine; eauto.
           assert (out_edges g v2 !! v2 = None). {
             specialize (Hdisj_out v2).
-            rewrite HΣ12 in Hdisj_out.
-            rewrite lookup_union in Hdisj_out.
-            rewrite lookup_singleton in Hdisj_out.
-            destruct (_ !! _); destruct (_ !! _); done.
+            rewrite Hv1outv2 in Hdisj_out.
+            do 2 destruct (_ !! _); done.
           }
           assert (Σ1' ∪ Σ2' ##ₘ {[v2 := b']}); try solve_map_disjoint.
           rewrite <-HΣ12'. solve_map_disjoint.
