@@ -8,70 +8,6 @@ Require Export diris.util.
 Require Export diris.mapexcl.
 Require Export diris.multiset.
 
-(*
-P Q : hProp V L
-Σ Σ1 Σ2 : gmap V L
-ls ls1 ls2 : list L
-φ : Prop
-l : L
-v : V
-
-ls1 ≡ₚ ls2 → (⊢ P) (Σ,ls1) → (⊢ P) (Σ,ls2)
-(⊢ own (Σ1,ls1)) (Σ1,ls2) ↔ Σ1 = Σ2 ∧ ls1 ≡ₚ ls2
-(⊢ P ∗ Q) (Σ,ls) ↔ ∃ Σ1 Σ2 ls1 ls2, Σ = Σ1 ∪ Σ2 ∧ Σ1 ##ₘ Σ2 ∧ ls ≡ₚ ls1 ++ ls2 ∧ (⊢ P) (Σ1,ls1) ∧ (⊢ Q) (Σ2,ls2)
-(⊢ P ∧ Q) (Σ,ls) ↔ (⊢ P) (Σ,ls) ∧ (⊢ Q) (Σ,ls)
-(⊢ ⌜ φ ⌝) (Σ,ls) ↔ φ
-(⊢ ⌜⌜ φ ⌝⌝) (Σ,ls) ↔ φ ∧ Σ = ∅ ∧ ls = []
-own (Σ1,ls1) ∗ own (Σ2,ls2) ⊣⊢ ⌜⌜ Σ1 ##ₘ Σ2 ⌝⌝ ∗ own (Σ1 ∪ Σ2) (ls1 ++ ls2)
-ls1 ≡ₚ ls2 → own (Σ,ls1) ⊢ own (Σ,ls2)
-
-
-derived lemmas:
-
-(⊢ ⌜⌜ φ ⌝⌝ ∗ P) (Σ,ls) ↔ φ ∧ (⊢ P) (Σ,ls)
-Σ1 ##ₘ Σ2 → (⊢ P) (Σ1,ls1) → (⊢ Q) (Σ2,ls2) → (⊢ P ∗ Q) (Σ1 ∪ Σ2) (ls1 ++ ls2)
-
-derived definitions:
-
-own_ins ls := own (∅,ls)
-own_outs ∅ := own (Σ,[])
-own_in l := own_ins [l]
-own_outs v l := own_outs {[ v := l ]}
-
-adequacy lemma:
-
-(⊢ ∃ Σ ls, own (Σ,ls) ∗ ⌜⌜ φ v (Σ,ls) ⌝⌝) (Σ',ls') → φ (Σ',ls')
-P ⊢ ⊢ ∃ Σ ls, ⌜⌜ φ v (Σ,ls) ⌝⌝
-
-(∀ v, f v ⊢ ⊢ ∃ Σ ls, ⌜⌜ φ v (Σ,ls) ⌝⌝ ∗ own (Σ,ls)) → inv f →
-∃ g, cgraph_wf g ∧ ∀ v, φ v (in_labels g v) (out_edges g v)
-
-Verder was ik aan het nadenken over progress. High level gaat het argument als volgt:
-We willen laten zien dat één van de volgende twee altijd geldt:
-1. Alle threads zijn unit en de heap is leeg.
-2. Er is een thread die kan stappen.
-Omdat (1) decidable is kunnen we bewijzen (not (1) => (2)).
-We nemen dus aan dat er een thread is die niet unit is, of een buffer in de heap.
-We gaan vervolgens stapjes zetten in de connectivity graph, beginnend bij de thread of channel die er is.
-Er zijn de volgende mogelijkheden:
-1. We zitten bij een thread.
-  a. De thread is aan het receiven op een channel met een lege buffer.
-  b. De thread is niet aan het receiven op een channel met een lege buffer.
-2. We zitten bij een channel.
-  a. Beide buffers zijn leeg / er bestaat nog maar 1 buffer en die is leeg.
-  b. Er is een buffer die niet leeg is
-
-Bij 1a stappen we naar het desbetreffende channel.
-Bij 1b weten we uit de invariant dat de thread getypeerd is, en dan uit local progress dat die thread een stapje kan zetten.
-Bij 2a weten we uit de invariant dat de session types duaal zijn, en stappen we naar degene die niet een receive is (dus een send of end, dat kan ivm dualiteit).
-Bij 2b stappen we naar de vertex die het endpoint heeft van de buffer die niet leeg is (die bestaat omdat we ivm de invariant weten dat het channel dan een inkomende edge heeft van die buffer).
-
-Als we kunnen bewijzen dat dit proces niet direct terug stapt waar het vandaan kwam dan geeft een uforest lemma dat het proces termineert (dus bij case 1b).
-Als we tussen twee channels heen en weer stappen dan hebben ze beide een edge naar elkaar, en dat kan niet ivm cycles.
-Tussen twee threads heen en weer stappen kan ook niet, want een thread stapt altijd naar een channel.
-Tussen een thread en een channel heen en weer stappen betekent dat de thread staat te wachten op het channel omdat hij een receive wil doen maar de buffer leeg is. In dit geval zal het channel niet terug stappen naar de thread, omdat een channel altijd stapt naar een endpoint van een niet-lege buffer, of als beide buffers leeg zijn dan stapt hij naar de kant die geen receive vooraan zijn session type heeft.
-*)
-
 Section seplogic.
   Context {V : Type}.
   Context `{Countable V}.
@@ -213,12 +149,6 @@ Section seplogic.
     rewrite uPred_ownM_holds_L. split; intro HH; subst; eauto.
     eapply map_Excl_injective; eauto.
   Qed.
-
-  (* Lemma own1_holds v l Σ :
-    holds (own1 v l) Σ <-> Σ = {[ v := l ]}.
-  Proof.
-    unfold own1. rewrite own_holds. naive_solver.
-  Qed. *)
 
   Lemma pure_sep_holds φ P Σ :
     holds (⌜⌜ φ ⌝⌝ ∗ P) Σ <-> φ ∧ holds P Σ.

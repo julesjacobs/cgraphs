@@ -336,90 +336,6 @@ Proof.
     iApply ("IH" with "[%] Hv He"). done.
 Qed.
 
-(* Definition ctx_typed (Γ : envT) (k : expr -> expr)
-                     (A : type) (B : type) : iProp :=
-    (∀ e Γ',
-      ⌜⌜ Γ ##ₘ Γ' ⌝⌝ -∗
-      rtyped Γ' e A -∗
-      rtyped (Γ ∪ Γ') (k e) B)%I.
-
-Lemma md1 (Γ : envT) :
-  Γ = ∅ ∪ Γ ∧ ∅ ##ₘ Γ.
-Proof.
-  rewrite left_id. solve_map_disjoint.
-Qed.
-
-Lemma md2 (Γ1 Γ2 : envT) :
-  Γ1 ##ₘ Γ2 ->
-  Γ1 ∪ Γ2 = Γ2 ∪ Γ1 ∧ Γ2 ##ₘ Γ1.
-Proof.
-  intro. rewrite map_union_comm; solve_map_disjoint.
-Qed.
-
-Ltac smd := solve_map_disjoint || (rewrite map_union_comm; solve_map_disjoint).
-
-Lemma ctx_subst Γ1 Γ2 k A B e :
-  Γ1 ##ₘ Γ2 -> ctx_typed Γ1 k A B -∗ rtyped Γ2 e A -∗ rtyped (Γ1 ∪ Γ2) (k e) B.
-Proof.
-  intros Hdisj.
-  iIntros "Hctx Htyped".
-  unfold ctx_typed.
-  iApply "Hctx".
-  - iPureIntro. done.
-  - iFrame.
-Qed. *)
-
-(* Lemma typed_ctx1_typed Γ B k e :
-  ctx1 k -> rtyped Γ (k e) B -∗
-  ∃ Γ1 Γ2 A,
-    ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-    ctx_typed Γ1 k A B ∗ rtyped Γ2 e A.
-Proof.
-  intros [];
-  simpl;
-  iIntros "Htyped";
-  repeat (iDestruct "Htyped" as (?) "Htyped");
-  try iDestruct "Htyped" as "[H1 H2]";
-  try iDestruct "H1" as (->) "H1"; subst;
-  try destruct H; try destruct H0; subst;
-  repeat iExists _; iFrame; iSplit;
-  eauto using md1, md2;
-  try solve [
-    repeat iIntros (?); repeat iIntros "?";
-    simpl; rewrite ?left_id;
-    repeat iExists _; iSplit;
-    iFrame; eauto using md1, md2; iPureIntro; smd
-  ].
-  repeat iIntros (?); repeat iIntros "?". rewrite left_id. simpl. iFrame.
-Qed. *)
-
-(* Lemma typed_ctx_typed Γ B k e :
-  ctx k -> rtyped Γ (k e) B -∗
-  ∃ Γ1 Γ2 A,
-    ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
-    ctx_typed Γ1 k A B ∗ rtyped Γ2 e A.
-Proof.
-  intros Hctx.
-  iIntros "Htyped".
-  iInduction Hctx as [] "IH" forall (Γ B).
-  - repeat iExists _. iFrame.
-    iSplit. eauto using md1.
-    repeat iIntros (?). repeat iIntros "?".
-    rewrite left_id. done.
-  - iDestruct (typed_ctx1_typed with "Htyped") as "H"; eauto.
-    iDestruct "H" as (Γ1 Γ2 A (-> & ?)) "[H1 H2]".
-    iDestruct ("IH" with "H2") as (Γ0 Γ3 A0 (-> & ?)) "[H3 H4]".
-    repeat iExists _. iFrame.
-    iSplit.
-    + iPureIntro. split.
-      * rewrite assoc. reflexivity.
-      * solve_map_disjoint.
-    + repeat iIntros (?). iIntros "?". unfold ctx_typed.
-      replace (Γ1 ∪ Γ0 ∪ Γ') with (Γ1 ∪ (Γ0 ∪ Γ')) by (by rewrite assoc).
-      iApply "H1". iPureIntro. solve_map_disjoint.
-      iApply "H3". solve_map_disjoint. done.
-Qed. *)
-
 (* rtyped with empty environment *)
 
 Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
@@ -607,17 +523,6 @@ Proof.
   unfold ctx_typed0.
   iApply "Hctx". done.
 Qed.
-
-(* Lemma ctx_typed_ctx_typed0 k A B :
-  ctx_typed ∅ k A B -∗ ctx_typed0 k A B.
-Proof.
-  iIntros "H" (e) "HH".
-  iApply rtyped_rtyped0.
-  unfold ctx_typed.
-  replace (rtyped ∅ (k e) B) with (rtyped (∅ ∪ ∅) (k e) B) by (by rewrite left_id).
-  iApply ("H" with "[%] [HH]"). solve_map_disjoint.
-  iApply rtyped0_rtyped. done.
-Qed. *)
 
 Lemma typed0_ctx1_typed0 B k e :
   ctx1 k -> rtyped0 (k e) B -∗
