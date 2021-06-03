@@ -10,3 +10,5 @@
   - async subtyping
   - locks
 * write paper
+
+* Refactor cgraph lemmas

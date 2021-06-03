@@ -314,7 +314,7 @@ Section genericinv.
     Qed.
 
   Lemma inv_alloc_lr (v1 v2 v3 : V) (f f' : V -> multiset L -> hProp V L) :
-    (* (∀ v, Proper ((≡) ==> (⊣⊢)) (f v)) -> *)
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (f v)) ->
     v1 ≠ v2 ∧ v2 ≠ v3 ∧ v3 ≠ v1 ->
     (∀ v x, v ≠ v1 ∧ v ≠ v2 ∧ v ≠ v3 -> f v x ⊢ f' v x) ->
     (∀ x, f v2 x ⊢ ⌜⌜ x ≡ ε ⌝⌝) ->
@@ -326,7 +326,7 @@ Section genericinv.
         (own_out v2 l2' -∗ f' v3 ε)) ->
     inv f -> inv f'.
   Proof.
-    intros (Hneq1 & Hneq2 & Hneq3) Hrest H2 H3 H1 Hinv.
+    intros Hproper (Hneq1 & Hneq2 & Hneq3) Hrest H2 H3 H1 Hinv.
     assert (inv (λ v x,
       if decide (v = v1) then f' v1 x
       else if decide (v = v2) then ∃ l2', f' v2 (x ⋅ {[l2']}) ∗ (own_out v2 l2' -∗ f' v3 ε)
