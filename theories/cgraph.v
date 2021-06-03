@@ -201,6 +201,42 @@ Section cgraph.
     repeat case_decide; simplify_eq; eauto.
   Qed.
 
+  Definition dealloc (g : cgraph V L) v1 v2 e1 e2 :=
+    <[ v1 := e1 ]> $ <[ v2 := e2 ]> g.
+
+  Definition dealloc_valid g v1 v2 e1 e2 :=
+    edge g v1 v2 ∧ e1 ##ₘ e2 ∧ e1 ∪ e2 = (delete v2 $ out_edges g v1) ∪ out_edges g v2.
+
+
+  Lemma dealloc_wf g v1 v2 e1 e2 :
+    dealloc_valid g v1 v2 e1 e2 ->
+    cgraph_wf g ->
+    cgraph_wf (dealloc g v1 v2 e1 e2).
+  Proof.
+  Admitted.
+
+  Lemma dealloc_in_labels g v1 v2 v3 l e1 e2 x :
+    dealloc_valid g v1 v2 e1 e2 ->
+    in_labels g v2 ≡ {[ l ]} ⋅ x ->
+    cgraph_wf g ->
+    in_labels (dealloc g v1 v2 e1 e2) v3 =
+      if decide (v3 = v2) then x
+      else in_labels g v3.
+  Proof.
+  Admitted.
+
+  Lemma dealloc_out_edges g v1 v2 v3 e1 e2 :
+    out_edges (dealloc g v1 v2 e1 e2) v3 =
+      if decide (v3 = v1) then e1
+      else if decide (v3 = v2) then e2
+      else out_edges g v3.
+  Proof.
+    unfold dealloc.
+    unfold out_edges.
+    rewrite !lookup_insert_spec.
+    repeat case_decide; simplify_eq; eauto.
+  Qed.
+
   Lemma cgraph_wellfounded g (R : V -> V -> Prop) :
     antisymmetric V R ->
     (∀ x y, R x y -> sc (edge g) x y) ->

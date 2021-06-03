@@ -205,6 +205,12 @@ Proof.
   - apply lookup_app_r. lia.
 Qed.
 
+Lemma list_lookup_singleton_spec {A} (a : A) {i : nat} :
+  [a] !! i = if decide (i = 0) then Some a else None.
+Proof.
+  destruct i; simpl; eauto.
+Qed.
+
 Lemma lookup_app_plus {A} (l1 l2 : list A) (i : nat) :
   (l1 ++ l2) !! (length l1 + i) = l2 !! i.
   by induction l1.

@@ -16,53 +16,9 @@ Section bufs_typed.
     | _,_ => False
     end.
 
-  Definition bufs_typed (b1 b2 : list val) (σ1 σ2 : chan_type) : rProp :=
-    ∃ rest, buf_typed b1 σ1 rest ∗
-            buf_typed b2 σ2 (dual rest).
-
   Lemma dual_dual σ : dual (dual σ) = σ.
   Proof.
     induction σ; simpl; rewrite ?IHσ; eauto.
-  Qed.
-
-  Lemma bufs_typed_sym b1 b2 σ1 σ2 :
-    bufs_typed b1 b2 σ1 σ2 -∗
-    bufs_typed b2 b1 σ2 σ1.
-  Proof.
-    iIntros "H". unfold bufs_typed.
-    iDestruct "H" as (rest) "[H1 H2]".
-    iExists (dual rest).
-    rewrite dual_dual. iFrame.
-  Qed.
-
-  Lemma bufs_typed_push b1 b2 σ1 σ2 v t :
-    bufs_typed b1 b2 (SendT t σ1) σ2 -∗
-    val_typed v t -∗
-    ⌜⌜ b1 = [] ⌝⌝ ∗ bufs_typed [] (b2 ++ [v]) σ1 σ2.
-  Proof.
-    iIntros "Hb Hv".
-    unfold bufs_typed. destruct b1. simpl.
-    - iSplitL ""; first done.
-      iDestruct "Hb" as (rest ->) "H2".
-      iExists σ1. iSplitL ""; first done. simpl.
-      iInduction b2 as [] "IH" forall (σ2) ""; simpl.
-      + iDestruct "H2" as "%". subst. iFrame. done.
-      + destruct σ2; eauto.
-        iDestruct "H2" as "[H1 H2]". iFrame.
-        iApply ("IH" with "H2"). iFrame.
-    - iExFalso.
-      iDestruct "Hb" as (rest) "[H1 H2]".
-      simpl. done.
-  Qed.
-
-  Lemma bufs_typed_pop b1 b2 σ1 σ2 (v : val) t :
-    bufs_typed (v :: b1) b2 (RecvT t σ1) σ2 -∗
-    val_typed v t ∗ bufs_typed b1 b2 σ1 σ2.
-  Proof.
-    iIntros "H".
-    iDestruct "H" as (rest) "[H1 H2]". simpl.
-    iDestruct "H1" as "[H1 H3]". iFrame.
-    iExists rest. iFrame.
   Qed.
 
   Definition buf_typed' (buf' : option (list val)) (ct' : option chan_type) (rest : chan_type) : rProp :=
@@ -72,17 +28,13 @@ Section bufs_typed.
     | _, _ => False
     end.
 
-  Definition both (f : bool -> rProp) : rProp := f true ∗ f false.
-
-  Definition bufs_typed' (b1' b2' : option (list val)) (σ1' σ2' : option chan_type) : rProp :=
+  Definition bufs_typed (b1' b2' : option (list val)) (σ1' σ2' : option chan_type) : rProp :=
     ∃ rest,
       buf_typed' b1' σ1' rest ∗
       buf_typed' b2' σ2' (dual rest).
 End bufs_typed.
 
 Section invariant.
-  (* Definition thread_inv (es : list expr) (n : nat) (in_l : multiset clabel) : rProp := *)
-
   Definition opt_to_singleton {T:ofe} (b:bool) (x : option T) : multiset (bool*T) :=
     match x with
     | Some a => {[ (b,a) ]}
@@ -92,8 +44,6 @@ Section invariant.
   Definition mset_σs (σs : gmap bool chan_type) : multiset clabel :=
     opt_to_singleton true (σs !! true) ⋅ opt_to_singleton false (σs !! false).
 
-  (* Definition chan_inv (h : heap) (n : nat) (in_l : multiset clabel) : rProp := *)
-
   Definition state_inv (es : list expr) (h : heap) (x : object) (in_l : multiset clabel) : rProp :=
     match x with
     | Thread n =>
@@ -102,32 +52,154 @@ Section invariant.
       | Some e => rtyped0 e UnitT
       | None => emp
       end
-    | Chan n => ∃ σs,
+    | Chan n => ∃ σs : gmap bool chan_type,
       ⌜⌜ in_l ≡ mset_σs σs ⌝⌝ ∗
-      bufs_typed' (h !! (n,true)) (h !! (n,false)) (σs !! true) (σs !! false)
+      bufs_typed (h !! (n,true)) (h !! (n,false)) (σs !! true) (σs !! false)
     end%I.
 
-  Definition invariant (es : list expr) (h : heap) :=
-    inv (state_inv es h).
+  Definition invariant (es : list expr) (h : heap) := inv (state_inv es h).
 End invariant.
 
-Lemma bufs_typed_sym' b1' b2' σ1' σ2' :
-  bufs_typed' b1' b2' σ1' σ2' ⊢
-  bufs_typed' b2' b1' σ2' σ1'.
+Instance state_inv_proper es h v : Proper ((≡) ==> (⊣⊢)) (state_inv es h v).
 Proof.
-  iIntros "H". unfold bufs_typed'.
+  solve_proper_prepare.
+  destruct v.
+  - solve_proper.
+  - setoid_rewrite H. done.
+Qed.
+Instance state_inv_params : Params (@state_inv) 3. Defined.
+
+Lemma bufs_typed_sym' b1' b2' σ1' σ2' :
+  bufs_typed b1' b2' σ1' σ2' ⊢
+  bufs_typed b2' b1' σ2' σ1'.
+Proof.
+  iIntros "H". unfold bufs_typed.
   iDestruct "H" as (rest) "[H1 H2]".
   iExists (dual rest). rewrite dual_dual. iFrame.
 Qed.
 
-Lemma bufs_typed_wlog (h : heap) (σs : gmap bool chan_type) n b b' :
-  bufs_typed' (h !! (n,b)) (h !! (n,negb b)) (σs !! b) (σs !! negb b) ⊢
-  bufs_typed' (h !! (n,b')) (h !! (n,negb b')) (σs !! b') (σs !! negb b').
+Lemma bufs_typed_wlog b b' (h : heap) (σs : gmap bool chan_type) n :
+  bufs_typed (h !! (n,b)) (h !! (n,negb b)) (σs !! b) (σs !! negb b) ⊢
+  bufs_typed (h !! (n,b')) (h !! (n,negb b')) (σs !! b') (σs !! negb b').
 Proof.
-  destruct (decide (b = b')); subst; eauto.
+  destruct (decide (b = b')); subst; first eauto.
   assert (negb b = b') as ->. { by destruct b,b'. }
   assert (negb b' = b) as ->. { by destruct b,b'. }
   by rewrite bufs_typed_sym'.
+Qed.
+
+Lemma mset_lookup σs b r x :
+  {[(b, r):clabel]} ⋅ x ≡ mset_σs σs ->
+  σs !! b = Some r.
+Proof.
+  unfold mset_σs.
+  destruct b; do 2 destruct (_ !! _); simpl; eauto.
+Admitted.
+
+Lemma mset_delete σs b r x :
+  {[(b, r):clabel]} ⋅ x ≡ mset_σs σs ->
+  x ≡ mset_σs (delete b σs).
+Proof.
+  intros H.
+  pose proof (mset_lookup _ _ _ _ H).
+  unfold mset_σs in *.
+  rewrite !lookup_delete_spec.
+  destruct b; simpl; repeat destruct (_ !! _); simplify_eq; simpl in *.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
+
+Lemma mset_insert σs x b r r' :
+  {[(b, r):clabel]} ⋅ x ≡ mset_σs σs ->
+  {[(b, r'):clabel]} ⋅ x ≡ mset_σs (<[b:=r']> σs).
+Proof.
+  intros H%mset_delete. rewrite H.
+  unfold mset_σs.
+  rewrite !lookup_delete_spec.
+  rewrite !lookup_insert_spec.
+  destruct b; simpl.
+  - destruct (_ !! _); simpl; eauto.
+  - destruct (_ !! _); simpl; eauto.
+    rewrite comm. done.
+Qed.
+
+Lemma mset_empty :
+  mset_σs ∅ = ε.
+Proof.
+  unfold mset_σs. rewrite !lookup_empty. simpl. done.
+Qed.
+
+Lemma mset_empty' σs :
+  (∀ b, σs !! b = None) ->
+  mset_σs σs = ε.
+Proof.
+  intros H.
+  assert (σs = ∅) as -> by by apply map_empty.
+  apply mset_empty.
+Qed.
+
+Lemma buf_typed_push v buf t r c :
+  val_typed v t ∗
+  buf_typed buf c (RecvT t r) ⊢
+  buf_typed (buf ++ [v]) c r.
+Proof.
+  iIntros "[H1 H2]".
+  iInduction buf as [] "IH" forall (r c); simpl.
+  - iDestruct "H2" as "<-". iFrame. done.
+  - destruct c; eauto. iDestruct "H2" as "[H2 H3]".
+    iFrame. iApply ("IH" with "H1"). done.
+Qed.
+
+Lemma bufs_typed_push b1' t v buf σ2' r :
+  val_typed v t ∗
+  bufs_typed b1' (Some buf) (Some (SendT t r)) σ2' ⊢
+  bufs_typed b1' (Some (buf ++ [v])) (Some r) σ2'.
+Proof.
+  iIntros "[H1 H2]".
+  unfold bufs_typed.
+  iDestruct "H2" as (rest) "[H2 H3]".
+  destruct b1'; simpl; eauto.
+  destruct σ2'; eauto. simpl. destruct l; eauto. simpl.
+  iDestruct "H2" as "%". subst. simpl.
+  iExists r. iSplit; eauto.
+  iApply buf_typed_push. iFrame.
+Qed.
+
+Lemma bufs_typed_pop b1 b2' σ1 σ2' (v : val) t :
+  bufs_typed (Some (v :: b1)) b2' (Some (RecvT t σ1)) σ2' -∗
+  val_typed v t ∗ bufs_typed (Some b1) b2' (Some σ1) σ2'.
+Proof.
+  iIntros "H".
+  iDestruct "H" as (rest) "[H1 H2]". simpl.
+  iDestruct "H1" as "[H1 H3]". iFrame.
+  iExists rest. iFrame.
+Qed.
+
+Lemma bufs_typed_dealloc b2' σ2 :
+  bufs_typed (Some []) b2' (Some EndT) σ2 ⊢
+  bufs_typed None b2' None σ2.
+Proof.
+  iIntros "H".
+  iDestruct "H" as (rest) "[% H2]". subst.
+  iExists _. iFrame. done.
+Qed.
+
+Lemma bufs_typed_None σ1 σ2 :
+  bufs_typed None None σ1 σ2 ⊢ ⌜⌜ σ1 = None ∧ σ2 = None ⌝⌝.
+Proof.
+  iIntros "H".
+  iDestruct "H" as (rest) "[H1 H2]".
+  destruct σ1,σ2; eauto.
+Qed.
+
+Lemma bufs_typed_init r :
+  emp ⊢ bufs_typed (Some []) (Some []) (Some r) (Some (dual r)).
+Proof.
+  iIntros "H".
+  unfold bufs_typed.
+  iExists r; simpl; eauto.
 Qed.
 
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
@@ -148,72 +220,171 @@ Proof.
     iDestruct (rtyped0_ctx with "H2") as (t) "[H1 H2]"; eauto.
     iApply "H2". iApply pure_step_rtyped0; eauto.
   - (* Send *)
-    eapply (inv_exchange (Thread i) (Chan c.1)); last done.
+    eapply (inv_exchange (Thread i) (Chan c.1)); last done; first apply _.
     + intros v x []. iIntros "H".
       destruct v; simpl.
       * rewrite list_lookup_insert_spec. case_decide; naive_solver.
-      * unfold chan_inv, bufs_typed'. setoid_rewrite lookup_insert_spec. repeat case_decide; eauto; destruct c; simpl in *; simplify_eq.
-    + iIntros (y0) "H". simpl. rewrite H0. simpl.
+      * setoid_rewrite lookup_insert_spec. repeat case_decide; eauto; destruct c; simpl in *; simplify_eq.
+    + iIntros (y0) "H". simpl. rewrite H0.
       iDestruct "H" as (HH) "H".
-      iDestruct (typed0_ctx_typed0 with "H") as "H"; eauto.
-      iDestruct "H" as (t) "[H1 H2]". simpl.
-      iDestruct "H2" as (r t' ->) "[H2 H2']".
-      iDestruct "H2" as (r0 HH') "H2". simplify_eq.
-      unfold own_ep. destruct c. simpl.
+      iDestruct (rtyped0_ctx with "H") as (t) "[H1 H2]"; eauto. simpl.
+      iDestruct "H1" as (r t' ->) "[H1 H1']".
+      iDestruct "H1" as (r0 HH') "H1". simplify_eq.
+      destruct c. simpl.
       iExists _. iFrame.
       iIntros (x) "H".
       iExists (b, r).
       rewrite list_lookup_insert; last by eapply lookup_lt_Some.
-      iSplitL "H1".
-      * iIntros "H2".
-        unfold thread_inv. iSplit; eauto. simpl.
-        iApply (ctx_subst0 with "H1"). simpl. eauto.
-      * unfold chan_inv.
-       rewrite !lookup_insert_spec; repeat case_decide; destruct b; simplify_eq.
-        -- simpl in *. rewrite H1.
-           unfold chan_inv in *.
-           iDestruct "H" as (b1 b2 σ1 σ2 HH2) "H".
-           admit.
-        -- admit.
-
-
-    (* Need to figure out that the channel is actually in the heap and
-       that we therefore have an invariant with a Σ for it.
-       We'll use this Σ in the exchange. *)
-    (* exchange (g : cgraph V L) v1 v2 l' e1 e2 := *)
-    (* pose proof (Hvs (Chan c.1)) as Hc.
-    simpl in Hc.
-
-    eexists (exchange g (Thread i) (Chan c.1) (c.2, σ) _ _).
-    simpl in *.
-    apply exists_holds in H1 as (r & HH).
-    apply exists_holds in HH as (t' & HH).
-    apply pure_sep_holds in HH as (-> & HH).
-    apply sep_holds in HH.
-    destruct c.
-    eapply (inv_exchange (v1 := Thread i) (v2 := Chan c)); last done.
-    + intros. iIntros "H". destruct v; simpl.
-      * rewrite list_lookup_insert_spec. case_decide; naive_solver.
-      * unfold maybe_own_σ_in. rewrite !lookup_insert_spec. admit.
-    + simpl. rewrite H0. simpl.
-      iIntros "H".
-      iDestruct (typed0_ctx_typed0 with "H") as (t) "[Hctx Ht]"; eauto.
-      simpl.
-      iDestruct "Ht" as (r t' ->) "[H1 Hv]".
-      iDestruct "H1" as (r0 Heq) "H". simplify_eq.
-      iSplitL "H". iFrame. iExact "H". iFrame.
-
-      iDestruct (typed0_ct)
-    admit. *)
+      iSplitL "H2".
+      * iIntros "H1".
+        iSplit; eauto.
+        iApply "H2". simpl.
+        eauto with iFrame.
+      * iDestruct "H" as (σs H2) "H".
+        iExists (<[ b := r ]> σs).
+        iSplit.
+        -- iPureIntro. by eapply mset_insert.
+        -- iApply (bufs_typed_wlog b true).
+           iDestruct (bufs_typed_wlog true b with "H") as "H".
+           assert (σs !! b = Some (SendT t' r)) as ->
+             by by eapply mset_lookup.
+           rewrite !lookup_insert_spec.
+           repeat case_decide; simplify_eq; try solve [by destruct b].
+           rewrite H1.
+           iApply bufs_typed_push. iFrame.
   - (* Receive *)
-    admit.
+    eapply (inv_exchange (Thread i) (Chan c.1)); last done; first apply _.
+    + intros v x []. iIntros "H".
+      destruct v; simpl.
+      * rewrite list_lookup_insert_spec. case_decide; naive_solver.
+      * setoid_rewrite lookup_insert_spec. repeat case_decide; eauto; destruct c; simpl in *; simplify_eq.
+    + iIntros (y0) "H". simpl. rewrite H0.
+      iDestruct "H" as (HH) "H".
+      iDestruct (rtyped0_ctx with "H") as (t) "[H1 H2]"; eauto. simpl.
+      iDestruct "H1" as (t' r ->) "H1".
+      iDestruct "H1" as (r0 HH') "H1". simplify_eq.
+      destruct c. simpl.
+      iExists _. iFrame.
+      iIntros (x) "H".
+      iExists (b, r).
+      rewrite list_lookup_insert; last by eapply lookup_lt_Some.
+      iDestruct "H" as (σs H2) "H".
+      iDestruct (bufs_typed_wlog true b with "H") as "H".
+      assert (σs !! b = Some (RecvT t' r)) as ->
+             by by eapply mset_lookup.
+      rewrite H1.
+      iDestruct (bufs_typed_pop with "H") as "[Hv H]".
+      iSplitL "H2 Hv".
+      * iIntros "H1".
+        iSplit; eauto.
+        iApply "H2". simpl.
+        iExists _,_. iSplit; first done.
+        eauto with iFrame.
+      * iExists (<[ b := r ]> σs).
+        iSplit.
+        -- iPureIntro. by eapply mset_insert.
+        -- iApply (bufs_typed_wlog b true).
+           rewrite !lookup_insert_spec.
+           repeat case_decide; simplify_eq; try solve [by destruct b].
   - (* Close *)
-    destruct (decide (h !! other c = None)).
-    + admit.
-    + admit.
+    eapply (inv_delete (Thread i) (Chan c.1)); last done; first apply _.
+    + intros v x []. iIntros "H".
+      destruct v; simpl.
+      * rewrite list_lookup_insert_spec. case_decide; naive_solver.
+      * setoid_rewrite lookup_delete_spec. repeat case_decide; eauto; destruct c; simpl in *; simplify_eq.
+    + iIntros (y0) "H". simpl. rewrite H0.
+      iDestruct "H" as (HH) "H".
+      iDestruct (rtyped0_ctx with "H") as (t) "[H1 H2]"; eauto. simpl.
+      iDestruct "H1" as (->) "H1".
+      iDestruct "H1" as (r0 HH') "H1". simplify_eq.
+      destruct c. simpl.
+      iExists _. iFrame.
+      iIntros (x) "H".
+      iDestruct "H" as (σs Hσs) "H".
+      iDestruct (bufs_typed_wlog true b with "H") as "H".
+      rewrite H1.
+      assert (σs !! b = Some EndT) as ->
+             by by eapply mset_lookup.
+      rewrite list_lookup_insert; last by eapply lookup_lt_Some.
+      (* iDestruct (bufs_typed_pop with "H") as "[Hv H]". *)
+      iSplitL "H2".
+      * iSplit; eauto. by iApply "H2".
+      * iExists (delete b σs).
+        iSplit.
+        -- iPureIntro. by eapply mset_delete.
+        -- iApply (bufs_typed_wlog b true).
+           rewrite !lookup_delete_spec.
+           repeat case_decide; simplify_eq; try solve [by destruct b].
+           by iApply bufs_typed_dealloc.
   - (* Fork *)
-    admit.
-Admitted.
+    eapply (inv_insert_lr (Thread i) (Chan i0) (Thread (length es))); last done.
+    + split_and!; eauto. intro. simplify_eq.
+      apply lookup_lt_Some in H0. lia.
+    + intros v' x []. iIntros "H".
+      destruct v'; simpl.
+      * rewrite lookup_app_lr.
+        rewrite list_lookup_insert_spec.
+        rewrite list_lookup_singleton_spec.
+        repeat case_decide.
+        -- naive_solver.
+        -- naive_solver.
+        -- destruct H4. exfalso. apply H7.
+           f_equal. rewrite insert_length in H6.
+           rewrite insert_length in H5. lia.
+        -- destruct H4.
+           rewrite insert_length in H6.
+           rewrite insert_length in H5.
+           assert (n > length es) by lia.
+           rewrite lookup_ge_None_2; eauto. lia.
+      * setoid_rewrite lookup_insert_spec.
+        repeat case_decide; simplify_eq.
+        destruct H4; simplify_eq.
+        rewrite !lookup_insert_ne //.
+        intro. simplify_eq.
+    + iIntros (x) "H". simpl.
+      iDestruct "H" as (σs Hσs) "H".
+      rewrite H1 H2.
+      iDestruct (bufs_typed_None with "H") as "H".
+      iDestruct "H" as "%". iPureIntro.
+      rewrite Hσs.
+      rewrite mset_empty'; first done.
+      intros []; naive_solver.
+    + iIntros (x) "[H1 H2]". simpl.
+      iFrame. destruct (es !! length es) eqn:E; eauto.
+      exfalso.
+      eapply lookup_lt_Some in E. lia.
+    + iIntros (y0) "H". simpl. rewrite H0.
+      iDestruct "H" as (HH) "H".
+      iDestruct (rtyped0_ctx with "H") as (t) "[H1 H2]"; eauto. simpl.
+      iDestruct "H1" as (r ->) "H1".
+      iExists (true,r),(false,dual r).
+      iSplitL "H2".
+      * iIntros "H". iSplit; eauto.
+        rewrite lookup_app_l. 2: {
+          rewrite insert_length.
+          eapply lookup_lt_Some; eauto.
+        }
+        rewrite list_lookup_insert; eauto using lookup_lt_Some.
+        iApply "H2". simpl.
+        eauto.
+      * iSplitL "".
+        -- iExists {[ true := r; false := dual r ]}.
+           iSplit; eauto.
+           rewrite !lookup_insert.
+           rewrite lookup_insert_ne; eauto.
+           rewrite !lookup_insert.
+           rewrite lookup_insert_ne; eauto.
+           rewrite !lookup_insert.
+           by iApply bufs_typed_init.
+        -- iIntros "H".
+           iSplit; eauto.
+           rewrite lookup_app_r. 2: {
+             by rewrite insert_length.
+           }
+           rewrite insert_length.
+           replace (length es - length es) with 0 by lia. simpl.
+           iExists _. iFrame. eauto.
+Qed.
 
 
 Lemma preservationN (threads threads' : list expr) (chans chans' : heap) :
@@ -232,9 +403,20 @@ Proof.
   intros. simpl. iIntros "[% H]".
   unfold state_inv. destruct v.
   - destruct n; simpl.
-    + admit.
-    + unfold thread_inv. simpl. iSplit; eauto.
-      iPureIntro. subst. done.
-  - rewrite !lookup_empty. unfold chan_inv.
-    admit.
-Admitted.
+    + subst. iSplit; eauto.
+      iApply rtyped_rtyped0.
+      iApply typed_rtyped. done.
+    + subst. iFrame. eauto.
+  - rewrite !lookup_empty.
+    iExists ∅. unfold bufs_typed. simpl. rewrite !lookup_empty. iFrame.
+    iSplit.
+    + iPureIntro. subst. unfold mset_σs.
+      rewrite !lookup_empty. simpl. done.
+    + iExists EndT. done.
+Qed.
+
+Lemma invariant_holds e threads chans :
+  typed ∅ e UnitT -> steps [e] ∅ threads chans -> invariant threads chans.
+Proof.
+  eauto using invariant_init, preservationN.
+Qed.
