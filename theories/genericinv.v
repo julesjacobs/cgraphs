@@ -285,7 +285,8 @@ Section genericinv.
 
       assert (alloc_valid g v3 v2 Σ1 Σ2). {
         unfold alloc_valid. split_and!; eauto.
-        - eauto using no_edges_no_uconn. admit.
+        - intro HHH. symmetry in HHH. revert HHH.
+          eapply no_edges_no_uconn; eauto.
         - rewrite HΣ12 Hout left_id_L //.
       }
 
@@ -311,7 +312,7 @@ Section genericinv.
           }
           iIntros "[H1 H2]". iApply "H1". done.
         + eapply holds_entails. 2: apply Hrest; naive_solver. eauto.
-    Qed.
+  Admitted.
 
   Lemma inv_alloc_lr (v1 v2 v3 : V) (f f' : V -> multiset L -> hProp V L) :
     (∀ v, Proper ((≡) ==> (⊣⊢)) (f v)) ->
