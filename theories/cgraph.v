@@ -64,6 +64,13 @@ Section cgraph.
 
   Definition uconn (g : cgraph V L) := rtsc (edge g).
 
+  Lemma no_edges_no_uconn g v v' :
+    out_edges g v = ∅ ->
+    in_labels g v ≡ ε ->
+    ¬ uconn g v' v.
+  Proof.
+  Admitted.
+
   Lemma some_edge (g : cgraph V L) (v1 v2 : V) (l : L) :
     out_edges g v1 !! v2 = Some l -> edge g v1 v2.
   Proof.
@@ -78,6 +85,18 @@ Section cgraph.
   Lemma out_edges_in_labels g v1 v2 l :
     out_edges g v1 !! v2 = Some l ->
     ∃ x, in_labels g v2 ≡ {[ l ]} ⋅ x.
+  Proof.
+  Admitted.
+
+  Lemma no_in_labels_no_out_edge g v1 v2 :
+    in_labels g v2 ≡ ε ->
+    out_edges g v1 !! v2 = None.
+  Proof.
+  Admitted.
+
+  Lemma no_self_out_edge g v :
+    cgraph_wf g ->
+    out_edges g v !! v = None.
   Proof.
   Admitted.
 
@@ -232,6 +251,40 @@ Section cgraph.
       else out_edges g v3.
   Proof.
     unfold dealloc.
+    unfold out_edges.
+    rewrite !lookup_insert_spec.
+    repeat case_decide; simplify_eq; eauto.
+  Qed.
+
+  Definition alloc (g : cgraph V L) v1 v2 l' e1 e2 :=
+    <[ v1 := e1 ∪ {[ v2 := l' ]} ]> $ <[ v2 := e2 ]> g.
+
+  Definition alloc_valid g v1 v2 e1 e2 :=
+    ¬ (uconn g v1 v2) ∧ e1 ##ₘ e2 ∧ e1 ∪ e2 = out_edges g v1 ∪ out_edges g v2.
+
+  Lemma alloc_wf g v1 v2 l' e1 e2 :
+    alloc_valid g v1 v2 e1 e2 ->
+    cgraph_wf g ->
+    cgraph_wf (alloc g v1 v2 l' e1 e2).
+  Proof.
+  Admitted.
+
+  Lemma alloc_in_labels g v1 v2 v3 l' e1 e2 :
+    alloc_valid g v1 v2 e1 e2 ->
+    cgraph_wf g ->
+    in_labels (alloc g v1 v2 l' e1 e2) v3 =
+      if decide (v3 = v2) then {[ l' ]} ⋅ in_labels g v2
+      else in_labels g v3.
+  Proof.
+  Admitted.
+
+  Lemma alloc_out_edges g v1 v2 v3 l' e1 e2 :
+    out_edges (alloc g v1 v2 l' e1 e2) v3 =
+      if decide (v3 = v1) then e1 ∪ {[ v2 := l' ]}
+      else if decide (v3 = v2) then e2
+      else out_edges g v3.
+  Proof.
+    unfold alloc.
     unfold out_edges.
     rewrite !lookup_insert_spec.
     repeat case_decide; simplify_eq; eauto.

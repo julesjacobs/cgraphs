@@ -317,7 +317,7 @@ Proof.
            repeat case_decide; simplify_eq; try solve [by destruct b].
            by iApply bufs_typed_dealloc.
   - (* Fork *)
-    eapply (inv_insert_lr (Thread i) (Chan i0) (Thread (length es))); last done.
+    eapply (inv_alloc_lr (Thread i) (Chan i0) (Thread (length es))); last done.
     + split_and!; eauto. intro. simplify_eq.
       apply lookup_lt_Some in H0. lia.
     + intros v' x []. iIntros "H".
