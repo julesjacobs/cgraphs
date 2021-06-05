@@ -3,19 +3,15 @@ Require Export diris.uforests.
 From diris Require Export util.
 From stdpp Require Export gmap.
 Require Export diris.multiset.
+From stdpp Require Import fin_maps.
 
-Definition map_fold `{FinMapToList K A M} {B}
-  (f : K → A → B → B) (b : B) : M → B := foldr (curry f) b ∘ map_to_list.
-
-Notation cgraph V L := (gmap V (gmap V L)).
 (* Definition uforest V := gset (V * V). *)
+Notation cgraph V L := (gmap V (gmap V L)).
 
 Section cgraph.
   Context {V : Type}.
   Context `{Countable V}.
   Context {L : ofe}.
-
-  Definition vertices (g : cgraph V L) : gset V := dom (gset V) g.
 
   Definition out_edges (g : cgraph V L) (v : V) : gmap V L :=
     match g !! v with
@@ -23,27 +19,20 @@ Section cgraph.
     | None => ∅
     end.
 
-  (* Definition mb_insert (v v' : V) (ev' ins : gmap V L) :=
-    match ev' !! v with | Some l => <[v':=l]> ins | None => ins end.
+  Definition ms_insert (v v' : V) (ev' : gmap V L) (ins : multiset L) : multiset L :=
+    match ev' !! v with | Some l => {[ l ]} ⋅ ins | None => ins end.
 
-  Definition in_edges (g : cgraph V L) (v : V) : gmap V L :=
-    map_fold (mb_insert v) ∅ g. *)
+  Definition in_labels (g : cgraph V L) (v : V) : multiset L :=
+    map_fold (ms_insert v) ε g.
 
-  Definition ms_insert (v v' : V) (ev' : gmap V L) (ins : list L) : list L :=
-    match ev' !! v with | Some l => l :: ins | None => ins end.
+  Definition edge (g : cgraph V L) (v1 v2 : V) := is_Some (out_edges g v1 !! v2).
 
-  Definition in_labels (g : cgraph V L) (v : V) : multiset L. Admitted.
-    (* ev' ← map_to_list g ; option_list (ev'.2 !! v). *)
+  Definition cgraph_wf (g : cgraph V L) : Prop. Admitted. (* no_short_loops g ∧ acyclic g. *)
 
-    (* map_fold (ms_insert v) [] g. *)
+  Definition uconn (g : cgraph V L) := rtsc (edge g).
 
-  Definition insert_edge (g : cgraph V L) (v1 v2 : V) (l : L) :=
-    <[ v1 := out_edges g v1 ∪ {[ v2 := l ]} ]> g.
 
-  Definition delete_edge (g : cgraph V L) (v1 v2 : V) :=
-    <[ v1 := delete v2 (out_edges g v1) ]> g.
-
-  Definition swap {A B} : (A*B -> B*A) := λ '(x,y), (y,x).
+  (* Definition swap {A B} : (A*B -> B*A) := λ '(x,y), (y,x).
   Definition make_undirected (g : gset (V*V)) : gset (V*V) :=
     g ∪ (set_map swap g).
   Definition dedges (g : cgraph V L) : gset (V*V) :=
@@ -52,33 +41,219 @@ Section cgraph.
     make_undirected $ dedges g.
   Definition acyclic (g : cgraph V L) := is_uforest (to_uforest g).
 
-  (* Definition dom_valid (g : cgraph V L) :=
-    ∀ (v : V) e, g !! v = Some e -> dom (gset V) e ⊆ vertices g. *)
-
-  Definition edge (g : cgraph V L) (v1 v2 : V) := is_Some (out_edges g v1 !! v2).
 
   Definition no_short_loops (g : cgraph V L) :=
-    ∀ v1 v2, ¬ (edge g v1 v2 ∧ edge g v2 v1).
+    ∀ v1 v2, ¬ (edge g v1 v2 ∧ edge g v2 v1). *)
 
-  Definition cgraph_wf (g : cgraph V L) := no_short_loops g ∧ acyclic g.
+  Section general.
+    Lemma no_self_out_edge g v :
+      cgraph_wf g ->
+      out_edges g v !! v = None.
+    Proof.
+      intros Hwf.
+    Admitted.
 
-  Definition uconn (g : cgraph V L) := rtsc (edge g).
+    Lemma no_self_edge g v1 v2 :
+      cgraph_wf g ->
+      edge g v1 v2 -> v1 ≠ v2.
+    Proof.
+      intros H1 [] ->.
+      assert (out_edges g v2 !! v2 = None); eauto using no_self_out_edge.
+      rewrite H0 in H2. simplify_eq.
+    Qed.
+  End general.
 
-  Lemma no_edges_no_uconn g v v' :
-    out_edges g v = ∅ ->
-    in_labels g v ≡ ε ->
-    ¬ uconn g v' v.
+  Section insert_edge.
+    Definition insert_edge (g : cgraph V L) (v1 v2 : V) (l : L) :=
+      <[ v1 := out_edges g v1 ∪ {[ v2 := l ]} ]> g.
+
+    Lemma out_edges_insert (g : cgraph V L) (v1 v2 : V) e :
+      out_edges (<[ v1 := e ]> g) v2 =
+        if decide (v1 = v2) then e
+        else out_edges g v2.
+    Proof.
+      rewrite /out_edges. rewrite lookup_insert_spec.
+      repeat case_decide; simplify_eq; done.
+    Qed.
+
+    Lemma out_edges_insert_edge (g : cgraph V L) (v1 v2 v3 : V) (l : L) :
+      out_edges (insert_edge g v1 v2 l) v3 =
+        if decide (v1 = v3) then out_edges g v3 ∪ {[ v2 := l ]}
+        else out_edges g v3.
+    Proof.
+      unfold insert_edge. rewrite out_edges_insert.
+      repeat case_decide; simplify_eq; done.
+    Qed.
+
+    Lemma in_labels_insert_edge (g : cgraph V L) (v1 v2 v3 : V) (l : L) :
+      ¬ edge g v1 v2 ->
+      in_labels (insert_edge g v1 v2 l) v3 ≡
+        if decide (v2 = v3) then {[ l ]} ⋅ in_labels g v3
+        else in_labels g v3.
+    Proof.
+      unfold insert_edge, in_labels.
+      rewrite map_fold_insert_L.
+      Search map_fold insert.
+    Admitted.
+
+    Lemma insert_edge_wf g v1 v2 l :
+      ¬ uconn g v1 v2 ->
+      cgraph_wf g ->
+      cgraph_wf (insert_edge g v1 v2 l).
+    Proof.
+    Admitted.
+  End insert_edge.
+
+
+  Section delete_edge.
+    Definition delete_edge (g : cgraph V L) (v1 v2 : V) :=
+      <[ v1 := delete v2 (out_edges g v1) ]> g.
+
+    Lemma out_edges_delete_edge (g : cgraph V L) (v1 v2 v3 : V) :
+      out_edges (delete_edge g v1 v2) v3 =
+        if decide (v1 = v3) then delete v2 (out_edges g v3)
+        else out_edges g v3.
+    Proof.
+      unfold delete_edge. rewrite out_edges_insert.
+      repeat case_decide; simplify_eq; done.
+    Qed.
+
+    Lemma in_labels_delete_edge_eq (g : cgraph V L) (v1 v2 : V) (l : L) (x : multiset L) :
+      out_edges g v1 !! v2 = Some l ->
+      in_labels g v2 ≡ {[ l ]} ⋅ x ->
+      in_labels (delete_edge g v1 v2) v2 ≡ x.
+    Proof.
+    Admitted.
+
+    Lemma in_labels_delete_edge_neq (g : cgraph V L) (v1 v2 v3 : V) :
+      v2 ≠ v3 ->
+      in_labels (delete_edge g v1 v2) v3 ≡ in_labels g v3.
+    Proof.
+    Admitted.
+
+    Lemma delete_edge_wf g v1 v2 :
+      cgraph_wf g ->
+      cgraph_wf (delete_edge g v1 v2).
+    Proof.
+    Admitted.
+
+    Lemma delete_edge_uconn g v1 v2 :
+      cgraph_wf g ->
+      v1 ≠ v2 ->
+      ¬ uconn (delete_edge g v1 v2) v1 v2.
+    Proof.
+    Admitted.
+  End delete_edge.
+
+
+  Section update_edge.
+    Definition update_edge g v1 v2 l' :=
+      insert_edge (delete_edge g v1 v2) v1 v2 l'.
+
+    Lemma update_edge_out_edges g v1 v2 l' v :
+      out_edges (update_edge g v1 v2 l') v =
+        if decide (v = v1) then <[ v2 := l' ]> (out_edges g v)
+        else out_edges g v.
+    Proof.
+      unfold update_edge.
+      rewrite out_edges_insert_edge.
+      rewrite out_edges_delete_edge.
+      repeat case_decide; simplify_eq; eauto.
+      apply map_eq. intros v.
+      rewrite lookup_insert_spec.
+      rewrite lookup_union.
+      rewrite lookup_delete_spec.
+      repeat case_decide; simplify_eq.
+      + rewrite lookup_singleton. simpl. done.
+      + rewrite lookup_singleton_ne; eauto.
+        destruct (_ !! _); done.
+    Qed.
+
+    Lemma update_in_labels_eq g v1 v2 l l' x :
+      out_edges g v1 !! v2 = Some l ->
+      in_labels g v2 ≡ {[ l ]} ⋅ x ->
+      in_labels (update_edge g v1 v2 l') v2 ≡ {[ l' ]} ⋅ x.
+    Proof.
+      intros H1 H2.
+      rewrite /update_edge in_labels_insert_edge.
+      - case_decide; simplify_eq.
+        rewrite in_labels_delete_edge_eq;eauto.
+      - unfold edge. rewrite out_edges_delete_edge.
+        case_decide; simplify_eq. rewrite lookup_delete. done.
+    Qed.
+
+    Lemma update_in_labels_neq g v v1 v2 l' :
+      v ≠ v2 ->
+      in_labels (update_edge g v1 v2 l') v ≡ in_labels g v.
+    Proof.
+      intros H1.
+      rewrite /update_edge in_labels_insert_edge.
+      - case_decide; simplify_eq. rewrite in_labels_delete_edge_neq; eauto.
+      - unfold edge. rewrite out_edges_delete_edge.
+        case_decide; simplify_eq. rewrite lookup_delete. done.
+    Qed.
+
+    Lemma update_edge_wf g v1 v2 l' :
+      cgraph_wf g ->
+      edge g v1 v2 ->
+      cgraph_wf (update_edge g v1 v2 l').
+    Proof.
+      intros H1 H2.
+      unfold update_edge.
+      apply insert_edge_wf.
+      - apply delete_edge_uconn; eauto.
+        eapply no_self_edge; eauto.
+      - eapply delete_edge_wf; eauto.
+    Qed.
+  End update_edge.
+
+  Section move_edge.
+    (* Move an edge v1 --[l]--> v3 to be v2 --[l]--> v *)
+    (* This is only allowed if there is also an edge between v1 and v2. *)
+    Definition move_edge g v1 v2 v3 :=
+      match out_edges g v1 !! v3 with
+      | Some l => insert_edge (delete_edge g v1 v3) v2 v3 l
+      | None => g
+      end.
+
+    Lemma move_edge_out_edges g v1 v2 v3 v :
+      out_edges (move_edge g v1 v2 v3) v = ∅.
+    Proof.
+    Admitted.
+
+    
+  End move_edge.
+
+
+
+
+
+
+
+
+  Lemma cgraph_wellfounded (R : V -> V -> Prop) g :
+  (* Problem: self loops *)
+    cgraph_wf g ->
+    antisymmetric V R ->
+    (∀ x y, R x y -> sc (edge g) x y) ->
+    wf R.
   Proof.
   Admitted.
 
-  Lemma some_edge (g : cgraph V L) (v1 v2 : V) (l : L) :
-    out_edges g v1 !! v2 = Some l -> edge g v1 v2.
+  Lemma not_rtsc `{R : A -> A -> Prop} x :
+    (∀ y, ¬ R x y ∧ ¬ R y x) ->
+    (∀ y, rtsc R x y -> x = y).
   Proof.
-    unfold edge. intros ->. eauto.
-  Qed.
+    Search rtsc.
+  Admitted.
 
-  Lemma edge_out_disjoint g v1 v2 :
-    cgraph_wf g -> edge g v1 v2 -> out_edges g v1 ##ₘ out_edges g v2.
+  Lemma multiset_empty_mult {A : ofe} (x y : multiset A) :
+    x ⋅ y ≡ ε -> x = ε ∧ y = ε.
+  Proof.
+  Admitted.
+
+  Lemma multiset_empty_neq_singleton {A : ofe} {a : A} :
+    {[ a ]} ≠ ε.
   Proof.
   Admitted.
 
@@ -92,18 +267,53 @@ Section cgraph.
     in_labels g v2 ≡ ε ->
     out_edges g v1 !! v2 = None.
   Proof.
+    destruct (out_edges g v1 !! v2) eqn:E; eauto.
+    eapply out_edges_in_labels in E as []. rewrite H0. intros HH.
+    eapply multiset_empty_mult in HH.
+    destruct HH as [H1%multiset_empty_neq_singleton H2]. done.
+  Qed.
+
+  Lemma no_edges_no_uconn g v v' :
+    out_edges g v = ∅ ->
+    in_labels g v ≡ ε ->
+    uconn g v' v -> v = v'.
+  Proof.
+    intros Hout Hin Hconn.
+    eapply not_rtsc; last done.
+    intros y. unfold edge. split; intros [].
+    - rewrite Hout in H0. rewrite lookup_empty in H0. simplify_eq.
+    - eapply no_in_labels_no_out_edge in Hin. erewrite H0 in Hin. simplify_eq.
+  Qed.
+
+  Lemma some_edge (g : cgraph V L) (v1 v2 : V) (l : L) :
+    out_edges g v1 !! v2 = Some l -> edge g v1 v2.
+  Proof.
+    unfold edge. intros ->. eauto.
+  Qed.
+
+  Lemma edge_out_disjoint g v1 v2 :
+    cgraph_wf g -> edge g v1 v2 -> out_edges g v1 ##ₘ out_edges g v2.
+  Proof.
   Admitted.
 
   Lemma no_self_out_edge g v :
     cgraph_wf g ->
     out_edges g v !! v = None.
   Proof.
+    intros Hwf.
+    pose proof (cgraph_wellfounded (λ x y, x = v ∧ y = v) g Hwf).
   Admitted.
 
   Lemma out_edges_empty v :
     out_edges ∅ v = ∅.
   Proof.
     unfold out_edges. rewrite lookup_empty //.
+  Qed.
+
+  Lemma in_labels_empty v :
+    in_labels ∅ v ≡ ε.
+  Proof.
+    unfold in_labels. rewrite map_fold_empty. done.
   Qed.
 
   Lemma empty_wf :
@@ -117,66 +327,8 @@ Section cgraph.
     - admit.
   Admitted.
 
-  Lemma in_labels_empty v :
-    in_labels ∅ v ≡ ε.
-  Proof.
-  Admitted.
 
-  Lemma out_edges_insert (g : cgraph V L) (v1 v2 : V) e :
-    out_edges (<[ v1 := e ]> g) v2 =
-      if decide (v1 = v2) then e
-      else out_edges g v2.
-  Proof.
-    rewrite /out_edges. rewrite lookup_insert_spec.
-    repeat case_decide; simplify_eq; done.
-  Qed.
 
-  Lemma out_edges_insert_edge (g : cgraph V L) (v1 v2 v3 : V) (l : L) :
-    out_edges (insert_edge g v1 v2 l) v3 =
-      if decide (v1 = v3) then out_edges g v3 ∪ {[ v2 := l ]}
-      else out_edges g v3.
-  Proof.
-    unfold insert_edge. rewrite out_edges_insert.
-    repeat case_decide; simplify_eq; done.
-  Qed.
-
-  Lemma out_edges_delete_edge (g : cgraph V L) (v1 v2 v3 : V) :
-    out_edges (delete_edge g v1 v2) v3 =
-      if decide (v1 = v3) then delete v2 (out_edges g v3)
-      else out_edges g v3.
-  Proof.
-    unfold delete_edge. rewrite out_edges_insert.
-    repeat case_decide; simplify_eq; done.
-  Qed.
-
-  Lemma in_labels_insert_edge (g : cgraph V L) (v1 v2 v3 : V) (l : L) :
-    in_labels (insert_edge g v1 v2 l) v3 ≡
-      if decide (v2 = v3) then in_labels g v3 ⋅ {[ l ]}
-      else in_labels g v3.
-  Proof.
-  Admitted.
-
-  Lemma in_labels_delete_edge (g : cgraph V L) (v1 v2 v3 : V) (l : L) (x : multiset L) :
-    out_edges g v1 !! v2 = Some l ->
-    in_labels g v3 ≡ x ⋅ {[ l ]} ->
-    in_labels (delete_edge g v1 v2) v3 ≡
-      if decide (v2 = v3) then x
-      else in_labels g v3.
-  Proof.
-  Admitted.
-
-  Lemma insert_edge_wf g v1 v2 l :
-    ¬ uconn g v1 v2 ->
-    cgraph_wf g ->
-    cgraph_wf (insert_edge g v1 v2 l).
-  Proof.
-  Admitted.
-
-  Lemma delete_edge_wf g v1 v2 :
-    cgraph_wf g ->
-    cgraph_wf (delete_edge g v1 v2).
-  Proof.
-  Admitted.
 
   Lemma delete_edge_uconn g v1 v2 :
     edge g v1 v2 ->
@@ -290,11 +442,5 @@ Section cgraph.
     repeat case_decide; simplify_eq; eauto.
   Qed.
 
-  Lemma cgraph_wellfounded g (R : V -> V -> Prop) :
-    antisymmetric V R ->
-    (∀ x y, R x y -> sc (edge g) x y) ->
-    cgraph_wf g ->
-    wf R.
-  Proof.
-  Admitted.
+
 End cgraph.
