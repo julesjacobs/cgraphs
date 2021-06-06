@@ -49,8 +49,27 @@ Section genericinv.
       eauto using in_labels_empty, out_edges_empty.
   Qed.
 
+  Lemma holds_wand_insert v l P (Σ : gmap V L) :
+    Σ !! v = None ->
+    holds (own_out v l -∗ P) Σ ->
+    holds P (<[v:=l]> Σ).
+  Proof.
+    intros Hd HH.
+    replace (<[v:=l]> Σ) with (Σ ∪ {[ v := l ]}); last first.
+    { apply map_eq. intro. rewrite lookup_union !lookup_insert_spec lookup_empty.
+      sdec; destruct (Σ !! i); eauto; simplify_eq. }
+    assert (holds (own_out v l) {[ v := l ]}).
+    { rewrite own_holds. done. }
+    pose proof (sep_combine _ _ _ _ HH H0).
+    eapply holds_entails.
+    { apply H1. solve_map_disjoint. }
+    iIntros "[H1 H2]".
+    iApply "H1". done.
+  Qed.
+
   Lemma inv_exchange (v1 v2 : V) (f f' : V -> multiset L -> hProp V L) :
     (∀ v, Proper ((≡) ==> (⊣⊢)) (f v)) ->
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (f' v)) ->
     (∀ v x, v ≠ v1 ∧ v ≠ v2 -> f v x ⊢ f' v x) ->
     (∀ y, f v1 y ⊢ ∃ l,
       own_out v2 l ∗
@@ -60,7 +79,7 @@ Section genericinv.
           f' v2 ({[ l' ]} ⋅ x))) ->
     inv f -> inv f'.
   Proof.
-    intros Hproper Hrest Hexch Hinv.
+    intros Hproperf Hproperf' Hrest Hexch Hinv.
     unfold inv in *.
     destruct Hinv as (g & Hwf & Hvs).
     pose proof (Hvs v1) as Hv1.
@@ -101,41 +120,50 @@ Section genericinv.
       intros ->. specialize (Hdisj_out v2). by rewrite Hv1outv2 in Hdisj_out.
     }
 
-    assert (exchange_valid g v1 v2 Σ1' Σ2'). {
-      unfold exchange_valid. split_and!.
-      - eauto using some_edge.
-      - solve_map_disjoint.
-      - rewrite HΣ12.
-        rewrite delete_union delete_singleton left_id_L.
-        rewrite delete_notin; eauto.
-        solve_map_disjoint.
+    destruct (exchange_relabel g v1 v2 Σ1' Σ2' b b')
+      as (g' & Hfw' & Hout1 & Hout2 & Hout' & Hin2 & Hin'); eauto.
+    {
+      rewrite HΣ12.
+      rewrite delete_union.
+      rewrite delete_singleton.
+      rewrite left_id_L.
+      rewrite delete_notin; last solve_map_disjoint.
+      done.
     }
-
-    exists (exchange g v1 v2 b' Σ1' Σ2').
-    split.
-    - apply exchange_wf; eauto.
-    - intros v.
-      erewrite exchange_out_edges.
-      setoid_rewrite exchange_in_labels; eauto.
-      repeat case_decide; simplify_eq; eauto.
-      + assert (holds (own_out v2 b') {[ v2 := b' ]}) as Hown
-          by by apply own_holds.
-        eapply holds_entails.
-        * eapply sep_combine; eauto.
-          assert (out_edges g v2 !! v2 = None). {
-            specialize (Hdisj_out v2).
-            rewrite Hv1outv2 in Hdisj_out.
-            do 2 destruct (_ !! _); done.
-          }
-          assert (Σ1' ∪ Σ2' ##ₘ {[v2 := b']}); try solve_map_disjoint.
-          rewrite <-HΣ12'. solve_map_disjoint.
-        * iIntros "[H1 H2]". iApply "H1". done.
-      + eapply holds_entails. 2: apply Hrest; naive_solver.
-        eauto.
+    exists g'.
+    split_and!; eauto.
+    intros v.
+    destruct (decide (v = v1));
+    destruct (decide (v = v2)); simplify_eq.
+    - rewrite Hout1.
+      specialize (Hin' _ n).
+      eapply holds_wand_insert; eauto.
+      {
+        assert (Σ2 !! v2 = None) by solve_map_disjoint.
+        assert (out_edges g v2 !! v2 = None).
+        { eapply no_self_edge''. done. }
+        assert ((Σ1' ∪ out_edges g' v2) !! v2 = None).
+        { rewrite <-HΣ12'. rewrite lookup_union.
+          rewrite H2 H4. done. }
+        apply lookup_union_None in H5 as []. done.
+      }
+      eapply holds_entails; eauto.
+      iIntros "H".
+      rewrite Hin'. done.
+    - eapply holds_entails; eauto.
+      iIntros "H".
+      specialize (Hin2 _ Hx).
+      rewrite Hin2. done.
+    - rewrite Hout'; eauto.
+      eapply holds_entails; eauto.
+      iIntros "H".
+      rewrite Hin'; eauto.
+      iApply Hrest; eauto.
   Qed.
 
-  Lemma inv_delete (v1 v2 : V) (f f' : V -> multiset L -> hProp V L) :
+  Lemma inv_dealloc (v1 v2 : V) (f f' : V -> multiset L -> hProp V L) :
     (∀ v, Proper ((≡) ==> (⊣⊢)) (f v)) ->
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (f' v)) ->
     (∀ v x, v ≠ v1 ∧ v ≠ v2 -> f v x ⊢ f' v x) ->
     (∀ y, f v1 y ⊢ ∃ l,
       own_out v2 l ∗
@@ -145,7 +173,7 @@ Section genericinv.
           f' v2 x)) ->
     inv f -> inv f'.
   Proof.
-    intros Hproper Hrest Hexch Hinv.
+    intros Hproperf Hproperf' Hrest Hexch Hinv.
     unfold inv in *.
     destruct Hinv as (g & Hwf & Hvs).
     pose proof (Hvs v1) as Hv1.

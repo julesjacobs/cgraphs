@@ -287,7 +287,7 @@ Proof.
            rewrite !lookup_insert_spec.
            repeat case_decide; simplify_eq; try solve [by destruct b].
   - (* Close *)
-    eapply (inv_delete (Thread i) (Chan c.1)); last done; first apply _.
+    eapply (inv_dealloc (Thread i) (Chan c.1)); last done; first apply _.
     + intros v x []. iIntros "H".
       destruct v; simpl.
       * rewrite list_lookup_insert_spec. case_decide; naive_solver.
