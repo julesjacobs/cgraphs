@@ -220,7 +220,7 @@ Proof.
     iDestruct (rtyped0_ctx with "H2") as (t) "[H1 H2]"; eauto.
     iApply "H2". iApply pure_step_rtyped0; eauto.
   - (* Send *)
-    eapply (inv_exchange (Thread i) (Chan c.1)); last done; first apply _.
+    eapply (inv_exchange (Thread i) (Chan c.1)); last done; first apply _; first apply _.
     + intros v x []. iIntros "H".
       destruct v; simpl.
       * rewrite list_lookup_insert_spec. case_decide; naive_solver.
@@ -253,7 +253,7 @@ Proof.
            rewrite H1.
            iApply bufs_typed_push. iFrame.
   - (* Receive *)
-    eapply (inv_exchange (Thread i) (Chan c.1)); last done; first apply _.
+    eapply (inv_exchange (Thread i) (Chan c.1)); last done; first apply _; first apply _.
     + intros v x []. iIntros "H".
       destruct v; simpl.
       * rewrite list_lookup_insert_spec. case_decide; naive_solver.
@@ -287,7 +287,7 @@ Proof.
            rewrite !lookup_insert_spec.
            repeat case_decide; simplify_eq; try solve [by destruct b].
   - (* Close *)
-    eapply (inv_dealloc (Thread i) (Chan c.1)); last done; first apply _.
+    eapply (inv_dealloc (Thread i) (Chan c.1)); last done; first apply _; first apply _.
     + intros v x []. iIntros "H".
       destruct v; simpl.
       * rewrite list_lookup_insert_spec. case_decide; naive_solver.
@@ -317,7 +317,8 @@ Proof.
            repeat case_decide; simplify_eq; try solve [by destruct b].
            by iApply bufs_typed_dealloc.
   - (* Fork *)
-    eapply (inv_alloc_lr (Thread i) (Chan i0) (Thread (length es))); last done.
+    eapply (inv_alloc_lr (Thread i) (Chan i0) (Thread (length es))); last done;
+      first apply _; first apply _.
     + split_and!; eauto. intro. simplify_eq.
       apply lookup_lt_Some in H0. lia.
     + intros v' x []. iIntros "H".

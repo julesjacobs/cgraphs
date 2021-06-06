@@ -6,10 +6,10 @@
   - Prove the exchange, alloc, and dealloc lemmas [done]
   - Update genericinv.v to use those new lemmas
     + inv_exchange [done]
-    + inv_dealloc
-    + inv_alloc_l
-    + inv_alloc_r
-    + update invariant2.v
+    + inv_dealloc [done]
+    + inv_alloc_l [done]
+    + inv_alloc_r [done]
+    + update invariant2.v [done]
   - Define cgraph_wf
   - Prove insert_edge_wf and delete_edge_wf and empty_wf
   - State adequacy lemma for cgraphs
@@ -26,5 +26,3 @@
   - async subtyping
   - locks
 * write paper
-
-* Refactor cgraph lemmas

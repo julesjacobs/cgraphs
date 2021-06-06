@@ -144,3 +144,13 @@ End multiset.
 Global Arguments multisetO : clear implicits.
 Global Arguments multisetR : clear implicits.
 Global Arguments multisetUR : clear implicits.
+
+Lemma multiset_empty_mult {A : ofe} (x y : multiset A) :
+  x ⋅ y ≡ ε -> x = ε ∧ y = ε.
+Proof.
+Admitted.
+
+Lemma multiset_empty_neq_singleton {A : ofe} {a : A} :
+  {[ a ]} ≠ ε.
+Proof.
+Admitted.

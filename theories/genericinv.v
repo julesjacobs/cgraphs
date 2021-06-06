@@ -213,33 +213,32 @@ Section genericinv.
       intros ->. specialize (Hdisj_out v2). by rewrite Hv1outv2 in Hdisj_out.
     }
 
-    assert (dealloc_valid g v1 v2 Σ1' Σ2'). {
-      unfold dealloc_valid. split_and!.
-      - eauto using some_edge.
-      - solve_map_disjoint.
-      - rewrite HΣ12.
-        rewrite delete_union delete_singleton left_id_L.
-        rewrite delete_notin; eauto.
-        solve_map_disjoint.
-    }
-
-    exists (dealloc g v1 v2 Σ1' Σ2').
-    split.
-    - apply dealloc_wf; eauto.
-    - intros v.
-      erewrite dealloc_out_edges.
-      setoid_rewrite dealloc_in_labels; eauto.
-      repeat case_decide; simplify_eq; eauto.
-      eapply holds_entails. 2: apply Hrest; naive_solver.
-      eauto.
+    edestruct (exchange_dealloc g v1 v2 Σ1' Σ2')
+      as (g' & Hfw' & Hnuconn' & Hout1 & Hout2 & Hout' & Hin2 & Hin'); eauto.
+    { rewrite HΣ12 delete_union delete_singleton left_id_L -HΣ12'.
+      rewrite delete_notin; eauto.
+      solve_map_disjoint. }
+    exists g'.
+    split_and!; eauto.
+    intros v.
+    destruct (decide (v = v1));
+    destruct (decide (v = v2)); simplify_eq.
+    - eapply holds_entails; eauto.
+      iIntros "H". rewrite Hin'; eauto.
+    - eapply holds_entails; eauto.
+      iIntros "H".
+      specialize (Hin2 _ Hx).
+      rewrite Hin2. done.
+    - rewrite Hout'; eauto.
+      eapply holds_entails; eauto.
+      iIntros "H".
+      rewrite Hin'; eauto.
+      iApply Hrest; eauto.
   Qed.
 
-  Lemma mset_empty_to_L (x : multiset L) :
-    x ≡ ε -> x = ε.
-  Proof.
-  Admitted.
-
   Lemma inv_alloc_l (v1 v2 : V) (f f' : V -> multiset L -> hProp V L) :
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (f v)) ->
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (f' v)) ->
     v1 ≠ v2 ->
     (∀ v x, v ≠ v1 ∧ v ≠ v2 -> f v x ⊢ f' v x) ->
     (∀ x, f v2 x ⊢ ⌜⌜ x ≡ ε ⌝⌝) ->
@@ -249,7 +248,7 @@ Section genericinv.
         f' v2 {[ l' ]}) ->
     inv f -> inv f'.
   Proof.
-    intros Hneq Hrest Hemp Hexch Hinv.
+    intros Hproperf Hproperf' Hneq Hrest Hemp Hexch Hinv.
     unfold inv in *.
     destruct Hinv as (g & Hwf & Hvs).
     pose proof (Hvs v1) as Hv1.
@@ -261,35 +260,49 @@ Section genericinv.
     eapply holds_entails in Hemp; last eauto.
     eapply affinely_pure_holds in Hemp as [Hout Hin].
 
-    assert (alloc_valid g v1 v2 Σ1 Σ2). {
-      unfold alloc_valid. split_and!; eauto.
-      - eauto using no_edges_no_uconn.
-      - rewrite HΣ12 Hout right_id_L //.
-    }
-
-    exists (alloc g v1 v2 b Σ1 Σ2).
-    split.
-    - apply alloc_wf; eauto.
-    - intros v.
-      erewrite alloc_out_edges.
-      setoid_rewrite alloc_in_labels; eauto.
-      repeat case_decide; simplify_eq; eauto.
-      + assert (in_labels g v2 = ε) as ->; eauto using mset_empty_to_L.
-      + assert (holds (own_out v2 b) {[ v2 := b]}). { by rewrite own_holds. }
-        eapply holds_entails. {
-          eapply sep_combine; eauto.
-          cut (Σ1 !! v2 = None); first solve_map_disjoint.
-          cut (out_edges g v1 !! v2 = None). {
-            rewrite HΣ12. rewrite lookup_union.
-            by do 2 destruct (_ !! _).
-          }
-          eauto using no_in_labels_no_out_edge.
+    destruct (exchange_alloc g v1 v2 Σ1 Σ2 b)
+      as (g' & Hwf' & Hout1 & Hout2 & Hout' & Hin2 & Hin'); eauto.
+    { intros H0. apply no_edges_no_uconn in H0; eauto. }
+    { rewrite HΣ12 Hout right_id_L //. }
+    exists g'. split; eauto.
+    intros v.
+    destruct (decide (v = v1));
+    destruct (decide (v = v2)); simplify_eq.
+    - rewrite Hout1.
+      specialize (Hin' _ n).
+      eapply holds_wand_insert; eauto.
+      {
+        assert ((Σ1 ∪ out_edges g' v2) !! v2 = None).
+        {
+          rewrite <-HΣ12.
+          destruct (out_edges g v1 !! v2) eqn:E; eauto.
+          exfalso.
+          eapply out_edges_in_labels in E as [].
+          rewrite ->Hin in H0.
+          apply symmetry in H0.
+          eapply multiset_empty_mult in H0 as [].
+          eapply multiset_empty_neq_singleton; eauto.
+          exact H0.
         }
-        iIntros "[H1 H2]". iApply "H1". done.
-      + eapply holds_entails. 2: apply Hrest; naive_solver. eauto.
+        apply lookup_union_None in H0 as [].
+        done.
+      }
+      eapply holds_entails; eauto.
+      iIntros "H".
+      rewrite Hin'. done.
+    - eapply holds_entails; eauto.
+      iIntros "H".
+      rewrite Hin2 Hin right_id //.
+    - rewrite Hout'; eauto.
+      eapply holds_entails; eauto.
+      iIntros "H".
+      rewrite Hin'; eauto.
+      iApply Hrest; eauto.
   Qed.
 
   Lemma inv_alloc_r (v2 v3 : V) (f f' : V -> multiset L -> hProp V L) :
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (f v)) ->
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (f' v)) ->
     v2 ≠ v3 ->
     (∀ v x, v ≠ v3 ∧ v ≠ v2 -> f v x ⊢ f' v x) ->
     (∀ x, f v3 x ⊢ ⌜⌜ x ≡ ε ⌝⌝) ->
@@ -298,52 +311,55 @@ Section genericinv.
           (own_out v2 l' -∗ f' v3 ε) ∗
           f' v2 (y ⋅ {[ l' ]} )) ->
     inv f -> inv f'.
-    Proof.
-      intros Hneq Hrest Hemp Hexch Hinv.
-      unfold inv in *.
-      destruct Hinv as (g & Hwf & Hvs).
-      pose proof (Hvs v2) as Hv2.
-      specialize (Hexch (in_labels g v2)).
-      eapply holds_entails in Hexch; last done.
-      apply exists_holds in Hexch as (b & HH).
-      apply sep_holds in HH as (Σ1 & Σ2 & HΣ12 & H1 & H2 & H3).
+  Proof.
+    intros Hproperf Hproperf' Hneq Hrest Hemp Hexch Hinv.
+    unfold inv in *.
+    destruct Hinv as (g & Hwf & Hvs).
+    pose proof (Hvs v2) as Hv2.
+    specialize (Hexch (in_labels g v2)).
+    eapply holds_entails in Hexch; last done.
+    apply exists_holds in Hexch as (b & HH).
+    apply sep_holds in HH as (Σ1 & Σ2 & HΣ12 & H1 & H2 & H3).
 
-      eapply holds_entails in Hemp; last eauto.
-      eapply affinely_pure_holds in Hemp as [Hout Hin].
+    eapply holds_entails in Hemp; last eauto.
+    eapply affinely_pure_holds in Hemp as [Hout Hin].
 
-      assert (alloc_valid g v3 v2 Σ1 Σ2). {
-        unfold alloc_valid. split_and!; eauto.
-        - intro HHH. symmetry in HHH. revert HHH.
-          eapply no_edges_no_uconn; eauto.
-        - rewrite HΣ12 Hout left_id_L //.
+    destruct (exchange_alloc g v3 v2 Σ1 Σ2 b)
+      as (g' & Hwf' & Hout1 & Hout2 & Hout' & Hin2 & Hin'); eauto.
+    { intros H0. symmetry in H0. apply no_edges_no_uconn in H0; eauto. }
+    { rewrite HΣ12 Hout left_id_L map_union_comm;eauto. }
+    exists g'. split; eauto.
+    intros v.
+    destruct (decide (v = v3));
+    destruct (decide (v = v2)); simplify_eq.
+    - rewrite Hout1.
+      (* specialize (Hin' _ n). *)
+      eapply holds_wand_insert; eauto.
+      {
+        assert ((Σ1 ∪ out_edges g' v2) !! v2 = None).
+        {
+          rewrite <-HΣ12.
+          eapply no_self_edge''; eauto.
+        }
+        apply lookup_union_None in H0 as [].
+        done.
       }
-
-      exists (alloc g v3 v2 b Σ1 Σ2).
-      split.
-      - apply alloc_wf; eauto.
-      - intros v.
-        erewrite alloc_out_edges.
-        setoid_rewrite alloc_in_labels; eauto.
-        repeat case_decide; simplify_eq; eauto.
-        + replace ({[b]} ⋅ in_labels g v2) with (in_labels g v2 ⋅ {[b]}) by admit.
-          eauto.
-        + eapply mset_empty_to_L in Hin. rewrite Hin.
-          assert (holds (own_out v2 b) {[ v2 := b]}). { by rewrite own_holds. }
-          eapply holds_entails. {
-            eapply sep_combine; eauto.
-            cut (Σ1 !! v2 = None); first solve_map_disjoint.
-            cut (out_edges g v2 !! v2 = None). {
-              rewrite HΣ12. rewrite lookup_union.
-              by do 2 destruct (_ !! _).
-            }
-            eauto using no_self_out_edge.
-          }
-          iIntros "[H1 H2]". iApply "H1". done.
-        + eapply holds_entails. 2: apply Hrest; naive_solver. eauto.
-  Admitted.
+      eapply holds_entails; eauto.
+      iIntros "H".
+      rewrite Hin' // Hin. done.
+    - eapply holds_entails; eauto.
+      iIntros "H".
+      rewrite Hin2 comm //.
+    - rewrite Hout'; eauto.
+      eapply holds_entails; eauto.
+      iIntros "H".
+      rewrite Hin'; eauto.
+      iApply Hrest; eauto.
+  Qed.
 
   Lemma inv_alloc_lr (v1 v2 v3 : V) (f f' : V -> multiset L -> hProp V L) :
     (∀ v, Proper ((≡) ==> (⊣⊢)) (f v)) ->
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (f' v)) ->
     v1 ≠ v2 ∧ v2 ≠ v3 ∧ v3 ≠ v1 ->
     (∀ v x, v ≠ v1 ∧ v ≠ v2 ∧ v ≠ v3 -> f v x ⊢ f' v x) ->
     (∀ x, f v2 x ⊢ ⌜⌜ x ≡ ε ⌝⌝) ->
@@ -355,27 +371,35 @@ Section genericinv.
         (own_out v2 l2' -∗ f' v3 ε)) ->
     inv f -> inv f'.
   Proof.
-    intros Hproper (Hneq1 & Hneq2 & Hneq3) Hrest H2 H3 H1 Hinv.
-    assert (inv (λ v x,
+    intros Hproper Hproper' (Hneq1 & Hneq2 & Hneq3) Hrest H2 H3 H1 Hinv.
+    set q := (λ v x,
       if decide (v = v1) then f' v1 x
       else if decide (v = v2) then ∃ l2', f' v2 (x ⋅ {[l2']}) ∗ (own_out v2 l2' -∗ f' v3 ε)
-      else f v x))%I.
-    - eapply (inv_insert_l v1 v2); last done; eauto.
+      else f v x)%I.
+    assert (inv q); subst q.
+    - eapply (inv_alloc_l v1 v2); last done; eauto.
+      + intros v. solve_proper_prepare.
+        repeat case_decide; try solve_proper; subst.
+        setoid_rewrite H0. done.
       + intros. iIntros "H". repeat case_decide; naive_solver.
       + iIntros (y) "H".
         iDestruct (H1 with "H") as (l1' l2') "[H1 H2]".
         repeat case_decide; simplify_eq.
         iExists l1'. iFrame.
         iExists l2'. iFrame.
-    - eapply (inv_insert_r v2 v3); last done.
-      + intros. simpl. destruct H4.
-        repeat case_decide; simplify_eq; eauto.
+    - eapply (inv_alloc_r v2 v3); last done.
+      + intros v. solve_proper_prepare.
+        repeat case_decide; try solve_proper; subst.
+        setoid_rewrite H4; eauto.
+      + apply _.
       + intros; simpl. repeat case_decide; simplify_eq; eauto.
-      + intros. simpl.
-        repeat case_decide; simplify_eq.
+      + intros ? ? []. simpl.
+        repeat case_decide; simplify_eq; eauto.
+      + intros. simpl. sdec. eauto.
+      + intros. simpl. sdec.
         iIntros "H".
-        iDestruct "H" as (l2') "[H1 H2]".
-        iExists _. iFrame.
+        iDestruct "H" as (?) "[H1 H2]".
+        eauto with iFrame.
   Qed.
 
 End genericinv.

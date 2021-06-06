@@ -120,16 +120,6 @@ Section cgraph.
           done.
     Qed.
 
-    Lemma multiset_empty_mult {A : ofe} (x y : multiset A) :
-      x ⋅ y ≡ ε -> x = ε ∧ y = ε.
-    Proof.
-    Admitted.
-
-    Lemma multiset_empty_neq_singleton {A : ofe} {a : A} :
-      {[ a ]} ≠ ε.
-    Proof.
-    Admitted.
-
     Lemma no_in_labels_no_out_edge g v1 v2 :
       in_labels g v2 ≡ ε ->
       out_edges g v1 !! v2 = None.
@@ -797,8 +787,9 @@ Section cgraph.
       e11 ##ₘ e21 ∧ e12 ##ₘ e22 ∧
       e1 = e11 ∪ e12 ∧ e2 = e21 ∪ e22 ∧
       e1' = e11 ∪ e21 ∧ e2' = e12 ∪ e22.
-  Proof. Admitted.
-    
+  Proof.
+  Admitted.
+
 
   Section exchange.
     Lemma exchange g v1 v2 e1 e2 :
