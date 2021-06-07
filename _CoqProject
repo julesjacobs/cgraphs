@@ -23,5 +23,6 @@ theories/seplogic.v
 theories/rtypesystem.v
 theories/langlemmas.v
 theories/genericinv.v
+theories/invariant.v
 # theories/logic/bupd.v
 theories/langdef.v

@@ -631,11 +631,6 @@ Section disjoint.
     - apply IHHsub. eapply disjoint_cons_weaken; eauto.
   Qed.
 
-  (* Lemma disjoint_submseteq gs gs' :
-    submseteq gs' gs -> disjoint gs -> disjoint gs'.
-  Proof.
-  Admitted. *)
-
   Lemma disjoint_update_sub gs g g' i :
     gs !! i = Some g -> g' ⊆ g -> disjoint gs -> disjoint (<[i := g']> gs).
   Proof.

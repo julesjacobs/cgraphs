@@ -91,12 +91,6 @@ Section cgraph.
       rewrite in_labels_delete; eauto.
     Qed.
 
-    (* Lemma in_labels_dependence g g' v2 :
-      (∀ v1, out_edges g v1 !! v2 = out_edges g' v1 !! v2) ->
-      in_labels g v2 = in_labels g' v2.
-    Proof.
-    Admitted. *)
-
     Lemma out_edges_in_labels g v1 v2 l :
       out_edges g v1 !! v2 = Some l ->
       ∃ x, in_labels g v2 ≡ {[ l ]} ⋅ x.

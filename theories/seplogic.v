@@ -83,6 +83,13 @@ Section seplogic.
 
   Definition holds (P : hProp') (Σ : gmap V L) := uPred_holds P (map_Excl Σ).
 
+  Instance holds_proper : Proper ((⊣⊢) ==> (≡) ==> (iff)) holds.
+  Proof.
+    solve_proper_prepare. split.
+    - intro. apply H0; eauto. apply map_Excl_valid.
+    - intro. apply H0; eauto. apply map_Excl_valid.
+  Qed.
+
   Lemma sep_holds (P Q : hProp') Σ :
     holds (P ∗ Q) Σ <-> ∃ Σ1 Σ2, Σ = Σ1 ∪ Σ2 ∧ Σ1 ##ₘ Σ2 ∧ holds P Σ1 ∧ holds Q Σ2.
   Proof.
