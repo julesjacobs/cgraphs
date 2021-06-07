@@ -26,7 +26,3 @@
   - async subtyping
   - locks
 * write paper
-
- ∀ h, P(h) -> Q(<[x:=v]> h)
------------------------
-   {P} x := v {Q}
