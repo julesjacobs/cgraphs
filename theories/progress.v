@@ -76,8 +76,16 @@ Lemma global_progress es h :
   (∃ es' h', step es h es' h').
 Proof.
   intros H.
-  destruct (final_state_decision es h) as [Hdec|Hdec]; eauto.
-  right.
+  destruct (final_state_decision es h) as [Hdec|Hdec]; eauto; right.
+  destruct H as (g & Hwf & Hvs).
 
+  waiting x x'
+
+  P x := "there exists v such that v is a thread that can step ∧
+          there exists a reference structure path from x to v"
+
+  ∀ x', waiting x x' -> P x'
+  --------------------------
+  P x
 
 Admitted.

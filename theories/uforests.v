@@ -996,6 +996,16 @@ Section uforest.
     + apply search_in_uvertices; eauto.
   Qed.
 
+  Lemma rel_wf (R : A -> A -> Prop) (g : uforest A) :
+    (∀ x y, R x y -> (x,y) ∈ g) ->
+    (∀ x y, x ≠ y -> ¬ (R x y ∧ R y x)) ->
+    is_uforest g -> wf R.
+
+  Lemma rel_wf_cgraph (R : V -> V -> Prop) (g : cgraph V L) :
+    (∀ x y, R x y -> edge g x y ∨ edge g y x) ->
+    (∀ x y, x ≠ y -> ¬ (R x y ∧ R y x)) ->
+    is_uforest g -> wf R.
+
   (* Definition dag (R : A -> A -> Prop) := True.
 
   Lemma dag_induction (R : A -> A -> Prop) x :

@@ -203,6 +203,7 @@ Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   invariant threads chans ->
   invariant threads' chans'.
 Proof.
+  unfold invariant.
   intros [].
   destruct H as [????????HH].
   intros Hinv.

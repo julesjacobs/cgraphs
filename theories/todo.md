@@ -14,7 +14,7 @@
   - Prove insert_edge_wf and delete_edge_wf and empty_wf
   - State adequacy lemma for cgraphs
   - Prove adequacy lemma for cgraphs
-  - Prove no_triangle
+  - Prove no_triangle [done]
 * (5 of 5) state the generic invariant lemmas
 * (5 of 5) prove the generic invariant lemmas
 * (5 of 5) prove preservation using generic invariant library
