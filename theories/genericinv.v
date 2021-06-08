@@ -4,18 +4,19 @@ Require Export diris.seplogic.
 Section genericinv.
   Context {V : Type}.
   Context `{Countable V}.
-  Context {L : Type}.
+  Context {L : ofe}.
 
   Definition inv (f : V -> multiset L -> hProp V L) : Prop :=
     ∃ g : cgraph V L, cgraph_wf g ∧
       ∀ v : V, holds (f v (in_labels g v)) (out_edges g v).
 
-  Lemma adequacy f (φ : V -> multiset L -> gmap V L -> Prop) :
+  Lemma adequacy f (φ : V -> multiset L -> gmap V L -> Prop)  :
+    (∀ v, Proper ((≡) ==> (≡) ==> iff) (φ v)) ->
     inv f ->
     (∀ v x, f v x ⊢ ∃ Σ, ⌜⌜ φ v x Σ ⌝⌝ ∗ own Σ) ->
     ∃ g, cgraph_wf g ∧ ∀ v, φ v (in_labels g v) (out_edges g v).
   Proof.
-    intros Hinv HH.
+    intros ? Hinv HH.
     destruct Hinv as (g & Hwf & H1).
     exists g. split; eauto.
     intros v.
@@ -28,7 +29,7 @@ Section genericinv.
     }
     apply exists_holds in H1 as (Σ & H1).
     apply pure_sep_holds in H1 as (H1 & H2).
-    apply own_holds in H2. subst. done.
+    apply own_holds in H2. rewrite ->H2 in H1. done.
   Qed.
 
   Lemma inv_impl f f' :
@@ -87,15 +88,19 @@ Section genericinv.
     eapply holds_entails in Hexch; last done.
     apply exists_holds in Hexch as (b & HH).
     apply sep_holds in HH as (Σ1 & Σ2 & HΣ12 & H1 & H2 & H3).
-    apply own_holds in H2. subst.
+    apply own_holds in H2.
+    rewrite <-H2 in HΣ12.
+    rewrite <-H2 in H1.
+    clear H2.
 
-    assert (out_edges g v1 !! v2 = Some b) as Hv1outv2. {
+    assert (out_edges g v1 !! v2 ≡ Some b) as Hv1outv2. {
       rewrite HΣ12. rewrite lookup_union lookup_singleton.
       destruct (_ !! _); eauto.
     }
 
     pose proof (Hvs v2) as Hv2.
-    assert (out_edges g v1 ##ₘ out_edges g v2) as Hdisj_out
+    assert (out_edges g v1 ##ₘ out_edges g v2) as Hdisj_out.
+    { eapply edge_out_disjoint; eauto. eapply some_edge. }
       by eauto using edge_out_disjoint, some_edge.
 
     assert (Σ2 ##ₘ out_edges g v2) as Hdisj. {

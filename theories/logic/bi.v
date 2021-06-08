@@ -3,6 +3,8 @@ From diris.logic Require Export upred.
 From iris.prelude Require Import options.
 Import uPred_primitive.
 
+Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
+
 (** BI instances for [uPred], and re-stating the remaining primitive laws in
 terms of the BI interface. This file does *not* unseal. *)
 
@@ -94,6 +96,9 @@ Notation "P ⊣⊢ Q" := (equiv (A:=uPredI M) P%I Q%I).
 Lemma pure_soundness φ : (⊢@{uPredI M} ⌜ φ ⌝) → φ.
 Proof. apply pure_soundness. Qed.
 
+Global Instance ownM_proper : Proper ((≡) ==> (≡)) (@uPred_ownM M).
+Proof. apply ownM_proper. Qed.
+
 Lemma ownM_unit : uPred_ownM ε ⊣⊢ emp.
 Proof. apply ownM_unit. Qed.
 
@@ -118,3 +123,58 @@ Ltac unseal := (* Coq unfold is used to circumvent bug #5699 in rewrite /foo *)
   uPred_primitive.unseal.
 
 End uPred.
+
+(* Should go to upred primitive *)
+Section upred_lemmas.
+Context {A : ucmra}.
+Implicit Types P Q : uPred A.
+Arguments uPred_holds {_} !_/.
+Lemma owned_emp_helper (x : A) : ✓ x -> (uPred_ownM x ⊢ emp) -> x ≡ ε.
+Proof.
+  uPred.unseal. intros ? [HH]. apply HH; simpl; done.
+Qed.
+
+Lemma uPred_emp_holds x :
+  (emp%I : uPred A) x <-> x ≡ ε.
+Proof. by uPred.unseal. Qed.
+Lemma uPred_emp_holds_L `{!LeibnizEquiv A} x :
+  (emp%I : uPred A) x <-> x = ε.
+Proof. unfold_leibniz. apply uPred_emp_holds. Qed.
+
+Lemma uPred_ownM_holds x y :
+  (uPred_ownM x : uPred A) y <-> x ≡ y.
+Proof.
+  by uPred.unseal.
+Qed.
+Lemma uPred_ownM_holds_L `{!LeibnizEquiv A} x y :
+  (uPred_ownM x : uPred A) y <-> x = y.
+Proof.
+  unfold_leibniz. apply uPred_ownM_holds.
+Qed.
+
+Lemma uPred_sep_holds P Q x :
+  (P ∗ Q)%I x <-> ∃ x1 x2, x ≡ x1 ⋅ x2 ∧ P x1 ∧ Q x2.
+Proof. by uPred.unseal. Qed.
+Lemma uPred_sep_holds_L `{!LeibnizEquiv A} P Q x :
+  (P ∗ Q)%I x <-> ∃ x1 x2, x = x1 ⋅ x2 ∧ P x1 ∧ Q x2.
+Proof. unfold_leibniz. apply uPred_sep_holds. Qed.
+
+Lemma uPred_and_holds P Q x :
+  (P ∧ Q)%I x <-> P x ∧ Q x.
+Proof. by uPred.unseal. Qed.
+Lemma uPred_pure_holds φ x :
+  (⌜ φ ⌝ : uPred A)%I x <-> φ.
+Proof. by uPred.unseal. Qed.
+Lemma uPred_exists_holds {B} (Φ : B -> uPred A) x :
+  (∃ b, Φ b)%I x <-> ∃ b, Φ b x.
+Proof. by uPred.unseal. Qed.
+Lemma uPred_forall_holds {B} (Φ : B -> uPred A) x :
+  (∀ b, Φ b)%I x <-> ∀ b, Φ b x.
+Proof. by uPred.unseal. Qed.
+Lemma uPred_affinely_pure_holds φ x :
+  (⌜⌜ φ ⌝⌝ : uPred A)%I x <-> x ≡ ε ∧ φ.
+Proof. rewrite /bi_affinely uPred_and_holds uPred_pure_holds uPred_emp_holds. done. Qed.
+Lemma uPred_affinely_pure_holds_L `{!LeibnizEquiv A} φ x :
+  (⌜⌜ φ ⌝⌝ : uPred A)%I x <-> x = ε ∧ φ.
+Proof. unfold_leibniz. apply uPred_affinely_pure_holds. Qed.
+End upred_lemmas.

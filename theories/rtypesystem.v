@@ -4,6 +4,8 @@ Inductive object :=
   | Thread : nat -> object
   | Chan : chan -> object.
 
+Canonical Structure objectO := leibnizO object.
+
 Instance object_eqdecision : EqDecision object.
 Proof.
   intros [n|n] [m|m]; unfold Decision; destruct (decide (n = m));
@@ -22,7 +24,9 @@ Qed.
 
 Definition clabel : Type := bool * chan_type.
 
-Notation rProp := (hProp object clabel).
+Definition clabelO := prodO boolO chan_typeO.
+
+Notation rProp := (hProp object clabelO).
 
 Definition own_ep (c : endpoint) (σ : chan_type) : rProp :=
   let '(chan,b) := c in
@@ -70,7 +74,7 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
   | Close e =>
       ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped Γ e (ChanT EndT)
   end
-with val_typed (v : val) (t : type) : hProp object clabel :=
+with val_typed (v : val) (t : type) : rProp :=
   match v with
   | UnitV => ⌜⌜ t = UnitT ⌝⌝
   | NatV n => ⌜⌜ t = NatT ⌝⌝

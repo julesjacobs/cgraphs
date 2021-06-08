@@ -88,11 +88,35 @@ Proof.
   by rewrite bufs_typed_sym'.
 Qed.
 
+(* Lemma foo σs b :
+  opt_to_singleton true (σs !! true) ⋅ opt_to_singleton false (σs !! false) ≡
+  opt_to_singleton true (σs !! b) ⋅ opt_to_singleton false (σs !! negb b). *)
+
+
+Lemma mset_xsplit (e1 e2 e1' e2' : multiset clabel) :
+  e1 ⋅ e2 ≡ e1' ⋅ e2' ->
+  ∃ e11 e12 e21 e22,
+    e1 ≡ e11 ⋅ e12 ∧
+    e2 ≡ e21 ⋅ e22 ∧
+    e1' ≡ e11 ⋅ e21 ∧
+    e2' ≡ e12 ⋅ e22.
+Proof.
+Admitted.
+
+
 Lemma mset_delete σs b r x :
   {[(b, r):clabel]} ⋅ x ≡ mset_σs σs ->
   x ≡ mset_σs (delete b σs).
 Proof.
-  intros H.
+  intros H. unfold mset_σs in *.
+  destruct b; last admit.
+  eapply mset_xsplit in H as (e11 & e12 & e21 & e22 & H1 & H2 & H3 & H4).
+  simplify_map_eq.
+  rewrite H4.
+  simplify_map_eq.
+  do 2 destruct (_ !! _); simpl in *.
+  -  rewrite left_id.
+
 Admitted.
 
 Lemma mset_lookup σs b r x :

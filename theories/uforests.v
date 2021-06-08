@@ -995,7 +995,7 @@ Section uforest.
     + apply search_lemma; eauto.
     + apply search_in_uvertices; eauto.
   Qed.
-
+(*
   Lemma rel_wf (R : A -> A -> Prop) (g : uforest A) :
     (∀ x y, R x y -> (x,y) ∈ g) ->
     (∀ x y, x ≠ y -> ¬ (R x y ∧ R y x)) ->
@@ -1004,7 +1004,7 @@ Section uforest.
   Lemma rel_wf_cgraph (R : V -> V -> Prop) (g : cgraph V L) :
     (∀ x y, R x y -> edge g x y ∨ edge g y x) ->
     (∀ x y, x ≠ y -> ¬ (R x y ∧ R y x)) ->
-    is_uforest g -> wf R.
+    is_uforest g -> wf R. *)
 
   (* Definition dag (R : A -> A -> Prop) := True.
 

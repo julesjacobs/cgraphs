@@ -27,6 +27,9 @@ with expr :=
     | Fork : expr -> expr
     | Close : expr -> expr.
 
+Canonical Structure valO := leibnizO val.
+Canonical Structure exprO := leibnizO expr.
+
 Definition heap := gmap endpoint (list val).
 
 Inductive type :=
@@ -40,6 +43,9 @@ with chan_type :=
     | SendT : type -> chan_type -> chan_type
     | RecvT : type -> chan_type -> chan_type
     | EndT : chan_type.
+
+Canonical Structure typeO := leibnizO type.
+Canonical Structure chan_typeO := leibnizO chan_type.
 
 Notation envT := (gmap string type).
 

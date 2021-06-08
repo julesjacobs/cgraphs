@@ -1,6 +1,6 @@
 From iris.algebra Require Export cmra.
 From iris.bi Require Import notation.
-Local Hint Extern 10 (_ ≤ _) => lia : core.
+
 
 Record uPred (M : ucmra) : Type := UPred {
   uPred_holds :> M → Prop;
@@ -315,6 +315,7 @@ Lemma ownM_proper : Proper ((≡) ==> (≡)) (@uPred_ownM M).
 Proof.
   intros ???. unseal. split=> ??. setoid_subst. done.
 Qed.
+
 
 (** Introduction and elimination rules *)
 Lemma pure_intro φ P : φ → P ⊢ ⌜φ⌝.
