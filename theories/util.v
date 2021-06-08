@@ -655,3 +655,12 @@ Section disjoint.
       eauto using elem_of_list_lookup_2 with lia.
   Qed.
 End disjoint.
+
+Lemma map_disjoint_self_empty `{Countable K} {V} (m : gmap K V) :
+  m ##ₘ m -> m = ∅.
+Proof.
+  intros HH.
+  apply map_empty. intro.
+  specialize (HH i).
+  destruct (m !! i); eauto; done.
+Qed.

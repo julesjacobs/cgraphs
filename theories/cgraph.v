@@ -49,7 +49,6 @@ Section cgraph.
 
   Section general.
 
-
     Lemma in_labels_insert g i x v :
       g !! i = None ->
       in_labels (<[i:=x]> g) v ≡ from_option singleton ε (x !! v) ⋅ in_labels g v.
@@ -92,18 +91,19 @@ Section cgraph.
     Qed.
 
     Lemma out_edges_in_labels g v1 v2 l :
-      out_edges g v1 !! v2 = Some l ->
+      out_edges g v1 !! v2 ≡ Some l ->
       ∃ x, in_labels g v2 ≡ {[ l ]} ⋅ x.
     Proof.
       revert v1 v2 l.
       induction g using map_ind; intros.
-      - rewrite lookup_empty in H0. simplify_eq.
-      - unfold out_edges in H1. rewrite lookup_insert_spec in H1.
+      - rewrite lookup_empty in H0. inversion H0.
+      - unfold out_edges in H1.
+        rewrite lookup_insert_spec in H1.
         case_decide; simplify_eq.
         + exists (in_labels m v2).
           rewrite in_labels_insert; eauto.
           rewrite H1. done.
-        + destruct (m !! v1) eqn:E; simplify_eq.
+        + destruct (m !! v1) eqn:E. 2: { rewrite lookup_empty in H1. inversion H1. }
           destruct (IHg v1 v2 l).
           { unfold out_edges. rewrite E. done. }
           setoid_rewrite in_labels_insert; eauto.
@@ -114,12 +114,20 @@ Section cgraph.
           done.
     Qed.
 
+    Lemma out_edges_in_labels_L g v1 v2 l :
+      out_edges g v1 !! v2 = Some l ->
+      ∃ x, in_labels g v2 ≡ {[ l ]} ⋅ x.
+    Proof.
+      intros HH.
+      eapply out_edges_in_labels. erewrite HH. done.
+    Qed.
+
     Lemma no_in_labels_no_out_edge g v1 v2 :
       in_labels g v2 ≡ ε ->
       out_edges g v1 !! v2 = None.
     Proof.
       destruct (out_edges g v1 !! v2) eqn:E; eauto.
-      eapply out_edges_in_labels in E as []. rewrite H0. intros HH.
+      eapply out_edges_in_labels_L in E as []. rewrite H0. intros HH.
       eapply multiset_empty_mult in HH.
       destruct HH as [H1%multiset_empty_neq_singleton H2]. done.
     Qed.
@@ -144,13 +152,18 @@ Section cgraph.
       - eapply no_in_labels_no_out_edge in Hin. erewrite H0 in Hin. simplify_eq.
     Qed.
 
-    Lemma some_edge (g : cgraph V L) (v1 v2 : V) (l : L) :
+    Lemma some_edge_L (g : cgraph V L) (v1 v2 : V) (l : L) :
       out_edges g v1 !! v2 = Some l -> edge g v1 v2.
     Proof.
       unfold edge. intros ->. eauto.
     Qed.
 
-
+    Lemma some_edge (g : cgraph V L) (v1 v2 : V) (l : L) :
+      out_edges g v1 !! v2 ≡ Some l -> edge g v1 v2.
+    Proof.
+      intro. inversion H0.
+      unfold edge. rewrite -H1. eauto.
+    Qed.
 
     Lemma not_uconn_out_disjoint g v1 v2 :
       ¬ uconn g v1 v2 -> out_edges g v1 ##ₘ out_edges g v2.
@@ -158,8 +171,8 @@ Section cgraph.
       intros HH v.
       destruct (out_edges g v1 !! v) eqn:E;
       destruct (out_edges g v2 !! v) eqn:F; simpl; eauto.
-      assert (edge g v1 v); eauto using some_edge.
-      assert (edge g v2 v); eauto using some_edge.
+      assert (edge g v1 v); eauto using some_edge_L.
+      assert (edge g v2 v); eauto using some_edge_L.
       apply HH.
       eapply rtc_transitive; eapply rtc_once; [left|right]; eauto.
     Qed.
@@ -374,7 +387,7 @@ Section cgraph.
       intros.
       destruct (_!!_) eqn:E; eauto.
       exfalso.
-      eapply no_self_edge; eauto using some_edge.
+      eapply no_self_edge; eauto using some_edge_L.
     Qed.
 
     Lemma no_triangle g v1 v2 v3 :
@@ -502,7 +515,7 @@ Section cgraph.
       destruct (_!!_) eqn:E; eauto.
       rewrite in_labels_insert_edge.
       - case_decide; simplify_eq.
-        + destruct (out_edges_in_labels _ _ _ _ E).
+        + destruct (out_edges_in_labels_L _ _ _ _ E).
           rewrite in_labels_delete_edge_eq; eauto.
           by symmetry.
         + rewrite in_labels_delete_edge_neq; eauto.
@@ -526,7 +539,7 @@ Section cgraph.
       destruct (_!!_) eqn:E; eauto.
       rewrite in_labels_insert_edge.
       - case_decide; simplify_eq.
-        + destruct (out_edges_in_labels _ _ _ _ E).
+        + destruct (out_edges_in_labels_L _ _ _ _ E).
           rewrite in_labels_delete_edge_eq; eauto.
           by symmetry.
         + rewrite in_labels_delete_edge_neq; eauto.
@@ -535,8 +548,8 @@ Section cgraph.
         rewrite out_edges_delete_edge.
         case_decide; simplify_eq.
         intros [].
-        assert (edge g v1 v3); eauto using some_edge.
-        assert (edge g v2 v3); eauto using some_edge.
+        assert (edge g v1 v3); eauto using some_edge_L.
+        assert (edge g v2 v3); eauto using some_edge_L.
         apply Hv12.
         eapply rtc_transitive; eapply rtc_once;[left|right]; eauto.
     Qed.
@@ -600,7 +613,7 @@ Section cgraph.
       assert (¬ uconn g v3 v2).
       { intro. apply Hv12.
         eapply rtc_transitive; eauto.
-        eapply rtc_once. left. eauto using some_edge. }
+        eapply rtc_once. left. eauto using some_edge_L. }
       intro. apply delete_edge_preserves_not_uconn in H1.
       apply H0. symmetry. done.
     Qed.
@@ -639,7 +652,7 @@ Section cgraph.
       {
         eapply delete_edge_uconn.
         - eapply move_edge_wf.
-          + intros ->. eapply H1. eapply rtc_once. left. eauto using some_edge.
+          + intros ->. eapply H1. eapply rtc_once. left. eauto using some_edge_L.
           + eapply insert_edge_wf; eauto.
           + left. unfold edge.
             rewrite out_edges_insert_edge.
@@ -657,7 +670,7 @@ Section cgraph.
             * rewrite lookup_delete_spec lookup_insert_spec.
               case_decide; simplify_eq.
               -- exfalso. apply H1.
-                 eapply rtc_once. left. eauto using some_edge.
+                 eapply rtc_once. left. eauto using some_edge_L.
               -- case_decide; simplify_eq. eauto.
       }
       intro. apply H0.
@@ -670,16 +683,16 @@ Section cgraph.
         rewrite lookup_insert_spec. case_decide; simplify_eq; eauto. }
       rewrite !out_edges_insert_edge.
       repeat case_decide; simplify_eq; eauto.
-      - assert (v2 ≠ v3). { intros ->. eapply no_self_edge; eauto using some_edge. }
+      - assert (v2 ≠ v3). { intros ->. eapply no_self_edge; eauto using some_edge_L. }
         rewrite delete_insert_ne; eauto.
         rewrite delete_insert; eauto.
         destruct (out_edges g v2 !! v2) eqn:F; eauto.
-        exfalso. eapply no_self_edge; eauto using some_edge.
+        exfalso. eapply no_self_edge; eauto using some_edge_L.
       - rewrite delete_commute.
         rewrite delete_insert; eauto.
         destruct (out_edges g v !! v2) eqn:F; eauto.
         exfalso. apply H1. apply rtc_once.
-        left. eapply some_edge; eauto.
+        left. eapply some_edge_L; eauto.
     Qed.
   End move_edge.
 
@@ -744,7 +757,7 @@ Section cgraph.
                 exfalso.
                 apply Hnuconn.
                 eapply rtc_transitive; eapply rtc_once; [left|right];
-                eauto using some_edge.
+                eauto using some_edge_L.
              ++ erewrite move_edge_out_edges; eauto.
                 repeat case_decide; simplify_eq. done.
           -- intros v. rewrite H4. rewrite move_edge_in_labels'; eauto.
@@ -876,10 +889,10 @@ Section cgraph.
       destruct (exchange (delete_edge g v1 v2) v1 v2 e1 e2)
         as (g' & Hwf' & Hnuconn' & Hout1 & Hout2 & Hrest & Hin).
       - eapply delete_edge_wf; eauto.
-      - eapply delete_edge_uconn; eauto using some_edge.
+      - eapply delete_edge_uconn; eauto using some_edge_L.
       - eauto.
       - rewrite !out_edges_delete_edge. sdec; eauto.
-        exfalso. eapply no_self_edge; eauto using some_edge.
+        exfalso. eapply no_self_edge; eauto using some_edge_L.
       - exists g'. split_and!; eauto.
         + intros. rewrite Hrest; eauto.
           rewrite out_edges_delete_edge. sdec. done.
@@ -922,4 +935,111 @@ Section cgraph.
     Qed.
   End exchange_relabel.
 
+  Section setoids.
+
+    Lemma sex_Some x (y : L) :
+      x ≡ Some y -> ∃ y', y' ≡ y ∧ x = Some y'.
+    Proof.
+      intros HH.
+      inversion HH. subst.
+      exists x0. eauto.
+    Qed.
+
+    Lemma sex_union (x y z : gmap V L) :
+      x ≡ y ∪ z -> ∃ y' z', y ≡ y' ∧ z ≡ z' ∧ x = y' ∪ z'.
+    Proof.
+    Admitted.
+
+    Require Import diris.mapexcl.
+
+    Lemma exchange_alloc_S g v1 v2 e1 e2 l :
+      cgraph_wf g ->
+      ¬ uconn g v1 v2 ->
+      e1 ##ₘ e2 ->
+      out_edges g v1 ∪ out_edges g v2 ≡ e1 ∪ e2 ->
+      ∃ g', cgraph_wf g' ∧
+        out_edges g' v1 ≡ <[v2:=l]> e1 ∧
+        out_edges g' v2 ≡ e2 ∧
+        (∀ v, v ≠ v1 -> v ≠ v2 -> out_edges g' v ≡ out_edges g v) ∧
+        in_labels g' v2 ≡ {[ l ]} ⋅ in_labels g v2 ∧
+        (∀ v, v ≠ v2 -> in_labels g' v ≡ in_labels g v).
+    Proof.
+      intros Hwf Hnuconn Hdisj Hsplit.
+      eapply sex_union in Hsplit as (y' & z' & Hy' & Hz' & Hsplit).
+      destruct (exchange_alloc g v1 v2 y' z' l)
+        as (?&?&?&?&?&?&?); eauto.
+      { rewrite -Hy' -Hz' //. }
+      exists x.
+      split_and!; eauto.
+      - rewrite H1 Hy' //.
+      - rewrite H2 Hz' //.
+      - intros. rewrite H3 //.
+    Qed.
+
+    Lemma exchange_dealloc_S g v1 v2 e1 e2 l :
+      cgraph_wf g ->
+      out_edges g v1 !! v2 ≡ Some l ->
+      e1 ##ₘ e2 ->
+      delete v2 (out_edges g v1) ∪ out_edges g v2 ≡ e1 ∪ e2 ->
+      ∃ g', cgraph_wf g' ∧
+        ¬ uconn g' v1 v2 ∧
+        out_edges g' v1 ≡ e1 ∧
+        out_edges g' v2 ≡ e2 ∧
+        (∀ v, v ≠ v1 -> v ≠ v2 -> out_edges g' v ≡ out_edges g v) ∧
+        (∀ x, in_labels g v2 ≡ {[ l ]} ⋅ x -> in_labels g' v2 ≡ x) ∧
+        (∀ v, v ≠ v2 -> in_labels g' v ≡ in_labels g v).
+    Proof.
+      intros Hwf Hout1 Hdisj Hsplit.
+      eapply sex_Some in Hout1 as (y' & Hy' & Hout1).
+      eapply sex_union in Hsplit as (y2' & z' & Hy2' & Hz' & Hsplit).
+      destruct (exchange_dealloc g v1 v2 y2' z' y')
+        as (?&?&?&?&?&?&?&?); eauto.
+      { rewrite -Hy2' -Hz' //. }
+      eexists x.
+      split_and!; eauto.
+      - rewrite H2 //.
+      - rewrite H3 //.
+      - intros. rewrite H4 //.
+      - intros. rewrite <-Hy' in H7. rewrite H5; last done. done.
+    Qed.
+
+    Lemma exchange_relabel_S g v1 v2 e1 e2 l l' :
+      cgraph_wf g ->
+      out_edges g v1 !! v2 ≡ Some l ->
+      e1 ##ₘ e2 ->
+      delete v2 (out_edges g v1) ∪ out_edges g v2 ≡ e1 ∪ e2 ->
+      ∃ g', cgraph_wf g' ∧
+        out_edges g' v1 ≡ <[v2:=l']> e1 ∧
+        out_edges g' v2 ≡ e2 ∧
+        (∀ v, v ≠ v1 -> v ≠ v2 -> out_edges g' v ≡ out_edges g v) ∧
+        (∀ x, in_labels g v2 ≡ {[ l ]} ⋅ x -> in_labels g' v2 ≡ {[ l' ]} ⋅ x) ∧
+        (∀ v, v ≠ v2 -> in_labels g' v ≡ in_labels g v).
+    Proof.
+      intros Hwf H1 Hdisj Hsplit.
+      assert (∃ l2, l ≡ l2 ∧ out_edges g v1 !! v2 = Some l2)
+        as (l2 & Hl2 & H1').
+      { eapply sex_Some in H1 as (y' & Hy' & HH).
+        exists y'. eauto. }
+      assert (∃ e1' e2',
+        e1 ≡ e1' ∧ e2 ≡ e2' ∧
+        e1' ##ₘ e2' ∧
+        delete v2 (out_edges g v1) ∪ out_edges g v2 = e1' ∪ e2')
+        as (e1' & e2' & He1 & He2 & Hdisj' & Hsplit').
+      {
+        eapply sex_union in Hsplit as (y' & z' & Hy' & Hz' & HH).
+        exists y', z'.
+        split_and!; eauto.
+        rewrite -Hy'.
+        rewrite -Hz'. done.
+      }
+      destruct (exchange_relabel g v1 v2 e1' e2' l2 l')
+        as (g' & Hwf' & Hv1' & Hv2' & Hrest' & Hin2' & Hin'); eauto.
+      exists g'. split_and!; eauto.
+      - rewrite Hv1'. rewrite He1. done.
+      - rewrite Hv2'. done.
+      - intros. rewrite Hrest'; eauto.
+      - intros. rewrite Hin2'; first done.
+        rewrite H0. rewrite Hl2. done.
+    Qed.
+  End setoids.
 End cgraph.
