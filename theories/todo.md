@@ -15,6 +15,7 @@
   - State adequacy lemma for cgraphs
   - Prove adequacy lemma for cgraphs
   - Prove no_triangle [done]
+  - Setoidification [done]
 * (5 of 5) state the generic invariant lemmas
 * (5 of 5) prove the generic invariant lemmas
 * (5 of 5) prove preservation using generic invariant library

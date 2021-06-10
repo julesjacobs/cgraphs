@@ -70,6 +70,30 @@ Proof.
     apply H0; eauto.
 Qed.
 
+Definition is_val e := ∃ v, e = Val v.
+
+Definition all_subexprs_are_values e :=
+  ∀ k e', ctx k -> e = k e' -> e ≠ e' -> is_val e'.
+
+Lemma decompose_ctx e :
+  is_val e ∨ (∃ k e', ctx k ∧ e = k e' ∧ e ≠ e' ∧ all_subexprs_are_values e').
+Proof.
+Admitted.
+
+Lemma rtyped_inner e t :
+  all_subexprs_are_values e ->
+  rtyped0 e t -∗
+  ⌜ is_val e ∨
+    (∃ e', pure_step e e') ∨
+    (∃ v, e = Recv (Val v)) ∨
+    (∃ v1 v2, e = Send (Val v1) (Val v2)) ∨
+    (∃ v, e = Fork (Val v)) ∨
+    (∃ v, e = Close (Val v)) ⌝.
+Proof.
+  iIntros (He) "Ht".
+  destruct e; simpl in *.
+Admitted.
+
 Lemma global_progress es h :
   invariant es h ->
   (h = ∅ ∧ ∀ e, e ∈ es -> e = Val UnitV) ∨

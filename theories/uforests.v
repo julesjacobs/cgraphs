@@ -995,48 +995,209 @@ Section uforest.
     + apply search_lemma; eauto.
     + apply search_in_uvertices; eauto.
   Qed.
-(*
-  Lemma rel_wf (R : A -> A -> Prop) (g : uforest A) :
-    (∀ x y, R x y -> (x,y) ∈ g) ->
-    (∀ x y, x ≠ y -> ¬ (R x y ∧ R y x)) ->
-    is_uforest g -> wf R.
 
-  Lemma rel_wf_cgraph (R : V -> V -> Prop) (g : cgraph V L) :
-    (∀ x y, R x y -> edge g x y ∨ edge g y x) ->
-    (∀ x y, x ≠ y -> ¬ (R x y ∧ R y x)) ->
-    is_uforest g -> wf R. *)
-
-  (* Definition dag (R : A -> A -> Prop) := True.
-
-  Lemma dag_induction (R : A -> A -> Prop) x :
-    dag R -> ∃ y, rtc R x y ∧ ∀ z, ¬ R y z.
-
-    (∀ x, x ∈ uvertices g -> P x ∨ ∃ y, (x,y) ∈ g) ->
-    x ∈ uvertices g -> ∃ y, y ∈ uvertices g ∧ P y.
-
-  Definition f o :=
-    match o with
-    | Thread i =>
-      if i is waiting on Chan j then Chan j else None
-    | Chan i =>
-      if owner of ep1 is o' and not waiting on Chan i then o'
-      else if owner of ep2 is o' and not waiting on Chan i then o'
-      else None
-       (* The last case can only happen if neither endpoint exists (impossible)
-          Or if both endpoints are waiting on o (also impossible)
-          In the proof we want to show that f (Chan i) ≠ None
-        *)
-    end *)
-
-
-  Lemma search_rel (g : uforest A) (x : A) (R : A -> A -> Prop) :
-    is_uforest g ->
-    (∀ x y, R x y -> (x,y) ∈ g) ->
-    (∀ x y, R x y -> ¬ R y x) ->
-    (∀ x, Decision (∃ y, y ∈ uvertices g ∧ R x y)) ->
-    x ∈ uvertices g -> ∃ y, y ∈ uvertices g ∧ (∀ z, ¬ R y z).
+  Lemma path_uvertices g xs :
+    is_uforest g -> 2 ≤ length xs -> path g xs -> ∀ x, x ∈ xs -> x ∈ uvertices g.
   Proof.
-  Admitted.
+    intros Hforest. intros.
+    unfold path in *.
+    Search elem_of lookup Some.
+    apply elem_of_list_lookup in H3 as (? & ?).
+    destruct x0.
+    - destruct (xs !! 1) eqn:E.
+      + specialize (H2 _ _ _ H3 E).
+        eapply edge_in_uvertices.
+        eapply forest_undirected; eauto.
+      + eapply lookup_ge_None in E. lia.
+    - destruct (xs !! x0) eqn:E.
+      + eapply edge_in_uvertices. eapply H2; eauto. rewrite <- H3.
+        f_equiv. lia.
+      + eapply lookup_lt_Some in H3.
+        eapply lookup_ge_None in E.
+        lia.
+  Qed.
 
+  Lemma lookup_take_spec (xs : list A) k n :
+    take n xs !! k = if decide (k < n) then xs !! k else None.
+  Proof.
+    case_decide.
+    - rewrite lookup_take; eauto.
+    - rewrite lookup_take_ge; eauto. lia.
+  Qed.
+
+  Lemma lookup_length_unfold (xs : list A) k :
+    xs !! k = if decide (k < length xs) then xs !! k else None.
+  Proof.
+    case_decide; eauto.
+    eapply lookup_ge_None_2. lia.
+  Qed.
+
+  Lemma lookup_list_singleton_spec k (x : A) :
+    [x] !! k = if decide (k = 0) then Some x else None.
+  Proof.
+    case_decide; subst; eauto. destruct k; simpl; eauto. lia.
+  Qed.
+
+  Lemma long_paths_have_u_turns g xs :
+    is_uforest g -> size (uvertices g)+10 < length xs -> path g xs -> has_u_turn xs.
+  Proof.
+    intros Hforest Hsize Hpath.
+    edestruct (pigeon (uvertices g) xs) as (i & j & y & Hi & Hj & Hneq); eauto.
+    { intros. eapply path_uvertices; eauto using elem_of_list_lookup_2. lia. }
+    { lia. }
+    wlog: i j Hi Hj Hneq / i < j.
+    {
+      intros. destruct (decide (i < j)); eauto.
+      assert (j < i) by lia.
+      eauto.
+    }
+    intros Hlt.
+    assert (path g (drop i (take (S j) xs))) as Hsubpath
+      by eauto using path_take, path_drop.
+    eapply has_u_turn_mid; eauto.
+  Qed.
+
+  Definition asym (R : A -> A -> Prop) :=
+    ∀ x y, R x y -> R y x -> x = y.
+  Definition Rpath (R : A -> A -> Prop) (xs : list A) : Prop :=
+    ∀ i x y, xs !! i = Some x -> xs !! (i + 1) = Some y -> R y x.
+  Definition Rvalid (R : A -> A -> Prop) (g : uforest A) : Prop :=
+    ∀ x y, R x y -> (y,x) ∈ g.
+
+  Lemma Rpath_path g (R : A -> A -> Prop) (xs : list A) :
+    Rpath R xs -> Rvalid R g -> path g xs.
+  Proof.
+    intros H1 H2 i a b Ha Hb.
+    eapply H2.
+    eapply H1; eauto.
+  Qed.
+
+  Lemma Rpath_no_u_turns R xs g :
+    is_uforest g -> Rvalid R g -> Rpath R xs -> asym R -> ¬ has_u_turn xs.
+  Proof.
+    intros Hforest Hvalid H1 H2 (i & x & Q1 & Q2).
+    destruct (xs !! (i + 1)) eqn:E; last first.
+    { eapply lookup_ge_None in E.
+      eapply lookup_lt_Some in Q2. lia. }
+    assert (x = a).
+    {
+      eapply H2.
+      - eapply H1. exact E.
+        replace (i + 1 + 1) with (i + 2) by lia. done.
+      - eapply H1; last done. done.
+    }
+    subst.
+    eapply forest_no_self_loops; first done.
+    eapply Hvalid.
+    eapply H1. exact Q1. done.
+  Qed.
+
+  Lemma lookup_length_app (xs : list A) (ys : list A) n :
+    (xs ++ ys) !! (length xs + n) = ys !! n.
+  Proof.
+    rewrite lookup_app.
+    destruct (xs !! (length xs + n)) eqn:E.
+    apply lookup_lt_Some in E; first lia.
+    f_equiv. lia.
+  Qed.
+
+  Lemma Rpath_snoc xs x y R :
+    Rpath R (xs ++ [x]) -> R y x -> Rpath R ((xs ++ [x]) ++ [y]).
+  Proof.
+    intros.
+    unfold Rpath in *.
+    intros.
+    destruct (decide (i + 1 < length (xs ++ [x]))).
+    - eapply (H1 i).
+      + rewrite lookup_app in H3.
+        rewrite <-H3.
+        destruct ((xs ++ [x]) !! i) eqn:E; eauto.
+        destruct (i - length (xs ++ [x])) eqn:F; simpl in *; simplify_eq.
+        eapply lookup_ge_None in E.
+        assert (length (xs ++ [x]) = i) by lia.
+        subst.
+        rewrite lookup_length_app in H4. simpl in *. simplify_eq.
+      + rewrite lookup_app in H4.
+        rewrite <-H4.
+        destruct ((xs ++ [x]) !! (i + 1)) eqn:E; eauto.
+        destruct (i + 1 - length (xs ++ [x])) eqn:F; simpl in *; simplify_eq.
+        eapply lookup_ge_None in E. lia.
+    - assert (i + 1 = length (xs ++ [x])).
+      { eapply lookup_lt_Some in H4. rewrite app_length in H4. simpl in *. lia. }
+      rewrite H5 in H4.
+      replace (length (xs ++ [x])) with (length (xs ++ [x]) + 0) in H4 by lia.
+      rewrite lookup_length_app in H4. simpl in H4. simplify_eq.
+      rewrite lookup_app in H3.
+      rewrite lookup_app in H3.
+      destruct (xs !! i) eqn:E.
+      { eapply lookup_lt_Some in E.
+        rewrite app_length in H5. simpl in *. lia. }
+      destruct (i - length xs) eqn:F.
+      + simpl in *. simplify_eq. done.
+      + simpl in *. destruct ((i - length (xs ++ [x]))) eqn:G;
+        simpl in *; simplify_eq.
+        rewrite app_length in G. simpl in *.
+        rewrite app_length in n.
+        rewrite app_length in H5.
+        simpl in *. lia.
+  Qed.
+
+  Definition ureachable (R : A -> A -> Prop) g n x :=
+    ∃ xs, Rpath R (xs ++ [x]) ∧
+      length (xs ++ [x]) + n > size (uvertices g) + 10.
+
+  Lemma rel_wf_helper (R : A -> A -> Prop) (g : uforest A) n :
+    is_uforest g -> asym R -> Rvalid R g ->
+    ∀ x, ureachable R g n x -> Acc R x.
+  Proof.
+    intros Hforest Hasym Hvalid.
+    induction n.
+    - intros x (xs & HRpath & Hlen).
+      exfalso. eapply Rpath_no_u_turns; eauto.
+      eapply long_paths_have_u_turns; eauto. lia.
+      eapply Rpath_path; eauto.
+    - intros x (xs & HRpath & Hlen).
+      constructor. intros. eapply IHn.
+      exists (xs ++ [x]). split.
+      + eapply Rpath_snoc; eauto.
+      + simpl. rewrite app_length; simpl. lia.
+  Qed.
+
+  Lemma ureachable_0 R g a :
+    ureachable R g (size (uvertices g) + 10) a.
+  Proof.
+    unfold ureachable.
+    exists [].
+    split.
+    - unfold Rpath. intros. simpl in *.
+      destruct i; simpl in *; simplify_eq.
+    - simpl in *. lia.
+  Qed.
+
+  Lemma rel_wf (R : A -> A -> Prop) (g : uforest A) :
+    asym R ->
+    Rvalid R g ->
+    is_uforest g -> wf R.
+  Proof.
+    intros. unfold wf. intro.
+    eapply rel_wf_helper; eauto using ureachable_0.
+  Qed.
+
+  Lemma uforest_ind (R : A -> A -> Prop) (g : uforest A) (P : A -> Prop) :
+    is_uforest g ->
+    asym R ->
+    (∀ x, (∀ y, R x y -> (x,y) ∈ g -> P y) -> P x) -> (∀ x, P x).
+  Proof.
+    intros Hforest Hasym Hind.
+    set T := λ x y, R y x ∧ (y,x) ∈ g.
+    assert (asym T).
+    { intros x y [] []. eapply Hasym; eauto. }
+    assert (Rvalid T g).
+    { intros x y []. done. }
+    pose proof (rel_wf T g H1 H2 Hforest).
+    intros x. specialize (H3 x).
+    induction H3. eapply Hind.
+    intros. eapply H4. split; eauto.
+  Qed.
 
 End uforest.
