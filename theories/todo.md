@@ -25,12 +25,14 @@ Done:
   - Prove induction lemma for cgraphs [done]
 
 Todo:
+* Preservation:
   - Remove remaining admits by replacing them with Robbert's std++ lemmas
   - prove mset_σs lemmas
   - Map excl
-
-* (0 of ∞) figure out adequacy statement for generic invariant
-* (0 of ∞) prove progress using that adequacy statement
+* Progress:
+  - Do proof by hand
+  - Figure out adequacy statement for generic invariant
+  - Prove progress using that adequacy statement.
 * extensions
   - rec lambdas
   - recursive sessions
