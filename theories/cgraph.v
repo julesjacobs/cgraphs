@@ -206,7 +206,7 @@ Section cgraph.
       destruct (g !! x); simpl; eauto.
     Qed.
 
-    Lemma elem_of_dedges  x y g :
+    Lemma elem_of_dedges x y g :
       (x, y) ∈ dedges g ↔ edge g x y.
     Proof.
       unfold dedges.
@@ -1304,4 +1304,22 @@ Section cgraph.
         rewrite H0. rewrite Hl2. done.
     Qed.
   End setoids.
+
+  (* Lemma uforest_ind (R : A -> A -> Prop) (g : uforest A) (P : A -> Prop) :
+    is_uforest g ->
+    asym R ->
+    (∀ x, (∀ y, R x y -> (x,y) ∈ g -> P y) -> P x) -> (∀ x, P x). *)
+
+  Lemma cgraph_ind (R : V -> V -> Prop) (g : cgraph V L) (P : V -> Prop) :
+    cgraph_wf g ->
+    asym R ->
+    (∀ x, (∀ y, R x y -> sc (edge g) x y -> P y) -> P x) -> (∀ x, P x).
+  Proof.
+    intros [] Hasy Hind.
+    eapply uforest_ind; eauto.
+    intros. eapply Hind.
+    intros. eapply H2; eauto.
+    eapply elem_of_to_uforest.
+    done.
+  Qed.
 End cgraph.
