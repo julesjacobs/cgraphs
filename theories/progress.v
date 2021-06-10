@@ -94,6 +94,16 @@ Proof.
   destruct e; simpl in *.
 Admitted.
 
+Definition waiting (x y : object) : Prop. Admitted.
+Definition active (x : object) (es : list expr) (h : heap) :=
+  match x with
+  | Thread i => ∃ e, es !! i = Some e ∧ e ≠ Val UnitV
+  | Chan i => ∃ b, is_Some (h !! (i,b))
+  end.
+
+Lemma waiting_asym : asym waiting.
+Proof. Admitted.
+
 Lemma global_progress es h :
   invariant es h ->
   (h = ∅ ∧ ∀ e, e ∈ es -> e = Val UnitV) ∨
@@ -101,15 +111,21 @@ Lemma global_progress es h :
 Proof.
   intros H.
   destruct (final_state_decision es h) as [Hdec|Hdec]; eauto; right.
+  assert (∃ x, active x es h) as [x Hactive].
+  { destruct Hdec as [(x&?)|(x&?)].
+    + destruct x. exists (Chan c). simpl. eauto.
+    + destruct H0. eapply elem_of_list_lookup in H0 as [].
+      exists (Thread x0). simpl. eauto. }
+  clear Hdec.
   destruct H as (g & Hwf & Hvs).
-
-  waiting x x'
-
-  P x := "there exists v such that v is a thread that can step ∧
-          there exists a reference structure path from x to v"
-
-  ∀ x', waiting x x' -> P x'
-  --------------------------
-  P x
-
+  revert x Hactive.
+  eapply (cgraph_ind waiting g (λ x,
+    active x es h → ∃ (es' : list expr) (h' : heap), step es h es' h'));
+    eauto using waiting_asym.
+  intros x Hind Hactive.
+  destruct x as [i|i]; simpl in *.
+  - destruct Hactive as (e & He & Heneq).
+    admit.
+  - destruct Hactive as (b & Hib).
+    admit.
 Admitted.
