@@ -344,10 +344,11 @@ Section cgraph.
     Qed.
 
     Lemma uconn_connected0 g v1 v2 :
+      cgraph_wf g ->
       uconn g v1 v2 <-> connected0 (to_uforest g) v1 v2.
     Proof.
-      unfold uconn.
-      rewrite connected0_elem_of.
+      unfold uconn. intros.
+      rewrite connected0_elem_of. 2: { by destruct H0. }
       assert (∀ x y, sc (edge g) x y <-> (x,y) ∈ to_uforest g).
       { intros. rewrite elem_of_to_uforest. done. }
       unfold rtsc.
@@ -355,8 +356,8 @@ Section cgraph.
       intros.
       split.
       - intros. left. rewrite elem_of_to_uforest. done.
-      - intros []; rewrite ->elem_of_to_uforest in H1; eauto.
-        destruct H1; [right|left]; done.
+      - intros []; rewrite ->elem_of_to_uforest in H2; eauto.
+        destruct H2; [right|left]; done.
     Qed.
 
     Lemma insert_edge_wf g v1 v2 l :
@@ -609,7 +610,9 @@ Section cgraph.
       rewrite uconn_connected0.
       rewrite to_uforest_delete_edge; eauto.
       eapply forest_disconnect; eauto.
-      rewrite elem_of_to_uforest; eauto. left. done.
+      rewrite elem_of_to_uforest; eauto.
+      - left. done.
+      - eapply delete_edge_wf. done.
     Qed.
 
     Lemma no_self_edge g v1 v2 :

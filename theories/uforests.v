@@ -449,40 +449,6 @@ Section uforest.
     induction xs; simpl; intros; simplify_eq. done.
   Qed.
 
-  Lemma connected0_elem_of (f : uforest A) v1 v2 :
-    is_uforest f ->
-    connected0 f v1 v2 <-> rtsc (λ x y, (x,y) ∈ f) v1 v2.
-  Proof.
-    intros.
-    rewrite connected0_alt.
-    split.
-    - intros (xs & Hpath & Qf & Ql).
-      unfold path in *. revert v1 v2 Qf Ql.
-      induction xs; intros; simpl in *; simplify_eq.
-      destruct (decide (v1 = v2)); subst; try reflexivity.
-      assert (last xs = Some v2).
-      {
-        destruct xs; simplify_eq. done.
-      }
-      eapply IHxs; eauto.
-      + intros ?????.
-        eapply (Hpath (S i)); simpl; eauto.
-      + destruct xs; simpl in *; simplify_eq.
-        destruct xs; simpl in *; simplify_eq. admit.
-    - induction 1.
-      + exists [x]; simpl.
-        split; eauto using path_singleton.
-      + destruct IHrtc as (xs & Hxs & Qf & Ql).
-        exists (x :: xs).
-        split_and!; eauto.
-        * destruct xs; eauto using path_singleton.
-          eapply path_cons; eauto.
-          simpl in *. simplify_eq.
-          destruct H2; eauto.
-          eapply forest_undirected; eauto.
-        * eapply last_cons; eauto.
-  Qed.
-
   Lemma connected0_sym g a b :
     undirected g -> connected0 g a b -> connected0 g b a.
   Proof.
@@ -1042,7 +1008,6 @@ Section uforest.
   Proof.
     intros Hforest. intros.
     unfold path in *.
-    Search elem_of lookup Some.
     apply elem_of_list_lookup in H3 as (? & ?).
     destruct x0.
     - destruct (xs !! 1) eqn:E.
@@ -1242,3 +1207,40 @@ Section uforest.
   Qed.
 
 End uforest.
+
+Lemma rtc_list {T} (R : T -> T -> Prop) a b :
+  rtc R a b <-> ∃ xs, xs !! 0 = Some a ∧ last xs = Some b ∧
+                  ∀ i x y, xs !! i = Some x -> xs !! (i+1) = Some y -> R x y.
+Proof.
+  split.
+  - induction 1.
+    + exists [x]; simpl.
+      split_and!; eauto.
+      intros. destruct i; simpl in *; simplify_eq.
+    + destruct IHrtc as (xs & Hxs & Qf & Ql).
+      exists (x :: xs).
+      split_and!; eauto.
+      * destruct xs; eauto using path_singleton.
+        simpl in *. simplify_eq.
+      * intros. destruct i; simpl in *; simplify_eq; eauto.
+  - intros (xs & Qf & Ql & Qxs).
+    destruct xs; simpl in *; simplify_eq.
+Admitted.
+
+Lemma connected0_elem_of `{Countable A} (f : uforest A) v1 v2 :
+  is_uforest f ->
+  connected0 f v1 v2 <-> rtsc (λ x y, (x,y) ∈ f) v1 v2.
+Proof.
+  intros.
+  rewrite connected0_alt.
+  split.
+  - unfold rtsc. rewrite rtc_list. intros (xs & Hpath & Qf & Ql).
+    exists xs. split_and!; eauto.
+    intros. left. eapply Hpath; eauto.
+  - unfold rtsc. rewrite rtc_list.
+    intros (xs & Qf & Ql & Hpath).
+    exists xs. split_and!; eauto.
+    intros ?????.
+    edestruct Hpath; first exact H1; eauto.
+    eapply forest_undirected; eauto.
+Qed.
