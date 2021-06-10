@@ -1,15 +1,5 @@
 From diris Require Import invariant.
 (*
-  Local progress: if e is well typed, then in all heaps that are well typed
-   (and consistent with the heap typing for e), then either:
-   - e can take a step in that heap
-   - e is a value
-   - e is waiting to receive on a channel with an empty buffer
-*)
-
-Lemma local_progress : True. Admitted.
-
-(*
   Global progress: if the invariant holds for (es,h) then either:
   - all e ∈ es are unit, and h = ∅
   - the configuration can step
@@ -123,9 +113,18 @@ Proof.
     active x es h → ∃ (es' : list expr) (h' : heap), step es h es' h'));
     eauto using waiting_asym.
   intros x Hind Hactive.
+  pose proof (Hvs x) as Hx.
   destruct x as [i|i]; simpl in *.
   - destruct Hactive as (e & He & Heneq).
+    rewrite He in Hx.
+    apply pure_sep_holds in Hx as [Hinl Hx].
     admit.
   - destruct Hactive as (b & Hib).
+    apply exists_holds in Hx as [σs Hx].
+    apply pure_sep_holds in Hx as [Hinl Hx].
+    eapply holds_entails in Hx; last by eapply (bufs_typed_wlog true b).
+    destruct Hib as [buf Hbuf].
+    rewrite Hbuf in Hx.
+
     admit.
 Admitted.

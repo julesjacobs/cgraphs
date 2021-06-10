@@ -8,7 +8,6 @@ Require Export diris.util.
 Require Export diris.mapexcl.
 Require Export diris.multiset.
 
-Notation heapT V L := (gmap V L).
 Notation heapT_UR V L := (gmapUR V (exclR L)).
 Notation hProp V L := (uPred (heapT_UR V L)).
 
