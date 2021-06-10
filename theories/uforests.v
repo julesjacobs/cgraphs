@@ -67,16 +67,6 @@ Section uforest.
   (* NB. connected g a a <-> False *)
   Definition connected (g : G) (a b : A) := ∃ xs, path g ([a] ++ xs ++ [b]).
 
-  Lemma connected_elem_of g a b :
-    connected g a b <-> tc (sc (λ x y, (x,y) ∈ g)) a b.
-  Proof.
-    split; intros.
-    - admit.
-    - induction H1.
-      + exists []. simpl. intros ???.
-    admit.
-  Admitted.
-
   Lemma path_reverse (g : G) (xs : P) :
     undirected g -> path g xs -> path g (reverse xs).
   Proof.
@@ -437,22 +427,6 @@ Section uforest.
 
   Definition connected0 g a b := (a = b) ∨ connected g a b.
 
-  Lemma connected0_elem_of (f : uforest A) v1 v2 :
-    connected0 f v1 v2 <-> rtsc (λ x y, (x,y) ∈ f) v1 v2.
-  Proof.
-    split.
-    - intros [].
-      + subst. reflexivity.
-      + eapply connected_elem_of in H1.
-        eapply tc_rtc. done.
-    - unfold connected0. rewrite connected_elem_of.
-      induction 1; eauto.
-      destruct IHrtc; subst.
-      + right. eapply tc_once. done.
-      + right. eapply transitivity; eauto.
-        eapply tc_once. done.
-  Qed.
-
   Lemma path_singleton g b : path g [b].
   Proof.
     intros i x y Hx Hy. destruct i; simplify_eq.
@@ -466,6 +440,47 @@ Section uforest.
     - unfold connected0. split; eauto. intros _. subst.
       exists [b]. eauto using path_singleton.
     - unfold connected0. rewrite connected_alt; qed.
+  Qed.
+
+  Lemma last_cons {T} (x : T) xs z :
+    last xs = Some z ->
+    last (x :: xs) = Some z.
+  Proof.
+    induction xs; simpl; intros; simplify_eq. done.
+  Qed.
+
+  Lemma connected0_elem_of (f : uforest A) v1 v2 :
+    is_uforest f ->
+    connected0 f v1 v2 <-> rtsc (λ x y, (x,y) ∈ f) v1 v2.
+  Proof.
+    intros.
+    rewrite connected0_alt.
+    split.
+    - intros (xs & Hpath & Qf & Ql).
+      unfold path in *. revert v1 v2 Qf Ql.
+      induction xs; intros; simpl in *; simplify_eq.
+      destruct (decide (v1 = v2)); subst; try reflexivity.
+      assert (last xs = Some v2).
+      {
+        destruct xs; simplify_eq. done.
+      }
+      eapply IHxs; eauto.
+      + intros ?????.
+        eapply (Hpath (S i)); simpl; eauto.
+      + destruct xs; simpl in *; simplify_eq.
+        destruct xs; simpl in *; simplify_eq. admit.
+    - induction 1.
+      + exists [x]; simpl.
+        split; eauto using path_singleton.
+      + destruct IHrtc as (xs & Hxs & Qf & Ql).
+        exists (x :: xs).
+        split_and!; eauto.
+        * destruct xs; eauto using path_singleton.
+          eapply path_cons; eauto.
+          simpl in *. simplify_eq.
+          destruct H2; eauto.
+          eapply forest_undirected; eauto.
+        * eapply last_cons; eauto.
   Qed.
 
   Lemma connected0_sym g a b :
