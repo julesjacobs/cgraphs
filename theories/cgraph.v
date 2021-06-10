@@ -29,7 +29,12 @@ Section cgraph.
 
   Definition edge (g : cgraph V L) (v1 v2 : V) := is_Some (out_edges g v1 !! v2).
 
-  Definition cgraph_wf (g : cgraph V L) : Prop. Admitted. (* no_short_loops g ∧ acyclic g. *)
+  Definition to_uforest (g : cgraph V L) : uforest V. Admitted.
+
+  Definition no_short_loops (g : cgraph V L) :=
+    ∀ v1 v2, ¬ (edge g v1 v2 ∧ edge g v2 v1).
+
+  Definition cgraph_wf (g : cgraph V L) := no_short_loops g ∧ is_uforest (to_uforest g).
 
   Definition uconn (g : cgraph V L) := rtsc (edge g).
 
@@ -44,8 +49,7 @@ Section cgraph.
   Definition acyclic (g : cgraph V L) := is_uforest (to_uforest g).
 
 
-  Definition no_short_loops (g : cgraph V L) :=
-    ∀ v1 v2, ¬ (edge g v1 v2 ∧ edge g v2 v1). *)
+  . *)
 
   Section general.
 
@@ -178,13 +182,40 @@ Section cgraph.
     Qed.
   End general.
 
-  Section empty_cgraph.
+
+  Section acyclicity.
+    Lemma elem_of_to_uforest g x y :
+      (x,y) ∈ to_uforest g <-> sc (edge g) x y.
+    Proof.
+    Admitted.
+
     Lemma out_edges_empty v :
       out_edges ∅ v = ∅.
     Proof.
       unfold out_edges. rewrite lookup_empty //.
     Qed.
 
+    Lemma edge_empty v1 v2 :
+      edge ∅ v1 v2 <-> False.
+    Proof.
+      split; intros [].
+      rewrite out_edges_empty lookup_empty in H0. simplify_eq.
+    Qed.
+
+    Lemma to_uforest_empty :
+      to_uforest ∅ = ∅.
+    Proof.
+      eapply set_eq. intros [x y].
+      rewrite elem_of_to_uforest.
+      rewrite elem_of_empty.
+      split; intros []; unfold edge in *;
+      rewrite out_edges_empty lookup_empty in H0; destruct H0; simplify_eq.
+    Qed.
+
+
+  End acyclicity.
+
+  Section empty_cgraph.
     Lemma in_labels_empty v :
       in_labels ∅ v ≡ ε.
     Proof.
@@ -194,7 +225,11 @@ Section cgraph.
     Lemma empty_wf :
       cgraph_wf ∅.
     Proof.
-    Admitted.
+      unfold cgraph_wf.
+      split.
+      - intros ??. rewrite !edge_empty. naive_solver.
+      - rewrite to_uforest_empty. eapply forest_empty.
+    Qed.
   End empty_cgraph.
 
   Section insert_edge.
@@ -254,12 +289,104 @@ Section cgraph.
         simpl. rewrite left_id. done.
     Qed.
 
+    Lemma edge_insert_edge g v1 v2 x y l :
+      edge (insert_edge g v1 v2 l) x y <-> edge g x y ∨ (x = v1 ∧ y = v2).
+    Proof.
+      unfold edge.
+      rewrite out_edges_insert_edge.
+      case_decide; subst.
+      - rewrite lookup_insert_spec. case_decide; subst.
+        + naive_solver.
+        + naive_solver.
+      - naive_solver.
+    Qed.
+
+    Lemma sc_edge_insert_edge g v1 v2 x y l :
+      sc (edge (insert_edge g v1 v2 l)) x y <-> sc (edge g) x y ∨ (x = v1 ∧ y = v2) ∨ (x = v2 ∧ y = v1).
+    Proof.
+      split.
+      - intros []; rewrite ->edge_insert_edge in H0;
+        destruct H0; try naive_solver.
+        + left. left. done.
+        + left. right. done.
+      - intros [].
+        + destruct H0;[left|right]; rewrite edge_insert_edge; eauto.
+        + destruct H0;[left|right]; rewrite edge_insert_edge; eauto.
+          naive_solver.
+    Qed.
+
+    Lemma to_uforest_insert_edge g v1 v2 l :
+      to_uforest (insert_edge g v1 v2 l) = to_uforest g ∪ uedge v1 v2.
+    Proof.
+      eapply set_eq. intros [x y].
+      rewrite elem_of_union.
+      rewrite !elem_of_to_uforest.
+      rewrite !sc_edge_insert_edge.
+      unfold uedge. set_solver.
+    Qed.
+
+    Lemma connected0_elem_of (f : uforest V) v1 v2 :
+      connected0 f v1 v2 <-> rtsc (λ x y, (x,y) ∈ f) v1 v2.
+    Proof.
+    Admitted.
+
+    Lemma rtc_impl (R1 R2 : V -> V -> Prop) x y :
+      (∀ x y, R1 x y <-> R2 x y) ->
+      rtc R1 x y -> rtc R2 x y.
+    Proof.
+      intros. induction H1; try done.
+      rewrite ->H0 in H1.
+      econstructor; eauto.
+    Qed.
+
+    Lemma rtc_iff (R1 R2 : V -> V -> Prop) x y :
+      (∀ x y, R1 x y <-> R2 x y) ->
+      rtc R1 x y <-> rtc R2 x y.
+    Proof.
+      intros. split; eauto using rtc_impl.
+      assert (∀ x y : V, R2 x y ↔ R1 x y) by naive_solver.
+      eauto using rtc_impl.
+    Qed.
+
+    Lemma uconn_connected0 g v1 v2 :
+      uconn g v1 v2 <-> connected0 (to_uforest g) v1 v2.
+    Proof.
+      unfold uconn.
+      rewrite connected0_elem_of.
+      assert (∀ x y, sc (edge g) x y <-> (x,y) ∈ to_uforest g).
+      { intros. rewrite elem_of_to_uforest. done. }
+      unfold rtsc.
+      erewrite rtc_iff; eauto.
+      intros.
+      split.
+      - intros. left. rewrite elem_of_to_uforest. done.
+      - intros []; rewrite ->elem_of_to_uforest in H1; eauto.
+        destruct H1; [right|left]; done.
+    Qed.
+
     Lemma insert_edge_wf g v1 v2 l :
       ¬ uconn g v1 v2 ->
       cgraph_wf g ->
       cgraph_wf (insert_edge g v1 v2 l).
     Proof.
-    Admitted.
+      intros H0 [].
+      split.
+      - intros x y. rewrite !edge_insert_edge.
+        intros [].
+        destruct H3; destruct H4.
+        + eapply H1; eauto.
+        + destruct H4; subst.
+          eapply H0. eapply rtc_once.
+          right. done.
+        + destruct H3; subst.
+          eapply H0. eapply rtc_once.
+          right. done.
+        + destruct H3. destruct H4. subst.
+          eapply H0. constructor.
+      - rewrite to_uforest_insert_edge.
+        eapply forest_connect; eauto.
+        rewrite -uconn_connected0; done.
+    Qed.
   End insert_edge.
 
 
@@ -327,19 +454,6 @@ Section cgraph.
         case_decide; simpl; rewrite left_id //.
     Qed.
 
-    Lemma delete_edge_wf g v1 v2 :
-      cgraph_wf g ->
-      cgraph_wf (delete_edge g v1 v2).
-    Proof.
-    Admitted.
-
-    Lemma delete_edge_uconn g v1 v2 :
-      cgraph_wf g ->
-      edge g v1 v2 ->
-      ¬ uconn (delete_edge g v1 v2) v1 v2.
-    Proof.
-    Admitted.
-
     Lemma edge_delete_edge g v1 v2 w1 w2 :
       v1 ≠ w1 ∨ v2 ≠ w2 ->
       edge g w1 w2 ->
@@ -363,6 +477,144 @@ Section cgraph.
       destruct (decide (v1 = w1));
       destruct (decide (v2 = w2));
       naive_solver.
+    Qed.
+
+    Lemma edge_delete_edge'' g v1 v2 x y :
+      edge (delete_edge g v1 v2) x y <-> edge g x y ∧ ¬ (x = v1 ∧ y = v2).
+    Proof.
+      split.
+      - intros.
+        move: H0.
+        unfold edge. rewrite !out_edges_delete_edge.
+        repeat case_decide; subst.
+        + rewrite lookup_delete_spec.
+          case_decide; subst; first by intros []. naive_solver.
+        +  naive_solver.
+      - intros []. eapply edge_delete_edge; eauto.
+        destruct (decide (x = v1)); destruct (decide (y = v2)); naive_solver.
+    Qed.
+
+    Lemma sc_or (R : V -> V -> Prop) x y :
+      sc R x y <-> R x y ∨ R y x.
+    Proof.
+      split; intros []; eauto; [left|right]; eauto.
+    Qed.
+
+    Lemma elem_of_uedge (x y a b : V) :
+      (x, y) ∈ uedge a b <-> (x = a ∧ y = b) ∨ (x = b ∧ y = a).
+    Proof.
+      unfold uedge.
+      set_solver.
+    Qed.
+
+    Lemma edge_dec g x y : Decision (edge g x y).
+    Proof.
+      unfold edge.
+      destruct (out_edges g x !! y).
+      - left. eauto.
+      - right. eauto.
+    Qed.
+
+    Lemma to_uforest_delete_edge g v1 v2 :
+      no_short_loops g ->
+      edge g v1 v2 ->
+      to_uforest (delete_edge g v1 v2) = to_uforest g ∖ uedge v1 v2.
+    Proof.
+      intros.
+      eapply set_eq. intros [x y].
+      rewrite elem_of_difference.
+      rewrite !elem_of_to_uforest.
+      rewrite !sc_or.
+      specialize (H0 v1 v2).
+      rewrite !edge_delete_edge''.
+      rewrite elem_of_uedge.
+      naive_solver.
+    Qed.
+
+    Definition cgraph_equiv g1 g2 :=
+      ∀ v, out_edges g1 v = out_edges g2 v.
+
+    Lemma cgraph_equiv_edge g1 g2 v1 v2 :
+      cgraph_equiv g1 g2 ->
+      edge g1 v1 v2 ->
+      edge g2 v1 v2.
+    Proof.
+      unfold edge. intros ->. done.
+    Qed.
+
+    Lemma uconn_equiv g1 g2 v1 v2 :
+      cgraph_equiv g1 g2 ->
+      uconn g1 v1 v2 -> uconn g2 v1 v2.
+    Proof.
+      intros He Hc.
+      induction Hc; try reflexivity.
+      eapply rtc_transitive; eauto.
+      eapply rtc_once.
+      destruct H0;[left|right]; eauto using cgraph_equiv_edge.
+    Qed.
+
+    Lemma delete_edge_not_edge g v1 v2 :
+      ¬ edge g v1 v2 ->
+      cgraph_equiv (delete_edge g v1 v2) g.
+    Proof.
+      intros ??.
+      rewrite out_edges_delete_edge.
+      case_decide; subst; eauto.
+      rewrite delete_notin; eauto.
+      destruct (out_edges g v !! v2) eqn:E; eauto.
+      exfalso. eapply H0. unfold edge. rewrite E. eauto.
+    Qed.
+
+    Lemma cgraph_equiv_sym g1 g2 :
+      cgraph_equiv g1 g2 -> cgraph_equiv g2 g1.
+    Proof.
+      intros ??.
+      symmetry. eapply H0.
+    Qed.
+
+    Lemma to_uforest_proper : Proper (cgraph_equiv ==> (=)) to_uforest.
+    Proof.
+      solve_proper_prepare.
+      eapply set_eq.
+      intros [a b].
+      rewrite !elem_of_to_uforest.
+      rewrite !sc_or.
+      split; intros []; eauto using cgraph_equiv_edge,cgraph_equiv_sym.
+    Qed.
+
+    Lemma delete_edge_wf g v1 v2 :
+      cgraph_wf g ->
+      cgraph_wf (delete_edge g v1 v2).
+    Proof.
+      intros [].
+      unfold cgraph_wf.
+      split.
+      - unfold no_short_loops. intros x y [].
+        apply edge_delete_edge'' in H2 as [].
+        apply edge_delete_edge'' in H3 as [].
+        unfold no_short_loops in *.
+        eapply H0. eauto.
+      - destruct (decide (edge g v1 v2)).
+        + rewrite to_uforest_delete_edge; eauto.
+          eapply forest_delete; done.
+        + assert (to_uforest (delete_edge g v1 v2) = to_uforest g).
+          {
+            eapply to_uforest_proper.
+            eapply delete_edge_not_edge. done.
+          }
+          rewrite H2. done.
+    Qed.
+
+    Lemma delete_edge_uconn g v1 v2 :
+      cgraph_wf g ->
+      edge g v1 v2 ->
+      ¬ uconn (delete_edge g v1 v2) v1 v2.
+    Proof.
+      intros [] ?.
+      rewrite uconn_connected0.
+      rewrite to_uforest_delete_edge; eauto.
+      eapply forest_disconnect; eauto.
+      rewrite elem_of_to_uforest; eauto. left. done.
     Qed.
 
     Lemma no_self_edge g v1 v2 :
@@ -582,7 +834,7 @@ Section cgraph.
         econstructor.
     Qed.
 
-    Lemma edge_delete_edge'' g v1 v2 w1 w2 :
+    Lemma edge_delete_edge''' g v1 v2 w1 w2 :
       edge (delete_edge g w1 w2) v1 v2 -> edge g v1 v2.
     Proof.
       rewrite /delete_edge /edge /out_edges.
@@ -597,7 +849,7 @@ Section cgraph.
     Proof.
       intros HH. induction HH; try reflexivity.
       eapply rtc_transitive; eauto. eapply rtc_once.
-      destruct H0; [left|right]; eauto using edge_delete_edge''.
+      destruct H0; [left|right]; eauto using edge_delete_edge'''.
     Qed.
 
     Lemma move_edge_wf' g v1 v2 v3 :
@@ -616,28 +868,6 @@ Section cgraph.
         eapply rtc_once. left. eauto using some_edge_L. }
       intro. apply delete_edge_preserves_not_uconn in H1.
       apply H0. symmetry. done.
-    Qed.
-
-    Definition cgraph_equiv g1 g2 :=
-      ∀ v, out_edges g1 v = out_edges g2 v.
-
-    Lemma cgraph_equiv_edge g1 g2 v1 v2 :
-      cgraph_equiv g1 g2 ->
-      edge g1 v1 v2 ->
-      edge g2 v1 v2.
-    Proof.
-      unfold edge. intros ->. done.
-    Qed.
-
-    Lemma uconn_equiv g1 g2 v1 v2 :
-      cgraph_equiv g1 g2 ->
-      uconn g1 v1 v2 -> uconn g2 v1 v2.
-    Proof.
-      intros He Hc.
-      induction Hc; try reflexivity.
-      eapply rtc_transitive; eauto.
-      eapply rtc_once.
-      destruct H0;[left|right]; eauto using cgraph_equiv_edge.
     Qed.
 
     Lemma move_edge_uconn g v1 v2 v3 :

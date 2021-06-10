@@ -124,13 +124,13 @@ Section uforest.
     - rewrite !app_assoc. done.
   Qed.
 
-  Definition edge (x y : A) : uforest A := {[ (x,y); (y,x) ]}.
+  Definition uedge (x y : A) : uforest A := {[ (x,y); (y,x) ]}.
 
-  Lemma edge_sym x y : edge x y = edge y x.
-  Proof. unfold edge. set_solver. Qed.
+  Lemma edge_sym x y : uedge x y = uedge y x.
+  Proof. unfold uedge. set_solver. Qed.
 
   Lemma path_delete (g : G) (a b : A) (xs : P) :
-    path (g ∖ edge a b) xs -> path g xs.
+    path (g ∖ uedge a b) xs -> path g xs.
   Proof.
     intros Hpath i x y Hx Hy.
     unfold path in *.
@@ -180,10 +180,10 @@ Section uforest.
     - replace (i + length xs + 1 - length xs) with (i + 1) by lia. done.
   Qed.
 
-  Lemma edge_undirected a b : undirected (edge a b).
+  Lemma edge_undirected a b : undirected (uedge a b).
   Proof.
     intros x y HH.
-    unfold edge in *. set_solver.
+    unfold uedge in *. set_solver.
   Qed.
 
   Lemma path_cons (g : G) (a b : A) (xs : P) :
@@ -343,14 +343,14 @@ Section uforest.
   Qed.
 
   Lemma path_has_edge g a b xs :
-    path (g ∪ edge a b) xs -> (∀ i, ¬ has_edge xs a b i) ->
+    path (g ∪ uedge a b) xs -> (∀ i, ¬ has_edge xs a b i) ->
     path g xs.
   Proof.
     intros Hpath Hne i x y Hx Hy.
     specialize (Hpath i x y Hx Hy).
     apply elem_of_union in Hpath as []; first done.
     specialize (Hne i). contradict Hne.
-    unfold has_edge. unfold edge in H1.
+    unfold has_edge. unfold uedge in H1.
     set_solver.
   Qed.
 
@@ -518,7 +518,7 @@ Section uforest.
   Qed.
 
   Lemma forest_connect (g : G) (a b : A) :
-    is_uforest g -> ¬ connected0 g a b -> is_uforest (g ∪ edge a b).
+    is_uforest g -> ¬ connected0 g a b -> is_uforest (g ∪ uedge a b).
   Proof.
     intros [] Hnconn.
     constructor.
@@ -647,12 +647,12 @@ Section uforest.
     destruct Hpath; eauto.
     specialize (H1 i). exfalso. apply H1.
     unfold has_edge.
-    assert ((q = a ∧ r = b) ∨ (q = b ∧ r = a)) as [[]|[]] by (unfold edge in *; set_solver);
+    assert ((q = a ∧ r = b) ∨ (q = b ∧ r = a)) as [[]|[]] by (unfold uedge in *; set_solver);
     subst; eauto.
   Qed.
 
   Lemma forest_disconnect (g : G) (a b : A) :
-    is_uforest g -> (a,b) ∈ g -> ¬ connected0 (g ∖ edge a b) a b.
+    is_uforest g -> (a,b) ∈ g -> ¬ connected0 (g ∖ uedge a b) a b.
   Proof.
     intros [] Hedge [|Hconn].
     { subst. eapply forest_no_self_loops; try constructor; eauto. }
@@ -668,8 +668,8 @@ Section uforest.
       destruct x; simpl in *.
       assert (x0 = b) as -> by qed. simplify_eq.
       + destruct xs'; simpl in *; simplify_eq.
-        * specialize (Hpath' 0 a b); simpl in *. unfold edge in *. set_solver.
-        * specialize (Hpath' 0 a b); simpl in *. unfold edge in *. set_solver.
+        * specialize (Hpath' 0 a b); simpl in *. unfold uedge in *. set_solver.
+        * specialize (Hpath' 0 a b); simpl in *. unfold uedge in *. set_solver.
       + apply Hnut. exists x,x0. split; eauto.
     - intro. subst. pose proof (forest_no_self_loops g).
       cut ((b,b) ∉ g). { intro Q. apply Q. done. }
@@ -677,7 +677,7 @@ Section uforest.
   Qed.
 
   Lemma forest_delete (g : G) (a b : A) :
-    is_uforest g -> is_uforest (g ∖ edge a b).
+    is_uforest g -> is_uforest (g ∖ uedge a b).
   Proof.
     intros [].
     constructor.
@@ -686,7 +686,7 @@ Section uforest.
       destruct Hxy.
       apply forest_undirected0 in H1.
       split; [done|].
-      unfold edge in *. set_solver.
+      unfold uedge in *. set_solver.
     - intros x xs Hpath.
       eauto using path_delete.
   Qed.
@@ -713,7 +713,7 @@ Section uforest.
 
   Lemma forest_extend (x y : A) (g : uforest A) :
     x ≠ y → lone y g →
-    is_uforest g → is_uforest (g ∪ edge x y).
+    is_uforest g → is_uforest (g ∪ uedge x y).
   Proof.
     intros Hneq Hlone [].
     apply forest_connect; [done..|].
@@ -745,7 +745,7 @@ Section uforest.
   Lemma forest_modify (x y z : A) (g : uforest A) :
     x ≠ z -> y ≠ z ->
     is_uforest g -> (x,y) ∈ g -> (x,z) ∈ g ->
-    is_uforest ((g ∖ edge x z) ∪ edge y z).
+    is_uforest ((g ∖ uedge x z) ∪ uedge y z).
   Proof.
     intros Hxnz Hynz Hforest Hxy Hxz.
     apply forest_connect; try done.
@@ -755,7 +755,7 @@ Section uforest.
       eapply connected0_trans in Hconn'.
       apply Hconn. exact Hconn'.
       apply connected_edge.
-      unfold edge. set_solver.
+      unfold uedge. set_solver.
   Qed.
 
   Definition uvertices (g : G) : gset A :=
