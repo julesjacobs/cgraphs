@@ -1305,11 +1305,6 @@ Section cgraph.
     Qed.
   End setoids.
 
-  (* Lemma uforest_ind (R : A -> A -> Prop) (g : uforest A) (P : A -> Prop) :
-    is_uforest g ->
-    asym R ->
-    (∀ x, (∀ y, R x y -> (x,y) ∈ g -> P y) -> P x) -> (∀ x, P x). *)
-
   Lemma cgraph_ind (R : V -> V -> Prop) (g : cgraph V L) (P : V -> Prop) :
     cgraph_wf g ->
     asym R ->
