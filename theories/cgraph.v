@@ -325,11 +325,6 @@ Section cgraph.
       unfold uedge. set_solver.
     Qed.
 
-    Lemma connected0_elem_of (f : uforest V) v1 v2 :
-      connected0 f v1 v2 <-> rtsc (λ x y, (x,y) ∈ f) v1 v2.
-    Proof.
-    Admitted.
-
     Lemma rtc_impl (R1 R2 : V -> V -> Prop) x y :
       (∀ x y, R1 x y <-> R2 x y) ->
       rtc R1 x y -> rtc R2 x y.

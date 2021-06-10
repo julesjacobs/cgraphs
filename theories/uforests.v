@@ -67,6 +67,16 @@ Section uforest.
   (* NB. connected g a a <-> False *)
   Definition connected (g : G) (a b : A) := ∃ xs, path g ([a] ++ xs ++ [b]).
 
+  Lemma connected_elem_of g a b :
+    connected g a b <-> tc (sc (λ x y, (x,y) ∈ g)) a b.
+  Proof.
+    split; intros.
+    - admit.
+    - induction H1.
+      + exists []. simpl. intros ???.
+    admit.
+  Admitted.
+
   Lemma path_reverse (g : G) (xs : P) :
     undirected g -> path g xs -> path g (reverse xs).
   Proof.
@@ -426,6 +436,22 @@ Section uforest.
     ([x] ++ xs ++ [x]) !! i1 = Some a ∧ ([x] ++ xs ++ [x]) !! (i1 + 1) = Some b.
 
   Definition connected0 g a b := (a = b) ∨ connected g a b.
+
+  Lemma connected0_elem_of (f : uforest A) v1 v2 :
+    connected0 f v1 v2 <-> rtsc (λ x y, (x,y) ∈ f) v1 v2.
+  Proof.
+    split.
+    - intros [].
+      + subst. reflexivity.
+      + eapply connected_elem_of in H1.
+        eapply tc_rtc. done.
+    - unfold connected0. rewrite connected_elem_of.
+      induction 1; eauto.
+      destruct IHrtc; subst.
+      + right. eapply tc_once. done.
+      + right. eapply transitivity; eauto.
+        eapply tc_once. done.
+  Qed.
 
   Lemma path_singleton g b : path g [b].
   Proof.
