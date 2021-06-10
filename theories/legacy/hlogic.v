@@ -5,7 +5,7 @@ From iris.proofmode Require Export tactics.
 Require Export diris.langdef.
 Require Export diris.logic.bi.
 Require Export diris.util.
-Require Export diris.logic.bupd.
+Require Export diris.mapexcl.
 Ltac inv H := inversion H; clear H; simpl in *; simplify_eq.
 
 Lemma other_neq ep :
@@ -159,6 +159,8 @@ Section uPred_lemmas.
   Lemma uPred_affinely_pure_holds_L `{!LeibnizEquiv A} φ x :
     (⌜⌜ φ ⌝⌝ : uPred A)%I x <-> x = ε ∧ φ.
   Proof. unfold_leibniz. apply uPred_affinely_pure_holds. Qed.
+  Lemma uPred_False_holds x :
+    (False : uPred A)%I x -> False.
 End uPred_lemmas.
 
 Lemma owned_pure φ o :

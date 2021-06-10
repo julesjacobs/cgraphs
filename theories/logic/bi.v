@@ -177,4 +177,7 @@ Proof. rewrite /bi_affinely uPred_and_holds uPred_pure_holds uPred_emp_holds. do
 Lemma uPred_affinely_pure_holds_L `{!LeibnizEquiv A} φ x :
   (⌜⌜ φ ⌝⌝ : uPred A)%I x <-> x = ε ∧ φ.
 Proof. unfold_leibniz. apply uPred_affinely_pure_holds. Qed.
+Lemma uPred_false_holds x :
+  (False : uPred A)%I x -> False.
+Proof. by uPred.unseal. Qed.
 End upred_lemmas.

@@ -140,6 +140,10 @@ Section seplogic.
     apply map_Excl_valid.
   Qed.
 
+  Lemma false_holds (Σ : gmap V L) :
+    holds (False%I) Σ -> False.
+  Proof. apply uPred_false_holds. Qed.
+
 End seplogic.
 
 

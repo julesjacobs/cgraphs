@@ -84,15 +84,40 @@ Proof.
   destruct e; simpl in *.
 Admitted.
 
-Definition waiting (x y : object) : Prop. Admitted.
+Definition thread_waiting (es : list expr) (h : heap) (i j : nat) :=
+  ∃ k b, ctx k ∧
+    es !! i = Some (Recv (Val (ChanV (j,b)))) ∧
+    h !! (j,b) = Some [].
+
+Definition waiting es h (x y : object) : Prop :=
+  match x,y with
+  | Thread i, Chan j => thread_waiting es h i j
+  | Chan i, Thread j => ¬ thread_waiting es h j i
+  | Chan i, Chan j => True (* Problem: not antisymmetric!!! *)
+  | Thread i, Thread j => False
+  end.
+
 Definition active (x : object) (es : list expr) (h : heap) :=
   match x with
   | Thread i => ∃ e, es !! i = Some e ∧ e ≠ Val UnitV
   | Chan i => ∃ b, is_Some (h !! (i,b))
   end.
 
-Lemma waiting_asym : asym waiting.
-Proof. Admitted.
+(* This property is currently false, need to change approach *)
+Lemma waiting_asym es h : asym (waiting es h).
+Proof.
+  intros ??.
+  destruct x,y; unfold waiting; simpl.
+Admitted.
+
+Lemma mset_wlog b σs :
+  mset_σs σs ≡
+    opt_to_singleton b (σs !! b) ⋅
+    opt_to_singleton (negb b) (σs !! (negb b)).
+Proof.
+  destruct b; try done.
+  rewrite (comm (⋅)). simpl. done.
+Qed.
 
 Lemma global_progress es h :
   invariant es h ->
@@ -109,7 +134,7 @@ Proof.
   clear Hdec.
   destruct H as (g & Hwf & Hvs).
   revert x Hactive.
-  eapply (cgraph_ind waiting g (λ x,
+  eapply (cgraph_ind (waiting es h) g (λ x,
     active x es h → ∃ (es' : list expr) (h' : heap), step es h es' h'));
     eauto using waiting_asym.
   intros x Hind Hactive.
@@ -125,6 +150,22 @@ Proof.
     eapply holds_entails in Hx; last by eapply (bufs_typed_wlog true b).
     destruct Hib as [buf Hbuf].
     rewrite Hbuf in Hx.
-
+    destruct (σs !! b) as [σ1|] eqn:E; last first.
+    { unfold bufs_typed in Hx. simpl in Hx.
+      eapply exists_holds in Hx as [? Hx].
+      eapply sep_holds in Hx as (? & ? & ? & ? & Hx & ?).
+      eapply false_holds in Hx. done. }
+    unfold bufs_typed in Hx. simpl in Hx.
+    rewrite ->(mset_wlog b) in Hinl.
+    rewrite E in Hinl. simpl in Hinl.
+    assert (∃ y, out_edges g y !! (Chan i) = Some (b,σ1)) as [y Hy].
+    { admit. }
+    destruct buf; last first.
+    {
+      eapply (Hind y); admit.
+    }
+    simpl in Hx.
+    eapply exists_holds in Hx as [? Hx].
+    eapply pure_sep_holds in Hx as [-> Hx].
     admit.
 Admitted.
