@@ -14,9 +14,9 @@
   - Prove insert_edge_wf and delete_edge_wf and empty_wf [done]
   - Prove no_triangle [done]
   - Setoidification [done]
-  - Define to_uforest
-  - Prove elem_of_to_uforest
   - Prove rtc_list [done]
+  - Define to_uforest [done]
+  - Prove elem_of_to_uforest [done]
   - Remove remaining admits by using Robbert's lemmas
   - Map excl
   - State adequacy lemma for cgraphs

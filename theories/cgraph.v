@@ -29,7 +29,13 @@ Section cgraph.
 
   Definition edge (g : cgraph V L) (v1 v2 : V) := is_Some (out_edges g v1 !! v2).
 
-  Definition to_uforest (g : cgraph V L) : uforest V. Admitted.
+  Definition swap {A B} : (A*B -> B*A) := λ '(x,y), (y,x).
+  Definition make_undirected (g : gset (V*V)) : gset (V*V) :=
+    g ∪ (set_map swap g).
+  Definition dedges (g : cgraph V L) : gset (V*V) :=
+    dom (gset _) (gmap_curry g).
+  Definition to_uforest (g : cgraph V L) : uforest V :=
+    make_undirected $ dedges g.
 
   Definition no_short_loops (g : cgraph V L) :=
     ∀ v1 v2, ¬ (edge g v1 v2 ∧ edge g v2 v1).
@@ -39,17 +45,6 @@ Section cgraph.
   Definition uconn (g : cgraph V L) := rtsc (edge g).
 
 
-  (* Definition swap {A B} : (A*B -> B*A) := λ '(x,y), (y,x).
-  Definition make_undirected (g : gset (V*V)) : gset (V*V) :=
-    g ∪ (set_map swap g).
-  Definition dedges (g : cgraph V L) : gset (V*V) :=
-    dom (gset _) (gmap_curry g).
-  Definition to_uforest (g : cgraph V L) : uforest V :=
-    make_undirected $ dedges g.
-  Definition acyclic (g : cgraph V L) := is_uforest (to_uforest g).
-
-
-  . *)
 
   Section general.
 
@@ -184,10 +179,49 @@ Section cgraph.
 
 
   Section acyclicity.
+    Lemma elem_of_swap (e : gset (V*V)) (x y : V) :
+      (x, y) ∈ (set_map swap e : gset (V*V)) <-> (y, x) ∈ e.
+    Proof.
+      rewrite elem_of_map.
+      split.
+      - intros ([]&?&?); simpl in *. simplify_eq. done.
+      - intros. exists (y,x); eauto.
+    Qed.
+
+    Lemma make_undirected_sc (R : V -> V -> Prop) (e : gset (V*V)) :
+      (∀ x y, (x,y) ∈ e <-> R x y) ->
+      ∀ x y, (x,y) ∈ make_undirected e <-> sc R x y.
+    Proof.
+      intros. unfold make_undirected.
+      rewrite elem_of_union.
+      rewrite elem_of_swap.
+      split; intros []; [left|right|..]; naive_solver.
+    Qed.
+
+    Lemma gmap_curry_out_edges g x y :
+      gmap_curry g !! (x, y) = out_edges g x !! y.
+    Proof.
+      rewrite lookup_gmap_curry.
+      unfold out_edges.
+      destruct (g !! x); simpl; eauto.
+    Qed.
+
+    Lemma elem_of_dedges  x y g :
+      (x, y) ∈ dedges g ↔ edge g x y.
+    Proof.
+      unfold dedges.
+      rewrite elem_of_dom.
+      unfold edge.
+      rewrite gmap_curry_out_edges. done.
+    Qed.
+
     Lemma elem_of_to_uforest g x y :
       (x,y) ∈ to_uforest g <-> sc (edge g) x y.
     Proof.
-    Admitted.
+      unfold to_uforest.
+      eapply make_undirected_sc. intros.
+      eapply elem_of_dedges.
+    Qed.
 
     Lemma out_edges_empty v :
       out_edges ∅ v = ∅.
