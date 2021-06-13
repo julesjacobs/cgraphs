@@ -131,12 +131,73 @@ Section cgraph.
       destruct HH as [H1%multiset_empty_neq_singleton H2]. done.
     Qed.
 
+    Lemma out_edges_insert (g : cgraph V L) (v1 v2 : V) e :
+      out_edges (<[ v1 := e ]> g) v2 =
+        if decide (v1 = v2) then e
+        else out_edges g v2.
+    Proof.
+      rewrite /out_edges. rewrite lookup_insert_spec.
+      repeat case_decide; simplify_eq; done.
+    Qed.
+
     Lemma in_labels_out_edges g v2 l x :
       in_labels g v2 ≡ {[ l ]} ⋅ x ->
       ∃ v1, out_edges g v1 !! v2 ≡ Some l.
     Proof.
       unfold in_labels.
-    Admitted.
+      revert x; induction g using map_ind; intros a.
+      - rewrite map_fold_empty.
+        intros HH.
+        symmetry in HH.
+        eapply multiset_empty_mult in HH as []. subst.
+        eapply multiset_empty_neq_singleton in H0 as [].
+      - erewrite map_fold_insert with (R := (≡)); last done.
+        + unfold ms_insert. destruct (x !! v2) eqn:E; simpl; intros HH.
+          * eapply mset_xsplit in HH as (?&?&?&?&?&?&?&?).
+            eapply multiset_singleton_mult in H1.
+            eapply multiset_singleton_mult in H3.
+            {
+              destruct H1 as [[]|[]]; destruct H3 as [[]|[]].
+              - rewrite ->H6 in H2.
+                edestruct IHg; eauto.
+                exists x4.
+                rewrite out_edges_insert.
+                case_decide; subst; eauto.
+                unfold out_edges in H7.
+                rewrite H0 in H7.
+                rewrite lookup_empty in H7. inversion H7.
+              - rewrite ->H1 in H3.
+                exfalso. eapply multiset_empty_neq_singleton.
+                eapply multiset_empty_equiv. rewrite <- H3. done.
+              - rewrite ->H6 in H2.
+                edestruct IHg; eauto.
+                exists x4.
+                rewrite out_edges_insert.
+                case_decide; subst; eauto.
+                unfold out_edges in H7.
+                rewrite H0 in H7.
+                rewrite lookup_empty in H7. inversion H7.
+              - rewrite ->H1 in H3.
+                eapply multiset_singleton_inv in H3.
+                exists i.
+                rewrite out_edges_insert.
+                case_decide; simplify_eq.
+                rewrite -H3 E //.
+            }
+          * edestruct IHg.
+            { rewrite <- HH. rewrite left_id. done. }
+            exists x0.
+            rewrite out_edges_insert.
+            case_decide; simplify_eq; eauto.
+            unfold out_edges in H1. rewrite H0 in H1.
+            rewrite lookup_empty in H1. inversion H1.
+        + apply _.
+        + solve_proper.
+        + intros. unfold ms_insert.
+          rewrite ->(comm (⋅) (from_option singleton ε (z1 !! v2))).
+          rewrite -assoc.
+          rewrite ->(comm (⋅) y). done.
+    Qed.
 
     Lemma not_rtsc `{R : A -> A -> Prop} x :
       (∀ y, ¬ R x y ∧ ¬ R y x) ->
@@ -279,15 +340,6 @@ Section cgraph.
        are complete disconnected. *)
     Definition insert_edge (g : cgraph V L) (v1 v2 : V) (l : L) :=
       <[ v1 := <[ v2 := l ]> $ out_edges g v1 ]> g.
-
-    Lemma out_edges_insert (g : cgraph V L) (v1 v2 : V) e :
-      out_edges (<[ v1 := e ]> g) v2 =
-        if decide (v1 = v2) then e
-        else out_edges g v2.
-    Proof.
-      rewrite /out_edges. rewrite lookup_insert_spec.
-      repeat case_decide; simplify_eq; done.
-    Qed.
 
     Lemma out_edges_insert_edge (g : cgraph V L) (v1 v2 v3 : V) (l : L) :
       out_edges (insert_edge g v1 v2 l) v3 =

@@ -93,17 +93,6 @@ Qed.
   opt_to_singleton true (σs !! b) ⋅ opt_to_singleton false (σs !! negb b). *)
 
 
-Lemma mset_xsplit (e1 e2 e1' e2' : multiset clabel) :
-  e1 ⋅ e2 ≡ e1' ⋅ e2' ->
-  ∃ e11 e12 e21 e22,
-    e1 ≡ e11 ⋅ e12 ∧
-    e2 ≡ e21 ⋅ e22 ∧
-    e1' ≡ e11 ⋅ e21 ∧
-    e2' ≡ e12 ⋅ e22.
-Proof.
-Admitted.
-
-
 Lemma mset_delete σs b r x :
   {[(b, r):clabel]} ⋅ x ≡ mset_σs σs ->
   x ≡ mset_σs (delete b σs).
