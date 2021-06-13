@@ -30,7 +30,7 @@ Todo:
   - prove mset_σs lemmas
   - Map excl
 * Progress:
-  - Do proof by hand
+  - Do proof by hand [done]
   - Figure out adequacy statement for generic invariant
   - Prove progress using that adequacy statement.
 * extensions

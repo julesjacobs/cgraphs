@@ -203,8 +203,29 @@ Definition active (x : object) (es : list expr) (h : heap) :=
   | Chan i => ∃ b, is_Some (h !! (i,b))
   end.
 
+Lemma expr_waiting_dec e j :
+  Decision (∃ k b, ctx k ∧ e = k (Recv (Val (ChanV (j,b))))).
+Proof.
+Admitted.
+
+Lemma thread_waiting_dec es h i j : Decision (thread_waiting es h i j).
+Proof.
+  unfold thread_waiting.
+  destruct (es !! i) eqn:E.
+  - destruct (expr_waiting_dec e j) as [].
+Admitted.
+
 Lemma waiting_dec es h x y l : Decision (waiting es h x y l).
-Proof. Admitted.
+Proof.
+  destruct x; last first.
+  { right. intros (?&?&?&?). simplify_eq. }
+  destruct y.
+  { right. intros (?&?&?&?&?). simplify_eq. }
+  destruct (thread_waiting_dec es h n c).
+  - left. unfold waiting. eauto.
+  - right. intros (?&?&?&?&?).
+    simplify_eq. eauto.
+Qed.
 
 Lemma active_dec x es h : Decision (active x es h).
 Proof.
@@ -467,55 +488,214 @@ Proof.
     rewrite ->(mset_wlog b) in Hinl.
     rewrite E in Hinl. simpl in Hinl.
 
-    assert (∃ y, out_edges g y !! (Chan i) = Some (b,σ1)) as [y Hy].
-    { admit. }
-
-    destruct (waiting_dec es h y (Chan i) (b, σ1)).
+    assert (∃ y, out_edges g y !! (Chan i) ≡ Some (b,σ1)) as [y Hy].
     {
-      unfold waiting in w.
-      destruct w as (i0 & j & -> & ? & Hw). simplify_eq.
-      unfold thread_waiting in Hw.
-      destruct Hw as (k' & b' & Hk' & Hes' & Hb').
-
+      eapply in_labels_out_edges; eauto.
     }
 
-    destruct (active_dec y es h).
-    {
-      eapply (Hind_in y).
-      - rewrite Hy. done.
-      - done.
-      - done.
-    }
-
-
-
-    destruct y; last first.
-    {
-      eapply (Hind_in (Chan c)).
-      - rewrite Hy. done.
-      - intros (?&?&?&?). simplify_eq.
-      - simpl. admit.
-    }
-
-    destruct buf; last first.
-    {
-      eapply (Hind_in (Thread n)).
-      - rewrite Hy. done.
-      - intros (?&?&?&?&HH).
+    destruct y.
+    + pose proof (Hvs (Thread n)) as Hn.
+      simpl in Hn.
+      eapply pure_sep_holds in Hn as [? Hn].
+      destruct (es !! n) eqn:En; last first.
+      {
+        eapply emp_holds in Hn.
+        eapply map_equiv_empty in Hn.
+        rewrite Hn in Hy. rewrite lookup_empty in Hy.
         simplify_eq.
-        destruct HH as (k' & b' & Hk' & Hes' & Hb').
-        assert (b = b') as <-.
-        { admit. }
-        rewrite Hbuf in Hb'. simplify_eq.
-      - simpl. eexists. split; admit.
-    }
+      }
+      destruct (waiting_dec es h (Thread n) (Chan i) (b, σ1)); last first.
+      {
+        eapply Hind_in; eauto.
+        simpl. exists e. split; eauto.
+        intros ->.
+        simpl in Hn.
+        eapply affinely_pure_holds in Hn as [].
+        eapply map_equiv_empty in H0.
+        rewrite H0 in Hy.
+        rewrite lookup_empty in Hy.
+        simplify_eq.
+      }
+      unfold waiting in w.
+      destruct w as (i0 & j & ? & ? & Htw). simplify_eq.
+      unfold thread_waiting in Htw.
+      destruct Htw as (k & b' & Hk & Hi0 & Hjb).
+      rewrite Hi0 in En. simplify_eq.
+      rewrite ->rtyped0_ctx in Hn; eauto.
+      eapply exists_holds in Hn as [t Hn].
+      eapply sep_holds in Hn as (?&?&?&?&?&?).
+      simpl in H2.
+      eapply exists_holds in H2 as [t' H2].
+      eapply exists_holds in H2 as [r H2].
+      eapply pure_sep_holds in H2 as [-> H2].
+      eapply exists_holds in H2 as [r0 H2].
+      eapply pure_sep_holds in H2 as [? H2]. simplify_eq.
+      eapply own_holds in H2.
+      assert (Some (b',RecvT t' r) ≡ Some (b,σ1)).
+      {
+        rewrite <- Hy.
+        rewrite H0.
+        rewrite <- H2.
+        rewrite lookup_union lookup_singleton.
+        destruct (x0 !! Chan j) eqn:Q; simpl.
+        - rewrite Q. simpl. done.
+        - rewrite Q. simpl. done.
+      }
+      inversion H4. simplify_eq.
+      rewrite Hbuf in Hjb. simplify_eq.
+      simpl in Hx.
+      eapply exists_holds in Hx as [rest Hx].
+      eapply pure_sep_holds in Hx as [-> Hx].
+      simpl in Hx.
+      destruct (h !! (j,negb b)) eqn:Q; last first.
+      {
+        simpl in Hx. destruct (σs !! negb b).
+        - eapply false_holds in Hx as [].
+        - eapply affinely_pure_holds in Hx as [].
+          simplify_eq.
+      }
+      simpl in Hx.
+      destruct (σs !! negb b) eqn:Q2; last first.
+      { eapply false_holds in Hx as []. }
 
-    simpl in Hx.
-    eapply exists_holds in Hx as [rest Hx].
-    eapply pure_sep_holds in Hx as [-> Hx].
+      simpl in Hinl.
+      rewrite ->(comm (⋅)) in Hinl.
+
+      assert (∃ z, out_edges g z !! (Chan j) ≡ Some (negb b, c)) as [z Hzout].
+      {
+        eapply in_labels_out_edges; eauto.
+      }
+
+      pose proof (Hvs z) as Hz.
+      destruct z; simpl in Hz.
+      {
+        eapply pure_sep_holds in Hz as [? Hz].
+        destruct (es !! n) eqn:R; last first.
+        {
+          eapply emp_holds in Hz.
+          eapply map_equiv_empty in Hz.
+          rewrite Hz in Hzout. rewrite lookup_empty in Hzout.
+          simplify_eq.
+        }
+        destruct (waiting_dec es h (Thread n) (Chan j) (negb b, c)); last first.
+        {
+          eapply Hind_in; eauto.
+          simpl. exists e. split; eauto.
+          intros ->.
+          simpl in Hz.
+          eapply affinely_pure_holds in Hz as [].
+          eapply map_equiv_empty in H4.
+          rewrite H4 in Hzout.
+          rewrite lookup_empty in Hzout.
+          simplify_eq.
+        }
+        unfold waiting in w.
+        destruct w as (? & ? & ? & ? & Htw). simplify_eq.
+        unfold thread_waiting in Htw.
+        destruct Htw as (? & b' & ? & ? & Hjb).
+        rewrite H5 in R. simplify_eq.
+        rewrite ->rtyped0_ctx in Hz; eauto.
+        eapply exists_holds in Hz as [t Hz].
+        eapply sep_holds in Hz as (?&?&?&?&?&?).
+        simpl in H8.
+        eapply exists_holds in H8 as [? H8].
+        eapply exists_holds in H8 as [? H8].
+        eapply pure_sep_holds in H8 as [-> H8].
+        eapply exists_holds in H8 as [? H8].
+        eapply pure_sep_holds in H8 as [? H8]. simplify_eq.
+        eapply own_holds in H8.
+        assert (Some (b',RecvT x5 x6) ≡ Some (negb b,c)).
+        {
+          rewrite <- Hzout.
+          rewrite H6.
+          rewrite <- H8.
+          rewrite lookup_union lookup_singleton.
+          destruct (x4 !! Chan x1) eqn:Q'; simpl.
+          - rewrite Q'. simpl. done.
+          - rewrite Q'. simpl. done.
+        }
+        inversion H10. simplify_eq.
+        rewrite Hjb in Q. simplify_eq.
+        simpl in Hx.
+        eapply affinely_pure_holds in Hx as [].
+        simplify_eq.
+      }
 
 
-
-
-    admit.
-Admitted.
+      pose proof (Hvs (Chan c0)) as Hc. simpl in Hc.
+      eapply exists_holds in Hc as [σs' Hc].
+      eapply pure_sep_holds in Hc as [Hσs' Hc].
+      destruct (decide (h !! (c0,true) = None ∧ h !! (c0,false) = None)) as [[]|].
+      {
+        rewrite H2 in Hc. rewrite H4 in Hc.
+        destruct (σs' !! true).
+        { unfold bufs_typed in Hc. simpl in Hc.
+          eapply exists_holds in Hc as [? Hc].
+          eapply sep_holds in Hc as (?&?&?&?&?&?).
+          eapply false_holds in H7 as [].
+        }
+        destruct (σs' !! false).
+        { unfold bufs_typed in Hc. simpl in Hc.
+          eapply exists_holds in Hc as [? Hc].
+          eapply sep_holds in Hc as (?&?&?&?&?&?).
+          eapply false_holds in H8 as [].
+        }
+        eapply (holds_entails _ emp%I) in Hc; last first.
+        { iIntros "H". unfold bufs_typed.
+          iDestruct "H" as (?) "[H1 H2]". simpl.
+          iDestruct "H1" as "%".
+          iDestruct "H2" as "%".
+          done. }
+        eapply emp_holds in Hc.
+        apply map_equiv_empty in Hc.
+        rewrite Hc in Hzout. rewrite lookup_empty in Hzout. simplify_eq.
+      }
+      assert (∃ b l, h !! (c0,b) = Some l) as (b' & l' & Hb).
+      {
+        destruct (h !! (c0,true)) eqn:Q3; eauto.
+        destruct (h !! (c0,false)) eqn:Q3'; eauto.
+        exfalso. eapply n. done.
+      }
+      eapply (Hind_in (Chan c0)).
+      * rewrite Hzout. done.
+      * intros (?&?&?&?). simplify_eq.
+      * simpl. eauto.
+    + pose proof (Hvs (Chan c)) as Hc. simpl in Hc.
+      eapply exists_holds in Hc as [σs' Hc].
+      eapply pure_sep_holds in Hc as [Hσs' Hc].
+      destruct (decide (h !! (c,true) = None ∧ h !! (c,false) = None)) as [[]|].
+      {
+        rewrite H in Hc. rewrite H0 in Hc.
+        destruct (σs' !! true).
+        { unfold bufs_typed in Hc. simpl in Hc.
+          eapply exists_holds in Hc as [? Hc].
+          eapply sep_holds in Hc as (?&?&?&?&?&?).
+          eapply false_holds in H3 as [].
+        }
+        destruct (σs' !! false).
+        { unfold bufs_typed in Hc. simpl in Hc.
+          eapply exists_holds in Hc as [? Hc].
+          eapply sep_holds in Hc as (?&?&?&?&?&?).
+          eapply false_holds in H4 as [].
+        }
+        eapply (holds_entails _ emp%I) in Hc; last first.
+        { iIntros "H". unfold bufs_typed.
+          iDestruct "H" as (?) "[H1 H2]". simpl.
+          iDestruct "H1" as "%".
+          iDestruct "H2" as "%".
+          done. }
+        eapply emp_holds in Hc.
+        apply map_equiv_empty in Hc.
+        rewrite Hc in Hy. rewrite lookup_empty in Hy. simplify_eq.
+      }
+      assert (∃ b l, h !! (c,b) = Some l) as (b' & l & Hb).
+      {
+        destruct (h !! (c,true)) eqn:Q; eauto.
+        destruct (h !! (c,false)) eqn:Q'; eauto.
+        exfalso. eapply n. done.
+      }
+      eapply (Hind_in (Chan c)).
+      * rewrite Hy. done.
+      * intros (?&?&?&?). simplify_eq.
+      * simpl. eauto.
+Qed.

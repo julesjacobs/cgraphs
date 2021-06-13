@@ -131,6 +131,13 @@ Section cgraph.
       destruct HH as [H1%multiset_empty_neq_singleton H2]. done.
     Qed.
 
+    Lemma in_labels_out_edges g v2 l x :
+      in_labels g v2 ≡ {[ l ]} ⋅ x ->
+      ∃ v1, out_edges g v1 !! v2 ≡ Some l.
+    Proof.
+      unfold in_labels.
+    Admitted.
+
     Lemma not_rtsc `{R : A -> A -> Prop} x :
       (∀ y, ¬ R x y ∧ ¬ R y x) ->
       (∀ y, rtsc R x y -> x = y).
