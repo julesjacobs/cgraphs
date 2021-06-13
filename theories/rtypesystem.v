@@ -570,6 +570,27 @@ Proof.
     iApply "H2". iFrame.
 Qed.
 
+Definition val_typed' (v : val) (t : type) : rProp :=
+  match t with
+  | UnitT => ⌜⌜ v = UnitV ⌝⌝
+  | NatT => ∃ n, ⌜⌜ v = NatV n ⌝⌝
+  | PairT t1 t2 => ∃ a b, ⌜⌜ v = PairV a b ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
+  | FunT t1 t2 => ∃ x e, ⌜⌜ v = FunV x e ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
+  | ChanT r => ∃ c, ⌜⌜ v = ChanV c ⌝⌝ ∗ own_ep c r
+  end.
+
+Lemma val_typed_val_typed' v t :
+  val_typed v t ⊣⊢ val_typed' v t.
+Proof.
+  destruct v,t; simpl; iSplit;
+  try (iIntros "%"; simplify_eq; eauto; try destruct H; simplify_eq);
+  try (iIntros "H"; iDestruct "H" as (? ? ?) "[H1 H2]"); simplify_eq;
+  try (iIntros "H"; iDestruct "H" as (? ? ?) "H"); simplify_eq;
+  try (iIntros "H"; iDestruct "H" as (? ?) "H"); simplify_eq;
+  try (iSplit; iIntros "%"; simplify_eq); eauto; iExists _; iFrame;
+  iExists _; iFrame; done.
+Qed.
+
 (*
   Asynchronous subtyping:
   -----------------------

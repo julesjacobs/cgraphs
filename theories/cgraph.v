@@ -1317,4 +1317,56 @@ Section cgraph.
     eapply elem_of_to_uforest.
     done.
   Qed.
+
+  (*
+     The relation R x y l tells us for each pair of objects (x,y), what
+     the waiting direction is for an edge x--[l]-->y labeled with l.
+     If R x y l, then the waiting direction is in the same direction as the edge.
+     If ¬R x y l, then waiting direction is in the opposite direction as the edge.
+     So R tells us the waiting direction *relative to* the edge direction.
+  *)
+  Lemma cgraph_ind' (R : V -> V -> L -> Prop) (g : cgraph V L) (P : V -> Prop) :
+    (∀ x y, Proper ((≡) ==> iff) (R x y)) ->
+    cgraph_wf g ->
+    (∀ x,
+      (∀ y l, out_edges g x !! y ≡ Some l -> R x y l -> P y) ->
+      (∀ y l, out_edges g y !! x ≡ Some l -> ¬ R y x l -> P y) ->
+      P x) ->
+    (∀ x, P x).
+  Proof.
+    intros Hproper Hwf Hind.
+    eapply (cgraph_ind (λ x y,
+      ∃ l, (out_edges g x !! y ≡ Some l ∧ R x y l) ∨
+           (out_edges g y !! x ≡ Some l ∧ ¬ R y x l))); eauto.
+    - destruct Hwf.
+      intros ?? (l1 & [[]|[]]) (l2 & [[]|[]]).
+      + exfalso. eapply H0; eauto using some_edge.
+      + exfalso. rewrite ->H2 in H4. inversion H4. subst.
+        eapply H5. rewrite <-H8. done.
+      + exfalso. rewrite ->H2 in H4. inversion H4. subst.
+        eapply H3. rewrite H8. done.
+      + exfalso. eapply H0; eauto using some_edge.
+    - intros. eapply Hind; intros.
+      + eapply H0; eauto.
+        left. eauto using some_edge.
+      + eapply H0; eauto.
+        right. eauto using some_edge.
+  Qed.
+
+  (* A version of the lemma where the R doesn't depend on the label. *)
+  Lemma cgraph_ind'' (R : V -> V -> Prop) (g : cgraph V L) (P : V -> Prop) :
+    cgraph_wf g ->
+    (∀ x,
+      (∀ y, edge g x y -> R x y -> P y) ->
+      (∀ y, edge g y x -> ¬ R y x -> P y) ->
+      P x) ->
+    (∀ x, P x).
+  Proof.
+    intros Hwf Hind.
+    eapply (cgraph_ind' (λ x y l, R x y)); [solve_proper|eauto|].
+    intros. eapply Hind; intros ? [] ?.
+    + eapply H0; eauto. rewrite H2. done.
+    + eapply H1; eauto. rewrite H2. done.
+  Qed.
+
 End cgraph.

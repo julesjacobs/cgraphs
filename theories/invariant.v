@@ -24,7 +24,7 @@ Section bufs_typed.
   Definition buf_typed' (buf' : option (list val)) (ct' : option chan_type) (rest : chan_type) : rProp :=
     match buf', ct' with
     | Some buf, Some ct => buf_typed buf ct rest
-    | None, None => emp%I
+    | None, None => ⌜⌜ rest = EndT ⌝⌝
     | _, _ => False
     end.
 
@@ -336,7 +336,6 @@ Proof.
         -- iApply (bufs_typed_wlog b true).
            rewrite !lookup_delete_spec.
            repeat case_decide; simplify_eq; try solve [by destruct b].
-           by iApply bufs_typed_dealloc.
   - (* Fork *)
     eapply (inv_alloc_lr (Thread i) (Chan i0) (Thread (length es))); last done;
       first apply _; first apply _.
