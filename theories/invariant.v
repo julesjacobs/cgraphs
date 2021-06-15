@@ -4,6 +4,7 @@ Require Export diris.seplogic.
 Require Export diris.rtypesystem.
 Require Export diris.langlemmas.
 Require Export diris.genericinv.
+Require Export diris.map_to_multiset.
 
 Section bufs_typed.
   Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : rProp :=
@@ -41,9 +42,6 @@ Section invariant.
     | None => ε
     end.
 
-  Definition mset_σs (σs : gmap bool chan_type) : multiset clabel :=
-    opt_to_singleton true (σs !! true) ⋅ opt_to_singleton false (σs !! false).
-
   Definition state_inv (es : list expr) (h : heap) (x : object) (in_l : multiset clabel) : rProp :=
     match x with
     | Thread n =>
@@ -53,7 +51,7 @@ Section invariant.
       | None => emp
       end
     | Chan n => ∃ σs : gmap bool chan_type,
-      ⌜⌜ in_l ≡ mset_σs σs ⌝⌝ ∗
+      ⌜⌜ in_l ≡ map_to_multiset σs ⌝⌝ ∗
       bufs_typed (h !! (n,true)) (h !! (n,false)) (σs !! true) (σs !! false)
     end%I.
 
@@ -86,67 +84,6 @@ Proof.
   assert (negb b = b') as ->. { by destruct b,b'. }
   assert (negb b' = b) as ->. { by destruct b,b'. }
   by rewrite bufs_typed_sym'.
-Qed.
-
-(* Lemma foo σs b :
-  opt_to_singleton true (σs !! true) ⋅ opt_to_singleton false (σs !! false) ≡
-  opt_to_singleton true (σs !! b) ⋅ opt_to_singleton false (σs !! negb b). *)
-
-
-Lemma mset_delete σs b r x :
-  {[(b, r):clabel]} ⋅ x ≡ mset_σs σs ->
-  x ≡ mset_σs (delete b σs).
-Proof.
-  intros H. unfold mset_σs in *.
-  destruct b; last admit.
-  eapply mset_xsplit in H as (e11 & e12 & e21 & e22 & H1 & H2 & H3 & H4).
-  simplify_map_eq.
-  rewrite H4.
-  simplify_map_eq.
-  do 2 destruct (_ !! _); simpl in *.
-  -  rewrite left_id.
-
-Admitted.
-
-Lemma mset_lookup σs b r x :
-  {[(b, r):clabel]} ⋅ x ≡ mset_σs σs ->
-  σs !! b = Some r.
-Proof.
-  intros.
-  pose proof (mset_delete _ _ _ _ H).
-  assert (b = true) as -> by admit.
-  unfold mset_σs in *.
-  rewrite lookup_delete in H0.
-  rewrite lookup_delete_ne in H0; eauto.
-Admitted.
-
-Lemma mset_insert σs x b r r' :
-  {[(b, r):clabel]} ⋅ x ≡ mset_σs σs ->
-  {[(b, r'):clabel]} ⋅ x ≡ mset_σs (<[b:=r']> σs).
-Proof.
-  intros H%mset_delete. rewrite H.
-  unfold mset_σs.
-  rewrite !lookup_delete_spec.
-  rewrite !lookup_insert_spec.
-  destruct b; simpl.
-  - destruct (_ !! _); simpl; eauto.
-  - destruct (_ !! _); simpl; eauto.
-    rewrite comm. done.
-Qed.
-
-Lemma mset_empty :
-  mset_σs ∅ = ε.
-Proof.
-  unfold mset_σs. rewrite !lookup_empty. simpl. done.
-Qed.
-
-Lemma mset_empty' σs :
-  (∀ b, σs !! b = None) ->
-  mset_σs σs = ε.
-Proof.
-  intros H.
-  assert (σs = ∅) as -> by by apply map_empty.
-  apply mset_empty.
 Qed.
 
 Lemma buf_typed_push v buf t r c :
@@ -253,11 +190,11 @@ Proof.
       * iDestruct "H" as (σs H2) "H".
         iExists (<[ b := r ]> σs).
         iSplit.
-        -- iPureIntro. by eapply mset_insert.
+        -- iPureIntro. by eapply map_to_multiset_update.
         -- iApply (bufs_typed_wlog b true).
            iDestruct (bufs_typed_wlog true b with "H") as "H".
            assert (σs !! b = Some (SendT t' r)) as ->
-             by by eapply mset_lookup.
+             by by eapply map_to_multiset_lookup.
            rewrite !lookup_insert_spec.
            repeat case_decide; simplify_eq; try solve [by destruct b].
            rewrite H1.
@@ -281,7 +218,7 @@ Proof.
       iDestruct "H" as (σs H2) "H".
       iDestruct (bufs_typed_wlog true b with "H") as "H".
       assert (σs !! b = Some (RecvT t' r)) as ->
-             by by eapply mset_lookup.
+             by by eapply map_to_multiset_lookup.
       rewrite H1.
       iDestruct (bufs_typed_pop with "H") as "[Hv H]".
       iSplitL "H2 Hv".
@@ -292,7 +229,7 @@ Proof.
         eauto with iFrame.
       * iExists (<[ b := r ]> σs).
         iSplit.
-        -- iPureIntro. by eapply mset_insert.
+        -- iPureIntro. by eapply map_to_multiset_update.
         -- iApply (bufs_typed_wlog b true).
            rewrite !lookup_insert_spec.
            repeat case_decide; simplify_eq; try solve [by destruct b].
@@ -314,14 +251,14 @@ Proof.
       iDestruct (bufs_typed_wlog true b with "H") as "H".
       rewrite H1.
       assert (σs !! b = Some EndT) as ->
-             by by eapply mset_lookup.
+             by by eapply map_to_multiset_lookup.
       rewrite list_lookup_insert; last by eapply lookup_lt_Some.
       (* iDestruct (bufs_typed_pop with "H") as "[Hv H]". *)
       iSplitL "H2".
       * iSplit; eauto. by iApply "H2".
       * iExists (delete b σs).
         iSplit.
-        -- iPureIntro. by eapply mset_delete.
+        -- iPureIntro. by eapply map_to_multiset_delete.
         -- iApply (bufs_typed_wlog b true).
            rewrite !lookup_delete_spec.
            repeat case_decide; simplify_eq; try solve [by destruct b].
@@ -357,7 +294,7 @@ Proof.
       iDestruct (bufs_typed_None with "H") as "H".
       iDestruct "H" as "%". iPureIntro.
       rewrite Hσs.
-      rewrite mset_empty'; first done.
+      rewrite map_to_multiset_empty'; first done.
       intros []; naive_solver.
     + iIntros (x) "[H1 H2]". simpl.
       iFrame. destruct (es !! length es) eqn:E; eauto.
@@ -420,8 +357,7 @@ Proof.
   - rewrite !lookup_empty.
     iExists ∅. unfold bufs_typed. simpl. rewrite !lookup_empty. iFrame.
     iSplit.
-    + iPureIntro. subst. unfold mset_σs.
-      rewrite !lookup_empty. simpl. done.
+    + iPureIntro. rewrite map_to_multiset_empty //.
     + iExists EndT. done.
 Qed.
 

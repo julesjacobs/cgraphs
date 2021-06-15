@@ -27,9 +27,9 @@ Done:
 
 Todo:
 * Preservation:
-  - Remove remaining admits by replacing them with Robbert's std++ lemmas
-  - prove mset_σs lemmas
-  - Map excl
+  - Remove remaining admits by replacing them with Robbert's std++ lemmas [done, except multiset]
+  - prove mset_σs lemmas [done, except 1]
+  - Map excl [done]
 * Progress:
   - Figure out adequacy statement for generic invariant
   - Prove progress using that adequacy statement.

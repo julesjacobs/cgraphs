@@ -203,23 +203,45 @@ Definition active (x : object) (es : list expr) (h : heap) :=
   | Chan i => ∃ b, is_Some (h !! (i,b))
   end.
 
-Lemma expr_waiting_dec e j :
-  Decision (∃ k b, ctx k ∧ e = k (Recv (Val (ChanV (j,b))))).
+Lemma expr_eq_recv_dec e j b :
+  Decision (e = Recv (Val (ChanV (j,b)))).
 Proof.
+  do 2 (destruct e; try solve [right; intro; simplify_eq]).
+  destruct v; try solve [right; intro; simplify_eq].
+  destruct e; try solve [right; intro; simplify_eq].
+  destruct (decide ((c, b0) = (j,b))); simplify_eq.
+  - left. done.
+  - right. intro. simplify_eq.
+Qed.
+
+Lemma expr_waiting_dec e j b :
+  Decision (∃ k, ctx k ∧ e = k (Recv (Val (ChanV (j,b))))).
+Proof.
+  induction e.
+  - right. intros [? [? []]].
+    admit.
+  - admit.
 Admitted.
 
 Lemma thread_emptybuf_dec (h : heap) j :
   Decision (∃ b, h !! (j,b) = Some []).
 Proof.
   assert (∀ b, Decision (h !! (j,b) = Some [])).
-  destruct (h !! (j,true)) as [|].
-Admitted.
+  { intro. destruct (h !! (j,b)) eqn:E.
+    - destruct l. left. done. right. intro. simplify_eq.
+    - right. intro. simplify_eq. }
+  destruct (H true).
+  { left. eauto. }
+  destruct (H false).
+  { left. eauto. }
+  right. intros [].
+  destruct x; simplify_eq.
+Qed.
 
 Lemma thread_waiting_dec es h i j : Decision (thread_waiting es h i j).
 Proof.
   unfold thread_waiting.
   destruct (es !! i) eqn:E.
-  - destruct (expr_waiting_dec e j) as [].
 Admitted.
 
 Lemma waiting_dec es h x y l : Decision (waiting es h x y l).
@@ -247,15 +269,6 @@ Proof.
     + destruct (h!!(c,false)) eqn:F.
       * left. exists false. rewrite F;eauto.
       * right. intros (?&?). destruct H. destruct x; simplify_eq.
-Qed.
-
-Lemma mset_wlog b σs :
-  mset_σs σs ≡
-    opt_to_singleton b (σs !! b) ⋅
-    opt_to_singleton (negb b) (σs !! (negb b)).
-Proof.
-  destruct b; try done.
-  rewrite (comm (⋅)). simpl. done.
 Qed.
 
 Lemma heap_fresh (h : heap) :
@@ -339,7 +352,7 @@ Proof.
             iIntros "H". iApply (bufs_typed_wlog true b with "H").
           }
           assert (σs !! b = Some (RecvT t' r)) as Hσsb.
-          { eapply mset_lookup. rewrite <-Hinlc, Hin. done. }
+          { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
           rewrite Hσsb in Hc. simpl in Hc.
           unfold bufs_typed in Hc.
           eapply exists_holds in Hc as [rest Hc].
@@ -395,7 +408,7 @@ Proof.
             iIntros "H". iApply (bufs_typed_wlog true b with "H").
           }
           assert (σs !! b = Some (SendT t' r)) as Hσsb.
-          { eapply mset_lookup. rewrite <-Hinlc, Hin. done. }
+          { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
           rewrite Hσsb in Hc. simpl in Hc.
           unfold bufs_typed in Hc.
           eapply exists_holds in Hc as [rest Hc].
@@ -463,7 +476,7 @@ Proof.
             iIntros "H". iApply (bufs_typed_wlog true b with "H").
           }
           assert (σs !! b = Some EndT) as Hσsb.
-          { eapply mset_lookup. rewrite <-Hinlc, Hx. done. }
+          { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hx. done. }
           rewrite Hσsb in Hc. simpl in Hc.
           unfold bufs_typed in Hc.
           eapply exists_holds in Hc as [rest Hc].
@@ -492,8 +505,7 @@ Proof.
       eapply sep_holds in Hx as (? & ? & ? & ? & Hx & ?).
       eapply false_holds in Hx. done. }
     unfold bufs_typed in Hx. simpl in Hx.
-    rewrite ->(mset_wlog b) in Hinl.
-    rewrite E in Hinl. simpl in Hinl.
+    erewrite map_to_multiset_Some in Hinl; eauto.
 
     assert (∃ y, out_edges g y !! (Chan i) ≡ Some (b,σ1)) as [y Hy].
     {
@@ -564,14 +576,17 @@ Proof.
       simpl in Hx.
       destruct (σs !! negb b) eqn:Q2; last first.
       { eapply false_holds in Hx as []. }
+      assert (delete b σs !! negb b = Some c) as HHH.
+      { rewrite lookup_delete_ne //. by destruct b. }
+      erewrite map_to_multiset_Some in Hinl; eauto.
 
-      simpl in Hinl.
-      rewrite ->(comm (⋅)) in Hinl.
+      rewrite ->(comm (⋅)), <-assoc in Hinl; last apply _.
 
       assert (∃ z, out_edges g z !! (Chan j) ≡ Some (negb b, c)) as [z Hzout].
       {
         eapply in_labels_out_edges; eauto.
       }
+      clear HHH.
 
       pose proof (Hvs z) as Hz.
       destruct z; simpl in Hz.

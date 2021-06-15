@@ -22,6 +22,7 @@ theories/logic/bi.v
 theories/seplogic.v
 theories/langdef.v
 theories/rtypesystem.v
+theories/map_to_multiset.v
 theories/langlemmas.v
 theories/genericinv.v
 theories/invariant.v

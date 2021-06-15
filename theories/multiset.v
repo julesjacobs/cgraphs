@@ -1,5 +1,6 @@
 From Coq Require Import SetoidPermutation.
 From iris.algebra Require Export cmra.
+From stdpp Require Export gmap.
 
 Lemma PermutationA_mono {A} (R1 R2 : relation A) xs1 xs2 :
   (∀ x1 x2, R1 x1 x2 → R2 x1 x2) →
@@ -178,5 +179,10 @@ Admitted.
 
 Lemma multiset_singleton_inv {A:ofe} (a b : A) :
   {[ a ]} ≡ ({[ b ]} : multiset A) -> a ≡ b.
+Proof.
+Admitted.
+
+Lemma multiset_mult_singleton_inv {A:ofe} (a : A) (x x' : multiset A) :
+  {[ a ]} ⋅ x ≡ {[ a ]} ⋅ x' -> x ≡ x'.
 Proof.
 Admitted.
