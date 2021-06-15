@@ -1,14 +1,5 @@
 From iris.algebra Require Import excl gmap.
 
-Instance union_proper `{Countable K} {V : ofe} :
-  Proper ((≡) ==> (≡) ==> (≡)) (union (A:=gmap K V)).
-Proof. Admitted.
-
-
-Instance map_disjoint_proper `{Countable K} {V : ofe} :
-  Proper ((≡) ==> (≡) ==> iff) (map_disjoint (M:=gmap K) (A:=V)).
-Proof. Admitted.
-
 Definition map_Excl `{Countable K} {V} (m : gmap K V) : gmap K (excl V) :=
   Excl <$> m.
 
@@ -25,25 +16,22 @@ Section map_Excl.
   Proof. intros i. rewrite /map_Excl lookup_fmap. destruct (m !! i); done. Qed.
   Lemma map_Excl_empty : map_Excl ∅ = (ε : gmap K (excl V)).
   Proof. rewrite /map_Excl fmap_empty. done. Qed.
-  Lemma map_Excl_empty_inv m : map_Excl m ≡ ∅ -> m ≡ ∅.
+  Lemma map_Excl_empty_inv m : map_Excl m ≡ ∅ -> m = ∅.
   Proof.
-  Admitted.
-    (* rewrite /map_Excl. intros G. apply fmap_empty_inv in G. done.
-  Qed. *)
+    rewrite /map_Excl. intros G.
+    apply map_equiv_empty in G. apply fmap_empty_inv in G. done.
+  Qed.
 
   Lemma map_Excl_injective m1 m2 :
     map_Excl m1 ≡ map_Excl m2 -> m1 ≡ m2.
   Proof.
+    rewrite /map_Excl.
     intros Hm i.
-    move: (Hm i). rewrite /map_Excl !lookup_fmap.
-  Admitted.
-    (* rewrite /map_Excl !map_eq_iff.
-    intros HH.
-    intros i.
-    specialize (HH i).
-    rewrite !lookup_fmap in HH.
-    destruct (m1 !! i),(m2 !! i); naive_solver.
-  Qed. *)
+    specialize (Hm i).
+    rewrite !lookup_fmap in Hm.
+    destruct (m1 !! i),(m2 !! i); simpl in *; inversion Hm; subst; try done.
+    inversion H2. subst. rewrite H3. done.
+  Qed.
   Lemma map_Excl_insert m k v :
     map_Excl (<[ k := v ]> m) = <[ k := Excl v ]> $ map_Excl m.
   Proof.
@@ -68,17 +56,15 @@ Section map_Excl.
   Qed.
   Lemma map_Excl_singleton_op_inv m me k x :
     map_Excl m ≡ {[ k := Excl x ]} ⋅ me ->
-    ∃ m', m ≡ <[ k := x ]> m' ∧ me = map_Excl m' ∧ m' !! k = None.
+    ∃ m', m ≡ <[ k := x ]> m' ∧ me ≡ map_Excl m' ∧ m' !! k = None.
   Proof.
-  Admitted.
-    (* rewrite /map_Excl. intros HH.
+    rewrite /map_Excl. intros HH.
     exists (delete k m).
     assert (m !! k ≡ Some x).
     { specialize (HH k).
       revert HH. rewrite lookup_fmap lookup_op lookup_singleton.
-      case: (m!!k); case:(me!!k); simpl; intros. inversion HH. subst. done. }
-    rewrite !map_eq_iff.
-    rewrite-> map_eq_iff in HH.
+      case: (m!!k); case:(me!!k); simpl; intros; inversion HH; subst;
+      inversion H2; subst. rewrite H3. done. }
     split_and!.
     - intros i.
       destruct (decide (k = i)); subst.
@@ -90,44 +76,48 @@ Section map_Excl.
       + rewrite lookup_fmap lookup_delete.
         revert HH. rewrite !lookup_fmap lookup_op lookup_singleton H0 /=.
         case: (me !! i); eauto.
-        intros a HH. inversion HH.
+        intros a HH. inversion HH. subst. inversion H3.
       + rewrite lookup_fmap lookup_delete_ne //.
         revert HH. rewrite lookup_fmap lookup_op lookup_singleton_ne //.
-        case: (me !! i); simpl; intros; rewrite HH //.
+        case: (me !! i); simpl; intros; inversion HH; subst; eauto.
+        rewrite H3. done.
     - rewrite lookup_delete //.
-  Qed. *)
+  Qed.
   Lemma map_Excl_union_inv m me1 me2 :
     map_Excl m ≡ me1 ⋅ me2 ->
-    ∃ m1 m2, m ≡ m1 ∪ m2 ∧ me1 = map_Excl m1 ∧ me2 = map_Excl m2 ∧ m1 ##ₘ m2.
+    ∃ m1 m2, m ≡ m1 ∪ m2 ∧ me1 ≡ map_Excl m1 ∧ me2 ≡ map_Excl m2 ∧ m1 ##ₘ m2.
   Proof.
-  Admitted.
-    (* revert m. induction me1 as [|k xe me1 Hx IH] using map_ind; intros m.
-    - rewrite left_id_L. intros <-.
+    revert m. induction me1 as [|k xe me1 Hx IH] using map_ind; intros m.
+    - rewrite left_id_L. intros Hr1.
       exists ∅,m.
-      rewrite left_id_L map_Excl_empty. split_and!; solve_map_disjoint.
-    - rewrite insert_singleton_op // -assoc_L.
+      rewrite left_id_L map_Excl_empty. split_and!; try solve_map_disjoint.
+    - rewrite insert_singleton_op // -assoc.
       destruct xe as [x|].
-      + intros (m' & -> & ? & ?)%map_Excl_singleton_op_inv.
-        destruct (IH m') as (m1 & m2 & -> & -> & -> & ?); first done.
+      + intros (m' & Hr1 & ? & ?)%map_Excl_singleton_op_inv.
+        setoid_rewrite Hr1.
+        destruct (IH m') as (m1 & m2 & Hr2 & Hr3 & Hr4 & ?); first done.
         exists (<[ k := x]> m1),m2.
-        apply lookup_union_None in H1 as [].
+        assert (m' !! k ≡ None) as H1'. { rewrite H1 //. }
+        rewrite ->Hr2 in H1'.
+        apply equiv_None in H1'.
+        apply lookup_union_None in H1' as [].
         repeat split.
-        * by rewrite insert_union_l.
-        * rewrite map_Excl_insert_op //.
+        * rewrite Hr2. rewrite insert_union_l //.
+        * rewrite map_Excl_insert_op //. rewrite Hr3 //.
+        * done.
         * by apply map_disjoint_insert_l.
       + intros Hm. assert (✓ (ExclBot : excl V)) as [].
         eapply (singleton_valid k), (cmra_valid_op_l _ (me1 ⋅ me2)).
         rewrite -Hm. apply map_Excl_valid.
-  Qed. *)
+  Qed.
   Lemma map_Excl_disjoint m1 m2 :
     m1 ##ₘ m2 <-> map_Excl m1 ##ₘ map_Excl m2.
   Proof.
-  Admitted.
-    (* split; first apply fmap_map_disjoint.
+    split; first apply map_disjoint_fmap.
     unfold map_Excl. intros G ?. specialize (G i).
     rewrite !lookup_fmap in G.
     destruct (m1 !! i),(m2 !! i); done.
-  Qed. *)
+  Qed.
   Lemma map_Excl_singleton (a : K) (b : V) :
     map_Excl {[ a := b ]} = {[ a := Excl b ]}.
   Proof.
@@ -136,10 +126,22 @@ Section map_Excl.
   Lemma map_Excl_singleton_inv a b m :
     map_Excl m ≡ {[ a := Excl b ]} -> m ≡ {[ a := b ]}.
   Proof.
-  Admitted.
-    (* intros HH.
-    pose proof (fmap_singleton_inv _ _ _ _ HH).
-    destruct H0 as [? ->]. rewrite map_Excl_singleton in HH.
-    apply singleton_eq_iff in HH. destruct HH. simplify_eq. done.
-  Qed. *)
+    intros HH.
+    intros i.
+    specialize (HH i).
+    destruct (decide (i = a)); subst.
+    - rewrite lookup_singleton. rewrite lookup_fmap in HH.
+      rewrite lookup_singleton in HH.
+      inversion HH. subst. inversion H2. subst.
+      destruct (m !! a) eqn:E; simpl in *.
+      + inversion HH; subst.
+        inversion H5; subst. rewrite H6. done.
+      + inversion HH.
+    - rewrite lookup_singleton_ne //.
+      rewrite lookup_singleton_ne // in HH.
+      unfold map_Excl in HH.
+      rewrite lookup_fmap in HH.
+      inversion HH. symmetry in H1.
+      apply fmap_None in H1. rewrite H1 //.
+  Qed.
 End map_Excl.

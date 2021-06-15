@@ -20,9 +20,9 @@ theories/cgraph.v
 theories/logic/upred.v
 theories/logic/bi.v
 theories/seplogic.v
+theories/langdef.v
 theories/rtypesystem.v
 theories/langlemmas.v
 theories/genericinv.v
 theories/invariant.v
-# theories/logic/bupd.v
-theories/langdef.v
+theories/progress.v

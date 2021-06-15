@@ -208,6 +208,13 @@ Lemma expr_waiting_dec e j :
 Proof.
 Admitted.
 
+Lemma thread_emptybuf_dec (h : heap) j :
+  Decision (∃ b, h !! (j,b) = Some []).
+Proof.
+  assert (∀ b, Decision (h !! (j,b) = Some [])).
+  destruct (h !! (j,true)) as [|].
+Admitted.
+
 Lemma thread_waiting_dec es h i j : Decision (thread_waiting es h i j).
 Proof.
   unfold thread_waiting.

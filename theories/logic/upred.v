@@ -426,11 +426,6 @@ Proof.
 Qed.
 
 
-(* Lemma prop_ext_2 (P Q : uPred M) : <pers> ((P -∗ Q) ∧ (Q -∗ P)) ⊢ P ≡ Q.
-Proof. Admitted. *)
-  (* unseal; split=> n x ? /=. setoid_rewrite (left_id ε op). split; naive_solver. *)
-(* Qed. *)
-
 Lemma persistently_impl_persistently P Q : (<pers> P → <pers> Q) ⊢ <pers> (<pers> P → Q).
 Proof.
   unseal; split=> /= x ? HPQ x'. naive_solver.

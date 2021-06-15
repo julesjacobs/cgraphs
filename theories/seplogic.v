@@ -51,7 +51,11 @@ Section seplogic.
     unfold holds.
     rewrite uPred_sep_holds. split.
     - intros (?&?&HH&?&?). apply map_Excl_union_inv in HH.
-      destruct HH as (?&?&?&?&?&?). subst. eauto 6.
+      destruct HH as (?&?&?&?&?&?). setoid_rewrite H2.
+      exists x1,x2.
+      split_and!; eauto.
+      + rewrite <-H3; done.
+      + rewrite <-H4; done.
     - intros (?&?&?&?&?&?). subst. eexists _,_. split_and!; eauto.
       rewrite H0. apply map_Excl_union. done.
   Qed.
@@ -68,7 +72,7 @@ Section seplogic.
     holds (L:=L) (V:=V) emp Σ <-> Σ ≡ ∅.
   Proof.
     unfold holds. rewrite uPred_emp_holds. split.
-    - intros HH. apply map_Excl_empty_inv in HH. done.
+    - intros HH. apply map_Excl_empty_inv in HH. eapply map_equiv_empty. done.
     - intros ->. rewrite map_Excl_empty. done.
   Qed.
 
@@ -82,7 +86,7 @@ Section seplogic.
     holds (L:=L) (V:=V) ⌜⌜ φ ⌝⌝ Σ <-> Σ ≡ ∅ ∧ φ.
   Proof.
     unfold holds. rewrite uPred_affinely_pure_holds. split.
-    - intros []. split; eauto. apply map_Excl_empty_inv. done.
+    - intros []. split; eauto. eapply map_equiv_empty. apply map_Excl_empty_inv. done.
     - intros []. split; eauto. rewrite H0. rewrite map_Excl_empty //.
   Qed.
 

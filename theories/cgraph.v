@@ -4,6 +4,8 @@ From diris Require Export util.
 From stdpp Require Export gmap.
 Require Export diris.multiset.
 From stdpp Require Import fin_maps.
+Require Import diris.mapexcl.
+
 
 Ltac sdec := repeat case_decide; simplify_eq.
 
@@ -1105,20 +1107,6 @@ Section cgraph.
     Qed.
   End move_edges.
 
-
-  Lemma gmap_xsplit (e1 e2 e1' e2' : gmap V L) :
-    e1 ##ₘ e2 ->
-    e1' ##ₘ e2' ->
-    e1 ∪ e2 = e1' ∪ e2' ->
-    ∃ e11 e12 e21 e22,
-      e11 ##ₘ e12 ∧ e21 ##ₘ e22 ∧
-      e11 ##ₘ e21 ∧ e12 ##ₘ e22 ∧
-      e1 = e11 ∪ e12 ∧ e2 = e21 ∪ e22 ∧
-      e1' = e11 ∪ e21 ∧ e2' = e12 ∪ e22.
-  Proof.
-  Admitted.
-
-
   Section exchange.
     Lemma exchange g v1 v2 e1 e2 :
       cgraph_wf g ->
@@ -1135,14 +1123,14 @@ Section cgraph.
       intros Hwf Hnuconn Hdisj Hsplit.
       assert (out_edges g v1 ##ₘ out_edges g v2) as Hdisj'.
       { apply not_uconn_out_disjoint. done. }
-      destruct (gmap_xsplit _ _ _ _ Hdisj' Hdisj Hsplit)
+      destruct (map_cross_split (e1 ∪ e2) _ _ _ _ Hdisj' Hdisj)
         as (e11 & e12 & e21 & e22 & Hdisj1 & Hdisj2 & Hdisj3 & Hdisj4 &
-            ? & ? & HH1 & HH2); subst.
+            ? & ? & HH1 & HH2); eauto; subst.
 
       destruct (move_edges' g v1 v2 e11 e12)
         as (g' & Hwf' & Hnuconn' & Hv1 & Hv2 & Hv & Hin); eauto.
-      rewrite H1 in Hv2.
-      rewrite <-assoc in Hv2; last apply _.
+      rewrite <-H1 in Hv2.
+      rewrite <-assoc_L in Hv2; last apply _.
       rewrite map_union_comm in Hv2; last solve_map_disjoint.
 
       destruct (move_edges' g' v2 v1 (e22 ∪ e12) e21)
@@ -1258,20 +1246,10 @@ Section cgraph.
 
   Section setoids.
 
-    Lemma sex_Some x (y : L) :
-      x ≡ Some y -> ∃ y', y' ≡ y ∧ x = Some y'.
-    Proof.
-      intros HH.
-      inversion HH. subst.
-      exists x0. eauto.
-    Qed.
-
     Lemma sex_union (x y z : gmap V L) :
       x ≡ y ∪ z -> ∃ y' z', y ≡ y' ∧ z ≡ z' ∧ x = y' ∪ z'.
     Proof.
     Admitted.
-
-    Require Import diris.mapexcl.
 
     Lemma exchange_alloc_S g v1 v2 e1 e2 l :
       cgraph_wf g ->
@@ -1311,7 +1289,7 @@ Section cgraph.
         (∀ v, v ≠ v2 -> in_labels g' v ≡ in_labels g v).
     Proof.
       intros Hwf Hout1 Hdisj Hsplit.
-      eapply sex_Some in Hout1 as (y' & Hy' & Hout1).
+      eapply equiv_Some_inv_r' in Hout1 as (y' & Hout1 & Hy').
       eapply sex_union in Hsplit as (y2' & z' & Hy2' & Hz' & Hsplit).
       destruct (exchange_dealloc g v1 v2 y2' z' y')
         as (?&?&?&?&?&?&?&?); eauto.
@@ -1321,7 +1299,7 @@ Section cgraph.
       - rewrite H2 //.
       - rewrite H3 //.
       - intros. rewrite H4 //.
-      - intros. rewrite <-Hy' in H7. rewrite H5; last done. done.
+      - intros. rewrite ->Hy' in H7. rewrite H5; last done. done.
     Qed.
 
     Lemma exchange_relabel_S g v1 v2 e1 e2 l l' :
@@ -1339,7 +1317,7 @@ Section cgraph.
       intros Hwf H1 Hdisj Hsplit.
       assert (∃ l2, l ≡ l2 ∧ out_edges g v1 !! v2 = Some l2)
         as (l2 & Hl2 & H1').
-      { eapply sex_Some in H1 as (y' & Hy' & HH).
+      { eapply equiv_Some_inv_r' in H1 as (y' & HH & Hy').
         exists y'. eauto. }
       assert (∃ e1' e2',
         e1 ≡ e1' ∧ e2 ≡ e2' ∧

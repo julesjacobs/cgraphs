@@ -151,7 +151,7 @@ Proof.
 Admitted.
 
 Lemma multiset_empty_neq_singleton {A : ofe} {a : A} :
-  {[ a ]} ≠ ε.
+  {[ a ]} ≠@{multiset A} ε.
 Proof.
 Admitted.
 
@@ -165,7 +165,7 @@ Lemma mset_xsplit {A : ofe} (e1 e2 e1' e2' : multiset A) :
 Proof.
 Admitted.
 
-Lemma multiset_singleton_mult {A:ofe} (a : A) x y :
+Lemma multiset_singleton_mult {A:ofe} (a : A) (x y : multiset A) :
   {[ a ]} ≡ x ⋅ y ->
   (x ≡ ε ∧ y ≡ {[ a ]}) ∨ (x ≡ {[ a ]} ∧ y ≡ ε).
 Proof.

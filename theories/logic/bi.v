@@ -1,6 +1,7 @@
 From iris.bi Require Export derived_connectives.
 From diris.logic Require Export upred.
 From iris.prelude Require Import options.
+From iris Require Import bi.extensions.
 Import uPred_primitive.
 
 Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.

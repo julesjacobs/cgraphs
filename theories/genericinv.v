@@ -208,8 +208,8 @@ Section genericinv.
 
     assert (v1 ≠ v2). {
       intros ->. specialize (Hdisj_out v2).
-      eapply sex_Some in Hv1outv2 as (?&?&?).
-      rewrite H4 in Hdisj_out. done.
+      eapply equiv_Some_inv_r' in Hv1outv2 as (?&HH&?).
+      rewrite HH in Hdisj_out. done.
     }
 
     edestruct (exchange_dealloc_S g v1 v2 Σ1' Σ2')
@@ -274,7 +274,6 @@ Section genericinv.
         apply symmetry in H0.
         eapply multiset_empty_mult in H0 as [].
         eapply multiset_empty_neq_singleton; eauto.
-        exact H0.
       }
       inversion H0. symmetry in H5.
       apply lookup_union_None in H5 as [].

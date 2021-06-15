@@ -23,6 +23,7 @@ Done:
   - Prove elem_of_to_uforest [done]
   - State induction lemma for cgraphs [done]
   - Prove induction lemma for cgraphs [done]
+  - Prove progress [done]
 
 Todo:
 * Preservation:
@@ -30,7 +31,6 @@ Todo:
   - prove mset_σs lemmas
   - Map excl
 * Progress:
-  - Do proof by hand [done]
   - Figure out adequacy statement for generic invariant
   - Prove progress using that adequacy statement.
 * extensions

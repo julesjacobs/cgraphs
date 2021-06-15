@@ -1225,7 +1225,7 @@ Proof.
       * intros. destruct i; simpl in *; simplify_eq; eauto.
   - intros (xs & Qf & Ql & Qxs).
     destruct xs; simpl in *; simplify_eq. revert a Qxs Ql.
-    induction xs; intros; simplify_eq; try reflexivity.
+    induction xs; intros; simplify_eq/=; try reflexivity.
     eapply rtc_transitive.
     + eapply rtc_once. eapply (Qxs 0); simpl; eauto.
     + eapply IHxs; eauto.
