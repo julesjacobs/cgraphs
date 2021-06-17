@@ -190,7 +190,7 @@ Proof.
 Qed.
 
 Definition thread_waiting (es : list expr) (h : heap) (i j : nat) :=
-  ∃ k b, ctx k ∧
+  ∃ b k, ctx k ∧
     es !! i = Some (k (Recv (Val (ChanV (j,b))))) ∧
     h !! (j,b) = Some [].
 
@@ -203,6 +203,17 @@ Definition active (x : object) (es : list expr) (h : heap) :=
   | Chan i => ∃ b, is_Some (h !! (i,b))
   end.
 
+Lemma exists_bool_dec (P : bool -> Prop) :
+  (∀ b, Decision (P b)) -> Decision (∃ b, P b).
+Proof.
+  intros HH.
+  destruct (HH true).
+  { left. eauto. }
+  destruct (HH false).
+  { left. eauto. }
+  right. intros []. destruct x; eauto.
+Qed.
+
 Lemma expr_eq_recv_dec e j b :
   Decision (e = Recv (Val (ChanV (j,b)))).
 Proof.
@@ -214,35 +225,76 @@ Proof.
   - right. intro. simplify_eq.
 Qed.
 
-Lemma expr_waiting_dec e j b :
-  Decision (∃ k, ctx k ∧ e = k (Recv (Val (ChanV (j,b))))).
+Lemma is_val_dec e :
+  Decision (∃ v, e = Val v).
 Proof.
+  destruct e; [left;eauto|..];
+  right; intros (?&?); simplify_eq.
+Qed.
+
+Lemma expr_waiting_dec e e' :
+  (∀ x, Decision (x = e')) -> Decision (∃ k, ctx k ∧ e = k e').
+Proof.
+  intros HH.
+  destruct (HH e); subst.
+  { left. exists (λ x, x). split; eauto. constructor. }
   induction e.
-  - right. intros [? [? []]].
-    admit.
-  - admit.
+  - destruct (HH (Val v)); subst.
+    + left. exists (λ x, x). split; eauto. constructor.
+    + right. intros (?&?&?).
+      destruct H; simplify_eq. destruct H; simplify_eq.
+  - destruct (HH (Var s)); subst.
+    + left. exists (λ x, x). split; eauto. constructor.
+    + right. intros (?&?&?).
+      destruct H; simplify_eq. destruct H; simplify_eq.
+  - destruct IHe1.
+    (* + left. destruct e as (k&?&?). subst.
+      exists (λ x, (App (k x) e2)). split; eauto.
+      eapply (Ctx_cons (λ x, App x e2)); eauto. constructor.
+    + destruct (is_val_dec e1).
+      * destruct IHe2.
+        -- left. destruct e0 as [k []].
+           destruct e as [v ->].
+           exists (λ x, App (Val v) (k x)). subst.
+           split; eauto.
+           econstructor; eauto. constructor.
+        -- right. intros (?&?&?).
+           destruct e as [v ->].
+           destruct H; subst.
+      constructor. *)
+   admit.
 Admitted.
 
-Lemma thread_emptybuf_dec (h : heap) j :
-  Decision (∃ b, h !! (j,b) = Some []).
+Lemma thread_emptybuf_dec (h : heap) j b :
+  Decision (h !! (j,b) = Some []).
 Proof.
-  assert (∀ b, Decision (h !! (j,b) = Some [])).
-  { intro. destruct (h !! (j,b)) eqn:E.
-    - destruct l. left. done. right. intro. simplify_eq.
-    - right. intro. simplify_eq. }
-  destruct (H true).
-  { left. eauto. }
-  destruct (H false).
-  { left. eauto. }
-  right. intros [].
-  destruct x; simplify_eq.
+  destruct (h !! (j,b)) eqn:E.
+  - destruct l. left. done. right. intro. simplify_eq.
+  - right. intro. simplify_eq.
+Qed.
+
+Lemma thread_recv_ctx_dec (es : list expr) i j b :
+  Decision (∃ k, ctx k ∧ es !! i = Some (k (Recv (Val (ChanV (j, b)))))).
+Proof.
+  destruct (es !! i).
+  - destruct (expr_waiting_dec e (Recv (Val (ChanV (j, b))))).
+    { intro. apply expr_eq_recv_dec. }
+    + left. destruct e0 as (?&?&?). subst. eauto.
+    + right. intros (?&?&?).
+      apply n. simplify_eq. eauto.
+  - right. intros (?&?&?). simplify_eq.
 Qed.
 
 Lemma thread_waiting_dec es h i j : Decision (thread_waiting es h i j).
 Proof.
   unfold thread_waiting.
-  destruct (es !! i) eqn:E.
-Admitted.
+  eapply exists_bool_dec. intros b.
+  destruct (thread_emptybuf_dec h j b).
+  - destruct (thread_recv_ctx_dec es i j b).
+    + left. destruct e0 as (?&?&?). eauto.
+    + right. intros (?&?&?&?). apply n. eauto.
+  - right. intros (?&?&?&?). by apply n.
+Qed.
 
 Lemma waiting_dec es h x y l : Decision (waiting es h x y l).
 Proof.
@@ -351,8 +403,9 @@ Proof.
           {
             iIntros "H". iApply (bufs_typed_wlog true b with "H").
           }
-          assert (σs !! b = Some (RecvT t' r)) as Hσsb.
+          assert (σs !! b ≡ Some (RecvT t' r)) as Hσsb.
           { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
+          simplify_eq.
           rewrite Hσsb in Hc. simpl in Hc.
           unfold bufs_typed in Hc.
           eapply exists_holds in Hc as [rest Hc].
@@ -407,8 +460,9 @@ Proof.
           {
             iIntros "H". iApply (bufs_typed_wlog true b with "H").
           }
-          assert (σs !! b = Some (SendT t' r)) as Hσsb.
+          assert (σs !! b ≡ Some (SendT t' r)) as Hσsb.
           { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
+          simplify_eq.
           rewrite Hσsb in Hc. simpl in Hc.
           unfold bufs_typed in Hc.
           eapply exists_holds in Hc as [rest Hc].
@@ -475,8 +529,9 @@ Proof.
           {
             iIntros "H". iApply (bufs_typed_wlog true b with "H").
           }
-          assert (σs !! b = Some EndT) as Hσsb.
+          assert (σs !! b ≡ Some EndT) as Hσsb.
           { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hx. done. }
+          simplify_eq.
           rewrite Hσsb in Hc. simpl in Hc.
           unfold bufs_typed in Hc.
           eapply exists_holds in Hc as [rest Hc].
@@ -538,7 +593,7 @@ Proof.
       unfold waiting in w.
       destruct w as (i0 & j & ? & ? & Htw). simplify_eq.
       unfold thread_waiting in Htw.
-      destruct Htw as (k & b' & Hk & Hi0 & Hjb).
+      destruct Htw as (b' & k & Hk & Hi0 & Hjb).
       rewrite Hi0 in En. simplify_eq.
       rewrite ->rtyped0_ctx in Hn; eauto.
       eapply exists_holds in Hn as [t Hn].
@@ -614,7 +669,7 @@ Proof.
         unfold waiting in w.
         destruct w as (? & ? & ? & ? & Htw). simplify_eq.
         unfold thread_waiting in Htw.
-        destruct Htw as (? & b' & ? & ? & Hjb).
+        destruct Htw as (b' & ? & ? & ? & Hjb).
         rewrite H5 in R. simplify_eq.
         rewrite ->rtyped0_ctx in Hz; eauto.
         eapply exists_holds in Hz as [t Hz].

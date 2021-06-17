@@ -24,18 +24,34 @@ Done:
   - State induction lemma for cgraphs [done]
   - Prove induction lemma for cgraphs [done]
   - Prove progress [done]
+  - prove map_to_multiset lemmas [done]
+  - Map excl setoids [done]
 
 Todo:
 * Preservation:
-  - Remove remaining admits by replacing them with Robbert's std++ lemmas [done, except multiset]
-  - prove mset_σs lemmas [done, except 1]
-  - Map excl [done]
+  - Remove remaining admits by replacing them with Robbert's std++ lemmas
+      [done, except multiset & union inv]
 * Progress:
   - Figure out adequacy statement for generic invariant
   - Prove progress using that adequacy statement.
 * extensions
   - rec lambdas
   - recursive sessions
+  - choice
   - async subtyping
   - locks
 * write paper
+
+Contributions:
+- Methodology using connectivity graphs to separate deadlock reasoning from type system reasoning.
+- Separation logic based approach.
+- Large part of the proof is generic and does not know about the language.
+- Mechanized.
+
+VEST structure.
+- Formal definition of connectivity graphs
+- Definition of invariant based on generic invariant
+- Preservation: separation logic based local reasoning lemmas to prove preservation of the invariant.
+- Progress: wf induction principle based local reasoning
+
+Related work

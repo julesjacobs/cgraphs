@@ -9,7 +9,6 @@ Require Export diris.map_to_multiset.
 Section bufs_typed.
   Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : rProp :=
     match buf, ct with
-                              (* add owner here *)
     | v::buf', RecvT t ct' => val_typed v t ∗ buf_typed buf' ct' rest
     (* | v::buf', SendT t ct' => ??? *)
     (* Add a rule for this to support asynchrous subtyping *)
@@ -193,12 +192,13 @@ Proof.
         -- iPureIntro. by eapply map_to_multiset_update.
         -- iApply (bufs_typed_wlog b true).
            iDestruct (bufs_typed_wlog true b with "H") as "H".
-           assert (σs !! b = Some (SendT t' r)) as ->
+           assert (σs !! b ≡ Some (SendT t' r)) as Hrew
              by by eapply map_to_multiset_lookup.
            rewrite !lookup_insert_spec.
            repeat case_decide; simplify_eq; try solve [by destruct b].
            rewrite H1.
            iApply bufs_typed_push. iFrame.
+           rewrite Hrew. done.
   - (* Receive *)
     eapply (inv_exchange (Thread i) (Chan c.1)); last done; first apply _; first apply _.
     + intros v x []. iIntros "H".
@@ -217,8 +217,9 @@ Proof.
       rewrite list_lookup_insert; last by eapply lookup_lt_Some.
       iDestruct "H" as (σs H2) "H".
       iDestruct (bufs_typed_wlog true b with "H") as "H".
-      assert (σs !! b = Some (RecvT t' r)) as ->
+      assert (σs !! b ≡ Some (RecvT t' r)) as Hrew
              by by eapply map_to_multiset_lookup.
+      simplify_eq. rewrite Hrew.
       rewrite H1.
       iDestruct (bufs_typed_pop with "H") as "[Hv H]".
       iSplitL "H2 Hv".
@@ -250,8 +251,9 @@ Proof.
       iDestruct "H" as (σs Hσs) "H".
       iDestruct (bufs_typed_wlog true b with "H") as "H".
       rewrite H1.
-      assert (σs !! b = Some EndT) as ->
+      assert (σs !! b ≡ Some EndT) as Hrew
              by by eapply map_to_multiset_lookup.
+      simplify_eq. rewrite Hrew.
       rewrite list_lookup_insert; last by eapply lookup_lt_Some.
       (* iDestruct (bufs_typed_pop with "H") as "[Hv H]". *)
       iSplitL "H2".

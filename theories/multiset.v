@@ -12,8 +12,7 @@ Section PermutationA.
 
   Global Instance PermutationA_app_assoc : Assoc (PermutationA R) (++).
   Proof.
-    intros xs1 xs2 xs3. induction xs1 as [|x xs1 IH]; simpl; [done|].
-    by constructor.
+    intros ???. by rewrite assoc.
   Qed.
   Global Instance PermutationA_app_comm : Comm (PermutationA R) (++).
   Proof. intros xs1 xs2. by apply PermutationA_app_comm. Qed.
