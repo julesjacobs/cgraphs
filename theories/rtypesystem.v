@@ -411,39 +411,42 @@ Proof.
       iSplitL "He1".
       { iApply ("IH" with "[%]"); eauto. }
       { iApply ("IH1" with "[%]"); eauto. }
-  -
-
-      {} admit.
-Admitted. *)
-  (* - iDestruct "He" as (t1 t2 (-> & Hs)) "H".
+  - iDestruct "He" as (t1 t2 (-> & Hs)) "H".
     case_decide.
-    + simplify_eq.
+    + simplify_eq. rewrite Hs in H. inversion H.
     + simpl. iExists _,_. iSplit.
       { iPureIntro. split; eauto. rewrite lookup_delete_None. eauto. }
       { replace (delete x Γ ∪ {[s := t1]}) with (delete x (Γ ∪ {[s := t1]})).
         iApply ("IH" with "[%] Hv H").
-        - rewrite lookup_union. rewrite H. rewrite lookup_singleton_ne; eauto.
+        - rewrite lookup_union. rewrite lookup_singleton_ne; eauto.
+          rewrite <-H. destruct (Γ !! x); eauto.
         - rewrite delete_union. rewrite delete_singleton_ne; eauto. }
   - iDestruct "He" as (r t' Γ1 Γ2 (-> & -> & ?)) "[H1 H2]".
-    eapply lookup_union_Some' in H as [[]|[]]; last done.
+    eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
     + iExists _,_,_,_. iSplit.
-      { iPureIntro. split; eauto. by apply delete_union_l. }
+      { iPureIntro. split; eauto. by apply delete_union_l'. }
       iSplitL "H1 Hv".
       { by iApply ("IH" with "[%] Hv"). }
       { by iDestruct (typed_no_var_subst with "H2") as %->. }
     + iExists _,_,_,_. iSplit.
-      { iPureIntro. split; eauto. by apply delete_union_r. }
+      { iPureIntro. split; eauto. by apply delete_union_r'. }
       iSplitR "H2 Hv".
       { by iDestruct (typed_no_var_subst with "H1") as %->. }
       { by iApply ("IH1" with "[%] Hv"). }
+    + iExists _,_,_,_. iSplit.
+      { iPureIntro. split; first done. by eapply delete_union_lr'. }
+      iDestruct (unrestricted_box with "Hv") as "Hv"; eauto.
+      iDestruct "Hv" as "#Hv".
+      iSplitL "H1".
+      { iApply ("IH" with "[%]"); eauto. }
+      { iApply ("IH1" with "[%]"); eauto. }
   - iDestruct "He" as (t r ->) "H".
     iExists _,_. iSplit. done.
     iApply ("IH" with "[%] Hv H"). done.
   - iDestruct "He" as (t' Γ1 Γ2 (-> & ? & ?)) "[H1 H2]".
-    eapply lookup_union_Some' in H as [[]|[]]; last done.
+    eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
     + repeat iExists _. iSplit.
-      { iPureIntro. split. by apply delete_union_l. split; eauto.
-        solve_map_disjoint. }
+      { iPureIntro. rewrite assoc. split; last done. by apply delete_union_l'. }
       iSplitL "H1 Hv".
       { by iApply ("IH" with "[%] Hv"). }
       { case_decide. done.
@@ -453,32 +456,52 @@ Admitted. *)
           rewrite H2. done.
         - rewrite H4. done. }
     + iExists _,_,_. iSplit.
-      { iPureIntro. split. by apply delete_union_r. split.
-        + solve_map_disjoint.
-        + rewrite lookup_delete_None. eauto. }
+      { iPureIntro. rewrite assoc. split. eapply delete_union_r'; eauto.
+        eapply lookup_delete_None; eauto. }
       iSplitR "H2 Hv".
       { by iDestruct (typed_no_var_subst with "H1") as %->. }
-      { case_decide. simplify_eq.
+      { case_decide. { subst. rewrite H1 in H2. inversion H2. }
         replace (delete x Γ2 ∪ {[s := t']}) with (delete x (Γ2 ∪ {[s := t']})).
         - iApply ("IH1" with "[%] Hv H2").
-          rewrite lookup_union. rewrite H. rewrite lookup_singleton_ne; eauto.
+          rewrite lookup_union. rewrite lookup_singleton_ne; eauto.
+          rewrite <-H2. destruct (Γ2 !! x); done.
+        - rewrite delete_union. rewrite delete_singleton_ne; eauto. }
+    + iExists _,_,_. iSplit.
+      { iPureIntro. rewrite assoc. split. apply delete_union_lr'; eauto.
+        apply lookup_delete_None; eauto. }
+      iDestruct (unrestricted_box with "Hv") as "Hv"; eauto.
+      iDestruct "Hv" as "#Hv".
+      iSplitL "H1".
+      { iApply ("IH" with "[%]"); eauto. }
+      { case_decide. { subst. rewrite H1 in H2. inversion H2. }
+        replace (delete x Γ2 ∪ {[s := t']}) with (delete x (Γ2 ∪ {[s := t']})).
+        - iApply ("IH1" with "[%] Hv H2").
+          rewrite lookup_union. rewrite lookup_singleton_ne; eauto.
+          rewrite <-H2. destruct (Γ2 !! x); done.
         - rewrite delete_union. rewrite delete_singleton_ne; eauto. }
   - iDestruct "He" as (Γ1 Γ2 (-> & ?)) "[H1 H2]".
-    eapply lookup_union_Some' in H as [[]|[]]; last done.
+    eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
     + repeat iExists _. iSplit.
-      { iPureIntro. apply delete_union_l; eauto. }
+      { iPureIntro. apply delete_union_l'; eauto. }
       iSplitL "H1 Hv".
       { iApply ("IH" with "[%] Hv H1"). done. }
       { iDestruct (typed_no_var_subst with "H2") as %->; eauto. }
     + repeat iExists _. iSplit.
-      { iPureIntro. apply delete_union_r; eauto. }
+      { iPureIntro. apply delete_union_r'; eauto. }
       iSplitL "H1".
       { iDestruct (typed_no_var_subst with "H1") as %->; eauto. }
       { iApply ("IH1" with "[%] Hv H2"). done. }
-  - iDestruct "He" as (t1 t2 Γ1 Γ2 (Hneq & -> & ? & ? & ?)) "[H1 H2]".
-    eapply lookup_union_Some' in H as [[]|[]]; last done.
     + repeat iExists _. iSplit.
-      { iPureIntro. split;eauto. split. apply delete_union_l; eauto.
+      { iPureIntro. by eapply delete_union_lr'. }
+      iDestruct (unrestricted_box with "Hv") as "Hv"; eauto.
+      iDestruct "Hv" as "#Hv".
+      iSplitL "H1".
+      { iApply ("IH" with "[%]"); eauto. }
+      { iApply ("IH1" with "[%]"); eauto. }
+  - iDestruct "He" as (t1 t2 Γ1 Γ2 (Hneq & -> & ? & ? & ?)) "[H1 H2]".
+    eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
+    + repeat iExists _. iSplit.
+      { iPureIntro. split;eauto. rewrite assoc. split. apply delete_union_l'; eauto.
         solve_map_disjoint. }
       iSplitL "H1 Hv".
       { iApply ("IH" with "[%] Hv H1"). done. }
@@ -488,23 +511,43 @@ Admitted. *)
           rewrite !lookup_union. rewrite H3.
           rewrite !lookup_singleton_ne; eauto. }
     + repeat iExists _. iSplit.
-      { iPureIntro. split;eauto. split. apply delete_union_r; eauto.
-        split. solve_map_disjoint.
-        rewrite !lookup_delete_None. eauto. }
+      { iPureIntro. split;eauto. rewrite assoc. split. apply delete_union_r'; eauto.
+        split. eapply lookup_delete_None; eauto.
+        eapply lookup_delete_None; eauto. }
       iSplitL "H1".
       { iDestruct (typed_no_var_subst with "H1") as %->; eauto. }
       { case_decide.
-        - destruct H4; subst; simplify_eq.
+        - destruct H4; subst; simplify_eq. rewrite H1 in H3. inversion H3.
+          rewrite H2 in H3. inversion H3.
         - replace (delete x Γ2 ∪ {[s := t1]} ∪ {[s0 := t2]}) with
                   (delete x (Γ2 ∪ {[s := t1]} ∪ {[s0 := t2]})).
           { iApply ("IH1" with "[%] Hv H2").
-            rewrite !lookup_union. rewrite H.
-            rewrite !lookup_singleton_ne; eauto. }
+            rewrite !lookup_union.
+            rewrite !lookup_singleton_ne; eauto.
+            rewrite <- H3. destruct (Γ2 !! x); eauto. }
+          { rewrite !delete_union. rewrite !delete_singleton_ne; eauto. } }
+    + repeat iExists _. iSplit.
+      { iPureIntro. split;eauto. rewrite assoc. split. apply delete_union_lr'; eauto.
+        split. eapply lookup_delete_None; eauto.
+        eapply lookup_delete_None; eauto. }
+      iDestruct (unrestricted_box with "Hv") as "Hv"; eauto.
+      iDestruct "Hv" as "#Hv".
+      iSplitL "H1".
+      { iApply ("IH" with "[%]"); eauto. }
+      { case_decide.
+        - destruct H5; subst; simplify_eq. rewrite H1 in H3. inversion H3.
+          rewrite H2 in H3. inversion H3.
+        - replace (delete x Γ2 ∪ {[s := t1]} ∪ {[s0 := t2]}) with
+                  (delete x (Γ2 ∪ {[s := t1]} ∪ {[s0 := t2]})).
+          { iApply ("IH1" with "[%] Hv H2").
+            rewrite !lookup_union.
+            rewrite !lookup_singleton_ne; eauto.
+            rewrite <- H3. destruct (Γ2 !! x); eauto. }
           { rewrite !delete_union. rewrite !delete_singleton_ne; eauto. } }
   - iDestruct "He" as (Γ1 Γ2 (-> & ?)) "[H1 H2]".
-    eapply lookup_union_Some' in H as [[]|[]]; last done.
+    eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
     + repeat iExists _. iSplit.
-      { iPureIntro. apply delete_union_l; eauto. }
+      { iPureIntro. apply delete_union_l'; eauto. }
       iSplitL "H1 Hv".
       { iApply ("IH" with "[%] Hv H1"). done. }
       { iDestruct (typed_no_var_subst e2 with "[H2]") as %->.
@@ -515,9 +558,20 @@ Admitted. *)
           + iDestruct "H2" as "[_ H]". eauto.
           + done. }
     + repeat iExists _. iSplit.
-      { iPureIntro. apply delete_union_r; eauto. }
+      { iPureIntro. apply delete_union_r'; eauto. }
       iSplitL "H1".
       { iDestruct (typed_no_var_subst with "H1") as %->; eauto. }
+      { iSplit.
+        - iDestruct "H2" as "[H _]".
+          iApply ("IH1" with "[%] Hv H"). done.
+        - iDestruct "H2" as "[_ H]".
+          iApply ("IH2" with "[%] Hv H"). done. }
+    + repeat iExists _. iSplit.
+      { iPureIntro. apply delete_union_lr'; eauto. }
+      iDestruct (unrestricted_box with "Hv") as "Hv"; eauto.
+      iDestruct "Hv" as "#Hv".
+      iSplitL "H1".
+      { iApply ("IH" with "[%]"); eauto. }
       { iSplit.
         - iDestruct "H2" as "[H _]".
           iApply ("IH1" with "[%] Hv H"). done.
@@ -530,7 +584,7 @@ Admitted. *)
   - iDestruct "He" as "[% He]".
     iSplit; first done.
     iApply ("IH" with "[%] Hv He"). done.
-Qed. *)
+Qed.
 
 (* rtyped with empty environment *)
 
