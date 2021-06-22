@@ -196,13 +196,29 @@ Notation chan_typeO := (chan_type'O typeO).
 
 Notation envT := (gmap string type).
 
+Definition unrestricted t :=
+    t = NatT.
+
+Definition disj (Γ1 Γ2 : envT) : Prop :=
+  ∀ i t1 t2, Γ1 !! i = Some t1 -> Γ2 !! i = Some t2 -> t1 ≡ t2 ∧ unrestricted t1.
+
+Definition Γunrestricted (Γ : envT) :=
+  ∀ x t, Γ !! x = Some t -> unrestricted t.
+
 Inductive typed : envT -> expr -> type -> Prop :=
-    | Unit_typed : typed ∅ (Val UnitV) UnitT
-    | Nat_typed : ∀ n, typed ∅ (Val (NatV n)) NatT
-    | Var_typed : ∀ x t,
-        typed {[ x := t ]} (Var x) t
+    | Unit_typed Γ :
+        Γunrestricted Γ ->
+        typed Γ (Val UnitV) UnitT
+    | Nat_typed : ∀ Γ n,
+        Γunrestricted Γ ->
+        typed Γ (Val (NatV n)) NatT
+    | Var_typed : ∀ Γ x t t',
+        Γ !! x = None ->
+        Γunrestricted Γ ->
+        t ≡ t' ->
+        typed (Γ ∪ {[ x := t ]}) (Var x) t'
     | App_typed : ∀ Γ1 Γ2 e1 e2 t1 t2,
-        Γ1 ##ₘ Γ2 ->
+        disj Γ1 Γ2 ->
         typed Γ1 e1 (FunT t1 t2) ->
         typed Γ2 e2 t1 ->
         typed (Γ1 ∪ Γ2) (App e1 e2) t2
@@ -211,7 +227,7 @@ Inductive typed : envT -> expr -> type -> Prop :=
         typed (Γ ∪ {[ x := t1 ]}) e t2 ->
         typed Γ (Lam x e) (FunT t1 t2)
     | Send_typed : ∀ Γ1 Γ2 e1 e2 t r,
-        Γ1 ##ₘ Γ2 ->
+        disj Γ1 Γ2 ->
         typed Γ1 e1 (ChanT (SendT t r)) ->
         typed Γ2 e2 t ->
         typed (Γ1 ∪ Γ2) (Send e1 e2) (ChanT r)
@@ -219,18 +235,18 @@ Inductive typed : envT -> expr -> type -> Prop :=
         typed Γ e (ChanT (RecvT t r)) ->
         typed Γ (Recv e) (PairT (ChanT r) t)
     | Let_typed : ∀ Γ1 Γ2 e1 e2 t1 t2 x,
-        Γ1 ##ₘ Γ2 ->
+        disj Γ1 Γ2 ->
         Γ2 !! x = None ->
         typed Γ1 e1 t1 ->
         typed (Γ2 ∪ {[ x := t1 ]}) e2 t2 ->
         typed (Γ1 ∪ Γ2) (Let x e1 e2) t2
     | LetUnit_typed : ∀ Γ1 Γ2 e1 e2 t,
-        Γ1 ##ₘ Γ2 ->
+        disj Γ1 Γ2 ->
         typed Γ1 e1 UnitT ->
         typed Γ2 e2 t ->
         typed (Γ1 ∪ Γ2) (LetUnit e1 e2) t
     | LetProd_typed : ∀ Γ1 Γ2 e1 e2 t11 t12 t2 x1 x2,
-        Γ1 ##ₘ Γ2 ->
+        disj Γ1 Γ2 ->
         x1 ≠ x2 ->
         Γ2 !! x1 = None ->
         Γ2 !! x2 = None ->
@@ -238,7 +254,7 @@ Inductive typed : envT -> expr -> type -> Prop :=
         typed (Γ2 ∪ {[ x1 := t11 ]} ∪ {[ x2 := t12 ]}) e2 t2 ->
         typed (Γ1 ∪ Γ2) (LetProd x1 x2 e1 e2) t2
     | If_typed : ∀ Γ1 Γ2 e1 e2 e3 t,
-        Γ1 ##ₘ Γ2 ->
+        disj Γ1 Γ2 ->
         typed Γ1 e1 NatT ->
         typed Γ2 e2 t ->
         typed Γ2 e3 t ->

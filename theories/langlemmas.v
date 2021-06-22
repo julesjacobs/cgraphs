@@ -34,17 +34,24 @@ Proof.
     subst. done.
   - iDestruct "Ht" as (t' Γ1 Γ2 H) "[[% Hv] Ht]".
     destruct H as (H & _ & _).
-    subst. rewrite left_id in H. subst. rewrite left_id.
+    subst. symmetry in H.
+    assert (Γ1 = ∅) as ->. { by eapply map_positive_l. }
+    rewrite left_id_L in H. subst. rewrite left_id_L.
     replace (∅ : envT) with (delete x {[ x := t']} : envT); last first.
     { apply delete_singleton. }
     iApply (subst_rtyped with "Hv Ht").
     rewrite lookup_singleton. done.
   - iDestruct "Ht" as (Γ1 Γ2 (H & Hd)) "[% Ht]".
-    destruct H0. subst. rewrite left_id in H. subst. done.
+    destruct H0.
+    symmetry in H.
+    assert (Γ1 = ∅) as ->. { by eapply map_positive_l. }
+    rewrite left_id_L in H. subst. done.
   - iDestruct "Ht" as (t1 t2 Γ1 Γ2 (? & ? & ? & ?)) "[[% Hv] Ht]".
     iDestruct "Hv" as (t1' t2' HH) "[Hv1 Hv2]".
     simplify_eq.
-    rewrite left_id in H0. subst.
+    symmetry in H0.
+    assert (Γ1 = ∅) as ->. { by eapply map_positive_l. }
+    rewrite left_id_L in H0. subst.
     rewrite left_id.
     replace (∅ : envT) with (delete x1 $ delete x2 $ ({[x1 := t1']} ∪ {[x2 := t2']}) : envT); last first.
     { rewrite delete_union delete_singleton right_id.
