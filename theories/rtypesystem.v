@@ -37,7 +37,7 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
   | Val v =>
       ⌜⌜ Γ = ∅ ⌝⌝ ∗ val_typed v t
   | Var x =>
-      ⌜⌜ Γ = {[ x := t ]} ⌝⌝
+      ⌜⌜ Γ ≡ {[ x := t ]} ⌝⌝
   | App e1 e2 => ∃ t' Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ Γ1 ##ₘ Γ2 ⌝⌝ ∗
       rtyped Γ1 e1 (FunT t' t) ∗
@@ -83,6 +83,26 @@ with val_typed (v : val) (t : type) : rProp :=
   | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own_ep c r
   end.
 
+Lemma rtyped_proper_impl Γ1 Γ2 t1 t2 e :
+  Γ1 ≡ Γ2 -> t1 ≡ t2 -> rtyped Γ1 e t1 ⊢ rtyped Γ2 e t2
+with val_typed_proper_impl t1 t2 v :
+  t1 ≡ t2 -> val_typed v t1 ⊢ val_typed v t2.
+Proof.
+  - intros H1 H2. destruct e; simpl.
+Admitted.
+
+Instance : Params (@val_typed) 1 := {}.
+Instance rtyped_proper : Proper ((≡) ==> (=) ==> (≡) ==> (≡)) rtyped.
+Proof.
+  intros ?????????. subst. iSplit;
+  iIntros "H"; iApply rtyped_proper_impl; last first; eauto.
+Qed.
+Instance val_typed_proper v : Proper ((≡) ==> (≡)) (val_typed v).
+Proof.
+  intros ???. iSplit;
+  iIntros "H"; iApply val_typed_proper_impl; last first; eauto.
+Qed.
+
 Lemma typed_rtyped Γ e t : ⌜⌜ typed Γ e t ⌝⌝ -∗ rtyped Γ e t.
 Proof.
   iIntros "%".
@@ -125,7 +145,9 @@ Proof.
   iIntros (Hx) "Ht".
   iInduction e as [] "IH" forall (Γ t Hx); foo.
   - done.
-  - done.
+  - iPureIntro. case_decide; eauto. subst.
+    specialize (H s). rewrite Hx in H.
+    rewrite lookup_singleton in H. inversion H.
   - iDestruct "Ht" as (t' Γ1 Γ2  [-> ?]) "[H1 H2]".
     iDestruct ("IH" with "[%] H1") as %?.
     { by apply lookup_union_None in Hx as []. }
@@ -209,8 +231,16 @@ Proof.
   iIntros (H) "Hv He".
   iInduction e as [?|?|?|?|?|?|?|?|?|?|?|?] "IH" forall (eT Γ H); simpl.
   - iDestruct "He" as "[% H']". simplify_map_eq.
-  - iDestruct "He" as "%". simplify_map_eq. iFrame.
-    iPureIntro. apply delete_singleton.
+  - iDestruct "He" as "%".
+    case_decide; subst.
+    + pose proof (H0 s) as HH. rewrite H in HH. rewrite lookup_singleton in HH.
+      inversion HH. subst. rewrite H3. simpl. iFrame.
+      iPureIntro. apply map_eq. intros.
+      rewrite lookup_delete_spec. case_decide; rewrite lookup_empty; eauto.
+      specialize (H0 i). rewrite lookup_singleton_ne in H0; eauto.
+      by inversion H0.
+    + specialize (H0 x). rewrite H in H0.
+      rewrite lookup_singleton_ne in H0; eauto. inversion H0.
   - iDestruct "He" as (t' Γ1 Γ2 [-> ?]) "(He1 & He2)".
     eapply lookup_union_Some' in H as [[]|[]]; last done.
     + iExists _,_,_. iSplit.
@@ -381,6 +411,8 @@ Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
       ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped0 e (ChanT EndT)
  end%I.
 
+Instance : Params (@rtyped0) 1 := {}.
+
 Lemma both_emp (A B : envT) : ∅ = A ∪ B -> A = ∅ ∧ B = ∅.
 Proof.
   intros H.
@@ -399,6 +431,7 @@ Proof.
   iInduction e as [] "IH" forall (t); simpl.
   - iDestruct "H" as "[_ H]". done.
   - iDestruct "H" as "%". exfalso. symmetry in H.
+    eapply map_equiv_empty in H.
     eapply (map_non_empty_singleton _ _ H).
   - iDestruct "H" as (t1 Γ1 Γ2 [H1 H2]) "[H1 H2]".
     iExists t1.
@@ -513,6 +546,13 @@ Proof.
   - iDestruct "H" as "[? H]". iFrame. iApply "IH". done.
 Qed.
 
+(* Lemma rtyped0_rtyped e t :
+  rtyped0 e t ⊣⊢ rtyped ∅ e t. *)
+
+
+(* Instance rtyped0_proper e : Proper ((≡) ==> (≡)) (rtyped0 e).
+Proof.
+Admitted. *)
 
 Definition ctx_typed0 (k : expr -> expr)
                      (A : type) (B : type) : rProp :=

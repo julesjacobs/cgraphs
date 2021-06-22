@@ -43,26 +43,46 @@ CoInductive chan_type' (T : Type) :=
 Arguments SendT {_} _ _.
 Arguments RecvT {_} _ _.
 Arguments EndT {_}.
-Instance sendt_params : Params (@SendT) 2 := {}.
-Instance recvt_params : Params (@RecvT) 2 := {}.
+Instance sendt_params : Params (@SendT) 1 := {}.
+Instance recvt_params : Params (@RecvT) 1 := {}.
 
 
-CoInductive chan_type_equiv {T} : Equiv (chan_type' T) :=
+CoInductive chan_type_equiv `{Equiv T} : Equiv (chan_type' T) :=
     | cteq_EndT : EndT ≡ EndT
-    | cteq_SendT s1 s2 t : s1 ≡ s2 -> SendT t s1 ≡ SendT t s2
-    | cteq_RecvT s1 s2 t : s1 ≡ s2 -> RecvT t s1 ≡ RecvT t s2.
+    | cteq_SendT t1 t2 s1 s2 : t1 ≡ t2 -> s1 ≡ s2 -> SendT t1 s1 ≡ SendT t2 s2
+    | cteq_RecvT t1 t2 s1 s2 : t1 ≡ t2 -> s1 ≡ s2 -> RecvT t1 s1 ≡ RecvT t2 s2.
 Existing Instance chan_type_equiv.
-Global Instance chan_type_equivalence T : Equivalence (≡@{chan_type' T}).
+
+Lemma chan_type_reflexive `{Equiv T} :
+    Reflexive (≡@{T}) -> Reflexive (≡@{chan_type' T}).
+Proof.
+    intros ?. cofix IH. intros []; constructor; done.
+Defined.
+
+Lemma chan_type_symmetric `{Equiv T} :
+    Symmetric (≡@{T}) -> Symmetric (≡@{chan_type' T}).
+Proof.
+    intros ?. cofix IH. intros ??[]; constructor; done.
+Defined.
+
+Lemma chan_type_transitive `{Equiv T} :
+    Transitive (≡@{T}) -> Transitive (≡@{chan_type' T}).
+Proof.
+    intros ?. cofix IH. intros ???[]; inversion_clear 1; constructor; by etrans.
+Defined.
+
+Global Instance chan_type_equivalence `{Equiv T} :
+    Equivalence (≡@{T}) -> Equivalence (≡@{chan_type' T}).
 Proof.
     split.
-    - cofix IH. intros []; constructor; apply IH.
-    - cofix IH. intros ??[]; constructor; by apply IH.
-    - cofix IH. intros ???[]; inversion_clear 1; constructor; by eapply IH.
+    - apply chan_type_reflexive. apply _.
+    - apply chan_type_symmetric. apply _.
+    - apply chan_type_transitive. apply _.
 Qed.
 
-Global Instance sendt_proper {T} (t : T) : Proper ((≡) ==> (≡)) (SendT t).
+Global Instance sendt_proper `{Equiv T} : Proper ((≡) ==> (≡) ==> (≡)) (@SendT T).
 Proof. by constructor. Qed.
-Global Instance recvt_proper {T} (t : T) : Proper ((≡) ==> (≡)) (RecvT t).
+Global Instance recvt_proper `{Equiv T} : Proper ((≡) ==> (≡) ==> (≡)) (@RecvT T).
 Proof. by constructor. Qed.
 
 Definition chan_type_id {T} (s : chan_type' T) : chan_type' T :=
@@ -78,7 +98,7 @@ Proof.
     by destruct s.
 Qed.
 
-Lemma chan_type_equiv_alt {T} (s1 s2 : chan_type' T) :
+Lemma chan_type_equiv_alt `{Equiv T} (s1 s2 : chan_type' T) :
     chan_type_id s1 ≡ chan_type_id s2 -> s1 ≡ s2.
 Proof.
     intros.
@@ -87,10 +107,10 @@ Proof.
     done.
 Defined.
 
-Lemma chan_type_equiv_end_eq {T} (s : chan_type' T) :
+Lemma chan_type_equiv_end_eq `{Equiv T} (s : chan_type' T) :
     s ≡ EndT -> s = EndT.
 Proof.
-    intros H. destruct s; inversion H. done.
+    by inversion 1.
 Qed.
 
 CoFixpoint dual {T} (s : chan_type' T) : chan_type' T :=
@@ -100,56 +120,79 @@ CoFixpoint dual {T} (s : chan_type' T) : chan_type' T :=
     | EndT => EndT
     end.
 
-Global Instance dual_proper {T} : Proper ((≡) ==> (≡)) (@dual T).
+Global Instance dual_proper `{Equiv T} : Proper ((≡) ==> (≡)) (@dual T).
 Proof.
     cofix IH.
-    intros s1 s2 H.
+    intros s1 s2 HH.
     apply chan_type_equiv_alt.
-    destruct H; simpl; constructor; by apply IH.
+    destruct HH; simpl; constructor; done || by apply IH.
 Qed.
 
-Lemma dual_dual {T} (s : chan_type' T) : dual (dual s) ≡ s.
-Proof.
-    apply chan_type_equiv_alt.
-    revert s. cofix IH. intros []; simpl; constructor;
-    apply chan_type_equiv_alt, IH.
-Qed.
+Section dual.
+    Context `{Equiv T, !Equivalence (≡@{T})}.
+    Implicit Type s : chan_type' T.
 
-Lemma dual_send {T} (s : chan_type' T) t : dual (SendT t s) ≡ RecvT t (dual s).
-Proof.
-    apply chan_type_equiv_alt; done.
-Qed.
+    Lemma dual_dual s :
+        dual (dual s) ≡ s.
+    Proof.
+        apply chan_type_equiv_alt.
+        revert s. cofix IH. intros []; simpl; constructor; try done;
+        apply chan_type_equiv_alt; apply IH.
+    Qed.
 
-Lemma dual_recv {T} (s : chan_type' T) t : dual (RecvT t s) ≡ SendT t (dual s).
-Proof.
-    apply chan_type_equiv_alt; done.
-Qed.
+    Lemma dual_send s t : dual (SendT t s) ≡ RecvT t (dual s).
+    Proof.
+        apply chan_type_equiv_alt; done.
+    Qed.
 
-Lemma dual_end {T} : dual (EndT : chan_type' T) ≡ EndT.
-Proof.
-    apply chan_type_equiv_alt; done.
-Qed.
+    Lemma dual_recv s t : dual (RecvT t s) ≡ SendT t (dual s).
+    Proof.
+        apply chan_type_equiv_alt; done.
+    Qed.
 
-Lemma dual_end_inv {T} (s : chan_type' T) : dual s ≡ EndT -> s = EndT.
-Proof.
-    intros H. destruct s; eauto.
-    - rewrite ->dual_send in H. inversion H.
-    - rewrite ->dual_recv in H. inversion H.
-Qed.
+    Lemma dual_end : dual (EndT : chan_type' T) ≡ EndT.
+    Proof.
+        apply chan_type_equiv_alt; done.
+    Qed.
 
-Canonical Structure chan_type'O T := discreteO (chan_type' T).
+    Lemma dual_end_inv s : dual s ≡ EndT -> s = EndT.
+    Proof.
+        intros HH. destruct s; eauto.
+        - rewrite ->dual_send in HH. inversion HH.
+        - rewrite ->dual_recv in HH. inversion HH.
+    Qed.
+End dual.
 
-Inductive type :=
+Canonical Structure chan_type'O (T:ofe) := discreteO (chan_type' T).
+
+CoInductive type :=
     | UnitT : type
     | NatT : type
     | PairT : type -> type -> type
     | FunT : type -> type -> type
     | ChanT : chan_type' type -> type.
 
-Notation chan_type := (chan_type' type).
-Notation chan_typeO := (chan_type'O type).
 
-Canonical Structure typeO := leibnizO type.
+CoInductive type_equiv : Equiv type :=
+    | teq_UnitT : UnitT ≡ UnitT
+    | teq_NatT : NatT ≡ NatT
+    | teq_PairT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> PairT t1 t1' ≡ PairT t2 t2'
+    | teq_FunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> FunT t1 t1' ≡ FunT t2 t2'
+    | teq_ChanT s1 s2 : s1 ≡ s2 -> ChanT s1 ≡ ChanT s2.
+Existing Instance type_equiv.
+
+Global Instance type_equivalence : Equivalence (≡@{type}).
+Proof.
+    split.
+    - cofix IH. intros []; constructor; done || apply chan_type_reflexive, _.
+    - cofix IH. intros ??[]; constructor; done || by apply (chan_type_symmetric _).
+    - cofix IH. intros ???[]; inversion_clear 1; constructor;
+      by etrans || by eapply (chan_type_transitive _).
+Qed.
+
+Canonical Structure typeO := discreteO type.
+Notation chan_type := (chan_type' type).
+Notation chan_typeO := (chan_type'O typeO).
 
 Notation envT := (gmap string type).
 
