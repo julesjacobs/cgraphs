@@ -406,7 +406,7 @@ Proof.
           assert (σs !! b ≡ Some (RecvT t' r)) as Hσsb.
           { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
           simplify_eq.
-          rewrite Hσsb in Hc. simpl in Hc.
+          rewrite ->Hσsb in Hc. simpl in Hc.
           unfold bufs_typed in Hc.
           eapply exists_holds in Hc as [rest Hc].
           eapply sep_holds in Hc as (Σ3 & Σ4 & Houtc & Hdisj' & Hc1 & Hc2).
@@ -463,7 +463,7 @@ Proof.
           assert (σs !! b ≡ Some (SendT t' r)) as Hσsb.
           { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
           simplify_eq.
-          rewrite Hσsb in Hc. simpl in Hc.
+          rewrite ->Hσsb in Hc. simpl in Hc.
           unfold bufs_typed in Hc.
           eapply exists_holds in Hc as [rest Hc].
           eapply sep_holds in Hc as (Σ3' & Σ4' & Houtc & Hdisj'' & Hc1 & Hc2).
@@ -474,7 +474,7 @@ Proof.
           {
             intro. subst. destruct l; simpl in Hc1.
             - eapply affinely_pure_holds in Hc1 as [].
-              simplify_eq.
+              inversion H0.
             - eapply false_holds in Hc1 as [].
           }
           destruct (h !! (c,negb b)) eqn:F; eauto.
@@ -483,7 +483,7 @@ Proof.
           destruct (σs !! negb b) eqn:G.
           { eapply false_holds in Hc2 as []. }
           eapply affinely_pure_holds in Hc2 as [].
-          destruct rest; simplify_eq.
+          apply H. apply dual_end_inv. done.
         }
 
         eexists _,_.
@@ -532,7 +532,7 @@ Proof.
           assert (σs !! b ≡ Some EndT) as Hσsb.
           { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hx. done. }
           simplify_eq.
-          rewrite Hσsb in Hc. simpl in Hc.
+          rewrite ->Hσsb in Hc. simpl in Hc.
           unfold bufs_typed in Hc.
           eapply exists_holds in Hc as [rest Hc].
           eapply sep_holds in Hc as (Σ3 & Σ4 & Houtc & Hdisj' & Hc1 & Hc2).
@@ -575,8 +575,7 @@ Proof.
       {
         eapply emp_holds in Hn.
         eapply map_equiv_empty in Hn.
-        rewrite Hn in Hy. rewrite lookup_empty in Hy.
-        simplify_eq.
+        rewrite Hn in Hy. rewrite lookup_empty in Hy. inversion Hy.
       }
       destruct (waiting_dec es h (Thread n) (Chan i) (b, σ1)); last first.
       {
@@ -588,7 +587,7 @@ Proof.
         eapply map_equiv_empty in H0.
         rewrite H0 in Hy.
         rewrite lookup_empty in Hy.
-        simplify_eq.
+        inversion Hy.
       }
       unfold waiting in w.
       destruct w as (i0 & j & ? & ? & Htw). simplify_eq.
@@ -615,7 +614,9 @@ Proof.
         - rewrite Q. simpl. done.
         - rewrite Q. simpl. done.
       }
-      inversion H4. simplify_eq.
+      inversion H4. inversion H7. simpl in *.
+      apply leibniz_equiv in H8.
+      simplify_eq.
       rewrite Hbuf in Hjb. simplify_eq.
       simpl in Hx.
       eapply exists_holds in Hx as [rest Hx].
@@ -626,7 +627,8 @@ Proof.
         simpl in Hx. destruct (σs !! negb b).
         - eapply false_holds in Hx as [].
         - eapply affinely_pure_holds in Hx as [].
-          simplify_eq.
+          rewrite <-H9 in H6.
+          rewrite ->dual_recv in H6. inversion H6.
       }
       simpl in Hx.
       destruct (σs !! negb b) eqn:Q2; last first.
@@ -652,7 +654,7 @@ Proof.
           eapply emp_holds in Hz.
           eapply map_equiv_empty in Hz.
           rewrite Hz in Hzout. rewrite lookup_empty in Hzout.
-          simplify_eq.
+          inversion Hzout.
         }
         destruct (waiting_dec es h (Thread n) (Chan j) (negb b, c)); last first.
         {
@@ -661,41 +663,45 @@ Proof.
           intros ->.
           simpl in Hz.
           eapply affinely_pure_holds in Hz as [].
-          eapply map_equiv_empty in H4.
-          rewrite H4 in Hzout.
+          eapply map_equiv_empty in H6.
+          rewrite H6 in Hzout.
           rewrite lookup_empty in Hzout.
-          simplify_eq.
+          inversion Hzout.
         }
         unfold waiting in w.
         destruct w as (? & ? & ? & ? & Htw). simplify_eq.
         unfold thread_waiting in Htw.
-        destruct Htw as (b' & ? & ? & ? & Hjb).
-        rewrite H5 in R. simplify_eq.
+        destruct Htw as (b' & ? & ? & HH & Hjb).
+        rewrite HH in R. simplify_eq.
         rewrite ->rtyped0_ctx in Hz; eauto.
         eapply exists_holds in Hz as [t Hz].
-        eapply sep_holds in Hz as (?&?&?&?&?&?).
-        simpl in H8.
-        eapply exists_holds in H8 as [? H8].
-        eapply exists_holds in H8 as [? H8].
-        eapply pure_sep_holds in H8 as [-> H8].
-        eapply exists_holds in H8 as [? H8].
-        eapply pure_sep_holds in H8 as [? H8]. simplify_eq.
-        eapply own_holds in H8.
-        assert (Some (b',RecvT x5 x6) ≡ Some (negb b,c)).
+        eapply sep_holds in Hz as (?&?&?&?&QQ&?).
+        simpl in *.
+        eapply exists_holds in QQ as [? QQ].
+        eapply exists_holds in QQ as [? QQ].
+        eapply pure_sep_holds in QQ as [-> QQ].
+        eapply exists_holds in QQ as [? QQ].
+        eapply pure_sep_holds in QQ as [? QQ]. simplify_eq.
+        eapply own_holds in QQ.
+        assert (Some (b',RecvT x6 x7) ≡ Some (negb b,c)).
         {
           rewrite <- Hzout.
-          rewrite H6.
-          rewrite <- H8.
+          rewrite H8.
+          rewrite <- QQ.
           rewrite lookup_union lookup_singleton.
-          destruct (x4 !! Chan x1) eqn:Q'; simpl.
+          destruct (x5 !! Chan x2) eqn:Q'; simpl.
           - rewrite Q'. simpl. done.
           - rewrite Q'. simpl. done.
         }
-        inversion H10. simplify_eq.
+        inversion H12. simplify_eq.
+        inversion H15. simpl in *. apply leibniz_equiv in H13.
+        simplify_eq.
         rewrite Hjb in Q. simplify_eq.
         simpl in Hx.
         eapply affinely_pure_holds in Hx as [].
-        simplify_eq.
+        inversion H7. simpl in *.
+        inversion H18; simplify_eq. inversion H14.
+        simplify_eq. rewrite ->dual_recv in H16. inversion H16.
       }
 
 
@@ -704,18 +710,18 @@ Proof.
       eapply pure_sep_holds in Hc as [Hσs' Hc].
       destruct (decide (h !! (c0,true) = None ∧ h !! (c0,false) = None)) as [[]|].
       {
-        rewrite H2 in Hc. rewrite H4 in Hc.
+        rewrite H5 in Hc. rewrite H6 in Hc.
         destruct (σs' !! true).
         { unfold bufs_typed in Hc. simpl in Hc.
           eapply exists_holds in Hc as [? Hc].
           eapply sep_holds in Hc as (?&?&?&?&?&?).
-          eapply false_holds in H7 as [].
+          eapply false_holds in H11 as [].
         }
         destruct (σs' !! false).
         { unfold bufs_typed in Hc. simpl in Hc.
           eapply exists_holds in Hc as [? Hc].
           eapply sep_holds in Hc as (?&?&?&?&?&?).
-          eapply false_holds in H8 as [].
+          eapply false_holds in H12 as [].
         }
         eapply (holds_entails _ emp%I) in Hc; last first.
         { iIntros "H". unfold bufs_typed.
@@ -725,7 +731,8 @@ Proof.
           done. }
         eapply emp_holds in Hc.
         apply map_equiv_empty in Hc.
-        rewrite Hc in Hzout. rewrite lookup_empty in Hzout. simplify_eq.
+        rewrite Hc in Hzout. rewrite lookup_empty in Hzout.
+        inversion Hzout.
       }
       assert (∃ b l, h !! (c0,b) = Some l) as (b' & l' & Hb).
       {
@@ -763,7 +770,8 @@ Proof.
           done. }
         eapply emp_holds in Hc.
         apply map_equiv_empty in Hc.
-        rewrite Hc in Hy. rewrite lookup_empty in Hy. simplify_eq.
+        rewrite Hc in Hy. rewrite lookup_empty in Hy.
+        inversion Hy.
       }
       assert (∃ b l, h !! (c,b) = Some l) as (b' & l & Hb).
       {

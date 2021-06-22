@@ -32,29 +32,126 @@ Canonical Structure exprO := leibnizO expr.
 
 Definition heap := gmap endpoint (list val).
 
+(*
+    Mutual coinductive definition?
+    Parameterise chan_type' with a T, then choose T = type?
+*)
+CoInductive chan_type' (T : Type) :=
+    | SendT : T -> chan_type' T -> chan_type' T
+    | RecvT : T -> chan_type' T -> chan_type' T
+    | EndT : chan_type' T.
+Arguments SendT {_} _ _.
+Arguments RecvT {_} _ _.
+Arguments EndT {_}.
+Instance sendt_params : Params (@SendT) 2 := {}.
+Instance recvt_params : Params (@RecvT) 2 := {}.
+
+
+CoInductive chan_type_equiv {T} : Equiv (chan_type' T) :=
+    | cteq_EndT : EndT ≡ EndT
+    | cteq_SendT s1 s2 t : s1 ≡ s2 -> SendT t s1 ≡ SendT t s2
+    | cteq_RecvT s1 s2 t : s1 ≡ s2 -> RecvT t s1 ≡ RecvT t s2.
+Existing Instance chan_type_equiv.
+Global Instance chan_type_equivalence T : Equivalence (≡@{chan_type' T}).
+Proof.
+    split.
+    - cofix IH. intros []; constructor; apply IH.
+    - cofix IH. intros ??[]; constructor; by apply IH.
+    - cofix IH. intros ???[]; inversion_clear 1; constructor; by eapply IH.
+Qed.
+
+Global Instance sendt_proper {T} (t : T) : Proper ((≡) ==> (≡)) (SendT t).
+Proof. by constructor. Qed.
+Global Instance recvt_proper {T} (t : T) : Proper ((≡) ==> (≡)) (RecvT t).
+Proof. by constructor. Qed.
+
+Definition chan_type_id {T} (s : chan_type' T) : chan_type' T :=
+    match s with
+    | SendT t s' => SendT t s'
+    | RecvT t s' => RecvT t s'
+    | EndT => EndT
+    end.
+
+Lemma chan_type_id_id {T} (s : chan_type' T) :
+    chan_type_id s = s.
+Proof.
+    by destruct s.
+Qed.
+
+Lemma chan_type_equiv_alt {T} (s1 s2 : chan_type' T) :
+    chan_type_id s1 ≡ chan_type_id s2 -> s1 ≡ s2.
+Proof.
+    intros.
+    rewrite -(chan_type_id_id s1).
+    rewrite -(chan_type_id_id s2).
+    done.
+Defined.
+
+Lemma chan_type_equiv_end_eq {T} (s : chan_type' T) :
+    s ≡ EndT -> s = EndT.
+Proof.
+    intros H. destruct s; inversion H. done.
+Qed.
+
+CoFixpoint dual {T} (s : chan_type' T) : chan_type' T :=
+    match s with
+    | SendT t s' => RecvT t (dual s')
+    | RecvT t s' => SendT t (dual s')
+    | EndT => EndT
+    end.
+
+Global Instance dual_proper {T} : Proper ((≡) ==> (≡)) (@dual T).
+Proof.
+    cofix IH.
+    intros s1 s2 H.
+    apply chan_type_equiv_alt.
+    destruct H; simpl; constructor; by apply IH.
+Qed.
+
+Lemma dual_dual {T} (s : chan_type' T) : dual (dual s) ≡ s.
+Proof.
+    apply chan_type_equiv_alt.
+    revert s. cofix IH. intros []; simpl; constructor;
+    apply chan_type_equiv_alt, IH.
+Qed.
+
+Lemma dual_send {T} (s : chan_type' T) t : dual (SendT t s) ≡ RecvT t (dual s).
+Proof.
+    apply chan_type_equiv_alt; done.
+Qed.
+
+Lemma dual_recv {T} (s : chan_type' T) t : dual (RecvT t s) ≡ SendT t (dual s).
+Proof.
+    apply chan_type_equiv_alt; done.
+Qed.
+
+Lemma dual_end {T} : dual (EndT : chan_type' T) ≡ EndT.
+Proof.
+    apply chan_type_equiv_alt; done.
+Qed.
+
+Lemma dual_end_inv {T} (s : chan_type' T) : dual s ≡ EndT -> s = EndT.
+Proof.
+    intros H. destruct s; eauto.
+    - rewrite ->dual_send in H. inversion H.
+    - rewrite ->dual_recv in H. inversion H.
+Qed.
+
+Canonical Structure chan_type'O T := discreteO (chan_type' T).
+
 Inductive type :=
     | UnitT : type
     | NatT : type
     | PairT : type -> type -> type
     | FunT : type -> type -> type
-    | ChanT : chan_type -> type
+    | ChanT : chan_type' type -> type.
 
-with chan_type :=
-    | SendT : type -> chan_type -> chan_type
-    | RecvT : type -> chan_type -> chan_type
-    | EndT : chan_type.
+Notation chan_type := (chan_type' type).
+Notation chan_typeO := (chan_type'O type).
 
 Canonical Structure typeO := leibnizO type.
-Canonical Structure chan_typeO := leibnizO chan_type.
 
 Notation envT := (gmap string type).
-
-Fixpoint dual ct :=
-    match ct with
-    | EndT => EndT
-    | SendT c ct => RecvT c (dual ct)
-    | RecvT c ct => SendT c (dual ct)
-    end.
 
 Inductive typed : envT -> expr -> type -> Prop :=
     | Unit_typed : typed ∅ (Val UnitV) UnitT

@@ -12,35 +12,43 @@ Section bufs_typed.
     | v::buf', RecvT t ct' => val_typed v t ∗ buf_typed buf' ct' rest
     (* | v::buf', SendT t ct' => ??? *)
     (* Add a rule for this to support asynchrous subtyping *)
-    | [], ct => ⌜⌜ rest = ct ⌝⌝
+    | [], ct => ⌜⌜ rest ≡ ct ⌝⌝
     | _,_ => False
     end.
 
-  Lemma dual_dual σ : dual (dual σ) = σ.
+  Global Instance buf_typed_params : Params (@buf_typed) 1 := {}.
+  Global Instance buf_typed_proper buf : Proper ((≡) ==> (≡) ==> (≡)) (buf_typed buf).
   Proof.
-    induction σ; simpl; rewrite ?IHσ; eauto.
+    induction buf; solve_proper.
   Qed.
+  Global Arguments buf_typed : simpl nomatch.
 
   Definition buf_typed' (buf' : option (list val)) (ct' : option chan_type) (rest : chan_type) : rProp :=
     match buf', ct' with
     | Some buf, Some ct => buf_typed buf ct rest
-    | None, None => ⌜⌜ rest = EndT ⌝⌝
+    | None, None => ⌜⌜ rest ≡ EndT ⌝⌝
     | _, _ => False
     end.
+
+  Global Instance buf_typed'_params : Params (@buf_typed') 1 := {}.
+  Global Instance buf_typed'_proper buf : Proper ((≡) ==> (≡) ==> (≡)) (buf_typed' buf).
+  Proof.
+    solve_proper.
+  Qed.
 
   Definition bufs_typed (b1' b2' : option (list val)) (σ1' σ2' : option chan_type) : rProp :=
     ∃ rest,
       buf_typed' b1' σ1' rest ∗
       buf_typed' b2' σ2' (dual rest).
+
+  Global Instance bufs_typed_params : Params (@bufs_typed) 2 := {}.
+  Global Instance bufs_typed_proper b1 b2 : Proper ((≡) ==> (≡) ==> (≡)) (bufs_typed b1 b2).
+  Proof.
+    solve_proper.
+  Qed.
 End bufs_typed.
 
 Section invariant.
-  Definition opt_to_singleton {T:ofe} (b:bool) (x : option T) : multiset (bool*T) :=
-    match x with
-    | Some a => {[ (b,a) ]}
-    | None => ε
-    end.
-
   Definition state_inv (es : list expr) (h : heap) (x : object) (in_l : multiset clabel) : rProp :=
     match x with
     | Thread n =>
@@ -92,7 +100,7 @@ Lemma buf_typed_push v buf t r c :
 Proof.
   iIntros "[H1 H2]".
   iInduction buf as [] "IH" forall (r c); simpl.
-  - iDestruct "H2" as "<-". iFrame. done.
+  - iDestruct "H2" as %<-. simpl. iFrame. done.
   - destruct c; eauto. iDestruct "H2" as "[H2 H3]".
     iFrame. iApply ("IH" with "H1"). done.
 Qed.
@@ -110,6 +118,7 @@ Proof.
   iDestruct "H2" as "%". subst. simpl.
   iExists r. iSplit; eauto.
   iApply buf_typed_push. iFrame.
+  rewrite H dual_send //.
 Qed.
 
 Lemma bufs_typed_pop b1 b2' σ1 σ2' (v : val) t :
@@ -360,7 +369,8 @@ Proof.
     iExists ∅. unfold bufs_typed. simpl. rewrite !lookup_empty. iFrame.
     iSplit.
     + iPureIntro. rewrite map_to_multiset_empty //.
-    + iExists EndT. done.
+    + iExists EndT. rewrite dual_end.
+      eauto using cteq_EndT.
 Qed.
 
 Lemma invariant_holds e threads chans :
