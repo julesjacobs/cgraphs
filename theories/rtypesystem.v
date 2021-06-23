@@ -228,7 +228,13 @@ Qed.
 Lemma lookup_union_Some_S (Γ1 Γ2 : envT) x t :
   (Γ1 ∪ Γ2) !! x ≡ Some t ->
   Γ1 !! x ≡ Some t ∨ (Γ1 !! x = None ∧ Γ2 !! x ≡ Some t).
-Proof. Admitted.
+Proof.
+  intros H. inversion H. subst.
+  symmetry in H0.
+  eapply lookup_union_Some_raw in H0 as [|[]].
+  - left. rewrite H0. f_equiv. done.
+  - right. split; eauto. rewrite H1. f_equiv. done.
+Qed.
 
 Instance unrestricted_proper : Proper ((≡) ==> iff) unrestricted.
 Proof.
