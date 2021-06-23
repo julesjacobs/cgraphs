@@ -149,25 +149,87 @@ Proof.
       iExists _,_.
       iSplit.
       { iPureIntro. split; first done.
-        eapply leibniz_equiv. rewrite -H1 //. }
+        specialize (H1 s). rewrite HH in H1. inversion H1. done. }
       iApply rtyped_proper_impl; last done; eauto.
       rewrite H1. rewrite H3. done.
     + iIntros "H".
-      admit.
+      iDestruct "H" as (r t' Γ0 Γ3 [-> [-> HH]]) "[H1 H2]".
+      inversion H2. subst.
+      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      iExists _,_,_,_.
+      iSplit.
+      { iPureIntro. split_and!; eauto. rewrite -Q1 -Q2 //. }
+      iSplitL "H1".
+      * iApply rtyped_proper_impl; last done; eauto.
+        constructor; eauto. constructor; eauto.
+      * iApply rtyped_proper_impl; last done; eauto.
     + iIntros "H".
-      admit.
+      iDestruct "H" as (t' r ->) "H".
+      inversion H2. subst. inversion H3. subst.
+      iExists _,_.
+      iSplit.
+      { iPureIntro. done. }
+      iApply rtyped_proper_impl; last done; eauto.
+      do 2 constructor; eauto.
     + iIntros "H".
-      admit.
+      iDestruct "H" as (t' Γ0 Γ3 [-> [HH1 HH2]]) "[H1 H2]".
+      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      iExists _,_,_.
+      iSplit.
+      { iPureIntro. split_and!; eauto.
+        + rewrite -Q1 -Q2 //.
+        + specialize (Q2 s). rewrite HH2 in Q2. inversion Q2. done. }
+      iSplitL "H1".
+      * iApply rtyped_proper_impl; last done; eauto.
+      * iApply rtyped_proper_impl; last done; eauto.
+        rewrite Q2 //.
     + iIntros "H".
-      admit.
+      iDestruct "H" as (Γ0 Γ3 [-> HH]) "[H1 H2]".
+      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      iExists _,_.
+      iSplit.
+      { iPureIntro. split; eauto. rewrite -Q1 -Q2 //. }
+      iSplitL "H1".
+      * iApply rtyped_proper_impl; last done; eauto.
+      * iApply rtyped_proper_impl; last done; eauto.
     + iIntros "H".
-      admit.
+      iDestruct "H" as (t0 t3 Γ0 Γ3 (HH1 & -> & HH2 & HH3 & HH4)) "[H1 H2]".
+      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      iExists _,_,_,_.
+      iSplit.
+      { iPureIntro. split_and!; eauto.
+        + rewrite -Q1 -Q2 //.
+        + specialize (Q2 s). rewrite HH3 in Q2. inversion Q2. done.
+        + specialize (Q2 s0). rewrite HH4 in Q2. inversion Q2. done. }
+      iSplitL "H1".
+      * iApply rtyped_proper_impl; last done; eauto.
+      * iApply rtyped_proper_impl; last done; eauto.
+        rewrite Q2 //.
     + iIntros "H".
-      admit.
+      iDestruct "H" as (Γ0 Γ3 [-> HH]) "[H1 H2]".
+      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      iExists _,_.
+      iSplit.
+      { iPureIntro. split; eauto. rewrite -Q1 -Q2 //. }
+      iSplitL "H1".
+      * iApply rtyped_proper_impl; last done; eauto.
+      * iSplit.
+        { iDestruct "H2" as "[H _]".
+          iApply rtyped_proper_impl; last done; eauto. }
+        { iDestruct "H2" as "[_ H]".
+          iApply rtyped_proper_impl; last done; eauto. }
     + iIntros "H".
-      admit.
-    + iIntros "H".
-      admit.
+      iDestruct "H" as (r ->) "H".
+      inversion H2. subst.
+      iExists _.
+      iSplit; first done.
+      iApply rtyped_proper_impl; last done; eauto.
+      do 2 constructor; eauto.
+      rewrite H0 //.
+    + iIntros "[-> H]".
+      inversion H2. subst.
+      iSplit; first done.
+      iApply rtyped_proper_impl; last done; eauto.
   - intros H1. destruct v; simpl.
     + iIntros "%". subst. inversion H1. done.
     + iIntros "%". subst. inversion H1. done.
@@ -189,7 +251,7 @@ Proof.
       inversion H1. subst.
       iExists _. iSplit; first done.
       unfold own_ep. destruct e; simpl. rewrite H0. done.
-Admitted.
+Qed.
 
 Instance : Params (@val_typed) 1 := {}.
 Instance rtyped_proper : Proper ((≡) ==> (=) ==> (≡) ==> (≡)) rtyped.
