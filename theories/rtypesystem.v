@@ -83,12 +83,112 @@ with val_typed (v : val) (t : type) : rProp :=
   | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own_ep c r
   end.
 
+Instance unrestricted_proper : Proper ((≡) ==> iff) unrestricted.
+Proof.
+  intros ???. split; intros ->; inversion H; reflexivity.
+Qed.
+
+Instance Γunrestricted_proper : Proper ((≡) ==> iff) Γunrestricted.
+Proof. intros ???. unfold Γunrestricted.
+  split; intros.
+  - specialize (H x0).
+    rewrite H1 in H. inversion H; subst. symmetry in H2.
+    rewrite -H4; eauto.
+  - specialize (H x0).
+    rewrite H1 in H. inversion H; subst. symmetry in H3.
+    rewrite H4; eauto.
+Qed.
+
+Instance disj_proper : Proper ((≡) ==> (≡) ==> iff) disj.
+Proof.
+  assert (∀ x x' y y',
+    x ≡ x' -> y ≡ y' -> disj x y -> disj x' y').
+  {
+    intros x x' y y' Hx Hy Hdisj i t1 t2 H1 H2.
+    pose proof (Hx i) as Hxi.
+    pose proof (Hy i) as Hyi.
+    rewrite H1 in Hxi.
+    rewrite H2 in Hyi.
+    inversion Hxi. inversion Hyi. subst.
+    symmetry in H. symmetry in H4.
+    specialize (Hdisj _ _ _ H H4) as [].
+    rewrite -H3. split; last done.
+    rewrite H0 H6 //.
+  }
+  intros ??????. split; eauto.
+  symmetry in H0. symmetry in H1. eauto.
+Qed.
+
+Lemma s_union_inv (x y z : envT) :
+  y ∪ z ≡ x -> ∃ y' z', y ≡ y' ∧ z ≡ z' ∧ x = y' ∪ z'.
+Proof.
+Admitted.
+
 Lemma rtyped_proper_impl Γ1 Γ2 t1 t2 e :
   Γ1 ≡ Γ2 -> t1 ≡ t2 -> rtyped Γ1 e t1 ⊢ rtyped Γ2 e t2
 with val_typed_proper_impl t1 t2 v :
   t1 ≡ t2 -> val_typed v t1 ⊢ val_typed v t2.
 Proof.
   - intros H1 H2. destruct e; simpl.
+    + rewrite H1. iIntros "[? ?]". iFrame. iApply val_typed_proper_impl; eauto.
+    + iIntros "H". iDestruct "H" as %[Γ0 (HH1 & HH2 & HH3)].
+      iPureIntro. rewrite ->H1 in HH1. eexists. rewrite -H2. eauto.
+    + iIntros "H".
+      iDestruct "H" as (t' Γ0 Γ3 []) "[H1 H2]".
+      subst.
+      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      iExists _,_,_.
+      iSplit. { iPureIntro. split; first done. rewrite -Q1 -Q2 //. }
+      iSplitL "H1".
+      * iApply rtyped_proper_impl; last done; eauto.
+        constructor; eauto.
+      * iApply rtyped_proper_impl; last done; eauto.
+    + iIntros "H".
+      iDestruct "H" as (t0 t3 [-> HH]) "H".
+      inversion H2. subst.
+      iExists _,_.
+      iSplit.
+      { iPureIntro. split; first done.
+        eapply leibniz_equiv. rewrite -H1 //. }
+      iApply rtyped_proper_impl; last done; eauto.
+      rewrite H1. rewrite H3. done.
+    + iIntros "H".
+      admit.
+    + iIntros "H".
+      admit.
+    + iIntros "H".
+      admit.
+    + iIntros "H".
+      admit.
+    + iIntros "H".
+      admit.
+    + iIntros "H".
+      admit.
+    + iIntros "H".
+      admit.
+    + iIntros "H".
+      admit.
+  - intros H1. destruct v; simpl.
+    + iIntros "%". subst. inversion H1. done.
+    + iIntros "%". subst. inversion H1. done.
+    + iIntros "H".
+      iDestruct "H" as (t0 t3 ->) "[H1 H2]".
+      inversion H1. subst.
+      iExists _,_. iSplit; first done.
+      iSplitL "H1".
+      * iApply val_typed_proper_impl; eauto.
+      * iApply val_typed_proper_impl; eauto.
+    + iIntros "H".
+      iDestruct "H" as (t0 t3 ->) "H".
+      inversion H1. subst.
+      iExists _,_. iSplit; first done.
+      iApply rtyped_proper_impl; last done; eauto.
+      rewrite H2. done.
+    + iIntros "H".
+      iDestruct "H" as (r ->) "H".
+      inversion H1. subst.
+      iExists _. iSplit; first done.
+      unfold own_ep. destruct e; simpl. rewrite H0. done.
 Admitted.
 
 Instance : Params (@val_typed) 1 := {}.
@@ -236,11 +336,6 @@ Proof.
   - right. split; eauto. rewrite H1. f_equiv. done.
 Qed.
 
-Instance unrestricted_proper : Proper ((≡) ==> iff) unrestricted.
-Proof.
-  intros ???. split; intros ->; inversion H; reflexivity.
-Qed.
-
 Lemma disj_union_Some x t Γ1 Γ2 :
   (Γ1 ∪ Γ2) !! x ≡ Some t -> disj Γ1 Γ2 ->
   (Γ1 !! x ≡ Some t ∧ Γ2 !! x = None) ∨
@@ -352,17 +447,6 @@ Proof.
   intros.
   inversion H0. subst. symmetry in H1.
   eapply H in H1. rewrite -H3 //.
-Qed.
-
-Instance Γunrestricted_proper : Proper ((≡) ==> iff) Γunrestricted.
-Proof. intros ???. unfold Γunrestricted.
-  split; intros.
-  - specialize (H x0).
-    rewrite H1 in H. inversion H; subst. symmetry in H2.
-    rewrite -H4; eauto.
-  - specialize (H x0).
-    rewrite H1 in H. inversion H; subst. symmetry in H3.
-    rewrite H4; eauto.
 Qed.
 
 Lemma subst_rtyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) :
