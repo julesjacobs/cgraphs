@@ -208,7 +208,7 @@ Section genericinv.
 
     assert (v1 ≠ v2). {
       intros ->. specialize (Hdisj_out v2).
-      eapply equiv_Some_inv_r' in Hv1outv2 as (?&HH&?).
+      eapply Some_equiv_eq in Hv1outv2 as (?&HH&?).
       rewrite HH in Hdisj_out. done.
     }
 
@@ -256,7 +256,7 @@ Section genericinv.
     destruct (exchange_alloc_S g v1 v2 Σ1 Σ2 b)
       as (g' & Hwf' & Hout1 & Hout2 & Hout' & Hin2 & Hin'); eauto.
     { intros H0. apply no_edges_no_uconn in H0; eauto.
-      apply map_equiv_empty in Hout. done. }
+      apply map_empty_equiv_eq in Hout. done. }
     { rewrite HΣ12 Hout right_id_L //. }
     exists g'. split; eauto.
     intros v.
@@ -310,7 +310,7 @@ Section genericinv.
     destruct (exchange_alloc_S g v3 v2 Σ1 Σ2 b)
       as (g' & Hwf' & Hout1 & Hout2 & Hout' & Hin2 & Hin'); eauto.
     { intros H0. symmetry in H0. apply no_edges_no_uconn in H0; eauto.
-      apply map_equiv_empty in Hout. done. }
+      apply map_empty_equiv_eq in Hout. done. }
     { rewrite HΣ12 Hout left_id_L map_union_comm;eauto. }
     exists g'. split; eauto.
     intros v.

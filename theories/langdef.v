@@ -32,10 +32,6 @@ Canonical Structure exprO := leibnizO expr.
 
 Definition heap := gmap endpoint (list val).
 
-(*
-    Mutual coinductive definition?
-    Parameterise chan_type' with a T, then choose T = type?
-*)
 CoInductive chan_type' (T : Type) :=
     | SendT : T -> chan_type' T -> chan_type' T
     | RecvT : T -> chan_type' T -> chan_type' T

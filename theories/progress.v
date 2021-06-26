@@ -574,7 +574,7 @@ Proof.
       destruct (es !! n) eqn:En; last first.
       {
         eapply emp_holds in Hn.
-        eapply map_equiv_empty in Hn.
+        eapply map_empty_equiv_eq in Hn.
         rewrite Hn in Hy. rewrite lookup_empty in Hy. inversion Hy.
       }
       destruct (waiting_dec es h (Thread n) (Chan i) (b, σ1)); last first.
@@ -584,7 +584,7 @@ Proof.
         intros ->.
         simpl in Hn.
         eapply affinely_pure_holds in Hn as [].
-        eapply map_equiv_empty in H0.
+        eapply map_empty_equiv_eq in H0.
         rewrite H0 in Hy.
         rewrite lookup_empty in Hy.
         inversion Hy.
@@ -652,7 +652,7 @@ Proof.
         destruct (es !! n) eqn:R; last first.
         {
           eapply emp_holds in Hz.
-          eapply map_equiv_empty in Hz.
+          eapply map_empty_equiv_eq in Hz.
           rewrite Hz in Hzout. rewrite lookup_empty in Hzout.
           inversion Hzout.
         }
@@ -663,7 +663,7 @@ Proof.
           intros ->.
           simpl in Hz.
           eapply affinely_pure_holds in Hz as [].
-          eapply map_equiv_empty in H6.
+          eapply map_empty_equiv_eq in H6.
           rewrite H6 in Hzout.
           rewrite lookup_empty in Hzout.
           inversion Hzout.
@@ -730,7 +730,7 @@ Proof.
           iDestruct "H2" as "%".
           done. }
         eapply emp_holds in Hc.
-        apply map_equiv_empty in Hc.
+        apply map_empty_equiv_eq in Hc.
         rewrite Hc in Hzout. rewrite lookup_empty in Hzout.
         inversion Hzout.
       }
@@ -769,7 +769,7 @@ Proof.
           iDestruct "H2" as "%".
           done. }
         eapply emp_holds in Hc.
-        apply map_equiv_empty in Hc.
+        apply map_empty_equiv_eq in Hc.
         rewrite Hc in Hy. rewrite lookup_empty in Hy.
         inversion Hy.
       }

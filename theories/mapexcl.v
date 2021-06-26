@@ -19,7 +19,7 @@ Section map_Excl.
   Lemma map_Excl_empty_inv m : map_Excl m ≡ ∅ -> m = ∅.
   Proof.
     rewrite /map_Excl. intros G.
-    apply map_equiv_empty in G. apply fmap_empty_inv in G. done.
+    apply map_empty_equiv_eq in G. apply fmap_empty_inv in G. done.
   Qed.
 
   Lemma map_Excl_injective m1 m2 :
@@ -99,7 +99,7 @@ Section map_Excl.
         exists (<[ k := x]> m1),m2.
         assert (m' !! k ≡ None) as H1'. { rewrite H1 //. }
         rewrite ->Hr2 in H1'.
-        apply equiv_None in H1'.
+        apply None_equiv_eq in H1'.
         apply lookup_union_None in H1' as [].
         repeat split.
         * rewrite Hr2. rewrite insert_union_l //.
