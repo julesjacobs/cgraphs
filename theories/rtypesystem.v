@@ -1,4 +1,5 @@
 From diris Require Export seplogic.
+From stdpp Require Export gmap.
 
 Inductive object :=
   | Thread : nat -> object
@@ -119,11 +120,6 @@ Proof.
   symmetry in H0. symmetry in H1. eauto.
 Qed.
 
-Lemma s_union_inv (x y z : envT) :
-  y ∪ z ≡ x -> ∃ y' z', y ≡ y' ∧ z ≡ z' ∧ x = y' ∪ z'.
-Proof.
-Admitted.
-
 Lemma rtyped_proper_impl Γ1 Γ2 t1 t2 e :
   Γ1 ≡ Γ2 -> t1 ≡ t2 -> rtyped Γ1 e t1 ⊢ rtyped Γ2 e t2
 with val_typed_proper_impl t1 t2 v :
@@ -136,9 +132,10 @@ Proof.
     + iIntros "H".
       iDestruct "H" as (t' Γ0 Γ3 []) "[H1 H2]".
       subst.
-      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      symmetry in H1.
+      eapply map_union_equiv_eq in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
       iExists _,_,_.
-      iSplit. { iPureIntro. split; first done. rewrite -Q1 -Q2 //. }
+      iSplit. { iPureIntro. split; first done. rewrite Q2 Q3 //. }
       iSplitL "H1".
       * iApply rtyped_proper_impl; last done; eauto.
         constructor; eauto.
@@ -155,10 +152,11 @@ Proof.
     + iIntros "H".
       iDestruct "H" as (r t' Γ0 Γ3 [-> [-> HH]]) "[H1 H2]".
       inversion H2. subst.
-      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      symmetry in H1.
+      eapply map_union_equiv_eq in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
       iExists _,_,_,_.
       iSplit.
-      { iPureIntro. split_and!; eauto. rewrite -Q1 -Q2 //. }
+      { iPureIntro. split_and!; eauto. rewrite Q2 Q3 //. }
       iSplitL "H1".
       * iApply rtyped_proper_impl; last done; eauto.
         constructor; eauto. constructor; eauto.
@@ -173,44 +171,48 @@ Proof.
       do 2 constructor; eauto.
     + iIntros "H".
       iDestruct "H" as (t' Γ0 Γ3 [-> [HH1 HH2]]) "[H1 H2]".
-      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      symmetry in H1.
+      eapply map_union_equiv_eq in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
       iExists _,_,_.
       iSplit.
       { iPureIntro. split_and!; eauto.
-        + rewrite -Q1 -Q2 //.
-        + specialize (Q2 s). rewrite HH2 in Q2. inversion Q2. done. }
+        + rewrite Q2 Q3 //.
+        + specialize (Q3 s). rewrite HH2 in Q3. inversion Q3. done. }
       iSplitL "H1".
       * iApply rtyped_proper_impl; last done; eauto.
       * iApply rtyped_proper_impl; last done; eauto.
-        rewrite Q2 //.
+        rewrite Q3 //.
     + iIntros "H".
       iDestruct "H" as (Γ0 Γ3 [-> HH]) "[H1 H2]".
-      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      symmetry in H1.
+      eapply map_union_equiv_eq in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
       iExists _,_.
       iSplit.
-      { iPureIntro. split; eauto. rewrite -Q1 -Q2 //. }
+      { iPureIntro. split; eauto. rewrite Q2 Q3 //. }
       iSplitL "H1".
       * iApply rtyped_proper_impl; last done; eauto.
       * iApply rtyped_proper_impl; last done; eauto.
     + iIntros "H".
       iDestruct "H" as (t0 t3 Γ0 Γ3 (HH1 & -> & HH2 & HH3 & HH4)) "[H1 H2]".
-      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      symmetry in H1.
+      eapply map_union_equiv_eq in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
       iExists _,_,_,_.
       iSplit.
       { iPureIntro. split_and!; eauto.
-        + rewrite -Q1 -Q2 //.
-        + specialize (Q2 s). rewrite HH3 in Q2. inversion Q2. done.
-        + specialize (Q2 s0). rewrite HH4 in Q2. inversion Q2. done. }
+        + rewrite Q2 Q3 //.
+        + specialize (Q3 s). rewrite HH3 in Q3. inversion Q3. done.
+        + specialize (Q3 s0). rewrite HH4 in Q3. inversion Q3. done. }
       iSplitL "H1".
       * iApply rtyped_proper_impl; last done; eauto.
       * iApply rtyped_proper_impl; last done; eauto.
-        rewrite Q2 //.
+        rewrite Q3 //.
     + iIntros "H".
       iDestruct "H" as (Γ0 Γ3 [-> HH]) "[H1 H2]".
-      eapply s_union_inv in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      symmetry in H1.
+      eapply map_union_equiv_eq in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
       iExists _,_.
       iSplit.
-      { iPureIntro. split; eauto. rewrite -Q1 -Q2 //. }
+      { iPureIntro. split; eauto. rewrite Q2 Q3 //. }
       iSplitL "H1".
       * iApply rtyped_proper_impl; last done; eauto.
       * iSplit.
@@ -922,14 +924,6 @@ Proof.
     iApply "IH". done.
   - iDestruct "H" as "[? H]". iFrame. iApply "IH". done.
 Qed.
-
-(* Lemma rtyped0_rtyped e t :
-  rtyped0 e t ⊣⊢ rtyped ∅ e t. *)
-
-
-(* Instance rtyped0_proper e : Proper ((≡) ==> (≡)) (rtyped0 e).
-Proof.
-Admitted. *)
 
 Definition ctx_typed0 (k : expr -> expr)
                      (A : type) (B : type) : rProp :=
