@@ -281,7 +281,7 @@ Inductive typed : envT -> expr -> type -> Prop :=
         typed Γ e (ChanT EndT) ->
         typed Γ (Close e) UnitT
     | Iso_typed : ∀ Γ t t' e,
-        t ≡ t' ->
+        t ≡ t' -> (* The ≡-relation is unfolding of recursive types *)
         typed Γ e t ->
         typed Γ e t'.
 
