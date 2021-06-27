@@ -260,7 +260,11 @@ Inductive typed : envT -> expr -> type -> Prop :=
         typed Γ (Fork e) (ChanT ct)
     | Close_typed : ∀ Γ e,
         typed Γ e (ChanT EndT) ->
-        typed Γ (Close e) UnitT.
+        typed Γ (Close e) UnitT
+    | Iso_typed : ∀ Γ t t' e,
+        t ≡ t' ->
+        typed Γ e t ->
+        typed Γ e t'.
 
 Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   match e with

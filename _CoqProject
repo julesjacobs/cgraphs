@@ -27,3 +27,4 @@ theories/langlemmas.v
 theories/genericinv.v
 theories/invariant.v
 theories/progress.v
+theories/safety.v

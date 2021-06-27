@@ -273,7 +273,7 @@ Proof.
   iInduction H as [] "IH"; simpl; eauto;
   repeat iExists _;
   repeat (iSplitL || iSplit); eauto.
-  rewrite H1 //.
+  rewrite H1 //. rewrite H //.
 Qed.
 
 Lemma union_lr_None `{Countable K} {V} (A B C : gmap K V) x :
