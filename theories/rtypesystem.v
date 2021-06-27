@@ -112,11 +112,15 @@ Instance unrestricted_proper : Proper ((≡) ==> iff) unrestricted.
 Proof.
   assert (∀ x y : type, x ≡ y → unrestricted x -> unrestricted y).
   {
-    intros x y H Hunr. revert y H.
+    cofix IH.
+    intros x y H Hunr.
+    destruct Hunr; inversion H; subst; constructor; eauto.
+    (* intros x y H Hunr. revert y H.
     induction Hunr; intros y H.
     - inversion H. constructor.
     - inversion H. subst. constructor.
-    - inversion H. subst. constructor; eauto. }
+    - inversion H. subst. constructor; eauto. *)
+  }
   split; eauto. symmetry in H0; eauto.
 Qed.
 
@@ -618,26 +622,39 @@ Lemma unrestricted_box v t :
   unrestricted t ->
   val_typed v t ⊢ □ val_typed v t.
 Proof.
-  intros Hunr. revert v.
-  induction Hunr; intros v.
-  - rewrite val_typed_val_typed'. simpl.
-    iIntros "H".
-    iDestruct "H" as (n) "->".
-    iPureIntro. eauto.
-  - rewrite val_typed_val_typed'. simpl.
-    iIntros "H".
-    iDestruct "H" as (x e ->) "#H".
-    iModIntro. eauto.
-  - rewrite val_typed_val_typed'. simpl.
-    iIntros "H".
-    iDestruct "H" as (a b ->) "[H1 H2]".
-    iDestruct (IHHunr1 with "H1") as "H1".
-    iDestruct (IHHunr2 with "H2") as "H2".
+  revert t. induction v; simpl; [eauto|eauto|..].
+  - intros. iIntros "H".
+    iDestruct "H" as (t1 t2 ->) "[H1 H2]".
+    inversion H. subst.
+    iDestruct (IHv1 with "H1") as "H1"; eauto.
+    iDestruct (IHv2 with "H2") as "H2"; eauto.
     iDestruct "H1" as "#H1".
     iDestruct "H2" as "#H2".
     iModIntro.
-    iExists _,_. iSplit; eauto.
+    iExists _,_. iSplit; first done.
     iSplitL; eauto.
+  - intros.
+    iIntros "H".
+    iDestruct "H" as (t1 t2 ->) "H".
+    inversion H. subst.
+    iDestruct (IHv with "H") as "H".
+    { by destruct b. }
+    iDestruct "H" as "#H".
+    iModIntro.
+    iExists _,_. iSplit; first done.
+    eauto.
+  - intros.
+    iIntros "H".
+    iDestruct "H" as (t1 t2 ->) "H".
+    inversion H.
+  - intros.
+    iIntros "H".
+    iDestruct "H" as (t1 t2 ->) "#H".
+    iModIntro. iExists _,_. iSplit; first done.
+    iModIntro. done.
+  - intros. iIntros "H".
+    iDestruct "H" as (r ->) "H".
+    inversion H.
 Qed.
 
 (* Instance val_typed_persistent v t : unrestricted t → Persistent (val_typed v t).

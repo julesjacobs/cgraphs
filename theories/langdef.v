@@ -206,12 +206,17 @@ Notation chan_typeO := (chan_type'O typeO).
 
 Notation envT := (gmap string type).
 
-Inductive unrestricted : type -> Prop :=
+CoInductive unrestricted : type -> Prop :=
     | Nat_unrestricted : unrestricted NatT
+    | Unit_unrestricted : unrestricted UnitT
+    | Void_unrestricted : unrestricted VoidT
     | UFun_unrestricted t1 t2 : unrestricted (UFunT t1 t2)
     | Pair_unrestricted t1 t2 :
         unrestricted t1 -> unrestricted t2 ->
-        unrestricted (PairT t1 t2).
+        unrestricted (PairT t1 t2)
+    | Sum_unrestricted t1 t2 :
+        unrestricted t1 -> unrestricted t2 ->
+        unrestricted (SumT t1 t2).
 
 Definition disj (Γ1 Γ2 : envT) : Prop :=
   ∀ i t1 t2, Γ1 !! i = Some t1 -> Γ2 !! i = Some t2 -> t1 ≡ t2 ∧ unrestricted t1.
