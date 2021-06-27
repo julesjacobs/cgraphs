@@ -92,6 +92,31 @@ Proof.
       split_and!; eauto.
       eapply (Ctx_cons (λ x, App x e2)); eauto.
       constructor.
+  - iDestruct "H" as (t') "[H1 H2]".
+      iDestruct ("IH" with "H1") as "%". iClear "IH".
+      iDestruct ("IH1" with "H2") as "%". iClear "IH1".
+      destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
+      + destruct H0 as [[v' ->]|(k & e0 & Hk & -> & H0)].
+        * simpl. rewrite val_typed_val_typed'. simpl.
+          iDestruct "H1" as (x e ->) "H1".
+          iPureIntro. right. exists (λ x, x). eexists.
+          split_and!; eauto.
+          { constructor. }
+          left. eexists.
+          constructor.
+        * iPureIntro. right.
+          eexists (λ x, UApp (Val v) (k x)),_.
+          split_and!; eauto.
+          constructor; eauto. constructor.
+      + iPureIntro. right.
+        eexists (λ x, UApp (k x) e2),_.
+        split_and!; eauto.
+        eapply (Ctx_cons (λ x, UApp x e2)); eauto.
+        constructor.
+  - iPureIntro. right.
+    eexists (λ x, x),_.
+    split_and!; [constructor|eauto|].
+    left. eexists. constructor.
   - iPureIntro. right.
     eexists (λ x, x),_.
     split_and!; [constructor|eauto|].

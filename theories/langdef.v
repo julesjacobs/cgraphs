@@ -11,13 +11,16 @@ Inductive val :=
     | NatV : nat -> val
     | PairV : val -> val -> val
     | FunV : string -> expr -> val
+    | UFunV : string -> expr -> val
     | ChanV : endpoint -> val
 
 with expr :=
     | Val : val -> expr
     | Var : string -> expr
     | App : expr -> expr -> expr
+    | UApp : expr -> expr -> expr
     | Lam : string -> expr -> expr
+    | ULam : string -> expr -> expr
     | Send : expr -> expr -> expr
     | Recv : expr -> expr
     | Let : string -> expr -> expr -> expr
@@ -166,6 +169,7 @@ CoInductive type :=
     | NatT : type
     | PairT : type -> type -> type
     | FunT : type -> type -> type
+    | UFunT : type -> type -> type
     | ChanT : chan_type' type -> type.
 
 
@@ -174,6 +178,7 @@ CoInductive type_equiv : Equiv type :=
     | teq_NatT : NatT ≡ NatT
     | teq_PairT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> PairT t1 t1' ≡ PairT t2 t2'
     | teq_FunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> FunT t1 t1' ≡ FunT t2 t2'
+    | teq_UFunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> UFunT t1 t1' ≡ UFunT t2 t2'
     | teq_ChanT s1 s2 : s1 ≡ s2 -> ChanT s1 ≡ ChanT s2.
 Existing Instance type_equiv.
 
@@ -192,8 +197,12 @@ Notation chan_typeO := (chan_type'O typeO).
 
 Notation envT := (gmap string type).
 
-Definition unrestricted t :=
-    t = NatT.
+Inductive unrestricted : type -> Prop :=
+    | Nat_unrestricted : unrestricted NatT
+    | UFun_unrestricted t1 t2 : unrestricted (UFunT t1 t2)
+    | Pair_unrestricted t1 t2 :
+        unrestricted t1 -> unrestricted t2 ->
+        unrestricted (PairT t1 t2).
 
 Definition disj (Γ1 Γ2 : envT) : Prop :=
   ∀ i t1 t2, Γ1 !! i = Some t1 -> Γ2 !! i = Some t2 -> t1 ≡ t2 ∧ unrestricted t1.
@@ -218,10 +227,20 @@ Inductive typed : envT -> expr -> type -> Prop :=
         typed Γ1 e1 (FunT t1 t2) ->
         typed Γ2 e2 t1 ->
         typed (Γ1 ∪ Γ2) (App e1 e2) t2
+    | UApp_typed : ∀ Γ1 Γ2 e1 e2 t1 t2,
+        disj Γ1 Γ2 ->
+        typed Γ1 e1 (UFunT t1 t2) ->
+        typed Γ2 e2 t1 ->
+        typed (Γ1 ∪ Γ2) (UApp e1 e2) t2
     | Lam_typed : ∀ Γ x e t1 t2,
         Γ !! x = None ->
         typed (Γ ∪ {[ x := t1 ]}) e t2 ->
         typed Γ (Lam x e) (FunT t1 t2)
+    | ULam_typed : ∀ Γ x e t1 t2,
+        Γ !! x = None ->
+        Γunrestricted Γ ->
+        typed (Γ ∪ {[ x := t1 ]}) e t2 ->
+        typed Γ (ULam x e) (UFunT t1 t2)
     | Send_typed : ∀ Γ1 Γ2 e1 e2 t r,
         disj Γ1 Γ2 ->
         typed Γ1 e1 (ChanT (SendT t r)) ->
@@ -271,7 +290,9 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   | Val _ => e
   | Var x' => if decide (x = x') then Val a else e
   | App e1 e2 => App (subst x a e1) (subst x a e2)
+  | UApp e1 e2 => UApp (subst x a e1) (subst x a e2)
   | Lam x' e1 => if decide (x = x') then e else Lam x' (subst x a e1)
+  | ULam x' e1 => if decide (x = x') then e else ULam x' (subst x a e1)
   | Send e1 e2 => Send (subst x a e1) (subst x a e2)
   | Recv e1 => Recv (subst x a e1)
   | Let x' e1 e2 => Let x' (subst x a e1) (if decide (x = x') then e2 else subst x a e2)
@@ -286,8 +307,12 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
 Inductive pure_step : expr -> expr -> Prop :=
     | App_step : ∀ x e a,
         pure_step (App (Val (FunV x e)) (Val a)) (subst x a e)
+    | UApp_step : ∀ x e a,
+        pure_step (UApp (Val (UFunV x e)) (Val a)) (subst x a e)
     | Lam_step : ∀ x e,
         pure_step (Lam x e) (Val (FunV x e))
+    | ULam_step : ∀ x e,
+        pure_step (ULam x e) (Val (UFunV x e))
     | If_step1 : ∀ n e1 e2,
         n ≠ 0 ->
         pure_step (If (Val (NatV n)) e1 e2) e1
@@ -323,6 +348,8 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
 Inductive ctx1 : (expr -> expr) -> Prop :=
     | Ctx_App_l : ∀ e, ctx1 (λ x, App x e)
     | Ctx_App_r : ∀ v, ctx1 (λ x, App (Val v) x)
+    | Ctx_UApp_l : ∀ e, ctx1 (λ x, UApp x e)
+    | Ctx_UApp_r : ∀ v, ctx1 (λ x, UApp (Val v) x)
     | Ctx_Send_l : ∀ e, ctx1 (λ x, Send x e)
     | Ctx_Send_r : ∀ v, ctx1 (λ x, Send (Val v) x)
     | Ctx_Recv : ctx1 (λ x, Recv x)

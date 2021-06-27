@@ -16,6 +16,17 @@ Proof.
     replace (∅ : envT) with (delete x {[ x:= t1 ]} : envT) by (by rewrite delete_singleton).
     iApply (subst_rtyped with "Ht2 Ht1").
     rewrite lookup_singleton. done.
+  - iDestruct "Ht" as (t' Γ1 Γ2 H) "Ht".
+    iDestruct "Ht" as "((_ & Ht1) & (_ & Ht2))".
+    iDestruct "Ht1" as (t1 t2 HH) "Ht1".
+    simplify_eq.
+    replace (∅ : envT) with (delete x {[ x:= t1 ]} : envT) by (by rewrite delete_singleton).
+    iApply (subst_rtyped with "Ht2 Ht1").
+    rewrite lookup_singleton. done.
+  - iSplit; first done.
+    iDestruct "Ht" as (t1 t2 [-> _]) "Ht".
+    iExists _,_.
+    iSplit; first done. rewrite left_id. done.
   - iSplit; first done.
     iDestruct "Ht" as (t1 t2 [-> _]) "Ht".
     iExists _,_.

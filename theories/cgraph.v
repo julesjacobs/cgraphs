@@ -1284,7 +1284,6 @@ Section cgraph.
         (∀ v, v ≠ v2 -> in_labels g' v ≡ in_labels g v).
     Proof.
       intros Hwf Hout1 Hdisj Hsplit.
-      About equiv_Some_inv_r.
       eapply Some_equiv_eq in Hout1 as (y' & Hout1 & Hy').
       eapply map_union_equiv_eq in Hsplit as (y2' & z' & Hsplit & Hy2' & Hz').
       destruct (exchange_dealloc g v1 v2 y2' z' y')

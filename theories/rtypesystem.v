@@ -43,9 +43,16 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
       rtyped Γ1 e1 (FunT t' t) ∗
       rtyped Γ2 e2 t'
+  | UApp e1 e2 => ∃ t' Γ1 Γ2,
+      ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
+      rtyped Γ1 e1 (UFunT t' t) ∗
+      rtyped Γ2 e2 t'
   | Lam x e => ∃ t1 t2,
       ⌜⌜ t = FunT t1 t2 ∧ Γ !! x = None ⌝⌝ ∗
       rtyped (Γ ∪ {[ x := t1 ]}) e t2
+  | ULam x e => ∃ t1 t2,
+      ⌜⌜ t = UFunT t1 t2 ∧ Γ !! x = None ∧ Γunrestricted Γ ⌝⌝ ∗
+      □ rtyped (Γ ∪ {[ x := t1 ]}) e t2
   | Send e1 e2 => ∃ r t' Γ1 Γ2,
       ⌜⌜ t = ChanT r ∧ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
       rtyped Γ1 e1 (ChanT (SendT t' r)) ∗
@@ -81,12 +88,20 @@ with val_typed (v : val) (t : type) : rProp :=
   | NatV n => ⌜⌜ t = NatT ⌝⌝
   | PairV a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
   | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
+  | UFunV x e => ∃ t1 t2, ⌜⌜ t = UFunT t1 t2 ⌝⌝ ∗ □ rtyped {[ x := t1 ]} e t2
   | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own_ep c r
   end.
 
 Instance unrestricted_proper : Proper ((≡) ==> iff) unrestricted.
 Proof.
-  intros ???. split; intros ->; inversion H; reflexivity.
+  assert (∀ x y : type, x ≡ y → unrestricted x -> unrestricted y).
+  {
+    intros x y H Hunr. revert y H.
+    induction Hunr; intros y H.
+    - inversion H. constructor.
+    - inversion H. subst. constructor.
+    - inversion H. subst. constructor; eauto. }
+  split; eauto. symmetry in H0; eauto.
 Qed.
 
 Instance Γunrestricted_proper : Proper ((≡) ==> iff) Γunrestricted.
@@ -141,6 +156,17 @@ Proof.
         constructor; eauto.
       * iApply rtyped_proper_impl; last done; eauto.
     + iIntros "H".
+      iDestruct "H" as (t' Γ0 Γ3 []) "[H1 H2]".
+      subst.
+      symmetry in H1.
+      eapply map_union_equiv_eq in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      iExists _,_,_.
+      iSplit. { iPureIntro. split; first done. rewrite Q2 Q3 //. }
+      iSplitL "H1".
+      * iApply rtyped_proper_impl; last done; eauto.
+        constructor; eauto.
+      * iApply rtyped_proper_impl; last done; eauto.
+    + iIntros "H".
       iDestruct "H" as (t0 t3 [-> HH]) "H".
       inversion H2. subst.
       iExists _,_.
@@ -150,13 +176,25 @@ Proof.
       iApply rtyped_proper_impl; last done; eauto.
       rewrite H1. rewrite H3. done.
     + iIntros "H".
+      iDestruct "H" as (t0 t3 [-> [HH Hunr]]) "H".
+      inversion H2. subst.
+      iExists _,_.
+      iSplit.
+      { iPureIntro. split; first done.
+        split; last first. { rewrite -H1 //. }
+        specialize (H1 s). rewrite HH in H1. inversion H1. done. }
+      iDestruct "H" as "#H". iModIntro.
+      iApply rtyped_proper_impl; last done; eauto.
+      rewrite H1. rewrite H3. done.
+    + iIntros "H".
       iDestruct "H" as (r t' Γ0 Γ3 [-> [-> HH]]) "[H1 H2]".
       inversion H2. subst.
       symmetry in H1.
       eapply map_union_equiv_eq in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
       iExists _,_,_,_.
       iSplit.
-      { iPureIntro. split_and!; eauto. rewrite Q2 Q3 //. }
+      { iPureIntro. split_and!; eauto.
+        rewrite Q2 Q3 //. }
       iSplitL "H1".
       * iApply rtyped_proper_impl; last done; eauto.
         constructor; eauto. constructor; eauto.
@@ -249,6 +287,14 @@ Proof.
       iApply rtyped_proper_impl; last done; eauto.
       rewrite H2. done.
     + iIntros "H".
+      iDestruct "H" as (t0 t3 ->) "H".
+      inversion H1. subst.
+      iExists _,_. iSplit; first done.
+      iDestruct "H" as "#H".
+      iModIntro.
+      iApply rtyped_proper_impl; last done; eauto.
+      rewrite H2. done.
+    + iIntros "H".
       iDestruct "H" as (r ->) "H".
       inversion H1. subst.
       iExists _. iSplit; first done.
@@ -273,7 +319,8 @@ Proof.
   iInduction H as [] "IH"; simpl; eauto;
   repeat iExists _;
   repeat (iSplitL || iSplit); eauto.
-  rewrite H1 //. rewrite H //.
+  - rewrite H1 //.
+  - rewrite H //.
 Qed.
 
 Lemma union_lr_None `{Countable K} {V} (A B C : gmap K V) x :
@@ -321,6 +368,17 @@ Proof.
     iDestruct ("IH1" with "[%] H2") as %?.
     { by apply lookup_union_None in Hx as []. }
     by rewrite H0 H1.
+  - iDestruct "Ht" as (t' Γ1 Γ2  [-> ?]) "[H1 H2]".
+    iDestruct ("IH" with "[%] H1") as %?.
+    { by apply lookup_union_None in Hx as []. }
+    iDestruct ("IH1" with "[%] H2") as %?.
+    { by apply lookup_union_None in Hx as []. }
+    by rewrite H0 H1.
+  - case_decide;[done|].
+    iDestruct "Ht" as (t1 t2 [-> ?]) "H".
+    iDestruct ("IH" with "[%] H") as %?.
+    + rewrite lookup_union. rewrite Hx lookup_singleton_ne; eauto.
+    + rewrite H1. done.
   - case_decide;[done|].
     iDestruct "Ht" as (t1 t2 [-> ?]) "H".
     iDestruct ("IH" with "[%] H") as %?.
@@ -458,6 +516,7 @@ Definition val_typed' (v : val) (t : type) : rProp :=
   | NatT => ∃ n, ⌜⌜ v = NatV n ⌝⌝
   | PairT t1 t2 => ∃ a b, ⌜⌜ v = PairV a b ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
   | FunT t1 t2 => ∃ x e, ⌜⌜ v = FunV x e ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
+  | UFunT t1 t2 => ∃ x e, ⌜⌜ v = UFunV x e ⌝⌝ ∗ □ rtyped {[ x := t1 ]} e t2
   | ChanT r => ∃ c, ⌜⌜ v = ChanV c ⌝⌝ ∗ own_ep c r
   end.
 
@@ -477,14 +536,29 @@ Lemma unrestricted_box v t :
   unrestricted t ->
   val_typed v t ⊢ □ val_typed v t.
 Proof.
-  unfold unrestricted. intros ->.
-  rewrite val_typed_val_typed'. simpl.
-  iIntros "H".
-  iDestruct "H" as (n) "->".
-  iPureIntro. eauto.
+  intros Hunr. revert v.
+  induction Hunr; intros v.
+  - rewrite val_typed_val_typed'. simpl.
+    iIntros "H".
+    iDestruct "H" as (n) "->".
+    iPureIntro. eauto.
+  - rewrite val_typed_val_typed'. simpl.
+    iIntros "H".
+    iDestruct "H" as (x e ->) "#H".
+    iModIntro. eauto.
+  - rewrite val_typed_val_typed'. simpl.
+    iIntros "H".
+    iDestruct "H" as (a b ->) "[H1 H2]".
+    iDestruct (IHHunr1 with "H1") as "H1".
+    iDestruct (IHHunr2 with "H2") as "H2".
+    iDestruct "H1" as "#H1".
+    iDestruct "H2" as "#H2".
+    iModIntro.
+    iExists _,_. iSplit; eauto.
+    iSplitL; eauto.
 Qed.
 
-Instance val_typed_persistent v t : unrestricted t → Persistent (val_typed v t).
+(* Instance val_typed_persistent v t : unrestricted t → Persistent (val_typed v t).
 Proof.
   unfold unrestricted. intros ->.
   unfold Persistent. rewrite val_typed_val_typed'.
@@ -496,7 +570,7 @@ Proof.
   unfold unrestricted. intros ->.
   unfold Affine. rewrite val_typed_val_typed'.
   simpl. eauto.
-Qed.
+Qed. *)
 
 Lemma Γunrestricted_delete Γ x :
   Γunrestricted Γ -> Γunrestricted (delete x Γ).
@@ -520,7 +594,7 @@ Lemma subst_rtyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT
   rtyped (delete x Γ) (subst x v e) eT.
 Proof.
   iIntros (H) "Hv He".
-  iInduction e as [?|?|?|?|?|?|?|?|?|?|?|?] "IH" forall (eT Γ H); simpl.
+  iInduction e as [?|?|?|?|?|?|?|?|?|?|?|?|?|?] "IH" forall (eT Γ H); simpl.
   - iDestruct "He" as "[% H']". iFrame.
     iDestruct (unrestricted_box with "Hv") as "Hv"; eauto using unrestricted_Some.
     iPureIntro. eauto using Γunrestricted_delete.
@@ -565,6 +639,25 @@ Proof.
       iSplitL "He1".
       { iApply ("IH" with "[%]"); eauto. }
       { iApply ("IH1" with "[%]"); eauto. }
+  - iDestruct "He" as (t' Γ1 Γ2 [-> ?]) "(He1 & He2)".
+    eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
+    + iExists _,_,_. iSplit.
+      { iPureIntro. by eapply delete_union_l'. }
+      iSplitL "He1 Hv".
+      { by iApply ("IH" with "[%] Hv"). }
+      { by iDestruct (typed_no_var_subst with "He2") as %->. }
+    + iExists _,_,_. iSplit.
+      { iPureIntro. by eapply delete_union_r'. }
+      iSplitR "He2 Hv".
+      { by iDestruct (typed_no_var_subst with "He1") as %->. }
+      { by iApply ("IH1" with "[%] Hv"). }
+    + iExists _,_,_. iSplit.
+      { iPureIntro. by eapply delete_union_lr'. }
+      iDestruct (unrestricted_box with "Hv") as "Hv"; eauto.
+      iDestruct "Hv" as "#Hv".
+      iSplitL "He1".
+      { iApply ("IH" with "[%]"); eauto. }
+      { iApply ("IH1" with "[%]"); eauto. }
   - iDestruct "He" as (t1 t2 (-> & Hs)) "H".
     case_decide.
     + simplify_eq. rewrite Hs in H. inversion H.
@@ -575,6 +668,22 @@ Proof.
         - rewrite lookup_union. rewrite lookup_singleton_ne; eauto.
           rewrite <-H. destruct (Γ !! x); eauto.
         - rewrite delete_union. rewrite delete_singleton_ne; eauto. }
+  - iDestruct "He" as (t1 t2 (-> & [Hs Hunr])) "H".
+        case_decide.
+        + simplify_eq. rewrite Hs in H. inversion H.
+        + simpl. iExists _,_. iSplit.
+          { iPureIntro. split; eauto. rewrite lookup_delete_None.
+            split; eauto. apply Γunrestricted_delete. done. }
+          iDestruct "H" as "#H".
+          iDestruct (unrestricted_box with "Hv") as "Hv".
+          { inversion H. subst. rewrite -H3. eapply Hunr. symmetry. done. }
+          iDestruct "Hv" as "#Hv".
+          iModIntro.
+          { replace (delete x Γ ∪ {[s := t1]}) with (delete x (Γ ∪ {[s := t1]})).
+            iApply ("IH" with "[%] Hv H").
+            - rewrite lookup_union. rewrite lookup_singleton_ne; eauto.
+              rewrite <-H. destruct (Γ !! x); eauto.
+            - rewrite delete_union. rewrite delete_singleton_ne; eauto. }
   - iDestruct "He" as (r t' Γ1 Γ2 (-> & -> & ?)) "[H1 H2]".
     eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
     + iExists _,_,_,_. iSplit.
@@ -751,9 +860,15 @@ Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
   | App e1 e2 => ∃ t',
       rtyped0 e1 (FunT t' t) ∗
       rtyped0 e2 t'
+  | UApp e1 e2 => ∃ t',
+      rtyped0 e1 (UFunT t' t) ∗
+      rtyped0 e2 t'
   | Lam x e => ∃ t1 t2,
       ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗
       rtyped {[ x := t1 ]} e t2
+  | ULam x e => ∃ t1 t2,
+      ⌜⌜ t = UFunT t1 t2 ⌝⌝ ∗
+      □ rtyped {[ x := t1 ]} e t2
   | Send e1 e2 => ∃ r t',
       ⌜⌜ t = ChanT r⌝⌝ ∗
       rtyped0 e1 (ChanT (SendT t' r)) ∗
@@ -811,6 +926,16 @@ Proof.
     iSplitL "H1".
     + iApply "IH". done.
     + iApply "IH1". done.
+  - iDestruct "H" as (t1 Γ1 Γ2 [H1 H2]) "[H1 H2]".
+    iExists t1.
+    apply both_emp in H1 as [-> ->].
+    iSplitL "H1".
+    + iApply "IH". done.
+    + iApply "IH1". done.
+  - iDestruct "H" as (t1 t2 [H1 H2]) "H".
+    iExists t1,t2.
+    iSplit. done.
+    by rewrite left_id.
   - iDestruct "H" as (t1 t2 [H1 H2]) "H".
     iExists t1,t2.
     iSplit. done.
@@ -876,6 +1001,16 @@ Proof.
     iSplitL "H1".
     + iApply "IH". done.
     + iApply "IH1". done.
+  - iDestruct "H" as (t1) "[H1 H2]".
+    iExists t1,∅,∅.
+    iSplit. iPureIntro. rewrite left_id. eauto using disj_empty_l.
+    iSplitL "H1".
+    + iApply "IH". done.
+    + iApply "IH1". done.
+  - iDestruct "H" as (t1 t2 ->) "H".
+    iExists t1,t2.
+    iSplit. done.
+    by rewrite left_id.
   - iDestruct "H" as (t1 t2 ->) "H".
     iExists t1,t2.
     iSplit. done.
