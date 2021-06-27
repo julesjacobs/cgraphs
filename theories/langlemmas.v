@@ -19,6 +19,7 @@ Proof.
     iExists _,_.
     iSplit; first done.
     iFrame.
+  - iDestruct "Ht" as (t1 t2 -> ?) "Ht". eauto.
   - iDestruct "Ht" as (t' Γ1 Γ2 H) "Ht".
     iDestruct "Ht" as "((_ & Ht1) & (_ & Ht2))".
     iDestruct "Ht1" as (t1 t2 HH) "Ht1".
@@ -53,6 +54,21 @@ Proof.
       assert (Γ1 = ∅). eapply map_positive_l; done. subst.
       rewrite left_id in H. done. }
     subst. done.
+  - iDestruct "Ht" as (t1 t2 Γ1 Γ2 (H & Hdisj & Hx)) "[[% Hv] Ht]".
+    eapply both_emp in H as [-> ->].
+    iDestruct "Hv" as (t0 t3 HH) "Hv". simplify_eq.
+    rewrite !left_id.
+    destruct b.
+    + replace (∅ : envT) with (delete x {[ x := t0]} : envT); last first.
+      { apply delete_singleton. }
+      iDestruct "Ht" as "[Ht _]".
+      iApply (subst_rtyped with "Hv Ht").
+      rewrite lookup_singleton //.
+    + replace (∅ : envT) with (delete x {[ x := t3]} : envT); last first.
+      { apply delete_singleton. }
+      iDestruct "Ht" as "[_ Ht]".
+      iApply (subst_rtyped with "Hv Ht").
+      rewrite lookup_singleton //.
   - iDestruct "Ht" as (t' Γ1 Γ2 H) "[[% Hv] Ht]".
     destruct H as (H & _ & _).
     subst. symmetry in H.

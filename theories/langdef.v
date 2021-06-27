@@ -10,7 +10,7 @@ Inductive val :=
     | UnitV : val
     | NatV : nat -> val
     | PairV : val -> val -> val
-    (* | SumV : bool -> val -> val *)
+    | InjV : bool -> val -> val
     | FunV : string -> expr -> val
     | UFunV : string -> expr -> val
     | ChanV : endpoint -> val
@@ -19,6 +19,7 @@ with expr :=
     | Val : val -> expr
     | Var : string -> expr
     | Pair : expr -> expr -> expr
+    | Inj : bool -> expr -> expr
     | App : expr -> expr -> expr
     | UApp : expr -> expr -> expr
     | Lam : string -> expr -> expr
@@ -28,6 +29,8 @@ with expr :=
     | Let : string -> expr -> expr -> expr
     | LetUnit : expr -> expr -> expr
     | LetProd : string -> string -> expr -> expr -> expr
+    | MatchVoid : expr -> expr
+    | MatchSum : expr -> string -> expr -> expr -> expr
     | If : expr -> expr -> expr -> expr
     | Fork : expr -> expr
     | Close : expr -> expr.
@@ -168,8 +171,10 @@ Canonical Structure chan_type'O (T:ofe) := discreteO (chan_type' T).
 
 CoInductive type :=
     | UnitT : type
+    | VoidT : type
     | NatT : type
     | PairT : type -> type -> type
+    | SumT : type -> type -> type
     | FunT : type -> type -> type
     | UFunT : type -> type -> type
     | ChanT : chan_type' type -> type.
@@ -177,8 +182,10 @@ CoInductive type :=
 
 CoInductive type_equiv : Equiv type :=
     | teq_UnitT : UnitT ≡ UnitT
+    | teq_VoidT : VoidT ≡ VoidT
     | teq_NatT : NatT ≡ NatT
     | teq_PairT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> PairT t1 t1' ≡ PairT t2 t2'
+    | teq_SumT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> SumT t1 t1' ≡ SumT t2 t2'
     | teq_FunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> FunT t1 t1' ≡ FunT t2 t2'
     | teq_UFunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> UFunT t1 t1' ≡ UFunT t2 t2'
     | teq_ChanT s1 s2 : s1 ≡ s2 -> ChanT s1 ≡ ChanT s2.
@@ -275,6 +282,16 @@ Inductive typed : envT -> expr -> type -> Prop :=
         typed Γ1 e1 (PairT t11 t12) ->
         typed (Γ2 ∪ {[ x1 := t11 ]} ∪ {[ x2 := t12 ]}) e2 t2 ->
         typed (Γ1 ∪ Γ2) (LetProd x1 x2 e1 e2) t2
+    | MatchVoid_typed : ∀ Γ e t,
+        typed Γ e VoidT ->
+        typed Γ (MatchVoid e) t
+    | MatchSum_typed : ∀ Γ1 Γ2 e1 eL eR tL tR t x,
+        disj Γ1 Γ2 ->
+        Γ2 !! x = None ->
+        typed Γ1 e1 (SumT tL tR) ->
+        typed (Γ2 ∪ {[ x := tL ]}) eL t ->
+        typed (Γ2 ∪ {[ x := tR ]}) eR t ->
+        typed (Γ1 ∪ Γ2) (MatchSum e1 x eL eR) t
     | If_typed : ∀ Γ1 Γ2 e1 e2 e3 t,
         disj Γ1 Γ2 ->
         typed Γ1 e1 NatT ->
@@ -297,6 +314,7 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   | Val _ => e
   | Var x' => if decide (x = x') then Val a else e
   | App e1 e2 => App (subst x a e1) (subst x a e2)
+  | Inj b e1 => Inj b (subst x a e1)
   | Pair e1 e2 => Pair (subst x a e1) (subst x a e2)
   | UApp e1 e2 => UApp (subst x a e1) (subst x a e2)
   | Lam x' e1 => if decide (x = x') then e else Lam x' (subst x a e1)
@@ -307,6 +325,11 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   | LetUnit e1 e2 => LetUnit (subst x a e1) (subst x a e2)
   | LetProd x' y' e1 e2 =>
       LetProd x' y' (subst x a e1) (if decide (x = x' ∨ x = y') then e2 else subst x a e2)
+  | MatchVoid e1 => MatchVoid (subst x a e1)
+  | MatchSum e1 x' eL eR =>
+      MatchSum (subst x a e1) x'
+        (if decide (x = x') then eL else subst x a eL)
+        (if decide (x = x') then eR else subst x a eR)
   | If e1 e2 e3 => If (subst x a e1) (subst x a e2) (subst x a e3)
   | Fork e1 => Fork (subst x a e1)
   | Close e1 => Close (subst x a e1)
@@ -315,6 +338,8 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
 Inductive pure_step : expr -> expr -> Prop :=
     | Pair_step : ∀ v1 v2,
         pure_step (Pair (Val v1) (Val v2)) (Val (PairV v1 v2))
+    | Inj_step : ∀ v1 b,
+        pure_step (Inj b (Val v1)) (Val (InjV b v1))
     | App_step : ∀ x e a,
         pure_step (App (Val (FunV x e)) (Val a)) (subst x a e)
     | UApp_step : ∀ x e a,
@@ -328,6 +353,9 @@ Inductive pure_step : expr -> expr -> Prop :=
         pure_step (If (Val (NatV n)) e1 e2) e1
     | If_step2 : ∀ e1 e2,
         pure_step (If (Val (NatV 0)) e1 e2) e2
+    | MatchSum_step : ∀ x v eL eR b,
+        pure_step (MatchSum (Val (InjV b v)) x eL eR)
+            (if b then subst x v eL else subst x v eR)
     | Let_step : ∀ x v e,
         pure_step (Let x (Val v) e) (subst x v e)
     | LetUnit_step : ∀ e,
@@ -360,6 +388,7 @@ Inductive ctx1 : (expr -> expr) -> Prop :=
     | Ctx_App_r : ∀ v, ctx1 (λ x, App (Val v) x)
     | Ctx_Pair_l : ∀ e, ctx1 (λ x, Pair x e)
     | Ctx_Pair_r : ∀ v, ctx1 (λ x, Pair (Val v) x)
+    | Ctx_Inj : ∀ b, ctx1 (λ x, Inj b x)
     | Ctx_UApp_l : ∀ e, ctx1 (λ x, UApp x e)
     | Ctx_UApp_r : ∀ v, ctx1 (λ x, UApp (Val v) x)
     | Ctx_Send_l : ∀ e, ctx1 (λ x, Send x e)
@@ -368,6 +397,8 @@ Inductive ctx1 : (expr -> expr) -> Prop :=
     | Ctx_Let : ∀ s e, ctx1 (λ x, Let s x e)
     | Ctx_LetUnit : ∀ e, ctx1 (λ x, LetUnit x e)
     | Ctx_LetProd : ∀ s1 s2 e, ctx1 (λ x, LetProd s1 s2 x e)
+    | Ctx_MatchVoid : ctx1 (λ x, MatchVoid x)
+    | Ctx_MatchSum : ∀ s e1 e2, ctx1 (λ x, MatchSum x s e1 e2)
     | Ctx_If : ∀ e1 e2, ctx1 (λ x, If x e1 e2)
     | Ctx_Fork : ctx1 (λ x, Fork x)
     | Ctx_Close : ctx1 (λ x, Close x).

@@ -110,6 +110,19 @@ Proof.
       split_and!; eauto.
       eapply (Ctx_cons (λ x, App x e2)); eauto.
       constructor. *)
+  - iDestruct "H" as (t1 t2 ->) "H".
+    iDestruct ("IH" with "H") as "%". iClear "IH".
+    destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
+    + iPureIntro. right. exists (λ x, x). eexists.
+      split_and!; eauto.
+      { constructor. }
+      left. eexists.
+      constructor.
+    + iPureIntro. right.
+      eexists (λ x, Inj b (k x)),_.
+      split_and!; eauto.
+      eapply (Ctx_cons (λ x, Inj b x)); eauto.
+      constructor.
   - iDestruct "H" as (t') "[H1 H2]".
     iDestruct ("IH" with "H1") as "%". iClear "IH".
     iDestruct ("IH1" with "H2") as "%". iClear "IH1".
@@ -219,6 +232,28 @@ Proof.
       eexists (λ x, LetProd s s0 (k x) e2),_.
       split_and!; eauto.
       eapply (Ctx_cons (λ x, LetProd s s0 x e2)); eauto.
+      constructor.
+  - iDestruct ("IH" with "H") as "%". iClear "IH".
+    destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
+    + simpl. rewrite val_typed_val_typed'. simpl. iDestruct "H" as %[].
+    + iPureIntro. right.
+      eexists (λ x, MatchVoid (k x)),_. split_and!; eauto.
+      constructor; eauto. constructor.
+  - iDestruct "H" as (t1 t2) "[H1 H2]".
+    iDestruct ("IH" with "H1") as "%". iClear "IH".
+    destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
+    + simpl. rewrite val_typed_val_typed'. simpl.
+      iDestruct "H1" as (b a) "[-> H]".
+      iPureIntro. right.
+      exists (λ x, x). eexists.
+      split_and!; eauto.
+      { constructor. }
+      left.
+      eexists. constructor.
+    + iPureIntro. right.
+      eexists (λ x, MatchSum (k x) s e2 e3),_.
+      split_and!; eauto.
+      eapply (Ctx_cons (λ x, MatchSum x s e2 e3)); eauto.
       constructor.
   - iDestruct "H" as "[H1 H2]".
     iDestruct ("IH" with "H1") as "%". iClear "IH".
