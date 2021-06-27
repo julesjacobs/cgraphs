@@ -2,6 +2,10 @@ From iris.proofmode Require Export tactics.
 Require Export diris.langdef.
 Require Export diris.rtypesystem.
 
+Lemma Γunrestricted_empty : Γunrestricted ∅.
+Proof.
+  intros ??. rewrite lookup_empty. intros. simplify_eq.
+Qed.
 
 Lemma pure_step_rtyped e e' t :
   pure_step e e' -> rtyped ∅ e t -∗ rtyped ∅ e' t.
@@ -9,6 +13,12 @@ Proof.
   intros Hps.
   iIntros "Ht".
   iInduction Hps as [] "IH"; simpl.
+  - iDestruct "Ht" as (t1 t2 Γ1 Γ2 [-> [HH Hdisj]]) "Ht".
+    iDestruct "Ht" as "((_ & Ht1) & (_ & Ht2))".
+    iSplit. { iPureIntro. apply Γunrestricted_empty. }
+    iExists _,_.
+    iSplit; first done.
+    iFrame.
   - iDestruct "Ht" as (t' Γ1 Γ2 H) "Ht".
     iDestruct "Ht" as "((_ & Ht1) & (_ & Ht2))".
     iDestruct "Ht1" as (t1 t2 HH) "Ht1".

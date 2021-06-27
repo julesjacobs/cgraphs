@@ -43,6 +43,10 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
       rtyped Γ1 e1 (FunT t' t) ∗
       rtyped Γ2 e2 t'
+  | Pair e1 e2 => ∃ t1 t2 Γ1 Γ2,
+      ⌜⌜ t = PairT t1 t2 ∧ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
+      rtyped Γ1 e1 t1 ∗
+      rtyped Γ2 e2 t2
   | UApp e1 e2 => ∃ t' Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
       rtyped Γ1 e1 (UFunT t' t) ∗
@@ -144,6 +148,16 @@ Proof.
     + rewrite H1. iIntros "[? ?]". iFrame. iApply val_typed_proper_impl; eauto.
     + iIntros "H". iDestruct "H" as %[Γ0 (HH1 & HH2 & HH3)].
       iPureIntro. rewrite ->H1 in HH1. eexists. rewrite -H2. eauto.
+    + iIntros "H".
+      iDestruct "H" as (t0 t3 Γ0 Γ3 [-> [-> Hdisj]]) "[H1 H2]".
+      inversion H2; subst.
+      symmetry in H1.
+      eapply map_union_equiv_eq in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
+      iExists _,_,_,_.
+      iSplit. { iPureIntro. split_and!; eauto. rewrite Q2 Q3 //. }
+      iSplitL "H1".
+      * iApply rtyped_proper_impl; last done; eauto.
+      * iApply rtyped_proper_impl; last done; eauto.
     + iIntros "H".
       iDestruct "H" as (t' Γ0 Γ3 []) "[H1 H2]".
       subst.
@@ -362,6 +376,12 @@ Proof.
     rewrite lookup_union in H.
     rewrite lookup_singleton in H.
     destruct (x !! s); inversion H.
+  - iDestruct "Ht" as (t1 t2 Γ1 Γ2 [-> [-> Hdisj]]) "[H1 H2]".
+    iDestruct ("IH" with "[%] H1") as %?.
+    { by apply lookup_union_None in Hx as []. }
+    iDestruct ("IH1" with "[%] H2") as %?.
+    { by apply lookup_union_None in Hx as []. }
+    by rewrite H H0.
   - iDestruct "Ht" as (t' Γ1 Γ2  [-> ?]) "[H1 H2]".
     iDestruct ("IH" with "[%] H1") as %?.
     { by apply lookup_union_None in Hx as []. }
@@ -594,7 +614,7 @@ Lemma subst_rtyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT
   rtyped (delete x Γ) (subst x v e) eT.
 Proof.
   iIntros (H) "Hv He".
-  iInduction e as [?|?|?|?|?|?|?|?|?|?|?|?|?|?] "IH" forall (eT Γ H); simpl.
+  iInduction e as [?|?|?|?|?|?|?|?|?|?|?|?|?|?|?] "IH" forall (eT Γ H); simpl.
   - iDestruct "He" as "[% H']". iFrame.
     iDestruct (unrestricted_box with "Hv") as "Hv"; eauto using unrestricted_Some.
     iPureIntro. eauto using Γunrestricted_delete.
@@ -620,6 +640,25 @@ Proof.
       split; eauto.
       split; eauto using Γunrestricted_delete.
       eapply lookup_delete_None; eauto.
+  - iDestruct "He" as (t1 t2 Γ1 Γ2 [-> [-> Hdisj]]) "(He1 & He2)".
+    eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
+    + iExists _,_,_,_. iSplit.
+      { iPureIntro. split; first done. by eapply delete_union_l'. }
+      iSplitL "He1 Hv".
+      { by iApply ("IH" with "[%] Hv"). }
+      { by iDestruct (typed_no_var_subst with "He2") as %->. }
+    + iExists _,_,_,_. iSplit.
+      { iPureIntro. split; first done. by eapply delete_union_r'. }
+      iSplitR "He2 Hv".
+      { by iDestruct (typed_no_var_subst with "He1") as %->. }
+      { by iApply ("IH1" with "[%] Hv"). }
+    + iExists _,_,_,_. iSplit.
+      { iPureIntro. split; first done. by eapply delete_union_lr'. }
+      iDestruct (unrestricted_box with "Hv") as "Hv"; eauto.
+      iDestruct "Hv" as "#Hv".
+      iSplitL "He1".
+      { iApply ("IH" with "[%]"); eauto. }
+      { iApply ("IH1" with "[%]"); eauto. }
   - iDestruct "He" as (t' Γ1 Γ2 [-> ?]) "(He1 & He2)".
     eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
     + iExists _,_,_. iSplit.
@@ -857,6 +896,10 @@ Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
       val_typed v t
   | Var x =>
       False
+  | Pair e1 e2 => ∃ t1 t2,
+      ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗
+      rtyped0 e1 t1 ∗
+      rtyped0 e2 t2
   | App e1 e2 => ∃ t',
       rtyped0 e1 (FunT t' t) ∗
       rtyped0 e2 t'
@@ -920,6 +963,13 @@ Proof.
     specialize (H s).
     revert H. rewrite lookup_union lookup_singleton lookup_empty.
     destruct (x !! s); intros H; inversion H.
+  - iDestruct "H" as (t1 t2 Γ1 Γ2 [-> [H1 Hdisj]]) "[H1 H2]".
+    iExists t1, t2.
+    iSplit; first done.
+    apply both_emp in H1 as [-> ->].
+    iSplitL "H1".
+    + iApply "IH". done.
+    + iApply "IH1". done.
   - iDestruct "H" as (t1 Γ1 Γ2 [H1 H2]) "[H1 H2]".
     iExists t1.
     apply both_emp in H1 as [-> ->].
@@ -995,6 +1045,12 @@ Proof.
   iInduction e as [] "IH" forall (t); simpl.
   - iSplit; done.
   - iDestruct "H" as "%". done.
+  - iDestruct "H" as (t1 t2 ->) "[H1 H2]".
+    iExists t1,t2,∅,∅.
+    iSplit. { iPureIntro. rewrite left_id. eauto using disj_empty_l. }
+    iSplitL "H1".
+    + iApply "IH". done.
+    + iApply "IH1". done.
   - iDestruct "H" as (t1) "[H1 H2]".
     iExists t1,∅,∅.
     iSplit. iPureIntro. rewrite left_id. eauto using disj_empty_l.

@@ -10,6 +10,7 @@ Inductive val :=
     | UnitV : val
     | NatV : nat -> val
     | PairV : val -> val -> val
+    (* | SumV : bool -> val -> val *)
     | FunV : string -> expr -> val
     | UFunV : string -> expr -> val
     | ChanV : endpoint -> val
@@ -17,6 +18,7 @@ Inductive val :=
 with expr :=
     | Val : val -> expr
     | Var : string -> expr
+    | Pair : expr -> expr -> expr
     | App : expr -> expr -> expr
     | UApp : expr -> expr -> expr
     | Lam : string -> expr -> expr
@@ -222,6 +224,11 @@ Inductive typed : envT -> expr -> type -> Prop :=
         Γunrestricted Γ ->
         t ≡ t' ->
         typed (Γ ∪ {[ x := t ]}) (Var x) t'
+    | Pair_typed : ∀ Γ1 Γ2 e1 e2 t1 t2,
+        disj Γ1 Γ2 ->
+        typed Γ1 e1 t1 ->
+        typed Γ2 e2 t2 ->
+        typed (Γ1 ∪ Γ2) (Pair e1 e2) (PairT t1 t2)
     | App_typed : ∀ Γ1 Γ2 e1 e2 t1 t2,
         disj Γ1 Γ2 ->
         typed Γ1 e1 (FunT t1 t2) ->
@@ -290,6 +297,7 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   | Val _ => e
   | Var x' => if decide (x = x') then Val a else e
   | App e1 e2 => App (subst x a e1) (subst x a e2)
+  | Pair e1 e2 => Pair (subst x a e1) (subst x a e2)
   | UApp e1 e2 => UApp (subst x a e1) (subst x a e2)
   | Lam x' e1 => if decide (x = x') then e else Lam x' (subst x a e1)
   | ULam x' e1 => if decide (x = x') then e else ULam x' (subst x a e1)
@@ -305,6 +313,8 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   end.
 
 Inductive pure_step : expr -> expr -> Prop :=
+    | Pair_step : ∀ v1 v2,
+        pure_step (Pair (Val v1) (Val v2)) (Val (PairV v1 v2))
     | App_step : ∀ x e a,
         pure_step (App (Val (FunV x e)) (Val a)) (subst x a e)
     | UApp_step : ∀ x e a,
@@ -348,6 +358,8 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
 Inductive ctx1 : (expr -> expr) -> Prop :=
     | Ctx_App_l : ∀ e, ctx1 (λ x, App x e)
     | Ctx_App_r : ∀ v, ctx1 (λ x, App (Val v) x)
+    | Ctx_Pair_l : ∀ e, ctx1 (λ x, Pair x e)
+    | Ctx_Pair_r : ∀ v, ctx1 (λ x, Pair (Val v) x)
     | Ctx_UApp_l : ∀ e, ctx1 (λ x, UApp x e)
     | Ctx_UApp_r : ∀ v, ctx1 (λ x, UApp (Val v) x)
     | Ctx_Send_l : ∀ e, ctx1 (λ x, Send x e)
