@@ -109,7 +109,7 @@ Section map_to_multiset.
     {[ (i, v) ]} ⋅ x ≡ map_to_multiset m ->
     {[ (i, v') ]} ⋅ x ≡ map_to_multiset (<[i:=v']> m).
   Proof.
-    rewrite <-fin_maps.insert_delete.
+    rewrite <-fin_maps.insert_delete_insert.
     rewrite map_to_multiset_insert; last apply lookup_delete.
     intros H.
     rewrite <-map_to_multiset_delete; done.

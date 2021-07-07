@@ -72,8 +72,8 @@ Section cgraph.
     Proof.
       intro.
       pose proof (in_labels_insert (delete i g) i y v) as HH.
-      rewrite insert_delete in HH.
-      rewrite insert_id in HH; eauto.
+      rewrite insert_delete in HH; last done.
+      (* rewrite insert_id in HH; eauto. *)
       rewrite HH; last by apply lookup_delete.
       done.
     Qed.
@@ -84,7 +84,8 @@ Section cgraph.
       from_option singleton ε (x !! v) ⋅ in_labels g v.
     Proof.
       intro.
-      assert (<[i:=x]> g = <[i:=x]> $ delete i g) as -> by by rewrite insert_delete.
+      assert (<[i:=x]> g = <[i:=x]> $ delete i g) as ->.
+      { by rewrite insert_delete_insert. }
       rewrite in_labels_insert; last by apply lookup_delete.
       rewrite comm. rewrite -assoc.
       rewrite (comm (⋅) (in_labels _ _)).
@@ -785,7 +786,7 @@ Section cgraph.
       rewrite out_edges_delete_edge.
       repeat case_decide; simplify_eq; eauto.
       apply map_eq. intros v.
-      rewrite insert_delete //.
+      rewrite insert_delete_insert //.
     Qed.
 
     Lemma update_in_labels_eq g v1 v2 l l' x :
