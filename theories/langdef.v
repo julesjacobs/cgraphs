@@ -179,6 +179,22 @@ CoInductive type :=
     | UFunT : type -> type -> type
     | ChanT : chan_type' type -> type.
 
+Definition type_id (t : type) :=
+    match t with
+    | UnitT => UnitT
+    | VoidT => VoidT
+    | NatT => NatT
+    | PairT t1 t2 => PairT t1 t2
+    | SumT t1 t2 => SumT t1 t2
+    | FunT t1 t2 => FunT t1 t2
+    | UFunT t1 t2 => UFunT t1 t2
+    | ChanT s => ChanT s
+    end.
+
+    Lemma type_id_id t : type_id t = t.
+    Proof.
+    by destruct t.
+    Qed.
 
 CoInductive type_equiv : Equiv type :=
     | teq_UnitT : UnitT ≡ UnitT
