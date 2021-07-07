@@ -1,11 +1,14 @@
 From diris Require Import invariant.
+Require Import Coq.Logic.Classical.
+
 (*
   Global progress: if the invariant holds for (es,h) then either:
   - all e ∈ es are unit, and h = ∅
   - the configuration can step
 *)
 
-Lemma is_unit_decision e :
+(* This stuff is for a constructive proof. For now we use classical logic. *)
+(* Lemma is_unit_decision e :
   Decision (e = Val UnitV).
 Proof.
   destruct e; try solve [right; intro; simplify_eq].
@@ -58,7 +61,7 @@ Proof.
     destruct (is_unit_decision e); eauto.
     exfalso.
     apply H0; eauto.
-Qed.
+Qed. *)
 
 Lemma rtyped_inner e t :
   rtyped0 e t -∗ ⌜ (∃ v, e = Val v)  ∨
@@ -89,27 +92,6 @@ Proof.
       eexists (λ x, Pair (k x) e2),_.
       split_and!; eauto.
       eapply (Ctx_cons (λ x, Pair x e2)); eauto. constructor.
-  (* - iDestruct "H" as (t1 t2 ->) "[H1 H2]".
-    iDestruct ("IH" with "H1") as "%". iClear "IH".
-    iDestruct ("IH1" with "H2") as "%". iClear "IH1".
-    destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
-    + destruct H0 as [[v' ->]|(k & e0 & Hk & -> & H0)].
-      * simpl. rewrite val_typed_val_typed'. simpl.
-        iDestruct "H1" as (x e ->) "H1".
-        iPureIntro. right. exists (λ x, x). eexists.
-        split_and!; eauto.
-        { constructor. }
-        left. eexists.
-        constructor.
-      * iPureIntro. right.
-        eexists (λ x, App (Val v) (k x)),_.
-        split_and!; eauto.
-        constructor; eauto. constructor.
-    + iPureIntro. right.
-      eexists (λ x, App (k x) e2),_.
-      split_and!; eauto.
-      eapply (Ctx_cons (λ x, App x e2)); eauto.
-      constructor. *)
   - iDestruct "H" as (t1 t2 ->) "H".
     iDestruct ("IH" with "H") as "%". iClear "IH".
     destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
@@ -302,7 +284,8 @@ Definition active (x : object) (es : list expr) (h : heap) :=
   | Chan i => ∃ b, is_Some (h !! (i,b))
   end.
 
-Lemma exists_bool_dec (P : bool -> Prop) :
+(* More stuff for the constructive proof. *)
+(* Lemma exists_bool_dec (P : bool -> Prop) :
   (∀ b, Decision (P b)) -> Decision (∃ b, P b).
 Proof.
   intros HH.
@@ -420,7 +403,7 @@ Proof.
     + destruct (h!!(c,false)) eqn:F.
       * left. exists false. rewrite F;eauto.
       * right. intros (?&?). destruct H. destruct x; simplify_eq.
-Qed.
+Qed. *)
 
 Lemma heap_fresh (h : heap) :
   ∃ i, ∀ b, h !! (i,b) = None.
@@ -430,6 +413,20 @@ Proof.
   rewrite ->not_elem_of_dom in H.
   rewrite -lookup_gmap_uncurry.
   rewrite H. done.
+Qed.
+
+Lemma final_state_decision (es : list expr) (h : heap) :
+  ((∃ c, is_Some (h !! c)) ∨ (∃ e, e ∈ es ∧ e ≠ Val UnitV)) ∨
+  (h = ∅ ∧ ∀ e, e ∈ es -> e = Val UnitV).
+Proof.
+  destruct (classic ((∃ c, is_Some (h !! c)) ∨ (∃ e, e ∈ es ∧ e ≠ Val UnitV))); eauto.
+  right. split.
+  - apply map_eq. intros. rewrite lookup_empty.
+    destruct (h !! i) eqn:E; eauto. exfalso.
+    apply H. left. eexists. erewrite E. eauto.
+  - intros.
+    assert (¬ (e ≠ Val UnitV)) by naive_solver.
+    by apply NNPP.
 Qed.
 
 Lemma global_progress es h :
@@ -676,7 +673,8 @@ Proof.
         eapply map_empty_equiv_eq in Hn.
         rewrite Hn in Hy. rewrite lookup_empty in Hy. inversion Hy.
       }
-      destruct (waiting_dec es h (Thread n) (Chan i) (b, σ1)); last first.
+      (* destruct (waiting_dec es h (Thread n) (Chan i) (b, σ1)); last first. *)
+      destruct (classic (waiting es h (Thread n) (Chan i) (b, σ1))) as [w|n0]; last first.
       {
         eapply Hind_in; eauto.
         simpl. exists e. split; eauto.
@@ -755,7 +753,8 @@ Proof.
           rewrite Hz in Hzout. rewrite lookup_empty in Hzout.
           inversion Hzout.
         }
-        destruct (waiting_dec es h (Thread n) (Chan j) (negb b, c)); last first.
+        destruct (classic (waiting es h (Thread n) (Chan j) (negb b, c))) as [w|n0]; last first.
+        (* destruct (waiting_dec es h (Thread n) (Chan j) (negb b, c)); last first. *)
         {
           eapply Hind_in; eauto.
           simpl. exists e. split; eauto.
