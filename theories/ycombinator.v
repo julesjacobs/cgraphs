@@ -30,7 +30,6 @@ Section ycombinator.
     - rewrite lookup_singleton_ne; eauto. intros. simplify_eq.
   Qed.
 
-
   Lemma singleton_disj x y xT yT :
     String.eqb x y = false ∨ (xT = yT ∧ unrestricted xT) -> disj {[x := xT]} {[y := yT]}.
   Proof.

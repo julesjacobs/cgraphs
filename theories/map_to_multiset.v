@@ -79,7 +79,7 @@ Section map_to_multiset.
         revert Q4. rewrite left_id. intros Q4.
         destruct Q3 as [[H31 H32]|[H31 H32]].
         * rewrite ->H11 in H31.
-          exfalso. eapply multiset_empty_neq_singleton, multiset_empty_equiv; done.
+          exfalso. eapply multiset_empty_neq_singleton, multiset_unit_equiv_eq; done.
         * rewrite ->H11 in H31.
           eapply inj in H31; last apply _.
           inversion H31; simpl in *.
@@ -102,7 +102,7 @@ Section map_to_multiset.
       case_decide; subst; eauto. }
     rewrite ->map_to_multiset_insert in HH; last apply lookup_delete.
     rewrite ->H1 in HH.
-    by apply multiset_mult_singleton_inv in HH.
+    by apply multiset_op_inj in HH.
   Qed.
 
   Lemma map_to_multiset_update m x i v v' :

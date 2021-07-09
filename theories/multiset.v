@@ -223,21 +223,3 @@ Proof.
   symmetry in H.
   apply multiset_op_singleton in H. eauto.
 Qed.
-
-Lemma multiset_empty_equiv {A:ofe} (x:multiset A) :
-  x ≡ ε -> x = ε.
-Proof.
-  apply multiset_unit_equiv_eq.
-Qed.
-
-Lemma multiset_singleton_inv {A:ofe} (a b : A) :
-  {[ a ]} ≡ ({[ b ]} : multiset A) -> a ≡ b.
-Proof.
-  apply multiset_singleton_inj.
-Qed.
-
-Lemma multiset_mult_singleton_inv {A:ofe} (a : A) (x x' : multiset A) :
-  {[ a ]} ⋅ x ≡ {[ a ]} ⋅ x' -> x ≡ x'.
-Proof.
-  apply multiset_op_inj.
-Qed.

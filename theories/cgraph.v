@@ -171,7 +171,7 @@ Section cgraph.
                 rewrite lookup_empty in H7. inversion H7.
               - rewrite ->H1 in H3.
                 exfalso. eapply multiset_empty_neq_singleton.
-                eapply multiset_empty_equiv. rewrite <- H3. done.
+                eapply multiset_unit_equiv_eq. rewrite <- H3. done.
               - rewrite ->H6 in H2.
                 edestruct IHg; eauto.
                 exists x4.
@@ -181,7 +181,7 @@ Section cgraph.
                 rewrite H0 in H7.
                 rewrite lookup_empty in H7. inversion H7.
               - rewrite ->H1 in H3.
-                eapply multiset_singleton_inv in H3.
+                eapply multiset_singleton_inj in H3.
                 exists i.
                 rewrite out_edges_insert.
                 case_decide; simplify_eq.
