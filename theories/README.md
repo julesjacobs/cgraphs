@@ -1,6 +1,3 @@
-Connectivity Graphs: A Method for Proving Deadlock Freedom Based on Separation Logic
-======================================================================================
-
 This repository contains the connectivity graph library (./cgraphs) and
 a formalization of deadlock and leak freedom for a session typed language (./sessiontypes).
 
