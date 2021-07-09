@@ -14,7 +14,7 @@ Build instructions:
 Structure of the development & LOC:
 -----------------------------------
 
-Connectivity graph library:
+### Connectivity graph library:
 - Utilities and data structures:
   * 224 ./cgraphs/multiset.v
   * 131 ./cgraphs/map_to_multiset.v
@@ -33,12 +33,12 @@ Connectivity graph library:
 
 Total: 1401 + 665 + 224 + 131 + 146 + 459 + 376 + 1250 + 183 + 153 = 4988
 
-Language definition:
+### Language definition:
 * 447  ./langdef.v
 
 Total: 447 = 447
 
-Deadlock and leak freedom proof:
+### Deadlock and leak freedom proof:
 - Run-time type system:
   * 111 ./sessiontypes/langlemmas.v
   * 1284 ./sessiontypes/rtypesystem.v
