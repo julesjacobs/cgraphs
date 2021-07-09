@@ -1358,19 +1358,3 @@ Proof.
     iDestruct "H" as (t) "[H1 H2]".
     iApply "H2". iFrame.
 Qed.
-
-(*
-  Asynchronous subtyping:
-  -----------------------
-  ?A.!B.R < !B.?A.R
-
-
-  Nat < Int
-
-  x : Nat ==> x : Int
-*)
-
-(*
-       things that #1 sent             things that #2 sent
-cT1    [v1,v2]                         [w1,w2,w3]               cT2
-*)

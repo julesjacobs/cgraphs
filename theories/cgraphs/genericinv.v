@@ -1,5 +1,6 @@
-Require Export diris.cgraph.
-Require Export diris.seplogic.
+Require Export diris.cgraphs.cgraph.
+Require Export diris.cgraphs.seplogic.
+Require Export diris.cgraphs.map_to_multiset.
 
 Section genericinv.
   Context {V : Type}.

@@ -1,10 +1,7 @@
-Require Export diris.langdef.
-Require Export diris.cgraph.
-Require Export diris.seplogic.
-Require Export diris.rtypesystem.
-Require Export diris.langlemmas.
-Require Export diris.genericinv.
-Require Export diris.map_to_multiset.
+Require Export diris.cgraphs.genericinv.
+Require Export diris.sessiontypes.langdef.
+Require Export diris.sessiontypes.rtypesystem.
+Require Export diris.sessiontypes.langlemmas.
 
 Section bufs_typed.
   Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : rProp :=

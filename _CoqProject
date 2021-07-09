@@ -12,19 +12,20 @@
 -arg -w -arg -ambiguous-paths
 -arg -native-compiler -arg no
 
-theories/util.v
-theories/multiset.v
-theories/mapexcl.v
-theories/uforests.v
-theories/cgraph.v
-theories/logic/upred.v
-theories/logic/bi.v
-theories/seplogic.v
-theories/langdef.v
-theories/rtypesystem.v
-theories/map_to_multiset.v
-theories/langlemmas.v
-theories/genericinv.v
-theories/invariant.v
-theories/progress.v
-theories/safety.v
+theories/cgraphs/util.v
+theories/cgraphs/multiset.v
+theories/cgraphs/mapexcl.v
+theories/cgraphs/uforests.v
+theories/cgraphs/upred.v
+theories/cgraphs/bi.v
+theories/cgraphs/seplogic.v
+theories/cgraphs/cgraph.v
+theories/cgraphs/genericinv.v
+theories/cgraphs/map_to_multiset.v
+theories/sessiontypes/langdef.v
+theories/sessiontypes/rtypesystem.v
+theories/sessiontypes/langlemmas.v
+theories/sessiontypes/invariant.v
+theories/sessiontypes/progress.v
+theories/sessiontypes/safety.v
+theories/sessiontypes/ycombinator.v

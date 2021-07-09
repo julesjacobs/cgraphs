@@ -1,6 +1,6 @@
 From iris.proofmode Require Export tactics.
-Require Export diris.langdef.
-Require Export diris.rtypesystem.
+Require Export diris.sessiontypes.langdef.
+Require Export diris.sessiontypes.rtypesystem.
 
 Lemma Γunrestricted_empty : Γunrestricted ∅.
 Proof.

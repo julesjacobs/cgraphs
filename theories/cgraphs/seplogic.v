@@ -2,11 +2,11 @@ From stdpp Require Export gmap.
 From iris.bi Require Export interface.
 From iris.algebra Require Import excl gmap auth.
 From iris.proofmode Require Export tactics.
-Require Export diris.langdef.
-Require Export diris.logic.bi.
-Require Export diris.util.
-Require Export diris.mapexcl.
-Require Export diris.multiset.
+(* Require Export diris.langdef. *)
+Require Export diris.cgraphs.bi.
+Require Export diris.cgraphs.util.
+Require Export diris.cgraphs.mapexcl.
+Require Export diris.cgraphs.multiset.
 
 Notation heapT_UR V L := (gmapUR V (exclR L)).
 Notation hProp V L := (uPred (heapT_UR V L)).
