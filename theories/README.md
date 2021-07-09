@@ -31,12 +31,12 @@ Structure of the development & LOC:
 - Generic invariant and transformation lemmas:
   * 376 ./cgraphs/genericinv.v
 
-Total: 1401 + 665 + 224 + 131 + 146 + 459 + 376 + 1250 + 183 + 153 = 4988
+**Total:** 1401 + 665 + 224 + 131 + 146 + 459 + 376 + 1250 + 183 + 153 = 4988
 
 ### Language definition:
 * 447  ./langdef.v
 
-Total: 447 = 447
+**Total:** 447 = 447
 
 ### Deadlock and leak freedom proof:
 - Run-time type system:
@@ -51,4 +51,4 @@ Total: 447 = 447
 - Y-combinator example:
   * 80 ./sessiontypes/ycombinator.v
 
-Total: 1284 + 10 + 359 + 80 + 111 + 698 = 2542
+**Total:** 1284 + 10 + 359 + 80 + 111 + 698 = 2542
