@@ -1,8 +1,9 @@
 This repository contains the connectivity graph library (./cgraphs) and
 a formalization of deadlock and leak freedom for a session typed language (./sessiontypes).
 
-Build instructions:
--------------------
+Build instructions
+------------------
+
 1. Install Coq 8.13.2 (https://coq.inria.fr/).
 2. Install Iris dev.2021-07-07.0.ba841bb0 using opam (https://gitlab.mpi-sws.org/iris/iris/#working-with-iris).
    This is the latest development version as of writing this README. Newer development versions may or may not work.
