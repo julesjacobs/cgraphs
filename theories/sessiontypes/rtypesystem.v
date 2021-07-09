@@ -115,11 +115,6 @@ Proof.
     cofix IH.
     intros x y H Hunr.
     destruct Hunr; inversion H; subst; constructor; eauto.
-    (* intros x y H Hunr. revert y H.
-    induction Hunr; intros y H.
-    - inversion H. constructor.
-    - inversion H. subst. constructor.
-    - inversion H. subst. constructor; eauto. *)
   }
   split; eauto. symmetry in H0; eauto.
 Qed.
@@ -382,26 +377,6 @@ Proof.
   - rewrite H //.
 Qed.
 
-Lemma union_lr_None `{Countable K} {V} (A B C : gmap K V) x :
-  C = A ∪ B ∧ A ##ₘ B ->
-  C !! x = None ->
-  A !! x = None ∧ B !! x = None.
-Proof.
-  intros [-> Hdisj] Hl.
-  by apply lookup_union_None in Hl.
-Qed.
-
-Lemma union_lr_Some `{Countable K} {V} (A B C : gmap K V) x v :
-  C = A ∪ B ∧ A ##ₘ B ->
-  C !! x = Some v ->
-  (A !! x = Some v ∧ B !! x = None) ∨ (B !! x = Some v ∧ A !! x = None).
-Proof.
-  intros [-> Hdisj] Hl.
-  apply lookup_union_Some in Hl as []; eauto; [left | right]; split; eauto;
-  rewrite ->map_disjoint_alt in Hdisj; specialize (Hdisj x);
-  destruct (A !! x); naive_solver.
-Qed.
-
 Ltac foo := simpl; repeat iMatchHyp (fun H P =>
   lazymatch P with
   | ⌜⌜ _ ⌝⌝%I => iDestruct H as %?
@@ -515,22 +490,6 @@ Proof.
     by rewrite H.
 Qed.
 
-Lemma delete_union_l `{Countable K} {V} (a b : gmap K V) (x : K) :
-  a ##ₘ b -> b !! x = None -> delete x (a ∪ b) = delete x a ∪ b ∧ delete x a ##ₘ b.
-Proof.
-  intros ??.
-  rewrite delete_union.
-  rewrite (delete_notin b x); solve_map_disjoint.
-Qed.
-
-Lemma delete_union_r `{Countable K} {V} (a b : gmap K V) (x : K) :
-  a ##ₘ b -> a !! x = None -> delete x (a ∪ b) = a ∪ delete x b ∧ a ##ₘ delete x b.
-Proof.
-  intros ??.
-  rewrite delete_union.
-  rewrite (delete_notin a x); solve_map_disjoint.
-Qed.
-
 Lemma lookup_union_Some_S (Γ1 Γ2 : envT) x t :
   (Γ1 ∪ Γ2) !! x ≡ Some t ->
   Γ1 !! x ≡ Some t ∨ (Γ1 !! x = None ∧ Γ2 !! x ≡ Some t).
@@ -630,8 +589,7 @@ Proof.
     iDestruct (IHv2 with "H2") as "H2"; eauto.
     iDestruct "H1" as "#H1".
     iDestruct "H2" as "#H2".
-    iModIntro.
-    iExists _,_. iSplit; first done.
+    iModIntro. iExists _,_. iSplit; first done.
     iSplitL; eauto.
   - intros.
     iIntros "H".
@@ -639,37 +597,16 @@ Proof.
     inversion H. subst.
     iDestruct (IHv with "H") as "H".
     { by destruct b. }
-    iDestruct "H" as "#H".
-    iModIntro.
-    iExists _,_. iSplit; first done.
-    eauto.
-  - intros.
-    iIntros "H".
-    iDestruct "H" as (t1 t2 ->) "H".
-    inversion H.
-  - intros.
-    iIntros "H".
+    iDestruct "H" as "#H". iModIntro.
+    iExists _,_. iSplit; first done. eauto.
+  - intros. iIntros "H". iDestruct "H" as (t1 t2 ->) "H". inversion H.
+  - intros. iIntros "H".
     iDestruct "H" as (t1 t2 ->) "#H".
     iModIntro. iExists _,_. iSplit; first done.
     iModIntro. done.
   - intros. iIntros "H".
-    iDestruct "H" as (r ->) "H".
-    inversion H.
+    iDestruct "H" as (r ->) "H". inversion H.
 Qed.
-
-(* Instance val_typed_persistent v t : unrestricted t → Persistent (val_typed v t).
-Proof.
-  unfold unrestricted. intros ->.
-  unfold Persistent. rewrite val_typed_val_typed'.
-  simpl. eauto.
-Qed.
-
-Instance val_typed_affine v t : unrestricted t → Affine (val_typed v t).
-Proof.
-  unfold unrestricted. intros ->.
-  unfold Affine. rewrite val_typed_val_typed'.
-  simpl. eauto.
-Qed. *)
 
 Lemma Γunrestricted_delete Γ x :
   Γunrestricted Γ -> Γunrestricted (delete x Γ).
@@ -1103,13 +1040,9 @@ Instance : Params (@rtyped0) 1 := {}.
 
 Lemma both_emp (A B : envT) : ∅ = A ∪ B -> A = ∅ ∧ B = ∅.
 Proof.
-  intros H.
-  symmetry in H.
-  pose proof (map_positive_l _ _ H) as H'.
-  subst.
-  rewrite left_id in H.
-  subst.
-  done.
+  intros H. symmetry in H.
+  pose proof (map_positive_l _ _ H) as H'. subst.
+  rewrite left_id in H. subst. done.
 Qed.
 
 Lemma rtyped_rtyped0 e t :
@@ -1304,9 +1237,7 @@ Qed.
 
 Definition ctx_typed0 (k : expr -> expr)
                      (A : type) (B : type) : rProp :=
-    (∀ e,
-      rtyped0 e A -∗
-      rtyped0 (k e) B)%I.
+    (∀ e, rtyped0 e A -∗ rtyped0 (k e) B)%I.
 
 Lemma ctx_subst0 k A B e :
   ctx_typed0 k A B -∗ rtyped0 e A -∗ rtyped0 (k e) B.
@@ -1345,16 +1276,10 @@ Proof.
 Qed.
 
 Lemma rtyped0_ctx k e B :
-  ctx k ->
-  rtyped0 (k e) B ⊣⊢ ∃ t,
-    rtyped0 e t ∗ ∀ e', rtyped0 e' t -∗ rtyped0 (k e') B.
+  ctx k -> rtyped0 (k e) B ⊣⊢ ∃ t, rtyped0 e t ∗ ∀ e', rtyped0 e' t -∗ rtyped0 (k e') B.
 Proof.
   intros Hctx.
-  iSplit.
-  - iIntros "H".
-    iDestruct (typed0_ctx_typed0 with "H") as (t) "[H1 H2]";
-    eauto with iFrame.
-  - iIntros "H".
-    iDestruct "H" as (t) "[H1 H2]".
-    iApply "H2". iFrame.
+  iSplit; iIntros "H".
+  - iDestruct (typed0_ctx_typed0 with "H") as (t) "[H1 H2]"; eauto with iFrame.
+  - iDestruct "H" as (t) "[H1 H2]". iApply "H2". iFrame.
 Qed.

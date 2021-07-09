@@ -1,68 +1,6 @@
 From diris Require Import invariant.
 Require Import Coq.Logic.Classical.
 
-(*
-  Global progress: if the invariant holds for (es,h) then either:
-  - all e ∈ es are unit, and h = ∅
-  - the configuration can step
-*)
-
-(* This stuff is for a constructive proof. For now we use classical logic. *)
-(* Lemma is_unit_decision e :
-  Decision (e = Val UnitV).
-Proof.
-  destruct e; try solve [right; intro; simplify_eq].
-  destruct v; try solve [right; intro; simplify_eq].
-  left. done.
-Qed.
-
-Lemma exprs_decision (es : list expr) :
-  Decision (∃ e, e ∈ es ∧ e ≠ Val UnitV).
-Proof.
-  eapply (dec_exists_list _ es).
-  - intros ? []; eauto.
-  - intros.
-    destruct (is_unit_decision x); subst.
-    + right. intros []. apply H1. done.
-    + left. eauto.
-Qed.
-
-Lemma heap_decision (h : heap) :
-  Decision (∃ c, is_Some (h !! c)).
-Proof.
-  destruct (decide (h = ∅)).
-  - right. intros []. subst. rewrite lookup_empty in H.
-    destruct H. simplify_eq.
-  - left. destruct (map_to_list h) eqn:E.
-    { apply map_to_list_empty_inv in E. subst. exfalso.
-      apply n. done. }
-    destruct p.
-    exists e.
-    assert ((e,l0) ∈ map_to_list h).
-    { rewrite E. rewrite elem_of_cons. eauto. }
-    apply elem_of_map_to_list in H. rewrite H. eauto.
-Qed.
-
-Lemma final_state_decision (es : list expr) (h : heap) :
-  {(∃ c, is_Some (h !! c)) ∨ (∃ e, e ∈ es ∧ e ≠ Val UnitV)} +
-  {h = ∅ ∧ ∀ e, e ∈ es -> e = Val UnitV}.
-Proof.
-  destruct (heap_decision h); [left; eauto|].
-  destruct (exprs_decision es); [left; eauto|].
-  right. split.
-  - assert (∀ c, ¬ is_Some (h !! c)) by naive_solver.
-    assert (∀ c, h !! c = None).
-    { intros. destruct (h !! c) eqn:E; eauto.
-      exfalso. eapply H. erewrite E. eauto. }
-    apply map_empty. eauto.
-  - intros.
-    assert (∀ e, ¬ (e ∈ es ∧ e ≠ Val UnitV)) by naive_solver.
-    specialize (H0 e).
-    destruct (is_unit_decision e); eauto.
-    exfalso.
-    apply H0; eauto.
-Qed. *)
-
 Lemma rtyped_inner e t :
   rtyped0 e t -∗ ⌜ (∃ v, e = Val v)  ∨
   ∃ k e0, ctx k ∧ e = k e0 ∧
@@ -283,127 +221,6 @@ Definition active (x : object) (es : list expr) (h : heap) :=
   | Thread i => ∃ e, es !! i = Some e ∧ e ≠ Val UnitV
   | Chan i => ∃ b, is_Some (h !! (i,b))
   end.
-
-(* More stuff for the constructive proof. *)
-(* Lemma exists_bool_dec (P : bool -> Prop) :
-  (∀ b, Decision (P b)) -> Decision (∃ b, P b).
-Proof.
-  intros HH.
-  destruct (HH true).
-  { left. eauto. }
-  destruct (HH false).
-  { left. eauto. }
-  right. intros []. destruct x; eauto.
-Qed.
-
-Lemma expr_eq_recv_dec e j b :
-  Decision (e = Recv (Val (ChanV (j,b)))).
-Proof.
-  do 2 (destruct e; try solve [right; intro; simplify_eq]).
-  destruct v; try solve [right; intro; simplify_eq].
-  destruct e; try solve [right; intro; simplify_eq].
-  destruct (decide ((c, b0) = (j,b))); simplify_eq.
-  - left. done.
-  - right. intro. simplify_eq.
-Qed.
-
-Lemma is_val_dec e :
-  Decision (∃ v, e = Val v).
-Proof.
-  destruct e; [left;eauto|..];
-  right; intros (?&?); simplify_eq.
-Qed.
-
-Lemma expr_waiting_dec e e' :
-  (∀ x, Decision (x = e')) -> Decision (∃ k, ctx k ∧ e = k e').
-Proof.
-  intros HH.
-  destruct (HH e); subst.
-  { left. exists (λ x, x). split; eauto. constructor. }
-  induction e.
-  - destruct (HH (Val v)); subst.
-    + left. exists (λ x, x). split; eauto. constructor.
-    + right. intros (?&?&?).
-      destruct H; simplify_eq. destruct H; simplify_eq.
-  - destruct (HH (Var s)); subst.
-    + left. exists (λ x, x). split; eauto. constructor.
-    + right. intros (?&?&?).
-      destruct H; simplify_eq. destruct H; simplify_eq.
-  - destruct IHe1.
-    (* + left. destruct e as (k&?&?). subst.
-      exists (λ x, (App (k x) e2)). split; eauto.
-      eapply (Ctx_cons (λ x, App x e2)); eauto. constructor.
-    + destruct (is_val_dec e1).
-      * destruct IHe2.
-        -- left. destruct e0 as [k []].
-           destruct e as [v ->].
-           exists (λ x, App (Val v) (k x)). subst.
-           split; eauto.
-           econstructor; eauto. constructor.
-        -- right. intros (?&?&?).
-           destruct e as [v ->].
-           destruct H; subst.
-      constructor. *)
-   admit.
-Admitted.
-
-Lemma thread_emptybuf_dec (h : heap) j b :
-  Decision (h !! (j,b) = Some []).
-Proof.
-  destruct (h !! (j,b)) eqn:E.
-  - destruct l. left. done. right. intro. simplify_eq.
-  - right. intro. simplify_eq.
-Qed.
-
-Lemma thread_recv_ctx_dec (es : list expr) i j b :
-  Decision (∃ k, ctx k ∧ es !! i = Some (k (Recv (Val (ChanV (j, b)))))).
-Proof.
-  destruct (es !! i).
-  - destruct (expr_waiting_dec e (Recv (Val (ChanV (j, b))))).
-    { intro. apply expr_eq_recv_dec. }
-    + left. destruct e0 as (?&?&?). subst. eauto.
-    + right. intros (?&?&?).
-      apply n. simplify_eq. eauto.
-  - right. intros (?&?&?). simplify_eq.
-Qed.
-
-Lemma thread_waiting_dec es h i j : Decision (thread_waiting es h i j).
-Proof.
-  unfold thread_waiting.
-  eapply exists_bool_dec. intros b.
-  destruct (thread_emptybuf_dec h j b).
-  - destruct (thread_recv_ctx_dec es i j b).
-    + left. destruct e0 as (?&?&?). eauto.
-    + right. intros (?&?&?&?). apply n. eauto.
-  - right. intros (?&?&?&?). by apply n.
-Qed.
-
-Lemma waiting_dec es h x y l : Decision (waiting es h x y l).
-Proof.
-  destruct x; last first.
-  { right. intros (?&?&?&?). simplify_eq. }
-  destruct y.
-  { right. intros (?&?&?&?&?). simplify_eq. }
-  destruct (thread_waiting_dec es h n c).
-  - left. unfold waiting. eauto.
-  - right. intros (?&?&?&?&?).
-    simplify_eq. eauto.
-Qed.
-
-Lemma active_dec x es h : Decision (active x es h).
-Proof.
-  unfold active.
-  destruct x.
-  - destruct (es !! n).
-    + destruct (is_unit_decision e); [right|left]; eauto.
-      intros (?&?&?). simplify_eq.
-    + right. intros (?&?&?). simplify_eq.
-  - destruct (h!!(c,true)) eqn:E.
-    + left. exists true. rewrite E; eauto.
-    + destruct (h!!(c,false)) eqn:F.
-      * left. exists false. rewrite F;eauto.
-      * right. intros (?&?). destruct H. destruct x; simplify_eq.
-Qed. *)
 
 Lemma heap_fresh (h : heap) :
   ∃ i, ∀ b, h !! (i,b) = None.
@@ -673,7 +490,6 @@ Proof.
         eapply map_empty_equiv_eq in Hn.
         rewrite Hn in Hy. rewrite lookup_empty in Hy. inversion Hy.
       }
-      (* destruct (waiting_dec es h (Thread n) (Chan i) (b, σ1)); last first. *)
       destruct (classic (waiting es h (Thread n) (Chan i) (b, σ1))) as [w|n0]; last first.
       {
         eapply Hind_in; eauto.
@@ -754,7 +570,6 @@ Proof.
           inversion Hzout.
         }
         destruct (classic (waiting es h (Thread n) (Chan j) (negb b, c))) as [w|n0]; last first.
-        (* destruct (waiting_dec es h (Thread n) (Chan j) (negb b, c)); last first. *)
         {
           eapply Hind_in; eauto.
           simpl. exists e. split; eauto.

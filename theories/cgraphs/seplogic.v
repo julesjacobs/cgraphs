@@ -2,7 +2,6 @@ From stdpp Require Export gmap.
 From iris.bi Require Export interface.
 From iris.algebra Require Import excl gmap auth.
 From iris.proofmode Require Export tactics.
-(* Require Export diris.langdef. *)
 Require Export diris.cgraphs.bi.
 Require Export diris.cgraphs.util.
 Require Export diris.cgraphs.mapexcl.

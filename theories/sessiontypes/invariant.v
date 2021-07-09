@@ -7,17 +7,13 @@ Section bufs_typed.
   Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : rProp :=
     match buf, ct with
     | v::buf', RecvT t ct' => val_typed v t ∗ buf_typed buf' ct' rest
-    (* | v::buf', SendT t ct' => ??? *)
-    (* Add a rule for this to support asynchrous subtyping *)
     | [], ct => ⌜⌜ rest ≡ ct ⌝⌝
     | _,_ => False
     end.
 
   Global Instance buf_typed_params : Params (@buf_typed) 1 := {}.
   Global Instance buf_typed_proper buf : Proper ((≡) ==> (≡) ==> (≡)) (buf_typed buf).
-  Proof.
-    induction buf; solve_proper.
-  Qed.
+  Proof. induction buf; solve_proper. Qed.
   Global Arguments buf_typed : simpl nomatch.
 
   Definition buf_typed' (buf' : option (list val)) (ct' : option chan_type) (rest : chan_type) : rProp :=
@@ -29,9 +25,7 @@ Section bufs_typed.
 
   Global Instance buf_typed'_params : Params (@buf_typed') 1 := {}.
   Global Instance buf_typed'_proper buf : Proper ((≡) ==> (≡) ==> (≡)) (buf_typed' buf).
-  Proof.
-    solve_proper.
-  Qed.
+  Proof. solve_proper. Qed.
 
   Definition bufs_typed (b1' b2' : option (list val)) (σ1' σ2' : option chan_type) : rProp :=
     ∃ rest,
@@ -40,9 +34,7 @@ Section bufs_typed.
 
   Global Instance bufs_typed_params : Params (@bufs_typed) 2 := {}.
   Global Instance bufs_typed_proper b1 b2 : Proper ((≡) ==> (≡) ==> (≡)) (bufs_typed b1 b2).
-  Proof.
-    solve_proper.
-  Qed.
+  Proof. solve_proper. Qed.
 End bufs_typed.
 
 Section invariant.
@@ -63,12 +55,7 @@ Section invariant.
 End invariant.
 
 Instance state_inv_proper es h v : Proper ((≡) ==> (⊣⊢)) (state_inv es h v).
-Proof.
-  solve_proper_prepare.
-  destruct v.
-  - solve_proper.
-  - setoid_rewrite H. done.
-Qed.
+Proof. solve_proper_prepare. destruct v; [solve_proper|by setoid_rewrite H]. Qed.
 Instance state_inv_params : Params (@state_inv) 3. Defined.
 
 Lemma bufs_typed_sym' b1' b2' σ1' σ2' :
@@ -346,9 +333,7 @@ Lemma preservationN (threads threads' : list expr) (chans chans' : heap) :
   steps threads chans threads' chans' ->
   invariant threads chans ->
   invariant threads' chans'.
-Proof.
-  induction 1; eauto using preservation.
-Qed.
+Proof. induction 1; eauto using preservation. Qed.
 
 Lemma invariant_init (e : expr) :
   typed ∅ e UnitT -> invariant [e] ∅.
@@ -372,6 +357,4 @@ Qed.
 
 Lemma invariant_holds e threads chans :
   typed ∅ e UnitT -> steps [e] ∅ threads chans -> invariant threads chans.
-Proof.
-  eauto using invariant_init, preservationN.
-Qed.
+Proof. eauto using invariant_init, preservationN. Qed.

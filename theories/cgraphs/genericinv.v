@@ -374,16 +374,4 @@ Section genericinv.
         eauto with iFrame.
   Qed.
 
-  (* Lemma inv_ind (f : V -> multiset L -> hProp V L) (P : V -> Prop) (R : V -> L -> V -> Prop):
-    inv f ->
-    (∀ v x,
-      f v x -∗
-      (∀ w l, own_out w l -∗ ⌜ R v l w -> P w ⌝) -∗
-      (∀ w l, own_out w l -∗ ⌜ ∀ φ, (∀ y, f w ({[ l ]} ⋅ y) ⊢ ⌜ φ ⌝) -> φ ⌝) -∗
-      (∀ l y, ⌜ x ≡ {[ l ]} ⋅ y -> ∃ w,
-        (¬ R w l v -> P w) ∧
-        (∀ φ, (∀ z, f w z ⊢ emp ∨ ∃ l', own_out v l' ∗ ⌜ φ l' ⌝) -> φ l) ⌝) -∗
-      ⌜ P v ⌝) ->
-    (∀ v, P v). *)
-
 End genericinv.

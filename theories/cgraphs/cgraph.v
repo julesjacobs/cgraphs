@@ -46,8 +46,6 @@ Section cgraph.
 
   Definition uconn (g : cgraph V L) := rtsc (edge g).
 
-
-
   Section general.
 
     Lemma in_labels_insert g i x v :
@@ -73,7 +71,6 @@ Section cgraph.
       intro.
       pose proof (in_labels_insert (delete i g) i y v) as HH.
       rewrite insert_delete in HH; last done.
-      (* rewrite insert_id in HH; eauto. *)
       rewrite HH; last by apply lookup_delete.
       done.
     Qed.
