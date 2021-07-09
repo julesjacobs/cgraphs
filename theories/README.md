@@ -30,10 +30,12 @@ Connectivity graph library:
   * 1401 ./cgraphs/cgraph.v
 - Generic invariant and transformation lemmas:
   * 376 ./cgraphs/genericinv.v
+
 Total: 1401 + 665 + 224 + 131 + 146 + 459 + 376 + 1250 + 183 + 153 = 4988
 
 Language definition:
 * 447  ./langdef.v
+
 Total: 447 = 447
 
 Deadlock and leak freedom proof:
@@ -48,4 +50,5 @@ Deadlock and leak freedom proof:
   * 10 ./sessiontypes/safety.v
 - Y-combinator example:
   * 80 ./sessiontypes/ycombinator.v
+
 Total: 1284 + 10 + 359 + 80 + 111 + 698 = 2542
