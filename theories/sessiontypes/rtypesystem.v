@@ -2,9 +2,7 @@ From diris Require Export seplogic.
 From stdpp Require Export gmap.
 From diris Require Export langdef.
 
-Inductive object :=
-  | Thread : nat -> object
-  | Chan : chan -> object.
+Inductive object := Thread (_:nat) | Chan (_:chan).
 
 Canonical Structure objectO := leibnizO object.
 
@@ -31,8 +29,7 @@ Definition clabelO := prodO boolO chan_typeO.
 Notation rProp := (hProp object clabelO).
 
 Definition own_ep (c : endpoint) (σ : chan_type) : rProp :=
-  let '(chan,b) := c in
-    own_out (Chan chan) (b,σ).
+  own_out (Chan c.1) (c.2,σ).
 
 Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
  match e with

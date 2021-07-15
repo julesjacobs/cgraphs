@@ -94,7 +94,7 @@ Proof.
 Qed.
 
 Lemma list_lookup_insert_spec {V} (xs : list V) i j v :
-  (<[ i := v]> xs) !! j = if (decide (i = j ∧ i < length xs)) then Some v else (xs !! j).
+  (<[ i := v ]> xs) !! j = if (decide (i = j ∧ i < length xs)) then Some v else (xs !! j).
 Proof.
   case_decide.
   - destruct H. subst. apply list_lookup_insert; done.
