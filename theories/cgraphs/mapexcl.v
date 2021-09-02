@@ -19,7 +19,8 @@ Section map_Excl.
   Lemma map_Excl_empty_inv m : map_Excl m ≡ ∅ -> m = ∅.
   Proof.
     rewrite /map_Excl. intros G.
-    apply map_empty_equiv_eq in G. apply fmap_empty_inv in G. done.
+    apply map_empty_equiv_eq in G.
+    eapply fmap_empty_iff. done.
   Qed.
 
   Lemma map_Excl_injective m1 m2 :

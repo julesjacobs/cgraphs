@@ -1,6 +1,7 @@
 From diris Require Import invariant.
 Require Import Coq.Logic.Classical.
 
+
 Lemma rtyped_inner e t :
   rtyped0 e t -∗ ⌜ (∃ v, e = Val v)  ∨
   ∃ k e0, ctx k ∧ e = k e0 ∧
@@ -225,10 +226,10 @@ Definition active (x : object) (es : list expr) (h : heap) :=
 Lemma heap_fresh (h : heap) :
   ∃ i, ∀ b, h !! (i,b) = None.
 Proof.
-  exists (fresh (dom (gset nat) (gmap_uncurry h))).
-  intro. pose proof (is_fresh (dom (gset nat) (gmap_uncurry h))).
+  exists (fresh (dom (gset nat) (gmap_curry h))).
+  intro. pose proof (is_fresh (dom (gset nat) (gmap_curry h))).
   rewrite ->not_elem_of_dom in H.
-  rewrite -lookup_gmap_uncurry.
+  rewrite -lookup_gmap_curry.
   rewrite H. done.
 Qed.
 

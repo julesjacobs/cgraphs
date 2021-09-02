@@ -344,7 +344,7 @@ Proof.
   unfold state_inv. destruct v.
   - destruct n; simpl.
     + subst. iSplit; eauto.
-      iApply rtyped_rtyped0.
+      iApply rtyped_rtyped0_iff.
       iApply typed_rtyped. done.
     + subst. iFrame. eauto.
   - rewrite !lookup_empty.

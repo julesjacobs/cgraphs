@@ -34,8 +34,9 @@ Section cgraph.
   Definition swap {A B} : (A*B -> B*A) := λ '(x,y), (y,x).
   Definition make_undirected (g : gset (V*V)) : gset (V*V) :=
     g ∪ (set_map swap g).
+
   Definition dedges (g : cgraph V L) : gset (V*V) :=
-    dom (gset _) (gmap_curry g).
+    dom (gset (V*V)) (gmap_uncurry g).
   Definition to_uforest (g : cgraph V L) : uforest V :=
     make_undirected $ dedges g.
 
@@ -266,10 +267,10 @@ Section cgraph.
       split; intros []; [left|right|..]; naive_solver.
     Qed.
 
-    Lemma gmap_curry_out_edges g x y :
-      gmap_curry g !! (x, y) = out_edges g x !! y.
+    Lemma gmap_uncurry_out_edges g x y :
+      gmap_uncurry g !! (x, y) = out_edges g x !! y.
     Proof.
-      rewrite lookup_gmap_curry.
+      rewrite lookup_gmap_uncurry.
       unfold out_edges.
       destruct (g !! x); simpl; eauto.
     Qed.
@@ -280,7 +281,7 @@ Section cgraph.
       unfold dedges.
       rewrite elem_of_dom.
       unfold edge.
-      rewrite gmap_curry_out_edges. done.
+      rewrite gmap_uncurry_out_edges. done.
     Qed.
 
     Lemma elem_of_to_uforest g x y :

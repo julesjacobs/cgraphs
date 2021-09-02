@@ -39,19 +39,16 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
       ⌜⌜ Γ ≡ Γ1 ∪ {[ x := t ]} ∧ Γ1 !! x = None ∧ Γunrestricted Γ1 ⌝⌝
   | App e1 e2 => ∃ t' Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
-      rtyped Γ1 e1 (FunT t' t) ∗
-      rtyped Γ2 e2 t'
+      rtyped Γ1 e1 (FunT t' t) ∗ rtyped Γ2 e2 t'
   | Pair e1 e2 => ∃ t1 t2 Γ1 Γ2,
       ⌜⌜ t = PairT t1 t2 ∧ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
-      rtyped Γ1 e1 t1 ∗
-      rtyped Γ2 e2 t2
+      rtyped Γ1 e1 t1 ∗ rtyped Γ2 e2 t2
   | Inj b e1 => ∃ t1 t2,
       ⌜⌜ t = SumT t1 t2 ⌝⌝ ∗
       rtyped Γ e1 (if b then t1 else t2)
   | UApp e1 e2 => ∃ t' Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
-      rtyped Γ1 e1 (UFunT t' t) ∗
-      rtyped Γ2 e2 t'
+      rtyped Γ1 e1 (UFunT t' t) ∗ rtyped Γ2 e2 t'
   | Lam x e => ∃ t1 t2,
       ⌜⌜ t = FunT t1 t2 ∧ Γ !! x = None ⌝⌝ ∗
       rtyped (Γ ∪ {[ x := t1 ]}) e t2
@@ -60,34 +57,27 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
       □ rtyped (Γ ∪ {[ x := t1 ]}) e t2
   | Send e1 e2 => ∃ r t' Γ1 Γ2,
       ⌜⌜ t = ChanT r ∧ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
-      rtyped Γ1 e1 (ChanT (SendT t' r)) ∗
-      rtyped Γ2 e2 t'
+      rtyped Γ1 e1 (ChanT (SendT t' r)) ∗ rtyped Γ2 e2 t'
   | Recv e => ∃ t' r,
       ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗
       rtyped Γ e (ChanT (RecvT t' r))
   | Let x e1 e2 => ∃ (t' : type) (Γ1 Γ2 : envT),
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ∧ Γ2 !! x = None ⌝⌝ ∗
-      rtyped Γ1 e1 t' ∗
-      rtyped (Γ2 ∪ {[ x := t' ]}) e2 t
+      rtyped Γ1 e1 t' ∗ rtyped (Γ2 ∪ {[ x := t' ]}) e2 t
   | LetUnit e1 e2 => ∃ Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
-      rtyped Γ1 e1 UnitT ∗
-      rtyped Γ2 e2 t
+      rtyped Γ1 e1 UnitT ∗ rtyped Γ2 e2 t
   | LetProd x1 x2 e1 e2 => ∃ t1 t2 Γ1 Γ2,
       ⌜⌜ x1 ≠ x2 ∧ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ∧ Γ2 !! x1 = None ∧ Γ2 !! x2 = None  ⌝⌝ ∗
-      rtyped Γ1 e1 (PairT t1 t2) ∗
-      rtyped (Γ2 ∪ {[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
+      rtyped Γ1 e1 (PairT t1 t2) ∗ rtyped (Γ2 ∪ {[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
   | MatchVoid e =>
       rtyped Γ e VoidT
   | MatchSum e1 x eL eR => ∃ (t1 t2 : type) (Γ1 Γ2 : envT),
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ∧ Γ2 !! x = None ⌝⌝ ∗
-      rtyped Γ1 e1 (SumT t1 t2) ∗
-      (rtyped (Γ2 ∪ {[ x := t1 ]}) eL t ∧
-       rtyped (Γ2 ∪ {[ x := t2 ]}) eR t)
+      rtyped Γ1 e1 (SumT t1 t2) ∗ (rtyped (Γ2 ∪ {[ x := t1 ]}) eL t ∧ rtyped (Γ2 ∪ {[ x := t2 ]}) eR t)
   | If e1 e2 e3 => ∃ Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
-      rtyped Γ1 e1 NatT ∗
-      (rtyped Γ2 e2 t ∧ rtyped Γ2 e3 t)
+      rtyped Γ1 e1 NatT ∗ (rtyped Γ2 e2 t ∧ rtyped Γ2 e3 t)
   | Fork e => ∃ r,
       ⌜⌜ t = ChanT r ⌝⌝ ∗
       rtyped Γ e (FunT (ChanT (dual r)) UnitT)
@@ -108,11 +98,8 @@ with val_typed (v : val) (t : type) : rProp :=
 Instance unrestricted_proper : Proper ((≡) ==> iff) unrestricted.
 Proof.
   assert (∀ x y : type, x ≡ y → unrestricted x -> unrestricted y).
-  {
-    cofix IH.
-    intros x y H Hunr.
-    destruct Hunr; inversion H; subst; constructor; eauto.
-  }
+  { cofix IH. intros x y H Hunr.
+    destruct Hunr; inversion H; subst; constructor; eauto. }
   split; eauto. symmetry in H0; eauto.
 Qed.
 
@@ -620,6 +607,23 @@ Proof.
   eapply H in H1. rewrite -H3 //.
 Qed.
 
+(*
+Lemma typed_no_var_subst e Γ t x v :
+  Γ !! x = None ->
+  rtyped Γ e t -∗
+  rtyped (delete x Γ) (subst x v e) eT.
+Proof.
+
+Lemma typed_no_var_subst e Γ t x v :
+  match (Γ !! x) with
+  | Some vT => val_typed v vT
+  | None => True
+  end -∗
+  rtyped Γ e t -∗
+  rtyped (delete x Γ) (subst x v e) eT.
+Proof.
+*)
+
 Lemma subst_rtyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) :
   Γ !! x ≡ Some vT ->
   val_typed v vT -∗
@@ -977,62 +981,25 @@ Qed.
 
 Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
  match e with
-  | Val v =>
-      val_typed v t
-  | Var x =>
-      False
-  | Pair e1 e2 => ∃ t1 t2,
-      ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗
-      rtyped0 e1 t1 ∗
-      rtyped0 e2 t2
-  | Inj b e => ∃ t1 t2,
-      ⌜⌜ t = SumT t1 t2 ⌝⌝ ∗
-      rtyped0 e (if b then t1 else t2)
-  | App e1 e2 => ∃ t',
-      rtyped0 e1 (FunT t' t) ∗
-      rtyped0 e2 t'
-  | UApp e1 e2 => ∃ t',
-      rtyped0 e1 (UFunT t' t) ∗
-      rtyped0 e2 t'
-  | Lam x e => ∃ t1 t2,
-      ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗
-      rtyped {[ x := t1 ]} e t2
-  | ULam x e => ∃ t1 t2,
-      ⌜⌜ t = UFunT t1 t2 ⌝⌝ ∗
-      □ rtyped {[ x := t1 ]} e t2
-  | Send e1 e2 => ∃ r t',
-      ⌜⌜ t = ChanT r⌝⌝ ∗
-      rtyped0 e1 (ChanT (SendT t' r)) ∗
-      rtyped0 e2 t'
-  | Recv e => ∃ t' r,
-      ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗
-      rtyped0 e (ChanT (RecvT t' r))
-  | Let x e1 e2 => ∃ (t' : type),
-      rtyped0 e1 t' ∗
-      rtyped {[ x := t' ]} e2 t
-  | LetUnit e1 e2 =>
-      rtyped0 e1 UnitT ∗
-      rtyped0 e2 t
-  | LetProd x1 x2 e1 e2 => ∃ t1 t2,
-      ⌜⌜ x1 ≠ x2 ⌝⌝ ∗
-      rtyped0 e1 (PairT t1 t2) ∗
-      rtyped ({[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
-  | MatchVoid e =>
-      rtyped0 e VoidT
-  | MatchSum e x eL eR => ∃ t1 t2,
-      rtyped0 e (SumT t1 t2) ∗
-      (rtyped {[ x := t1 ]} eL t ∧
-       rtyped {[ x := t2 ]} eR t)
-  | If e1 e2 e3 =>
-      rtyped0 e1 NatT ∗
-      (rtyped0 e2 t ∧ rtyped0 e3 t)
-  | Fork e => ∃ r,
-      ⌜⌜ t = ChanT r ⌝⌝ ∗
-      rtyped0 e (FunT (ChanT (dual r)) UnitT)
-  | Close e =>
-      ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped0 e (ChanT EndT)
+  | Val v => val_typed v t
+  | Var x => False
+  | Pair e1 e2 => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ rtyped0 e1 t1 ∗ rtyped0 e2 t2
+  | Inj b e => ∃ t1 t2, ⌜⌜ t = SumT t1 t2 ⌝⌝ ∗ rtyped0 e (if b then t1 else t2)
+  | App e1 e2 => ∃ t', rtyped0 e1 (FunT t' t) ∗ rtyped0 e2 t'
+  | UApp e1 e2 => ∃ t', rtyped0 e1 (UFunT t' t) ∗ rtyped0 e2 t'
+  | Lam x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
+  | ULam x e => ∃ t1 t2, ⌜⌜ t = UFunT t1 t2 ⌝⌝ ∗ □ rtyped {[ x := t1 ]} e t2
+  | Send e1 e2 => ∃ r t', ⌜⌜ t = ChanT r⌝⌝ ∗ rtyped0 e1 (ChanT (SendT t' r)) ∗ rtyped0 e2 t'
+  | Recv e => ∃ t' r, ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗ rtyped0 e (ChanT (RecvT t' r))
+  | Let x e1 e2 => ∃ t', rtyped0 e1 t' ∗ rtyped {[ x := t' ]} e2 t
+  | LetUnit e1 e2 => rtyped0 e1 UnitT ∗ rtyped0 e2 t
+  | LetProd x1 x2 e1 e2 => ∃ t1 t2, ⌜⌜ x1 ≠ x2 ⌝⌝ ∗ rtyped0 e1 (PairT t1 t2) ∗ rtyped ({[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
+  | MatchVoid e => rtyped0 e VoidT
+  | MatchSum e x eL eR => ∃ t1 t2, rtyped0 e (SumT t1 t2) ∗ (rtyped {[ x := t1 ]} eL t ∧ rtyped {[ x := t2 ]} eR t)
+  | If e1 e2 e3 => rtyped0 e1 NatT ∗ (rtyped0 e2 t ∧ rtyped0 e3 t)
+  | Fork e => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ rtyped0 e (FunT (ChanT (dual r)) UnitT)
+  | Close e => ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped0 e (ChanT EndT)
  end%I.
-
 Instance : Params (@rtyped0) 1 := {}.
 
 Lemma both_emp (A B : envT) : ∅ = A ∪ B -> A = ∅ ∧ B = ∅.
@@ -1042,211 +1009,83 @@ Proof.
   rewrite left_id in H. subst. done.
 Qed.
 
-Lemma rtyped_rtyped0 e t :
-  rtyped ∅ e t -∗ rtyped0 e t.
-Proof.
-  iIntros "H".
-  iInduction e as [] "IH" forall (t); simpl.
-  - iDestruct "H" as "[_ H]". done.
-  - iDestruct "H" as "%". exfalso.
-    destruct H as [? []]. symmetry in H.
-    specialize (H s).
-    revert H. rewrite lookup_union lookup_singleton lookup_empty.
-    destruct (x !! s); intros H; inversion H.
-  - iDestruct "H" as (t1 t2 Γ1 Γ2 [-> [H1 Hdisj]]) "[H1 H2]".
-    iExists t1, t2.
-    iSplit; first done.
-    apply both_emp in H1 as [-> ->].
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iApply "IH1". done.
-  - iDestruct "H" as (t1 t2 ->) "H".
-    iExists t1, t2.
-    iSplit; first done.
-    iApply "IH". done.
-  - iDestruct "H" as (t1 Γ1 Γ2 [H1 H2]) "[H1 H2]".
-    iExists t1.
-    apply both_emp in H1 as [-> ->].
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iApply "IH1". done.
-  - iDestruct "H" as (t1 Γ1 Γ2 [H1 H2]) "[H1 H2]".
-    iExists t1.
-    apply both_emp in H1 as [-> ->].
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iApply "IH1". done.
-  - iDestruct "H" as (t1 t2 [H1 H2]) "H".
-    iExists t1,t2.
-    iSplit. done.
-    by rewrite left_id.
-  - iDestruct "H" as (t1 t2 [H1 H2]) "H".
-    iExists t1,t2.
-    iSplit. done.
-    by rewrite left_id.
-  - iDestruct "H" as (r t' Γ1 Γ2 (H1 & H2 & H3)) "[H1 H2]".
-    iExists r,t'.
-    iSplit. done.
-    apply both_emp in H2 as [-> ->].
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iApply "IH1". done.
-  - iDestruct "H" as (t' r H) "H".
-    iExists t',r.
-    iSplit. done.
-    iApply "IH". done.
-  - iDestruct "H" as (t' Γ1 Γ2 ([-> ->]%both_emp & H2 & H3)) "[H1 H2]".
-    iExists t'.
-    iSplitL "H1".
-    + iApply "IH". done.
-    + rewrite left_id. done.
-  - iDestruct "H" as (Γ1 Γ2 ([-> ->]%both_emp & H2)) "[H1 H2]".
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iApply "IH1". done.
-  - iDestruct "H" as (t1 t2 Γ1 Γ2 (Hneq & [-> ->]%both_emp & H2 & H3)) "[H1 H2]".
-    iExists t1,t2.
-    iSplitL ""; eauto.
-    iSplitL "H1".
-    + iApply "IH". done.
-    + rewrite left_id. done.
-  - iApply "IH". done.
-  - iDestruct "H" as (t1 t2 Γ1 Γ2 ([-> ->]%both_emp & Hdisj & Hs)) "[H1 H2]".
-    iExists t1, t2.
-    iSplitL "H1".
-    + iApply "IH". done.
-    + rewrite !left_id. iSplit.
-      { iDestruct "H2" as "[H2 _]". done. }
-      { iDestruct "H2" as "[_ H2]". done. }
-  - iDestruct "H" as (Γ1 Γ2 ([-> ->]%both_emp & H2)) "[H1 H2]".
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iSplit.
-      * iDestruct "H2" as "[H _]".
-        iApply "IH1". done.
-      * iDestruct "H2" as "[_ H]".
-        iApply "IH2". done.
-  - iDestruct "H" as (r H) "H".
-    iExists r.
-    iSplit. done.
-    iApply "IH". done.
-  - iDestruct "H" as "[? H]". iFrame. iApply "IH". done.
-Qed.
-
 Lemma disj_empty_l m : disj ∅ m.
 Proof. intros ???. rewrite lookup_empty. intros. simplify_eq. Qed.
 
 Lemma disj_empty_r m : disj m ∅.
 Proof. intros ???. rewrite lookup_empty. intros. simplify_eq. Qed.
 
-
-Lemma rtyped0_rtyped e t :
-  rtyped0 e t -∗ rtyped ∅ e t.
+Lemma Γunrestricted_empty : Γunrestricted ∅.
 Proof.
-  iIntros "H".
-  iInduction e as [] "IH" forall (t); simpl.
-  - iSplit; done.
-  - iDestruct "H" as "%". done.
-  - iDestruct "H" as (t1 t2 ->) "[H1 H2]".
-    iExists t1,t2,∅,∅.
-    iSplit. { iPureIntro. rewrite left_id. eauto using disj_empty_l. }
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iApply "IH1". done.
-  - iDestruct "H" as (t1 t2 ->) "H".
-    iExists t1, t2.
-    iSplit; first done.
-    iApply "IH". done.
-  - iDestruct "H" as (t1) "[H1 H2]".
-    iExists t1,∅,∅.
-    iSplit. iPureIntro. rewrite left_id. eauto using disj_empty_l.
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iApply "IH1". done.
-  - iDestruct "H" as (t1) "[H1 H2]".
-    iExists t1,∅,∅.
-    iSplit. iPureIntro. rewrite left_id. eauto using disj_empty_l.
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iApply "IH1". done.
-  - iDestruct "H" as (t1 t2 ->) "H".
-    iExists t1,t2.
-    iSplit. done.
-    by rewrite left_id.
-  - iDestruct "H" as (t1 t2 ->) "H".
-    iExists t1,t2.
-    iSplit. done.
-    by rewrite left_id.
-  - iDestruct "H" as (r t' ->) "[H1 H2]".
-    iExists r,t',∅,∅.
-    iSplit. iPureIntro. rewrite left_id. eauto using disj_empty_l.
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iApply "IH1". done.
-  - iDestruct "H" as (t' r ->) "H".
-    iExists t',r.
-    iSplit. done.
-    iApply "IH". done.
-  - iDestruct "H" as (t') "[H1 H2]".
-    iExists t',∅,∅.
-    iSplit. iPureIntro. rewrite left_id. eauto using disj_empty_l.
-    iSplitL "H1".
-    + iApply "IH". done.
-    + rewrite left_id. done.
-  - iDestruct "H" as "[H1 H2]".
-    iExists ∅,∅.
-    iSplit. iPureIntro. rewrite left_id. eauto using disj_empty_l.
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iApply "IH1". done.
-  - iDestruct "H" as (t1 t2 Hneq) "[H1 H2]".
-    iExists t1,t2,∅,∅.
-    iSplit. iPureIntro. rewrite left_id. eauto using disj_empty_l.
-    iSplitL "H1".
-    + iApply "IH". done.
-    + rewrite left_id. done.
-  - iApply "IH". done.
-  - iDestruct "H" as (t1 t2) "[H1 H2]".
-    iExists t1,t2,∅,∅.
-    iSplit.
-    { iPureIntro. rewrite left_id. split; eauto using disj_empty_l. }
-    iSplitL "H1".
-    + iApply "IH". done.
-    + rewrite !left_id. iSplit.
-      { iDestruct "H2" as "[H2 _]". done. }
-      { iDestruct "H2" as "[_ H2]". done. }
-  - iDestruct "H" as "[H1 H2]".
-    iExists ∅,∅.
-    iSplit. iPureIntro. rewrite left_id. eauto using disj_empty_l.
-    iSplitL "H1".
-    + iApply "IH". done.
-    + iSplit.
-      * iDestruct "H2" as "[H _]".
-        iApply "IH1". done.
-      * iDestruct "H2" as "[_ H]".
-        iApply "IH2". done.
-  - iDestruct "H" as (r ->) "H".
-    iExists r.
-    iSplit. done.
-    iApply "IH". done.
-  - iDestruct "H" as "[? H]". iFrame. iApply "IH". done.
+  intros ??. rewrite lookup_empty. intro. congruence.
 Qed.
 
-Definition ctx_typed0 (k : expr -> expr)
-                     (A : type) (B : type) : rProp :=
-    (∀ e, rtyped0 e A -∗ rtyped0 (k e) B)%I.
-
-Lemma ctx_subst0 k A B e :
-  ctx_typed0 k A B -∗ rtyped0 e A -∗ rtyped0 (k e) B.
+Lemma equiv_exists {A} (P Q : A -> rProp) :
+  (∀ x, P x ⊣⊢ Q x) → (∃ x, P x) ⊣⊢ (∃ x, Q x).
 Proof.
-  iIntros "Hctx Htyped".
-  unfold ctx_typed0.
-  iApply "Hctx". done.
+  intros H. iSplit; iIntros "H"; iDestruct "H" as (x) "H"; iExists x; rewrite H //.
+Qed.
+
+Lemma exists_unique_emp (P : envT -> envT -> rProp) :
+  (∀ x y, P x y ⊢ ⌜ ∅ = x ∪ y ⌝) -> (∃ x y, P x y) ⊣⊢ P ∅ ∅.
+Proof.
+  intros H. iSplit; iIntros "H"; eauto.
+  iDestruct "H" as (x y) "H".
+  iDestruct (H with "H") as "%".
+  by apply both_emp in H0 as [-> ->].
+Qed.
+
+Lemma frame_iff (P Q R : rProp) :
+  Q ⊣⊢ R -> Q ∗ P ⊣⊢ R ∗ P.
+Proof.
+  intros H. rewrite H //.
+Qed.
+
+Lemma frame_last (P Q : rProp) :
+  Q ⊣⊢ ⌜⌜ True ⌝⌝ -> Q ∗ P ⊣⊢ P.
+Proof.
+  intros H. rewrite H //. iSplit; eauto. iIntros "H". by iDestruct "H" as (?) "H".
+Qed.
+
+Lemma pure_iff (φ1 φ2 : Prop) :
+  φ1 <-> φ2 -> ⌜⌜ φ1 ⌝⌝ ⊣⊢ (⌜⌜ φ2 ⌝⌝ : rProp).
+Proof.
+  by intros ->.
+Qed.
+
+Lemma refl_true {A} (x : A) :
+  x = x <-> True.
+Proof.
+  split; eauto.
+Qed.
+
+Lemma disj_empty_true :
+  disj ∅ ∅ <-> True.
+Proof.
+  split; eauto. intros _. eapply disj_empty_l.
+Qed.
+
+Lemma unrestricted_empty_true :
+  Γunrestricted ∅ <-> True.
+Proof.
+  split; eauto. intros _. intros ??. rewrite lookup_empty. intro. congruence.
+Qed.
+
+Lemma rtyped_rtyped0_iff e t :
+  rtyped ∅ e t ⊣⊢ rtyped0 e t.
+Proof.
+  revert t. induction e; intro; simpl; repeat (eapply equiv_exists; intro); rewrite -?IHe -?IHe1 -?IHe2 -?IHe3; try done;
+  try rewrite exists_unique_emp; intros; try (iIntros "H"; iDestruct "H" as (H) "H"; naive_solver);
+  rewrite ?left_id ?lookup_empty; repeat apply frame_iff; try (rewrite assoc; apply frame_iff); try apply frame_last;
+  try apply pure_iff; rewrite ?refl_true ?disj_empty_true ?unrestricted_empty_true ?left_id ?right_id; eauto.
+  iSplit; eauto. iIntros "H". iDestruct "H" as (Γ1) "%".
+  destruct H as [H _]. exfalso. specialize (H s).
+  revert H. rewrite lookup_union lookup_singleton lookup_empty.
+  destruct (Γ1 !! s); intros H; inversion H.
 Qed.
 
 Lemma typed0_ctx1_typed0 B k e :
-  ctx1 k -> rtyped0 (k e) B -∗
-  ∃ A, ctx_typed0 k A B ∗ rtyped0 e A.
+  ctx1 k -> rtyped0 (k e) B -∗ ∃ A, rtyped0 e A ∗ ∀ e, rtyped0 e A -∗ rtyped0 (k e) B.
 Proof.
   iIntros (Hctx) "H".
   destruct Hctx; simpl;
@@ -1259,24 +1098,15 @@ Proof.
   iIntros (ee) "H1". simpl. eauto with iFrame.
 Qed.
 
-Lemma typed0_ctx_typed0 B k e :
-  ctx k -> rtyped0 (k e) B -∗
-  ∃ A, ctx_typed0 k A B ∗ rtyped0 e A.
-Proof.
-  iIntros (Hctx) "H".
-  iInduction Hctx as [] "IH" forall (B).
-  - iExists _. iFrame. iIntros (?) "H". iFrame.
-  - iDestruct (typed0_ctx1_typed0 with "H") as (A) "[Hctx H]"; first done.
-    iDestruct ("IH" with "H") as (A') "[Hctx' H]".
-    iExists _. iFrame. iIntros (e') "H".
-    iApply "Hctx". iApply "Hctx'". done.
-Qed.
-
 Lemma rtyped0_ctx k e B :
   ctx k -> rtyped0 (k e) B ⊣⊢ ∃ t, rtyped0 e t ∗ ∀ e', rtyped0 e' t -∗ rtyped0 (k e') B.
 Proof.
   intros Hctx.
-  iSplit; iIntros "H".
-  - iDestruct (typed0_ctx_typed0 with "H") as (t) "[H1 H2]"; eauto with iFrame.
-  - iDestruct "H" as (t) "[H1 H2]". iApply "H2". iFrame.
+  iSplit; iIntros "H". 2: { iDestruct "H" as (t) "[H1 H2]". by iApply "H2". }
+  iInduction Hctx as [] "IH" forall (B).
+  { iExists _. iFrame. iIntros (?) "H". iFrame. }
+  iDestruct (typed0_ctx1_typed0 with "H") as (A) "[H Hctx]"; first done.
+  iDestruct ("IH" with "H") as (A') "[Hctx' H]".
+  iExists _. iFrame. iIntros (?) "?".
+  iApply "Hctx". iApply "H". done.
 Qed.
