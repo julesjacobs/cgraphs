@@ -223,6 +223,10 @@ Definition active (x : object) (es : list expr) (h : heap) :=
   | Chan i => ∃ b, is_Some (h !! (i,b))
   end.
 
+(* Red triangle relation *)
+Definition redt (es : list expr) (h : heap) (i j : nat) :=
+  active i es h ∧ active j es h ∧ 
+
 Lemma heap_fresh (h : heap) :
   ∃ i, ∀ b, h !! (i,b) = None.
 Proof.
@@ -257,28 +261,36 @@ Proof.
     active x es h → ∃ (es' : list expr) (h' : heap), step es h es' h'));
     [solve_proper|eauto|].
   intros x Hind_out Hind_in Hactive.
+  (* Get the invariant for x *)
   pose proof (Hvs x) as Hx.
+  (* Case analyze whether x is a channel or a thread *)
   destruct x as [i|i]; simpl in *.
-  - destruct Hactive as (e & He & Heneq).
-    rewrite He in Hx.
+  - (* Thread *)
+    destruct Hactive as (e & He & Heneq). (* Thread is active, so must have expression in thread pool *)
+    rewrite He in Hx. (* We can conclude that this expression is well-typed wrt out edges *)
     apply pure_sep_holds in Hx as [Hinl Hx].
     assert (holds (rtyped0 e UnitT) (out_edges g (Thread i))) as Hx' by eauto.
     eapply holds_entails in Hx'. 2: eapply rtyped_inner.
     rewrite ->pure_holds in Hx'.
+    (* Case analyze whether it's a value or pure step or channel op  *)
     destruct Hx' as [(v & ->)|Hx'].
-    + simpl in Hx. rewrite ->val_typed_val_typed' in Hx. simpl in Hx.
+    + (* Value *)
+      simpl in Hx. rewrite ->val_typed_val_typed' in Hx. simpl in Hx.
       eapply affinely_pure_holds in Hx as [Hx ->]. simplify_eq.
-    + destruct Hx' as (k' & e0 & Hctx & -> & Hcases).
+    + (* Expr in context *)
+      destruct Hx' as (k' & e0 & Hctx & -> & Hcases).
       rewrite ->rtyped0_ctx in Hx; eauto.
       apply exists_holds in Hx as [t Hx].
       apply sep_holds in Hx as (Σ1&Σ2&Hout&Hdisj&Het&Hctxt).
       destruct Hcases as [H|[H|[H|[H|H]]]].
-      * destruct H as [e' H].
+      * (* Pure step *)
+        destruct H as [e' H].
         eexists _,_.
         econstructor. econstructor; last done.
         econstructor; eauto.
         econstructor. done.
-      * destruct H as [v ->].
+      * (* Recv *)
+        destruct H as [v ->].
         simpl in Het.
         apply exists_holds in Het as [t' Het].
         apply exists_holds in Het as [r Het].
@@ -333,7 +345,8 @@ Proof.
         econstructor; econstructor; last done.
         econstructor; first done.
         eapply Recv_step. done.
-      * destruct H as (v1 & v2 & ->).
+      * (* Send *)
+        destruct H as (v1 & v2 & ->).
         simpl in Het.
         apply exists_holds in Het as [r Het].
         apply exists_holds in Het as [t' Het].
@@ -395,7 +408,8 @@ Proof.
         econstructor; econstructor; last done.
         econstructor; first done.
         eapply Send_step. done.
-      * destruct H as (v & ->).
+      * (* Fork *)
+        destruct H as (v & ->).
         simpl in Het.
         apply exists_holds in Het as [r Het].
         apply pure_sep_holds in Het as [-> Het].
@@ -408,7 +422,8 @@ Proof.
         econstructor; econstructor; last done.
         econstructor; eauto.
         eapply Fork_step; eauto.
-      * destruct H as (v & ->).
+      * (* Close *)
+        destruct H as (v & ->).
         simpl in Het.
         apply pure_sep_holds in Het as [-> Het].
         rewrite ->val_typed_val_typed' in Het. simpl in Het.
@@ -453,7 +468,8 @@ Proof.
         econstructor; econstructor; last done.
         econstructor; first done.
         eapply Close_step. done.
-  - destruct Hactive as (b & Hib).
+  - (* Channel *)
+    destruct Hactive as (b & Hib).
     apply exists_holds in Hx as [σs Hx].
     apply pure_sep_holds in Hx as [Hinl Hx].
     eapply holds_entails in Hx; last by eapply (bufs_typed_wlog true b).
