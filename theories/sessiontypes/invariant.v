@@ -146,7 +146,7 @@ Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   invariant threads' chans'.
 Proof.
   unfold invariant.
-  intros [].
+  intros [i H]. destruct H.
   destruct H as [????????HH].
   intros Hinv.
   destruct HH; rewrite ?right_id.
@@ -168,7 +168,7 @@ Proof.
       iDestruct "H" as (HH) "H".
       iDestruct (rtyped0_ctx with "H") as (t) "[H1 H2]"; eauto. simpl.
       iDestruct "H1" as (r t' ->) "[H1 H1']".
-      iDestruct "H1" as (r0 HH') "H1". simplify_eq.
+      iDestruct "H1" as (r0 ?) "H1". simplify_eq.
       destruct c. simpl.
       iExists _. iFrame.
       iIntros (x) "H".

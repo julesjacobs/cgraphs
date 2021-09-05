@@ -247,19 +247,10 @@ Proof.
     by apply NNPP.
 Qed.
 
-Lemma global_progress es h :
-  invariant es h ->
-  (h = ∅ ∧ ∀ e, e ∈ es -> e = Val UnitV) ∨
-  (∃ es' h', step es h es' h').
+Lemma active_progress es h x :
+  invariant es h -> active x es h -> ∃ (es' : list expr) (h' : heap), step es h es' h'.
 Proof.
-  intros H.
-  destruct (final_state_decision es h) as [Hdec|Hdec]; eauto; right.
-  assert (∃ x, active x es h) as [x Hactive].
-  { destruct Hdec as [(x&?)|(x&?)].
-    + destruct x. exists (Chan c). simpl. eauto.
-    + destruct H0. eapply elem_of_list_lookup in H0 as [].
-      exists (Thread x0). simpl. eauto. }
-  clear Hdec.
+  intros H Hactive.
   destruct H as (g & Hwf & Hvs).
   revert x Hactive.
   eapply (cgraph_ind' (waiting es h) g (λ x,
@@ -284,7 +275,7 @@ Proof.
       destruct Hcases as [H|[H|[H|[H|H]]]].
       * destruct H as [e' H].
         eexists _,_.
-        econstructor; last done.
+        econstructor. econstructor; last done.
         econstructor; eauto.
         econstructor. done.
       * destruct H as [v ->].
@@ -339,7 +330,7 @@ Proof.
         }
 
         eexists _,_.
-        econstructor; last done.
+        econstructor; econstructor; last done.
         econstructor; first done.
         eapply Recv_step. done.
       * destruct H as (v1 & v2 & ->).
@@ -401,7 +392,7 @@ Proof.
         }
 
         eexists _,_.
-        econstructor; last done.
+        econstructor; econstructor; last done.
         econstructor; first done.
         eapply Send_step. done.
       * destruct H as (v & ->).
@@ -414,7 +405,7 @@ Proof.
         apply pure_sep_holds in Het as [-> Het].
         destruct (heap_fresh h) as [ii HH].
         eexists _,_.
-        econstructor; last done.
+        econstructor; econstructor; last done.
         econstructor; eauto.
         eapply Fork_step; eauto.
       * destruct H as (v & ->).
@@ -459,7 +450,7 @@ Proof.
         }
 
         eexists _,_.
-        econstructor; last done.
+        econstructor; econstructor; last done.
         econstructor; first done.
         eapply Close_step. done.
   - destruct Hactive as (b & Hib).
@@ -697,4 +688,20 @@ Proof.
       * rewrite Hy. done.
       * intros (?&?&?&?). simplify_eq.
       * simpl. eauto.
+Qed.
+
+
+Lemma global_progress es h :
+  invariant es h ->
+  (h = ∅ ∧ ∀ e, e ∈ es -> e = Val UnitV) ∨
+  (∃ es' h', step es h es' h').
+Proof.
+  intros H.
+  destruct (final_state_decision es h) as [Hdec|Hdec]; eauto; right.
+  assert (∃ x, active x es h) as [x Hactive].
+  { destruct Hdec as [(x&?)|(x&?)].
+    + destruct x. exists (Chan c). simpl. eauto.
+    + destruct H0. eapply elem_of_list_lookup in H0 as [].
+      exists (Thread x0). simpl. eauto. }
+  eapply active_progress; eauto.
 Qed.

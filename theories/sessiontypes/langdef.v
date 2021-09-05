@@ -432,11 +432,13 @@ Inductive ctx_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
   | Ctx_step : ∀ k e h e' h' ts,
       ctx k -> head_step e h e' h' ts -> ctx_step (k e) h (k e') h' ts.
 
-Inductive step : list expr -> heap -> list expr -> heap -> Prop :=
+Inductive stepi : nat -> list expr -> heap -> list expr -> heap -> Prop :=
   | Head_step : ∀ e e' h h' i ts es,
       ctx_step e h e' h' ts ->
       es !! i = Some e ->
-      step es h (<[i := e']> es ++ ts) h'.
+      stepi i es h (<[i := e']> es ++ ts) h'.
+
+Definition step es h es' h' := ∃ i, stepi i es h es' h'.
 
 (* Closure of the step relation; this is used in the theorem statement. *)
 Inductive steps : list expr -> heap -> list expr -> heap -> Prop :=
