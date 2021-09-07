@@ -293,10 +293,9 @@ Proof.
         || setoid_rewrite sep_holds).
       model.
       intros (t' & r & -> & [c b] & -> & Het). simpl in *.
-      rewrite <-Het in Hout. clear Het.
       assert (out_edges g (Thread i) !! Chan c ≡ Some (b, RecvT t' r)) as HH.
       {
-        rewrite Hout. erewrite lookup_union_Some_l; first done.
+        rewrite Hout -Het. erewrite lookup_union_Some_l; first done.
         rewrite lookup_singleton. done.
       }
 
@@ -335,9 +334,9 @@ Proof.
       revert Het. model.
       intros (r & t' & -> & Σ3 & Σ4 & Σeq & Hdisj' & ([c b] & -> & Het1) & Het2).
 
-      rewrite <-Het1 in Σeq. rewrite ->Σeq in Hout. rewrite ->Σeq in Hdisj. clear Σeq.
       assert (out_edges g (Thread i) !! Chan c ≡ Some (b, SendT t' r)) as HH.
       {
+        rewrite <-Het1 in Σeq. rewrite ->Σeq in Hout. rewrite ->Σeq in Hdisj. clear Σeq.
         rewrite Hout. erewrite lookup_union_Some_l; first done.
         erewrite lookup_union_Some_l; first done.
         rewrite lookup_singleton. done.
@@ -377,16 +376,11 @@ Proof.
       eapply Fork_step; eauto.
     * (* Close *)
       destruct H as (v & ->).
-      simpl in Het.
-      apply pure_sep_holds in Het as [-> Het].
-      rewrite ->val_typed_val_typed' in Het. simpl in Het.
-      apply exists_holds in Het as [c Het].
-      apply pure_sep_holds in Het as [-> Het].
-      destruct c. apply own_holds in Het.
-      rewrite <-Het in Hout.
+      revert Het. model.
+      intros (-> & ([c b] & -> & Het)).
       assert (out_edges g (Thread i) !! (Chan c) ≡ Some (b,EndT)) as HH.
       {
-        rewrite Hout. erewrite lookup_union_Some_l; eauto.
+        rewrite Hout -Het. erewrite lookup_union_Some_l; eauto.
         rewrite lookup_singleton. done.
       }
 
@@ -395,26 +389,15 @@ Proof.
       assert (h !! (c,b) = Some []).
       {
         pose proof (Hvs (Chan c)) as Hc.
-        simpl in Hc.
-        apply exists_holds in Hc as [σs Hc].
-        apply pure_sep_holds in Hc as [Hinlc Hc].
-        eapply holds_entails in Hc; last first.
-        {
-          iIntros "H". iApply (bufs_typed_wlog true b with "H").
-        }
-        assert (σs !! b ≡ Some EndT) as Hσsb.
+        eapply prim_simple_adequacy; first done. simpl.
+        iIntros "H". iDestruct "H" as (σs Hinlc) "H".
+        iDestruct (bufs_typed_wlog true b with "H") as "H".
+        assert (σs !! b ≡ Some EndT) as ->.
         { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hx. done. }
-        simplify_eq.
-        rewrite ->Hσsb in Hc. simpl in Hc.
-        unfold bufs_typed in Hc.
-        eapply exists_holds in Hc as [rest Hc].
-        eapply sep_holds in Hc as (Σ3 & Σ4 & Houtc & Hdisj' & Hc1 & Hc2).
-        destruct (h !! (c,b)) eqn:E; last first.
-        { simpl in Hc1. eapply false_holds in Hc1 as []. }
-        simpl in Hc1.
-        destruct l; eauto.
-        simpl in Hc1.
-        eapply false_holds in Hc1 as [].
+        unfold bufs_typed.
+        iDestruct "H" as (rest) "[H1 H2]".
+        destruct (h !! (c,b)) eqn:E; eauto.
+        simpl. destruct l; simpl; eauto.
       }
 
       eexists _,_.
@@ -673,4 +656,3 @@ Proof.
     + destruct H0. eapply elem_of_list_lookup in H0 as [].
       exists (Thread x0). simpl. eauto. }
   eapply active_progress; eauto.
-Qed.

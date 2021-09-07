@@ -41,7 +41,7 @@ Section genericinv.
     eapply pure_holds; eauto.
   Qed.
 
-  Lemma simple_adequacy (φ : Prop) f v :
+  Lemma simple_adequacy v (φ : Prop) f :
     inv f -> (∀ x, f v x ⊢ ⌜ φ ⌝) -> φ.
   Proof.
     intros Hinv HH.
