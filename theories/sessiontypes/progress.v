@@ -318,11 +318,8 @@ Proof.
       destruct buf.
       {
         eapply Hind_out; eauto.
-        - unfold waiting. eexists _,_.
-          split_and!; eauto.
-          unfold thread_waiting.
-          eauto.
-        - simpl. exists b. rewrite Hbuf. eauto.
+        - unfold waiting, thread_waiting; eauto 10.
+        - simpl. exists b. rewrite Hbuf //.
       }
 
       eexists _,_.
@@ -412,20 +409,17 @@ Proof.
     destruct Hib as [buf Hbuf].
     rewrite Hbuf in Hx.
     destruct (σs !! b) as [σ1|] eqn:E; last first.
-    { unfold bufs_typed in Hx. simpl in Hx.
-      eapply exists_holds in Hx as [? Hx].
-      eapply sep_holds in Hx as (? & ? & ? & ? & Hx & ?).
-      eapply false_holds in Hx. done. }
+    { eapply prim_simple_adequacy; first done.
+      rewrite /bufs_typed /=. iIntros "H".
+      by iDestruct "H" as (?) "[% ?]". }
     unfold bufs_typed in Hx. simpl in Hx.
     erewrite map_to_multiset_Some in Hinl; eauto.
 
-    assert (∃ y, out_edges g y !! (Chan i) ≡ Some (b,σ1)) as [y Hy].
-    {
-      eapply in_labels_out_edges; eauto.
-    }
-
-    destruct y.
-    + pose proof (Hvs (Thread n)) as Hn.
+    (* Since the chan has a buffer, there exists somebody holding a ref to this chan *)
+    assert (∃ y, out_edges g y !! (Chan i) ≡ Some (b,σ1)) as [[] Hy].
+    { eapply in_labels_out_edges; eauto. }
+    + (* The one holding the ref to the chan is a thread *)
+      pose proof (Hvs (Thread n)) as Hn.
       simpl in Hn.
       eapply pure_sep_holds in Hn as [? Hn].
       destruct (es !! n) eqn:En; last first.
@@ -436,9 +430,9 @@ Proof.
       }
       destruct (classic (waiting es h (Thread n) (Chan i) (b, σ1))) as [w|n0]; last first.
       {
-        eapply Hind_in; eauto.
-        simpl. exists e. split; eauto.
-        intros ->.
+        (* The thread is not blocked on the chan (but could be blocked on another chan) *)
+        eapply Hind_in; eauto. (* We need to show that the thread hasn't terminated with a unit value *)
+        simpl. exists e. split; eauto. intros ->.
         simpl in Hn.
         eapply affinely_pure_holds in Hn as [].
         eapply map_empty_equiv_eq in H0.
@@ -446,6 +440,7 @@ Proof.
         rewrite lookup_empty in Hy.
         inversion Hy.
       }
+      (* The thread is blocked on the chan *)
       unfold waiting in w.
       destruct w as (i0 & j & ? & ? & Htw). simplify_eq.
       unfold thread_waiting in Htw.
@@ -601,7 +596,8 @@ Proof.
       * rewrite Hzout. done.
       * intros (?&?&?&?). simplify_eq.
       * simpl. eauto.
-    + pose proof (Hvs (Chan c)) as Hc. simpl in Hc.
+    + (* The one holding a ref to the chan is another chan *)
+      pose proof (Hvs (Chan c)) as Hc. simpl in Hc.
       eapply exists_holds in Hc as [σs' Hc].
       eapply pure_sep_holds in Hc as [Hσs' Hc].
       destruct (decide (h !! (c,true) = None ∧ h !! (c,false) = None)) as [[]|].
@@ -656,3 +652,4 @@ Proof.
     + destruct H0. eapply elem_of_list_lookup in H0 as [].
       exists (Thread x0). simpl. eauto. }
   eapply active_progress; eauto.
+Qed.
