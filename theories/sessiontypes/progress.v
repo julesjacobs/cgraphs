@@ -434,143 +434,139 @@ Proof.
     assert (∃ y, out_edges g y !! (Chan i) ≡ Some (b,σ1)) as [[] Hy];
       first (eapply in_labels_out_edges; eauto); last (exfalso; eauto).
     (* The one holding the ref to the chan is a thread *)
-      pose proof (Hvs (Thread n)) as Hn.
+    pose proof (Hvs (Thread n)) as Hn.
+    simpl in Hn.
+    eapply pure_sep_holds in Hn as [? Hn].
+    destruct (es !! n) eqn:En; last first.
+    {
+      eapply emp_holds in Hn.
+      eapply map_empty_equiv_eq in Hn.
+      rewrite Hn in Hy. rewrite lookup_empty in Hy. inversion Hy.
+    }
+    destruct (classic (waiting es h (Thread n) (Chan i) (b, σ1))) as [w|n0]; last first.
+    {
+      (* The thread is not blocked on the chan (but could be blocked on another chan) *)
+      eapply Hind_in; eauto. (* We need to show that the thread hasn't terminated with a unit value *)
+      simpl. exists e. split; eauto. intros ->.
       simpl in Hn.
-      eapply pure_sep_holds in Hn as [? Hn].
-      destruct (es !! n) eqn:En; last first.
-      {
-        eapply emp_holds in Hn.
-        eapply map_empty_equiv_eq in Hn.
-        rewrite Hn in Hy. rewrite lookup_empty in Hy. inversion Hy.
-      }
-      destruct (classic (waiting es h (Thread n) (Chan i) (b, σ1))) as [w|n0]; last first.
-      {
-        (* The thread is not blocked on the chan (but could be blocked on another chan) *)
-        eapply Hind_in; eauto. (* We need to show that the thread hasn't terminated with a unit value *)
-        simpl. exists e. split; eauto. intros ->.
-        simpl in Hn.
-        eapply affinely_pure_holds in Hn as [].
-        eapply map_empty_equiv_eq in H0.
-        rewrite H0 in Hy.
-        rewrite lookup_empty in Hy.
-        inversion Hy.
-      }
-      (* The thread is blocked on the chan *)
-      unfold waiting in w.
-      destruct w as (i0 & j & ? & ? & Htw). simplify_eq.
-      unfold thread_waiting in Htw.
-      destruct Htw as (b' & k & Hk & Hi0 & Hjb).
-      rewrite Hi0 in En. simplify_eq.
-      rewrite ->rtyped0_ctx in Hn; eauto.
-      eapply exists_holds in Hn as [t Hn].
-      eapply sep_holds in Hn as (?&?&?&?&?&?).
-      simpl in H2.
-      eapply exists_holds in H2 as [t' H2].
-      eapply exists_holds in H2 as [r H2].
-      eapply pure_sep_holds in H2 as [-> H2].
-      eapply exists_holds in H2 as [r0 H2].
-      eapply pure_sep_holds in H2 as [? H2]. simplify_eq.
-      eapply own_holds in H2.
-      assert (Some (b',RecvT t' r) ≡ Some (b,σ1)).
-      {
-        rewrite <- Hy.
-        rewrite H0.
-        rewrite <- H2.
-        rewrite lookup_union lookup_singleton.
-        destruct (x0 !! Chan j) eqn:Q; simpl.
-        - rewrite Q. simpl. done.
-        - rewrite Q. simpl. done.
-      }
-      inversion H4. inversion H7. simpl in *.
-      apply leibniz_equiv in H8.
-      simplify_eq.
-      rewrite Hbuf in Hjb. simplify_eq.
-      simpl in Hx.
-      eapply exists_holds in Hx as [rest Hx].
-      eapply pure_sep_holds in Hx as [-> Hx].
-      simpl in Hx.
-      destruct (h !! (j,negb b)) eqn:Q; last first.
-      {
-        simpl in Hx. destruct (σs !! negb b).
-        - eapply false_holds in Hx as [].
-        - eapply affinely_pure_holds in Hx as [].
-          rewrite <-H9 in H6.
-          rewrite ->dual_recv in H6. inversion H6.
-      }
-      simpl in Hx.
-      destruct (σs !! negb b) eqn:Q2; last first.
-      { eapply false_holds in Hx as []. }
-      assert (delete b σs !! negb b = Some c) as HHH.
-      { rewrite lookup_delete_ne //. by destruct b. }
-      erewrite map_to_multiset_Some in Hinl; eauto.
+      eapply affinely_pure_holds in Hn as [].
+      eapply map_empty_equiv_eq in H0.
+      rewrite H0 in Hy.
+      rewrite lookup_empty in Hy.
+      inversion Hy.
+    }
+    (* The thread is blocked on the chan *)
+    unfold waiting in w.
+    destruct w as (i0 & j & ? & ? & Htw). simplify_eq.
+    unfold thread_waiting in Htw.
+    destruct Htw as (b' & k & Hk & Hi0 & Hjb).
+    rewrite Hi0 in En. simplify_eq.
+    rewrite ->rtyped0_ctx in Hn; eauto.
+    eapply exists_holds in Hn as [t Hn].
+    eapply sep_holds in Hn as (?&?&?&?&?&?).
+    simpl in H2.
+    eapply exists_holds in H2 as [t' H2].
+    eapply exists_holds in H2 as [r H2].
+    eapply pure_sep_holds in H2 as [-> H2].
+    eapply exists_holds in H2 as [r0 H2].
+    eapply pure_sep_holds in H2 as [? H2]. simplify_eq.
+    eapply own_holds in H2.
+    assert (Some (b',RecvT t' r) ≡ Some (b,σ1)).
+    {
+      rewrite <- Hy.
+      rewrite H0.
+      rewrite <- H2.
+      rewrite lookup_union lookup_singleton.
+      destruct (x0 !! Chan j) eqn:Q; simpl.
+      - rewrite Q. simpl. done.
+      - rewrite Q. simpl. done.
+    }
+    inversion H4. inversion H7. simpl in *.
+    apply leibniz_equiv in H8.
+    simplify_eq.
+    rewrite Hbuf in Hjb. simplify_eq.
+    simpl in Hx.
+    eapply exists_holds in Hx as [rest Hx].
+    eapply pure_sep_holds in Hx as [-> Hx].
+    simpl in Hx.
+    destruct (h !! (j,negb b)) eqn:Q; last first.
+    {
+      simpl in Hx. destruct (σs !! negb b).
+      - eapply false_holds in Hx as [].
+      - eapply affinely_pure_holds in Hx as [].
+        rewrite <-H9 in H6.
+        rewrite ->dual_recv in H6. inversion H6.
+    }
+    simpl in Hx.
+    destruct (σs !! negb b) eqn:Q2; last first.
+    { eapply false_holds in Hx as []. }
+    assert (delete b σs !! negb b = Some c) as HHH.
+    { rewrite lookup_delete_ne //. by destruct b. }
+    erewrite map_to_multiset_Some in Hinl; eauto.
 
-      rewrite ->(comm (⋅)), <-assoc in Hinl; last apply _.
+    rewrite ->(comm (⋅)), <-assoc in Hinl; last apply _.
 
-      assert (∃ z, out_edges g z !! (Chan j) ≡ Some (negb b, c)) as [z Hzout].
-      {
-        eapply in_labels_out_edges; eauto.
-      }
-      clear HHH.
-
-      pose proof (Hvs z) as Hz.
-      destruct z; simpl in Hz.
-      {
-        eapply pure_sep_holds in Hz as [? Hz].
-        destruct (es !! n) eqn:R; last first.
-        {
-          eapply emp_holds in Hz.
-          eapply map_empty_equiv_eq in Hz.
-          rewrite Hz in Hzout. rewrite lookup_empty in Hzout.
-          inversion Hzout.
-        }
-        destruct (classic (waiting es h (Thread n) (Chan j) (negb b, c))) as [w|n0]; last first.
-        {
-          eapply Hind_in; eauto.
-          simpl. exists e. split; eauto.
-          intros ->.
-          simpl in Hz.
-          eapply affinely_pure_holds in Hz as [].
-          eapply map_empty_equiv_eq in H6.
-          rewrite H6 in Hzout.
-          rewrite lookup_empty in Hzout.
-          inversion Hzout.
-        }
-        unfold waiting in w.
-        destruct w as (? & ? & ? & ? & Htw). simplify_eq.
-        unfold thread_waiting in Htw.
-        destruct Htw as (b' & ? & ? & HH & Hjb).
-        rewrite HH in R. simplify_eq.
-        rewrite ->rtyped0_ctx in Hz; eauto.
-        eapply exists_holds in Hz as [t Hz].
-        eapply sep_holds in Hz as (?&?&?&?&QQ&?).
-        simpl in *.
-        eapply exists_holds in QQ as [? QQ].
-        eapply exists_holds in QQ as [? QQ].
-        eapply pure_sep_holds in QQ as [-> QQ].
-        eapply exists_holds in QQ as [? QQ].
-        eapply pure_sep_holds in QQ as [? QQ]. simplify_eq.
-        eapply own_holds in QQ.
-        assert (Some (b',RecvT x6 x7) ≡ Some (negb b,c)).
-        {
-          rewrite <- Hzout.
-          rewrite H8.
-          rewrite <- QQ.
-          rewrite lookup_union lookup_singleton.
-          destruct (x5 !! Chan x2) eqn:Q'; simpl.
-          - rewrite Q'. simpl. done.
-          - rewrite Q'. simpl. done.
-        }
-        inversion H12. simplify_eq.
-        inversion H15. simpl in *. apply leibniz_equiv in H13.
-        simplify_eq.
-        rewrite Hjb in Q. simplify_eq.
-        simpl in Hx.
-        eapply affinely_pure_holds in Hx as [].
-        inversion H7. simpl in *.
-        inversion H18; simplify_eq. inversion H14.
-        simplify_eq. rewrite ->dual_recv in H16. inversion H16.
-      }
-      exfalso. eauto. (* The other one is a chan *)
+    assert (∃ z, out_edges g z !! (Chan j) ≡ Some (negb b, c)) as [z Hzout].
+    {
+      eapply in_labels_out_edges; eauto.
+    }
+    clear HHH.
+    destruct z; last (exfalso; eauto).
+    pose proof (Hvs (Thread n)) as Hz. simpl in Hz.
+    eapply pure_sep_holds in Hz as [? Hz].
+    destruct (es !! n) eqn:R; last first.
+    {
+      eapply emp_holds in Hz.
+      eapply map_empty_equiv_eq in Hz.
+      rewrite Hz in Hzout. rewrite lookup_empty in Hzout.
+      inversion Hzout.
+    }
+    destruct (classic (waiting es h (Thread n) (Chan j) (negb b, c))) as [w|n0]; last first.
+    {
+      eapply Hind_in; eauto.
+      simpl. exists e. split; eauto.
+      intros ->.
+      simpl in Hz.
+      eapply affinely_pure_holds in Hz as [].
+      eapply map_empty_equiv_eq in H6.
+      rewrite H6 in Hzout.
+      rewrite lookup_empty in Hzout.
+      inversion Hzout.
+    }
+    unfold waiting in w.
+    destruct w as (? & ? & ? & ? & Htw). simplify_eq.
+    unfold thread_waiting in Htw.
+    destruct Htw as (b' & ? & ? & HH & Hjb).
+    rewrite HH in R. simplify_eq.
+    rewrite ->rtyped0_ctx in Hz; eauto.
+    eapply exists_holds in Hz as [t Hz].
+    eapply sep_holds in Hz as (?&?&?&?&QQ&?).
+    simpl in *.
+    eapply exists_holds in QQ as [? QQ].
+    eapply exists_holds in QQ as [? QQ].
+    eapply pure_sep_holds in QQ as [-> QQ].
+    eapply exists_holds in QQ as [? QQ].
+    eapply pure_sep_holds in QQ as [? QQ]. simplify_eq.
+    eapply own_holds in QQ.
+    assert (Some (b',RecvT x6 x7) ≡ Some (negb b,c)).
+    {
+      rewrite <- Hzout.
+      rewrite H8.
+      rewrite <- QQ.
+      rewrite lookup_union lookup_singleton.
+      destruct (x5 !! Chan x2) eqn:Q'; simpl.
+      - rewrite Q'. simpl. done.
+      - rewrite Q'. simpl. done.
+    }
+    inversion H12. simplify_eq.
+    inversion H15. simpl in *. apply leibniz_equiv in H13.
+    simplify_eq.
+    rewrite Hjb in Q. simplify_eq.
+    simpl in Hx.
+    eapply affinely_pure_holds in Hx as [].
+    inversion H7. simpl in *.
+    inversion H18; simplify_eq. inversion H14.
+    simplify_eq. rewrite ->dual_recv in H16. inversion H16.
 Qed.
 
 
