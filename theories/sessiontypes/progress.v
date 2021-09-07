@@ -247,6 +247,13 @@ Proof.
     by apply NNPP.
 Qed.
 
+Definition chan_refs (es : list expr) (h : heap) (c : chan) : gset chan. Admitted.
+
+Inductive reachable (es : list expr) (h : heap) : object → Prop :=
+  | Thread_step_reachable i : can_stepi i es h → reachable es h (Thread i)
+  | Thread_waiting_reachable i c : reachable es h (Chan c) → thread_waiting es h i c → reachable es h (Thread i)
+  | Chan_ref_reachable c c' : c' ∈ chan_refs es h c → reachable es h (Chan c) → reachable es h (Chan c').
+
 Lemma active_progress es h x :
   invariant es h -> active x es h -> ∃ (es' : list expr) (h' : heap), step es h es' h'.
 Proof.
@@ -415,7 +422,7 @@ Proof.
     erewrite map_to_multiset_Some in Hinl; eauto.
 
     destruct (classic (∃ c q, out_edges g (Chan c) !! Chan i ≡ Some q)) as [(c & q & Hc)|Hnc].
-    {
+    { (* This thing will handle the case of a chan-chan reference for us *)
       eapply (Hind_in (Chan c)); simpl; eauto. { rewrite /waiting. naive_solver. }
       destruct (h !! (c,true)) eqn:Q; eauto.
       destruct (h !! (c,false)) eqn:Q'; eauto.
@@ -428,14 +435,12 @@ Proof.
       }
       rewrite H lookup_empty in Hc. inversion Hc.
     }
-
     (* Since the chan has a buffer, there exists somebody holding a ref to this chan *)
     (* If the other one is a chan, we're done *)
     assert (∃ y, out_edges g y !! (Chan i) ≡ Some (b,σ1)) as [[] Hy];
       first (eapply in_labels_out_edges; eauto); last (exfalso; eauto).
     (* The one holding the ref to the chan is a thread *)
-    pose proof (Hvs (Thread n)) as Hn.
-    simpl in Hn.
+    pose proof (Hvs (Thread n)) as Hn. simpl in Hn.
     eapply pure_sep_holds in Hn as [? Hn].
     destruct (es !! n) eqn:En; last first.
     {
@@ -451,9 +456,7 @@ Proof.
       simpl in Hn.
       eapply affinely_pure_holds in Hn as [].
       eapply map_empty_equiv_eq in H0.
-      rewrite H0 in Hy.
-      rewrite lookup_empty in Hy.
-      inversion Hy.
+      rewrite H0 lookup_empty in Hy. inversion Hy.
     }
     (* The thread is blocked on the chan *)
     unfold waiting in w.

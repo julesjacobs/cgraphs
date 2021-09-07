@@ -440,6 +440,8 @@ Inductive stepi : nat -> list expr -> heap -> list expr -> heap -> Prop :=
 
 Definition step es h es' h' := ∃ i, stepi i es h es' h'.
 
+Definition can_stepi i es h := ∃ es' h', stepi i es h es' h'.
+
 (* Closure of the step relation; this is used in the theorem statement. *)
 Inductive steps : list expr -> heap -> list expr -> heap -> Prop :=
   | Trans_step : ∀ e1 e2 e3 s1 s2 s3,
