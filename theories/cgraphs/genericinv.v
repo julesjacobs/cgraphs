@@ -33,6 +33,22 @@ Section genericinv.
     apply own_holds in H2. rewrite ->H2 in H1. done.
   Qed.
 
+  Lemma prim_simple_adequacy φ (P : hProp V L) Σ :
+    holds P Σ -> (P ⊢ ⌜ φ ⌝) -> φ.
+  Proof.
+    intros HP Hφ.
+    eapply holds_entails in HP; last eauto.
+    eapply pure_holds; eauto.
+  Qed.
+
+  Lemma simple_adequacy (φ : Prop) f v :
+    inv f -> (∀ x, f v x ⊢ ⌜ φ ⌝) -> φ.
+  Proof.
+    intros Hinv HH.
+    destruct Hinv as (g & Hwf & H1).
+    eapply prim_simple_adequacy; eauto.
+  Qed.
+
   Lemma inv_impl f f' :
     (∀ v x, f v x ⊢ f' v x) ->
     inv f -> inv f'.

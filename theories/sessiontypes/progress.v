@@ -223,10 +223,6 @@ Definition active (x : object) (es : list expr) (h : heap) :=
   | Chan i => ∃ b, is_Some (h !! (i,b))
   end.
 
-(* Red triangle relation *)
-Definition redt (es : list expr) (h : heap) (i j : nat) :=
-  active i es h ∧ active j es h ∧ 
-
 Lemma heap_fresh (h : heap) :
   ∃ i, ∀ b, h !! (i,b) = None.
 Proof.
@@ -254,9 +250,7 @@ Qed.
 Lemma active_progress es h x :
   invariant es h -> active x es h -> ∃ (es' : list expr) (h' : heap), step es h es' h'.
 Proof.
-  intros H Hactive.
-  destruct H as (g & Hwf & Hvs).
-  revert x Hactive.
+  intros (g & Hwf & Hvs). revert x.
   eapply (cgraph_ind' (waiting es h) g (λ x,
     active x es h → ∃ (es' : list expr) (h' : heap), step es h es' h'));
     [solve_proper|eauto|].
@@ -269,205 +263,164 @@ Proof.
     destruct Hactive as (e & He & Heneq). (* Thread is active, so must have expression in thread pool *)
     rewrite He in Hx. (* We can conclude that this expression is well-typed wrt out edges *)
     apply pure_sep_holds in Hx as [Hinl Hx].
-    assert (holds (rtyped0 e UnitT) (out_edges g (Thread i))) as Hx' by eauto.
-    eapply holds_entails in Hx'. 2: eapply rtyped_inner.
-    rewrite ->pure_holds in Hx'.
+    eapply prim_simple_adequacy in Hx as Hx'; last eapply rtyped_inner.
     (* Case analyze whether it's a value or pure step or channel op  *)
     destruct Hx' as [(v & ->)|Hx'].
-    + (* Value *)
-      simpl in Hx. rewrite ->val_typed_val_typed' in Hx. simpl in Hx.
-      eapply affinely_pure_holds in Hx as [Hx ->]. simplify_eq.
-    + (* Expr in context *)
-      destruct Hx' as (k' & e0 & Hctx & -> & Hcases).
-      rewrite ->rtyped0_ctx in Hx; eauto.
-      apply exists_holds in Hx as [t Hx].
-      apply sep_holds in Hx as (Σ1&Σ2&Hout&Hdisj&Het&Hctxt).
-      destruct Hcases as [H|[H|[H|[H|H]]]].
-      * (* Pure step *)
-        destruct H as [e' H].
-        eexists _,_.
-        econstructor. econstructor; last done.
-        econstructor; eauto.
-        econstructor. done.
-      * (* Recv *)
-        destruct H as [v ->].
-        simpl in Het.
-        apply exists_holds in Het as [t' Het].
-        apply exists_holds in Het as [r Het].
-        eapply pure_sep_holds in Het as [-> Het].
-        rewrite ->val_typed_val_typed' in Het. simpl in Het.
-        apply exists_holds in Het as [c Het].
-        apply pure_sep_holds in Het as [-> Het].
-        simpl in Het. destruct c.
-        unfold own_ep in Het.
-        apply own_holds in Het.
-        rewrite <-Het in Hout.
-        assert (out_edges g (Thread i) !! Chan c ≡ Some (b, RecvT t' r)) as HH.
+    {
+      (* Value *)
+      eapply prim_simple_adequacy; first done.
+      simpl. rewrite val_typed_val_typed'. simpl.
+      iIntros (->). simplify_eq.
+    }
+    (* Expr in context *)
+    destruct Hx' as (k' & e0 & Hctx & -> & Hcases).
+    rewrite ->rtyped0_ctx in Hx; eauto.
+    apply exists_holds in Hx as [t Hx].
+    apply sep_holds in Hx as (Σ1&Σ2&Hout&Hdisj&Het&Hctxt).
+    destruct Hcases as [H|[H|[H|[H|H]]]].
+    * (* Pure step *)
+      destruct H as [e' H].
+      eexists _,_.
+      econstructor. econstructor; last done.
+      econstructor; eauto.
+      econstructor. done.
+    * (* Recv *)
+      destruct H as [v ->].
+      revert Het.
+      Ltac model := repeat
+        (setoid_rewrite pure_sep_holds || setoid_rewrite exists_holds
+        || setoid_rewrite own_holds || setoid_rewrite val_typed_val_typed'
+        || setoid_rewrite sep_holds).
+      model.
+      intros (t' & r & -> & [c b] & -> & Het). simpl in *.
+      rewrite <-Het in Hout. clear Het.
+      assert (out_edges g (Thread i) !! Chan c ≡ Some (b, RecvT t' r)) as HH.
+      {
+        rewrite Hout. erewrite lookup_union_Some_l; first done.
+        rewrite lookup_singleton. done.
+      }
+
+      pose proof (out_edges_in_labels _ _ _ _ HH) as [x Hin].
+
+      assert (∃ buf, h !! (c,b) = Some buf) as [buf Hbuf].
+      {
+        pose proof (Hvs (Chan c)) as Hc.
+        eapply prim_simple_adequacy; first done.
+        iIntros "H". simpl.
+        iDestruct "H" as (σs Hinlc) "H".
+        iDestruct (bufs_typed_wlog true b with "H") as "H".
+        assert (σs !! b ≡ Some (RecvT t' r)) as ->.
+        { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
+        unfold bufs_typed.
+        iDestruct "H" as (rest) "[H1 H2]".
+        destruct (h !! (c,b)) eqn:E; eauto.
+      }
+
+      destruct buf.
+      {
+        eapply Hind_out; eauto.
+        - unfold waiting. eexists _,_.
+          split_and!; eauto.
+          unfold thread_waiting.
+          eauto.
+        - simpl. exists b. rewrite Hbuf. eauto.
+      }
+
+      eexists _,_.
+      econstructor; econstructor; last done.
+      econstructor; first done.
+      eapply Recv_step. done.
+    * (* Send *)
+      destruct H as (v1 & v2 & ->).
+      revert Het. model.
+      intros (r & t' & -> & Σ3 & Σ4 & Σeq & Hdisj' & ([c b] & -> & Het1) & Het2).
+
+      rewrite <-Het1 in Σeq. rewrite ->Σeq in Hout. rewrite ->Σeq in Hdisj. clear Σeq.
+      assert (out_edges g (Thread i) !! Chan c ≡ Some (b, SendT t' r)) as HH.
+      {
+        rewrite Hout. erewrite lookup_union_Some_l; first done.
+        erewrite lookup_union_Some_l; first done.
+        rewrite lookup_singleton. done.
+      }
+
+      pose proof (out_edges_in_labels _ _ _ _ HH) as [x Hin].
+
+      assert (∃ buf, h !! (c,negb b) = Some buf) as [buf Hbuf].
+      {
+        pose proof (Hvs (Chan c)) as Hc.
+        eapply prim_simple_adequacy; first done.
+        simpl.
+        iIntros "H". iDestruct "H" as (σs Hinlc) "H".
+        iDestruct (bufs_typed_wlog true b with "H") as "H".
+        assert (σs !! b ≡ Some (SendT t' r)) as ->.
+        { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
+        unfold bufs_typed.
+        iDestruct "H" as (rest) "[H1 H2]".
+        destruct (h !! (c,b)) eqn:E; eauto. simpl.
+        destruct (h !! (c,negb b)) eqn:F; eauto. simpl.
+        destruct (σs !! negb b) eqn:G; eauto.
+        iDestruct "H2" as "%". apply dual_end_inv in H. subst.
+        destruct l; eauto. simpl.
+        iDestruct "H1" as "%". inversion H.
+      }
+
+      eexists _,_.
+      econstructor; econstructor; last done.
+      econstructor; first done.
+      eapply Send_step. done.
+    * (* Fork *)
+      destruct H as (v & ->).
+      destruct (heap_fresh h) as [ii HH].
+      eexists _,_.
+      econstructor; econstructor; last done.
+      econstructor; eauto.
+      eapply Fork_step; eauto.
+    * (* Close *)
+      destruct H as (v & ->).
+      simpl in Het.
+      apply pure_sep_holds in Het as [-> Het].
+      rewrite ->val_typed_val_typed' in Het. simpl in Het.
+      apply exists_holds in Het as [c Het].
+      apply pure_sep_holds in Het as [-> Het].
+      destruct c. apply own_holds in Het.
+      rewrite <-Het in Hout.
+      assert (out_edges g (Thread i) !! (Chan c) ≡ Some (b,EndT)) as HH.
+      {
+        rewrite Hout. erewrite lookup_union_Some_l; eauto.
+        rewrite lookup_singleton. done.
+      }
+
+      pose proof (out_edges_in_labels _ _ _ _ HH) as [x Hx].
+
+      assert (h !! (c,b) = Some []).
+      {
+        pose proof (Hvs (Chan c)) as Hc.
+        simpl in Hc.
+        apply exists_holds in Hc as [σs Hc].
+        apply pure_sep_holds in Hc as [Hinlc Hc].
+        eapply holds_entails in Hc; last first.
         {
-          rewrite Hout. erewrite lookup_union_Some_l; first done.
-          rewrite lookup_singleton. done.
+          iIntros "H". iApply (bufs_typed_wlog true b with "H").
         }
+        assert (σs !! b ≡ Some EndT) as Hσsb.
+        { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hx. done. }
+        simplify_eq.
+        rewrite ->Hσsb in Hc. simpl in Hc.
+        unfold bufs_typed in Hc.
+        eapply exists_holds in Hc as [rest Hc].
+        eapply sep_holds in Hc as (Σ3 & Σ4 & Houtc & Hdisj' & Hc1 & Hc2).
+        destruct (h !! (c,b)) eqn:E; last first.
+        { simpl in Hc1. eapply false_holds in Hc1 as []. }
+        simpl in Hc1.
+        destruct l; eauto.
+        simpl in Hc1.
+        eapply false_holds in Hc1 as [].
+      }
 
-        pose proof (out_edges_in_labels _ _ _ _ HH) as [x Hin].
-
-        assert (∃ buf, h !! (c,b) = Some buf) as [buf Hbuf].
-        {
-          pose proof (Hvs (Chan c)) as Hc.
-          simpl in Hc.
-          apply exists_holds in Hc as [σs Hc].
-          apply pure_sep_holds in Hc as [Hinlc Hc].
-          eapply holds_entails in Hc; last first.
-          {
-            iIntros "H". iApply (bufs_typed_wlog true b with "H").
-          }
-          assert (σs !! b ≡ Some (RecvT t' r)) as Hσsb.
-          { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
-          simplify_eq.
-          rewrite ->Hσsb in Hc. simpl in Hc.
-          unfold bufs_typed in Hc.
-          eapply exists_holds in Hc as [rest Hc].
-          eapply sep_holds in Hc as (Σ3 & Σ4 & Houtc & Hdisj' & Hc1 & Hc2).
-          destruct (h !! (c,b)) eqn:E; eauto.
-          simpl in Hc1. eapply false_holds in Hc1 as [].
-        }
-
-        destruct buf.
-        {
-          eapply Hind_out; eauto.
-          - unfold waiting. eexists _,_.
-            split_and!; eauto.
-            unfold thread_waiting.
-            eauto.
-          - simpl. exists b. rewrite Hbuf. eauto.
-        }
-
-        eexists _,_.
-        econstructor; econstructor; last done.
-        econstructor; first done.
-        eapply Recv_step. done.
-      * (* Send *)
-        destruct H as (v1 & v2 & ->).
-        simpl in Het.
-        apply exists_holds in Het as [r Het].
-        apply exists_holds in Het as [t' Het].
-        apply pure_sep_holds in Het as [-> Het].
-        apply sep_holds in Het as (Σ3 & Σ4 & Σeq & Hdisj' & Het1 & Het2).
-        rewrite ->val_typed_val_typed' in Het1. simpl in Het1.
-        apply exists_holds in Het1 as [c Het1].
-        apply pure_sep_holds in Het1 as [-> Het1].
-        destruct c. apply own_holds in Het1.
-        rewrite <-Het1 in Σeq.
-        rewrite ->Σeq in Hout.
-        rewrite ->Σeq in Hdisj.
-        assert (out_edges g (Thread i) !! Chan c ≡ Some (b, SendT t' r)) as HH.
-        {
-          rewrite Hout. erewrite lookup_union_Some_l; first done.
-          erewrite lookup_union_Some_l; first done.
-          rewrite lookup_singleton. done.
-        }
-
-        pose proof (out_edges_in_labels _ _ _ _ HH) as [x Hin].
-
-        assert (∃ buf, h !! (c,negb b) = Some buf) as [buf Hbuf].
-        {
-          pose proof (Hvs (Chan c)) as Hc.
-          simpl in Hc.
-          apply exists_holds in Hc as [σs Hc].
-          apply pure_sep_holds in Hc as [Hinlc Hc].
-          eapply holds_entails in Hc; last first.
-          {
-            iIntros "H". iApply (bufs_typed_wlog true b with "H").
-          }
-          assert (σs !! b ≡ Some (SendT t' r)) as Hσsb.
-          { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
-          simplify_eq.
-          rewrite ->Hσsb in Hc. simpl in Hc.
-          unfold bufs_typed in Hc.
-          eapply exists_holds in Hc as [rest Hc].
-          eapply sep_holds in Hc as (Σ3' & Σ4' & Houtc & Hdisj'' & Hc1 & Hc2).
-          destruct (h !! (c,b)) eqn:E; last first.
-          { simpl in Hc1. eapply false_holds in Hc1 as []. }
-          simpl in Hc1.
-          assert (rest ≠ EndT).
-          {
-            intro. subst. destruct l; simpl in Hc1.
-            - eapply affinely_pure_holds in Hc1 as [].
-              inversion H0.
-            - eapply false_holds in Hc1 as [].
-          }
-          destruct (h !! (c,negb b)) eqn:F; eauto.
-          exfalso.
-          simpl in Hc2.
-          destruct (σs !! negb b) eqn:G.
-          { eapply false_holds in Hc2 as []. }
-          eapply affinely_pure_holds in Hc2 as [].
-          apply H. apply dual_end_inv. done.
-        }
-
-        eexists _,_.
-        econstructor; econstructor; last done.
-        econstructor; first done.
-        eapply Send_step. done.
-      * (* Fork *)
-        destruct H as (v & ->).
-        simpl in Het.
-        apply exists_holds in Het as [r Het].
-        apply pure_sep_holds in Het as [-> Het].
-        rewrite ->val_typed_val_typed' in Het. simpl in Het.
-        apply exists_holds in Het as [x Het].
-        apply exists_holds in Het as [e Het].
-        apply pure_sep_holds in Het as [-> Het].
-        destruct (heap_fresh h) as [ii HH].
-        eexists _,_.
-        econstructor; econstructor; last done.
-        econstructor; eauto.
-        eapply Fork_step; eauto.
-      * (* Close *)
-        destruct H as (v & ->).
-        simpl in Het.
-        apply pure_sep_holds in Het as [-> Het].
-        rewrite ->val_typed_val_typed' in Het. simpl in Het.
-        apply exists_holds in Het as [c Het].
-        apply pure_sep_holds in Het as [-> Het].
-        destruct c. apply own_holds in Het.
-        rewrite <-Het in Hout.
-        assert (out_edges g (Thread i) !! (Chan c) ≡ Some (b,EndT)) as HH.
-        {
-          rewrite Hout. erewrite lookup_union_Some_l; eauto.
-          rewrite lookup_singleton. done.
-        }
-
-        pose proof (out_edges_in_labels _ _ _ _ HH) as [x Hx].
-
-        assert (h !! (c,b) = Some []).
-        {
-          pose proof (Hvs (Chan c)) as Hc.
-          simpl in Hc.
-          apply exists_holds in Hc as [σs Hc].
-          apply pure_sep_holds in Hc as [Hinlc Hc].
-          eapply holds_entails in Hc; last first.
-          {
-            iIntros "H". iApply (bufs_typed_wlog true b with "H").
-          }
-          assert (σs !! b ≡ Some EndT) as Hσsb.
-          { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hx. done. }
-          simplify_eq.
-          rewrite ->Hσsb in Hc. simpl in Hc.
-          unfold bufs_typed in Hc.
-          eapply exists_holds in Hc as [rest Hc].
-          eapply sep_holds in Hc as (Σ3 & Σ4 & Houtc & Hdisj' & Hc1 & Hc2).
-          destruct (h !! (c,b)) eqn:E; last first.
-          { simpl in Hc1. eapply false_holds in Hc1 as []. }
-          simpl in Hc1.
-          destruct l; eauto.
-          simpl in Hc1.
-          eapply false_holds in Hc1 as [].
-        }
-
-        eexists _,_.
-        econstructor; econstructor; last done.
-        econstructor; first done.
-        eapply Close_step. done.
+      eexists _,_.
+      econstructor; econstructor; last done.
+      econstructor; first done.
+      eapply Close_step. done.
   - (* Channel *)
     destruct Hactive as (b & Hib).
     apply exists_holds in Hx as [σs Hx].
