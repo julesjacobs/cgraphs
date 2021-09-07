@@ -412,7 +412,6 @@ Proof.
     { eapply prim_simple_adequacy; first done.
       rewrite /bufs_typed /=. iIntros "H".
       by iDestruct "H" as (?) "[% ?]". }
-    unfold bufs_typed in Hx. simpl in Hx.
     erewrite map_to_multiset_Some in Hinl; eauto.
 
     (* Since the chan has a buffer, there exists somebody holding a ref to this chan *)
@@ -597,45 +596,17 @@ Proof.
       * intros (?&?&?&?). simplify_eq.
       * simpl. eauto.
     + (* The one holding a ref to the chan is another chan *)
-      pose proof (Hvs (Chan c)) as Hc. simpl in Hc.
-      eapply exists_holds in Hc as [σs' Hc].
-      eapply pure_sep_holds in Hc as [Hσs' Hc].
-      destruct (decide (h !! (c,true) = None ∧ h !! (c,false) = None)) as [[]|].
+      eapply (Hind_in (Chan c)); simpl; eauto. { rewrite /waiting. naive_solver. }
+      destruct (h !! (c,true)) eqn:Q; eauto.
+      destruct (h !! (c,false)) eqn:Q'; eauto.
+      assert (out_edges g (Chan c) = ∅) as H.
       {
-        rewrite H in Hc. rewrite H0 in Hc.
-        destruct (σs' !! true).
-        { unfold bufs_typed in Hc. simpl in Hc.
-          eapply exists_holds in Hc as [? Hc].
-          eapply sep_holds in Hc as (?&?&?&?&?&?).
-          eapply false_holds in H3 as [].
-        }
-        destruct (σs' !! false).
-        { unfold bufs_typed in Hc. simpl in Hc.
-          eapply exists_holds in Hc as [? Hc].
-          eapply sep_holds in Hc as (?&?&?&?&?&?).
-          eapply false_holds in H4 as [].
-        }
-        eapply (holds_entails _ emp%I) in Hc; last first.
-        { iIntros "H". unfold bufs_typed.
-          iDestruct "H" as (?) "[H1 H2]". simpl.
-          iDestruct "H1" as "%".
-          iDestruct "H2" as "%".
-          done. }
-        eapply emp_holds in Hc.
-        apply map_empty_equiv_eq in Hc.
-        rewrite Hc in Hy. rewrite lookup_empty in Hy.
-        inversion Hy.
+        eapply prim_empty_adequacy; first exact (Hvs (Chan c)).
+        iIntros "H". simpl. rewrite Q Q' /bufs_typed /=.
+        iDestruct "H" as (σs' ? ?) "[H1 H2]".
+        destruct (σs' !! true),(σs' !! false); eauto.
       }
-      assert (∃ b l, h !! (c,b) = Some l) as (b' & l & Hb).
-      {
-        destruct (h !! (c,true)) eqn:Q; eauto.
-        destruct (h !! (c,false)) eqn:Q'; eauto.
-        exfalso. eapply n. done.
-      }
-      eapply (Hind_in (Chan c)).
-      * rewrite Hy. done.
-      * intros (?&?&?&?). simplify_eq.
-      * simpl. eauto.
+      revert Hy. rewrite H lookup_empty. intros Hy. inversion Hy.
 Qed.
 
 

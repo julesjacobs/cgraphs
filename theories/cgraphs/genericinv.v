@@ -41,6 +41,15 @@ Section genericinv.
     eapply pure_holds; eauto.
   Qed.
 
+  Lemma prim_empty_adequacy (P : hProp V L) Σ :
+    holds P Σ -> (P ⊢ emp) -> Σ = ∅.
+  Proof.
+    intros HP HH.
+    eapply holds_entails in HP; last eauto.
+    eapply emp_holds in HP.
+    by eapply map_empty_equiv_eq in HP.
+  Qed.
+
   Lemma simple_adequacy v (φ : Prop) f :
     inv f -> (∀ x, f v x ⊢ ⌜ φ ⌝) -> φ.
   Proof.
