@@ -414,10 +414,26 @@ Proof.
       by iDestruct "H" as (?) "[% ?]". }
     erewrite map_to_multiset_Some in Hinl; eauto.
 
+    destruct (classic (∃ c q, out_edges g (Chan c) !! Chan i ≡ Some q)) as [(c & q & Hc)|Hnc].
+    {
+      eapply (Hind_in (Chan c)); simpl; eauto. { rewrite /waiting. naive_solver. }
+      destruct (h !! (c,true)) eqn:Q; eauto.
+      destruct (h !! (c,false)) eqn:Q'; eauto.
+      assert (out_edges g (Chan c) = ∅) as H.
+      {
+        eapply prim_empty_adequacy; first exact (Hvs (Chan c)).
+        iIntros "H". simpl. rewrite Q Q' /bufs_typed /=.
+        iDestruct "H" as (σs' ? ?) "[H1 H2]".
+        destruct (σs' !! true),(σs' !! false); eauto.
+      }
+      rewrite H lookup_empty in Hc. inversion Hc.
+    }
+
     (* Since the chan has a buffer, there exists somebody holding a ref to this chan *)
-    assert (∃ y, out_edges g y !! (Chan i) ≡ Some (b,σ1)) as [[] Hy].
-    { eapply in_labels_out_edges; eauto. }
-    + (* The one holding the ref to the chan is a thread *)
+    (* If the other one is a chan, we're done *)
+    assert (∃ y, out_edges g y !! (Chan i) ≡ Some (b,σ1)) as [[] Hy];
+      first (eapply in_labels_out_edges; eauto); last (exfalso; eauto).
+    (* The one holding the ref to the chan is a thread *)
       pose proof (Hvs (Thread n)) as Hn.
       simpl in Hn.
       eapply pure_sep_holds in Hn as [? Hn].
@@ -554,59 +570,7 @@ Proof.
         inversion H18; simplify_eq. inversion H14.
         simplify_eq. rewrite ->dual_recv in H16. inversion H16.
       }
-
-
-      pose proof (Hvs (Chan c0)) as Hc. simpl in Hc.
-      eapply exists_holds in Hc as [σs' Hc].
-      eapply pure_sep_holds in Hc as [Hσs' Hc].
-      destruct (decide (h !! (c0,true) = None ∧ h !! (c0,false) = None)) as [[]|].
-      {
-        rewrite H5 in Hc. rewrite H6 in Hc.
-        destruct (σs' !! true).
-        { unfold bufs_typed in Hc. simpl in Hc.
-          eapply exists_holds in Hc as [? Hc].
-          eapply sep_holds in Hc as (?&?&?&?&?&?).
-          eapply false_holds in H11 as [].
-        }
-        destruct (σs' !! false).
-        { unfold bufs_typed in Hc. simpl in Hc.
-          eapply exists_holds in Hc as [? Hc].
-          eapply sep_holds in Hc as (?&?&?&?&?&?).
-          eapply false_holds in H12 as [].
-        }
-        eapply (holds_entails _ emp%I) in Hc; last first.
-        { iIntros "H". unfold bufs_typed.
-          iDestruct "H" as (?) "[H1 H2]". simpl.
-          iDestruct "H1" as "%".
-          iDestruct "H2" as "%".
-          done. }
-        eapply emp_holds in Hc.
-        apply map_empty_equiv_eq in Hc.
-        rewrite Hc in Hzout. rewrite lookup_empty in Hzout.
-        inversion Hzout.
-      }
-      assert (∃ b l, h !! (c0,b) = Some l) as (b' & l' & Hb).
-      {
-        destruct (h !! (c0,true)) eqn:Q3; eauto.
-        destruct (h !! (c0,false)) eqn:Q3'; eauto.
-        exfalso. eapply n. done.
-      }
-      eapply (Hind_in (Chan c0)).
-      * rewrite Hzout. done.
-      * intros (?&?&?&?). simplify_eq.
-      * simpl. eauto.
-    + (* The one holding a ref to the chan is another chan *)
-      eapply (Hind_in (Chan c)); simpl; eauto. { rewrite /waiting. naive_solver. }
-      destruct (h !! (c,true)) eqn:Q; eauto.
-      destruct (h !! (c,false)) eqn:Q'; eauto.
-      assert (out_edges g (Chan c) = ∅) as H.
-      {
-        eapply prim_empty_adequacy; first exact (Hvs (Chan c)).
-        iIntros "H". simpl. rewrite Q Q' /bufs_typed /=.
-        iDestruct "H" as (σs' ? ?) "[H1 H2]".
-        destruct (σs' !! true),(σs' !! false); eauto.
-      }
-      revert Hy. rewrite H lookup_empty. intros Hy. inversion Hy.
+      exfalso. eauto. (* The other one is a chan *)
 Qed.
 
 
