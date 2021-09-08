@@ -343,43 +343,27 @@ Proof.
 Qed.
 
 Lemma buf_typed'_refs x y rest :
-  buf_typed' x y rest ⊢ ∃ Σ, ⌜⌜ from_option buf_refs ∅ x = dom (gset object) Σ ⌝⌝ ∗ own Σ.
+  buf_typed' x y rest ⊢ own_dom (from_option buf_refs ∅ x).
 Proof.
   unfold buf_typed'. iIntros "H". destruct x,y; eauto.
-  - iInduction l as [] "IH" forall (c rest); simpl.
-    + iExists ∅. simpl. iSplit.
-      * rewrite dom_empty_L //.
-      * rewrite own_empty //.
-    + destruct c; simpl; eauto. iDestruct "H" as "[H1 H2]".
-      iDestruct (val_typed_refs with "H1") as (Σ1 H1) "H1".
-      iDestruct ("IH" with "H2") as (Σ2 H2) "H2".
-      iExists (Σ1 ∪ Σ2). iSplit.
-      * iPureIntro. rewrite dom_union_L H1 H2 //.
-      * iApply own_union. iFrame.
-  - iExists ∅. simpl. iSplit.
-    + rewrite dom_empty_L //.
-    + rewrite own_empty //.
+  - iInduction l as [] "IH" forall (c rest); simpl; rewrite ?own_dom_empty //.
+    destruct c; simpl; eauto.
+    rewrite val_typed_refs. iApply own_dom_union.
+    iDestruct "H" as "[? H]". iFrame. iApply "IH". done.
+  - simpl. rewrite own_dom_empty //.
 Qed.
 
 Lemma obj_refs_state_inv' es h x Δ :
-  state_inv es h x Δ ⊢ ∃ Σ, ⌜⌜ obj_refs es h x = dom (gset object) Σ ⌝⌝ ∗ own Σ.
+  state_inv es h x Δ ⊢ own_dom (obj_refs es h x).
 Proof.
   iIntros "H".
   destruct x; simpl.
-  - iDestruct "H" as (?) "H". destruct (es !! n); simpl.
-    + rewrite -rtyped_rtyped0_iff rtyped_refs //.
-    + iExists ∅. iSplit.
-      * iPureIntro. rewrite dom_empty_L //.
-      * rewrite own_empty //.
+  - iDestruct "H" as (?) "H". destruct (es !! n); simpl;
+    rewrite -?rtyped_rtyped0_iff ?rtyped_refs ?own_dom_empty //.
   - iDestruct "H" as (σs H) "H".
     iDestruct "H" as (rest) "[H1 H2]".
     rewrite !buf_typed'_refs.
-    iDestruct "H1" as (Σ1 H1) "H1".
-    iDestruct "H2" as (Σ2 H2) "H2".
-    iExists (Σ1 ∪ Σ2).
-    iSplit.
-    + iPureIntro. rewrite H1 H2 dom_union_L //.
-    + iApply own_union. iFrame.
+    iApply own_dom_union. iFrame.
 Qed.
 
 Ltac model := repeat
