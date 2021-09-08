@@ -307,8 +307,21 @@ Admitted.
 Lemma buf_typed'_refs x y rest :
   buf_typed' x y rest ⊢ ∃ Σ, ⌜⌜ from_option buf_refs ∅ x = dom (gset object) Σ ⌝⌝ ∗ own Σ.
 Proof.
-
-Admitted.
+  unfold buf_typed'. iIntros "H". destruct x,y; eauto.
+  - iInduction l as [] "IH" forall (c rest); simpl.
+    + iExists ∅. simpl. iSplit.
+      * rewrite dom_empty_L //.
+      * rewrite own_empty //.
+    + destruct c; simpl; eauto. iDestruct "H" as "[H1 H2]".
+      iDestruct (val_typed_refs with "H1") as (Σ1 H1) "H1".
+      iDestruct ("IH" with "H2") as (Σ2 H2) "H2".
+      iExists (Σ1 ∪ Σ2). iSplit.
+      * iPureIntro. rewrite dom_union_L H1 H2 //.
+      * iApply own_union. iFrame.
+  - iExists ∅. simpl. iSplit.
+    + rewrite dom_empty_L //.
+    + rewrite own_empty //.
+Qed.
 
 Lemma obj_refs_state_inv' es h x Δ :
   state_inv es h x Δ ⊢ ∃ Σ, ⌜⌜ obj_refs es h x = dom (gset object) Σ ⌝⌝ ∗ own Σ.
