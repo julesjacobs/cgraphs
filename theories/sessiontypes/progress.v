@@ -247,7 +247,15 @@ Proof.
     by apply NNPP.
 Qed.
 
-Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object. Admitted.
+
+Definition expr_refs (e : expr) : gset object. Admitted.
+Definition buf_refs (buf : list val) : gset object. Admitted.
+
+Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
+  match x with
+  | Thread n => from_option expr_refs ∅ (es !! n)
+  | Chan c => from_option buf_refs ∅ (h !! (c,true)) ∪ from_option buf_refs ∅ (h !! (c,false))
+  end.
 
 Lemma obj_refs_state_inv' es h x Δ :
   state_inv es h x Δ ⊢ ∃ Σ, ⌜⌜ obj_refs es h x = dom (gset object) Σ ⌝⌝ ∗ own Σ.
