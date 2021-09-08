@@ -254,13 +254,16 @@ Lemma obj_refs_state_inv' es h x Δ :
 Proof.
 Admitted.
 
+Ltac model := repeat
+  (setoid_rewrite pure_sep_holds || setoid_rewrite exists_holds
+  || setoid_rewrite own_holds || setoid_rewrite val_typed_val_typed'
+  || setoid_rewrite sep_holds).
+
 Lemma obj_refs_state_inv es h x Δ Σ :
   holds (state_inv es h x Δ) Σ -> obj_refs es h x = dom (gset object) Σ.
 Proof.
   intros HH. eapply holds_entails in HH; last apply obj_refs_state_inv'.
-  eapply exists_holds in HH as [Σ' HH].
-  eapply pure_sep_holds in HH as [HH1 HH2].
-  eapply own_holds in HH2. rewrite HH1 HH2 //.
+  revert HH. model. intros (Σ' & HH1 & HH2). rewrite HH1 HH2 //.
 Qed.
 
 Inductive reachable (es : list expr) (h : heap) : object → Prop :=
