@@ -287,13 +287,6 @@ Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
   | Chan c => from_option buf_refs ∅ (h !! (c,true)) ∪ from_option buf_refs ∅ (h !! (c,false))
   end.
 
-Lemma rtyped_refs Γ e t :
-  rtyped Γ e t ⊢ ∃ Σ, ⌜⌜ expr_refs e = dom (gset object) Σ ⌝⌝ ∗ own Σ
-with val_typed_refs v t :
-  val_typed v t ⊢ ∃ Σ, ⌜⌜ val_refs v = dom (gset object) Σ ⌝⌝ ∗ own Σ.
-Proof.
-Admitted.
-
 Lemma own_empty : own ∅ ⊣⊢ (emp : rProp).
 Proof.
   unfold own. rewrite map_Excl_empty. apply uPred.ownM_unit.
@@ -302,6 +295,25 @@ Qed.
 Lemma own_union Σ1 Σ2 :
   own Σ1 ∗ own Σ2 ⊢ own (Σ1 ∪ Σ2) : rProp.
 Proof.
+Admitted.
+
+Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom (gset object) Σ ⌝⌝ ∗ own Σ.
+
+Lemma own_dom_empty : own_dom ∅ ⊣⊢ emp.
+Proof.
+Admitted.
+  (* iIntros. iExists ∅. rewrite dom_empty_L own_empty //.
+Qed. *)
+
+Lemma rtyped_refs Γ e t :
+  rtyped Γ e t ⊢ own_dom (expr_refs e)
+with val_typed_refs v t :
+  val_typed v t ⊢ own_dom (val_refs v).
+Proof.
+  - destruct e; simpl; admit.
+  - iIntros "H". destruct v; simpl; rewrite ?own_dom_empty; eauto.
+    iRewrite val_typed_refs.
+    + rewrite -own_dom_empty.
 Admitted.
 
 Lemma buf_typed'_refs x y rest :
