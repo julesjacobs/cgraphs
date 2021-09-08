@@ -299,8 +299,12 @@ Proof.
   rewrite -uPred.ownM_op. iIntros "H".
   Search uPred_ownM valid.
   iDestruct (uPred_primitive.ownM_valid with "H") as "%".
-  Search valid map_disjoint.
   rewrite map_Excl_union //.
+  apply map_Excl_disjoint. revert H.
+  generalize (map_Excl Σ1).
+  generalize (map_Excl Σ2).
+  intros B A. clear.
+  Search valid op.
 Admitted.
 
 Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom (gset object) Σ ⌝⌝ ∗ own Σ.
