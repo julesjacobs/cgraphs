@@ -263,8 +263,8 @@ Fixpoint expr_refs (e : expr) : gset object :=
   | LetUnit e1 e2 => expr_refs e1 ∪ expr_refs e2
   | LetProd s1 s2 e1 e2 => expr_refs e1 ∪ expr_refs e2
   | MatchVoid e1 => expr_refs e1
-  | MatchSum e1 s e2 e3 => expr_refs e1 ∪ expr_refs e2 ∪ expr_refs e3
-  | If e1 e2 e3 => expr_refs e1 ∪ expr_refs e2 ∪ expr_refs e3
+  | MatchSum e1 s e2 e3 => expr_refs e1 ∪ expr_refs e2
+  | If e1 e2 e3 => expr_refs e1 ∪ expr_refs e2
   | Fork e1 => expr_refs e1
   | Close e1 => expr_refs e1
   end
@@ -295,26 +295,52 @@ Qed.
 Lemma own_union Σ1 Σ2 :
   own Σ1 ∗ own Σ2 ⊢ own (Σ1 ∪ Σ2) : rProp.
 Proof.
+  unfold own.
+  rewrite -uPred.ownM_op. iIntros "H".
+  Search uPred_ownM valid.
+  iDestruct (uPred_primitive.ownM_valid with "H") as "%".
+  Search valid map_disjoint.
+  rewrite map_Excl_union //.
 Admitted.
 
 Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom (gset object) Σ ⌝⌝ ∗ own Σ.
 
 Lemma own_dom_empty : own_dom ∅ ⊣⊢ emp.
 Proof.
-Admitted.
-  (* iIntros. iExists ∅. rewrite dom_empty_L own_empty //.
-Qed. *)
+  iSplit; unfold own_dom; iIntros "H".
+  - iDestruct "H" as (? H) "H".
+    symmetry in H. apply dom_empty_iff_L in H as ->.
+    by iApply own_empty.
+  - iExists ∅. rewrite own_empty dom_empty_L //.
+Qed.
+
+Lemma own_dom_singleton k v : own {[ k := v ]} ⊢ own_dom {[ k ]}.
+Proof.
+  iIntros "H". iExists {[ k := v ]}.
+  rewrite dom_singleton_L. iFrame. done.
+Qed.
+
+Lemma own_dom_union A B : own_dom A ∗ own_dom B ⊢ own_dom (A ∪ B).
+Proof.
+  iIntros "[H1 H2]".
+  iDestruct "H1" as (Σ1 H1) "H1".
+  iDestruct "H2" as (Σ2 H2) "H2". subst.
+  iExists (Σ1 ∪ Σ2). rewrite dom_union_L. iSplit; eauto.
+  iApply own_union. iFrame.
+Qed.
 
 Lemma rtyped_refs Γ e t :
   rtyped Γ e t ⊢ own_dom (expr_refs e)
 with val_typed_refs v t :
   val_typed v t ⊢ own_dom (val_refs v).
 Proof.
-  - destruct e; simpl; admit.
-  - iIntros "H". destruct v; simpl; rewrite ?own_dom_empty; eauto.
-    iRewrite val_typed_refs.
-    + rewrite -own_dom_empty.
-Admitted.
+  - iIntros "H". destruct e; simpl; repeat (iDestruct "H" as (?) "H");
+    rewrite ?val_typed_refs ?rtyped_refs ?own_dom_empty ?own_dom_union; eauto;
+    iDestruct "H" as "[H1 [H2 _]]"; iApply own_dom_union; iFrame.
+  - iIntros "H". destruct v; simpl; rewrite ?own_dom_empty; eauto;
+    repeat (iDestruct "H" as (?) "H"); rewrite ?val_typed_refs ?rtyped_refs ?own_dom_union; eauto.
+    destruct e. by iApply own_dom_singleton.
+Qed.
 
 Lemma buf_typed'_refs x y rest :
   buf_typed' x y rest ⊢ ∃ Σ, ⌜⌜ from_option buf_refs ∅ x = dom (gset object) Σ ⌝⌝ ∗ own Σ.
