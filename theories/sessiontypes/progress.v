@@ -247,8 +247,38 @@ Proof.
     by apply NNPP.
 Qed.
 
+Fixpoint expr_refs (e : expr) : gset object :=
+  match e with
+  | Val v => val_refs v
+  | Var x => ∅
+  | Pair e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | Inj b e1 => expr_refs e1
+  | App e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | UApp e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | Lam s e1 => expr_refs e1
+  | ULam s e1 => expr_refs e1
+  | Send e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | Recv e1 => expr_refs e1
+  | Let s e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | LetUnit e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | LetProd s1 s2 e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | MatchVoid e1 => expr_refs e1
+  | MatchSum e1 s e2 e3 => expr_refs e1 ∪ expr_refs e2 ∪ expr_refs e3
+  | If e1 e2 e3 => expr_refs e1 ∪ expr_refs e2 ∪ expr_refs e3
+  | Fork e1 => expr_refs e1
+  | Close e1 => expr_refs e1
+  end
+with val_refs (v : val) : gset object :=
+match v with
+| UnitV => ∅
+| NatV n => ∅
+| PairV v1 v2 => val_refs v1 ∪ val_refs v2
+| InjV b v1 => val_refs v1
+| FunV s e1 => expr_refs e1
+| UFunV s e1 => expr_refs e1
+| ChanV (c,b) => {[ Chan c ]}
+end.
 
-Definition expr_refs (e : expr) : gset object. Admitted.
 Definition buf_refs (buf : list val) : gset object. Admitted.
 
 Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
