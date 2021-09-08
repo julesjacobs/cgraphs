@@ -279,8 +279,7 @@ match v with
 | ChanV (c,b) => {[ Chan c ]}
 end.
 
-Definition buf_refs (buf : list val) : gset object :=
-  foldr (λ v s, val_refs v ∪ s) ∅ buf.
+Definition buf_refs := foldr (λ v s, val_refs v ∪ s) ∅.
 
 Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
   match x with
