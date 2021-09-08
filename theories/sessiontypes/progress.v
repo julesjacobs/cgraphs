@@ -287,9 +287,29 @@ Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
   | Chan c => from_option buf_refs ∅ (h !! (c,true)) ∪ from_option buf_refs ∅ (h !! (c,false))
   end.
 
+Lemma rtyped_refs Γ e t :
+  rtyped Γ e t ⊢ ∃ Σ, ⌜⌜ expr_refs e = dom (gset object) Σ ⌝⌝ ∗ own Σ
+with val_typed_refs v t :
+  val_typed v t ⊢ ∃ Σ, ⌜⌜ val_refs v = dom (gset object) Σ ⌝⌝ ∗ own Σ.
+Proof.
+Admitted.
+
+Lemma own_empty : own ∅ ⊣⊢ (emp : rProp).
+Proof.
+  unfold own. rewrite map_Excl_empty. apply uPred.ownM_unit.
+Qed.
+
 Lemma obj_refs_state_inv' es h x Δ :
   state_inv es h x Δ ⊢ ∃ Σ, ⌜⌜ obj_refs es h x = dom (gset object) Σ ⌝⌝ ∗ own Σ.
 Proof.
+  iIntros "H".
+  destruct x; simpl.
+  - iDestruct "H" as (?) "H". destruct (es !! n); simpl.
+    + rewrite -rtyped_rtyped0_iff rtyped_refs //.
+    + iExists ∅. iSplit.
+      * iPureIntro. rewrite dom_empty_L //.
+      * rewrite own_empty //.
+  -
 Admitted.
 
 Ltac model := repeat
