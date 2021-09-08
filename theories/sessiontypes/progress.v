@@ -299,6 +299,17 @@ Proof.
   unfold own. rewrite map_Excl_empty. apply uPred.ownM_unit.
 Qed.
 
+Lemma own_union Σ1 Σ2 :
+  own Σ1 ∗ own Σ2 ⊢ own (Σ1 ∪ Σ2) : rProp.
+Proof.
+Admitted.
+
+Lemma buf_typed'_refs x y rest :
+  buf_typed' x y rest ⊢ ∃ Σ, ⌜⌜ from_option buf_refs ∅ x = dom (gset object) Σ ⌝⌝ ∗ own Σ.
+Proof.
+
+Admitted.
+
 Lemma obj_refs_state_inv' es h x Δ :
   state_inv es h x Δ ⊢ ∃ Σ, ⌜⌜ obj_refs es h x = dom (gset object) Σ ⌝⌝ ∗ own Σ.
 Proof.
@@ -309,8 +320,16 @@ Proof.
     + iExists ∅. iSplit.
       * iPureIntro. rewrite dom_empty_L //.
       * rewrite own_empty //.
-  -
-Admitted.
+  - iDestruct "H" as (σs H) "H".
+    iDestruct "H" as (rest) "[H1 H2]".
+    rewrite !buf_typed'_refs.
+    iDestruct "H1" as (Σ1 H1) "H1".
+    iDestruct "H2" as (Σ2 H2) "H2".
+    iExists (Σ1 ∪ Σ2).
+    iSplit.
+    + iPureIntro. rewrite H1 H2 dom_union_L //.
+    + iApply own_union. iFrame.
+Qed.
 
 Ltac model := repeat
   (setoid_rewrite pure_sep_holds || setoid_rewrite exists_holds
