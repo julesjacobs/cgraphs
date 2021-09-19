@@ -9,6 +9,7 @@ Require Export diris.cgraphs.multiset.
 
 Notation heapT_UR V L := (gmapUR V (exclR L)).
 Notation hProp V L := (uPred (heapT_UR V L)).
+Notation hPropI V L := (uPredI (heapT_UR V L)).
 
 Definition own `{Countable V} {L:ofe} (Σ : gmap V L) : hProp V L :=
   uPred_ownM (map_Excl Σ).
@@ -35,6 +36,18 @@ Section seplogic.
 
   Global Instance own_out_proper v : Proper ((≡) ==> (≡)) (own_out (V:=V) (L:=L) v).
   Proof. solve_proper. Qed.
+
+  Lemma own_empty : own ∅ ⊣⊢@{hPropI V L} emp.
+  Proof.
+    unfold own. rewrite map_Excl_empty. apply uPred.ownM_unit.
+  Qed.
+
+  Lemma own_union Σ1 Σ2 : own Σ1 ∗ own Σ2 ⊢@{hPropI V L} own (Σ1 ∪ Σ2).
+  Proof.
+    rewrite /own. iIntros "H". iDestruct (uPred.ownM_op with "H") as "H".
+    iDestruct (uPred_primitive.ownM_valid with "H") as %valid.
+    rewrite map_Excl_union; first done. by apply map_Excl_valid_op.
+  Qed.
 
   Global Instance holds_proper : Proper ((⊣⊢) ==> (≡) ==> (iff)) (holds (V:=V) (L:=L)).
   Proof.

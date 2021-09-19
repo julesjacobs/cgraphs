@@ -55,6 +55,18 @@ Section map_Excl.
       { rewrite lookup_union H0 H1 //. }
       rewrite -insert_union_l !map_Excl_insert_op // IHm1 // assoc //.
   Qed.
+  Lemma map_Excl_valid_op m1 m2 : ✓ (map_Excl m1 ⋅ map_Excl m2) ↔ m1 ##ₘ m2.
+  Proof.
+    split; last first.
+    { intros. rewrite -map_Excl_union //. apply map_Excl_valid. }
+    induction m1 as [|k x m1 Hm1 IH] using map_ind.
+    { intros _. apply map_disjoint_empty_l. }
+    rewrite map_Excl_insert_op // -assoc. intros Hvalid.
+    apply map_disjoint_insert_l_2; last by eapply IH, cmra_valid_op_r.
+    apply eq_None_not_Some; intros [x' Hm2].
+    move: (Hvalid k).
+    by rewrite !lookup_op /map_Excl lookup_singleton !lookup_fmap Hm1 Hm2.
+  Qed.
   Lemma map_Excl_singleton_op_inv m me k x :
     map_Excl m ≡ {[ k := Excl x ]} ⋅ me ->
     ∃ m', m ≡ <[ k := x ]> m' ∧ me ≡ map_Excl m' ∧ m' !! k = None.

@@ -1,15 +1,14 @@
 From diris Require Import invariant.
 Require Import Coq.Logic.Classical.
 
-
 Lemma rtyped_inner e t :
   rtyped0 e t -∗ ⌜ (∃ v, e = Val v)  ∨
   ∃ k e0, ctx k ∧ e = k e0 ∧
     ((∃ e', pure_step e0 e') ∨
-    (∃ v, e0 = Recv (Val v)) ∨
-    (∃ v1 v2, e0 = Send (Val v1) (Val v2)) ∨
-    (∃ v, e0 = Fork (Val v)) ∨
-    (∃ v, e0 = Close (Val v))) ⌝.
+     (∃ v, e0 = Recv (Val v)) ∨
+     (∃ v1 v2, e0 = Send (Val v1) (Val v2)) ∨
+     (∃ v, e0 = Fork (Val v)) ∨
+     (∃ v, e0 = Close (Val v))) ⌝.
 Proof.
   iIntros "H".
   iInduction e as [] "IH" forall (t); simpl; [eauto|eauto|..].
@@ -286,26 +285,6 @@ Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
   | Thread n => from_option expr_refs ∅ (es !! n)
   | Chan c => from_option buf_refs ∅ (h !! (c,true)) ∪ from_option buf_refs ∅ (h !! (c,false))
   end.
-
-Lemma own_empty : own ∅ ⊣⊢ (emp : rProp).
-Proof.
-  unfold own. rewrite map_Excl_empty. apply uPred.ownM_unit.
-Qed.
-
-Lemma own_union Σ1 Σ2 :
-  own Σ1 ∗ own Σ2 ⊢ own (Σ1 ∪ Σ2) : rProp.
-Proof.
-  unfold own.
-  rewrite -uPred.ownM_op. iIntros "H".
-  Search uPred_ownM valid.
-  iDestruct (uPred_primitive.ownM_valid with "H") as "%".
-  rewrite map_Excl_union //.
-  apply map_Excl_disjoint. revert H.
-  generalize (map_Excl Σ1).
-  generalize (map_Excl Σ2).
-  intros B A. clear.
-  Search valid op.
-Admitted.
 
 Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom (gset object) Σ ⌝⌝ ∗ own Σ.
 
@@ -710,9 +689,8 @@ Lemma active_progress es h x :
   invariant es h -> active x es h -> ∃ (es' : list expr) (h' : heap), step es h es' h'.
 Proof.
   intros H1 H2.
-  cut (reachable es h x); eauto using strong_progress.
-  clear. induction 1; eauto.
-  destruct H as (es'&h'&?). exists es', h'. econstructor; eauto.
+  cut (reachable es h x); eauto using strong_progress. clear.
+  induction 1; eauto. destruct H as (es'&h'&?). exists es', h'. econstructor; eauto.
 Qed.
 
 Lemma global_progress es h :
