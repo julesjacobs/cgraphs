@@ -162,5 +162,3 @@ Section seplogic.
   Proof. apply uPred_false_holds. Qed.
 
 End seplogic.
-
-
