@@ -607,23 +607,6 @@ Proof.
   eapply H in H1. rewrite -H3 //.
 Qed.
 
-(*
-Lemma typed_no_var_subst e Γ t x v :
-  Γ !! x = None ->
-  rtyped Γ e t -∗
-  rtyped (delete x Γ) (subst x v e) eT.
-Proof.
-
-Lemma typed_no_var_subst e Γ t x v :
-  match (Γ !! x) with
-  | Some vT => val_typed v vT
-  | None => True
-  end -∗
-  rtyped Γ e t -∗
-  rtyped (delete x Γ) (subst x v e) eT.
-Proof.
-*)
-
 Lemma subst_rtyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) :
   Γ !! x ≡ Some vT ->
   val_typed v vT -∗

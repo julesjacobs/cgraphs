@@ -191,10 +191,10 @@ Definition type_id (t : type) :=
     | ChanT s => ChanT s
     end.
 
-    Lemma type_id_id t : type_id t = t.
-    Proof.
+Lemma type_id_id t : type_id t = t.
+Proof.
     by destruct t.
-    Qed.
+Qed.
 
 CoInductive type_equiv : Equiv type :=
     | teq_UnitT : UnitT ≡ UnitT

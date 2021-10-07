@@ -19,7 +19,7 @@ Qed.
 *)
 Print Assumptions safety.
 
-(* To demonstrate that the command is working,
+(* To demonstrate the Print Assumptions command,
    we give a fake proof of safety here. *)
 
 Lemma bad : 0 = 1.
