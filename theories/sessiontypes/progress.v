@@ -707,3 +707,115 @@ Proof.
       exists (Thread x0). simpl. eauto. }
   eapply active_progress; eauto.
 Qed.
+
+(*
+  A subset of the threads & channels is in a deadlock (/ memory leak) if:
+  - All of the threads in the subset are blocked on one of the channels in the subset.
+  - All of the endpoints of the channels in the subset are held by one of the threads or channels in the subset.
+*)
+Definition deadlock (es : list expr) (h : heap) (s : gset object) :=
+  (∀ x, x ∈ s -> active x es h) ∧
+  (∀ i, Thread i ∈ s -> ∃ c, Chan c ∈ s ∧ thread_waiting es h i c) ∧
+  (∀ c x, Chan c ∈ s -> Chan c ∈ obj_refs es h x -> x ∈ s).
+
+Inductive poised : expr -> Prop :=
+  | Pure_step_poised e e' : pure_step e e' -> poised e
+  | Recv_poised v : poised (Recv (Val v))
+  | Send_poised v1 v2 : poised (Send (Val v1) (Val v2))
+  | Close_poised v : poised (Close (Val v))
+  | Fork_poised v : poised (Fork (Val v)).
+
+Ltac inv H := inversion H; clear H; simplify_eq.
+
+Lemma poised_ctx_not_val k e v :
+  ctx k -> poised e -> k e ≠ Val v.
+Proof.
+  induction 1.
+  - inversion 1; subst; eauto. inv H0; eauto.
+  - inv H; eauto.
+Qed.
+
+Lemma ctx1_eq k1 k2 e1 e2 :
+  (∀ v, e1 ≠ Val v) ->
+  (∀ v, e2 ≠ Val v) ->
+  ctx1 k1 -> ctx1 k2 -> k1 e1 = k2 e2 -> e1 = e2 ∧ ∀ e, k1 e = k2 e.
+Proof.
+  intros Q1 Q2 HH1 HH2 ?; inv HH1; inv HH2; simplify_eq; eauto;
+  try solve [exfalso; eapply Q1; eauto];
+  try solve [exfalso; eapply Q2; eauto].
+Qed.
+
+Lemma poised_ctx_eq k1 k2 e1 e2 :
+  ctx k1 -> ctx k2 ->
+  poised e1 -> poised e2 ->
+  k1 e1 = k2 e2 ->
+  e1 = e2 ∧ ∀ e', k1 e' = k2 e'.
+Proof.
+  intros Hk1. revert k2 e1 e2.
+  induction Hk1.
+  - intros. destruct H; eauto. subst.
+    destruct H; inv H0;
+    try solve [inv H; exfalso; eapply poised_ctx_not_val; eauto];
+    try solve [exfalso; eapply poised_ctx_not_val; eauto].
+  - intros k3 e1 e2. induction 1; intros.
+    + destruct H; inv H1;
+      try solve [inv H; exfalso; eapply poised_ctx_not_val; eauto];
+      try solve [exfalso; eapply poised_ctx_not_val; eauto].
+    + eapply ctx1_eq in H4 as []; eauto using poised_ctx_not_val.
+      eapply IHHk1 in H4 as []; eauto. subst.
+      split; eauto. intros. rewrite H5 H6 //.
+Qed.
+
+Lemma thread_waiting_unique es h i c c' :
+  thread_waiting es h i c ->
+  thread_waiting es h i c' ->
+  c = c'.
+Proof.
+  intros Htw Htw'.
+  destruct Htw as (b & k & Hk & Hi & Hc).
+  destruct Htw' as (b' & k' & Hk' & Hi' & Hc').
+  rewrite Hi in Hi'.
+  simplify_eq.
+  eapply poised_ctx_eq in Hi' as []; eauto using poised.
+  by simplify_eq.
+Qed.
+
+Lemma head_step_poised e h e' h' ts :
+  head_step e h e' h' ts -> poised e.
+Proof.
+  destruct 1; eauto using poised.
+Qed.
+
+Lemma thread_waiting_no_step es h i c :
+  thread_waiting es h i c -> ¬ can_stepi i es h.
+Proof.
+  intros Htw Hcs.
+  unfold thread_waiting in *.
+  destruct Htw as (b & k & Hk & Hi & Hc).
+  unfold can_stepi in Hcs.
+  destruct Hcs as (es' & h' & Hst).
+  destruct Hst.
+  destruct H. rewrite Hi in H0.
+  simplify_eq.
+  eapply poised_ctx_eq in H0 as []; eauto using poised, head_step_poised.
+  subst.
+  inversion H1; simplify_eq. { inversion H0. }
+  rewrite Hc in H3. simplify_eq.
+Qed.
+
+Lemma deadlock_freedom es h s :
+  invariant es h -> deadlock es h s -> s = ∅.
+Proof.
+  intros Hinv (Hac & Hth & Hch).
+  destruct (decide (s = ∅)); eauto. exfalso.
+  eapply set_choose_L in n as [x Hx].
+  assert (reachable es h x).
+  { eapply strong_progress; eauto. }
+  induction H.
+  - edestruct Hth as (c' & Hc' & Hw); eauto.
+    eapply thread_waiting_no_step; eauto.
+  - edestruct Hth as (c' & Hc' & Hw); eauto.
+    assert (c = c') as -> by by (eapply thread_waiting_unique).
+    eauto.
+  - eauto.
+Qed.
