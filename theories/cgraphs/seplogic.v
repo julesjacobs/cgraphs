@@ -161,4 +161,29 @@ Section seplogic.
     holds (False%I) Σ -> False.
   Proof. apply uPred_false_holds. Qed.
 
+  Definition own_dom A : hProp V L := ∃ Σ, ⌜⌜ A = dom (gset V) Σ ⌝⌝ ∗ own Σ.
+
+  Lemma own_dom_empty : own_dom ∅ ⊣⊢ emp.
+  Proof.
+    iSplit; unfold own_dom; iIntros "H".
+    - iDestruct "H" as (? Q) "H".
+      symmetry in Q. apply dom_empty_iff_L in Q as ->.
+      by iApply own_empty.
+    - iExists ∅. rewrite own_empty dom_empty_L //.
+  Qed.
+
+  Lemma own_dom_singleton k v : own {[ k := v ]} ⊢ own_dom {[ k ]}.
+  Proof.
+    iIntros "H". iExists {[ k := v ]}.
+    rewrite dom_singleton_L. iFrame. done.
+  Qed.
+
+  Lemma own_dom_union A B : own_dom A ∗ own_dom B ⊢ own_dom (A ∪ B).
+  Proof.
+    iIntros "[H1 H2]".
+    iDestruct "H1" as (Σ1 H1) "H1".
+    iDestruct "H2" as (Σ2 H2) "H2". subst.
+    iExists (Σ1 ∪ Σ2). rewrite dom_union_L. iSplit; eauto.
+    iApply own_union. iFrame.
+  Qed.
 End seplogic.

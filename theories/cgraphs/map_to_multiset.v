@@ -1,5 +1,6 @@
 From diris Require Export multiset.
-From diris Require Export rtypesystem.
+From stdpp Require Export gmap.
+From diris Require Export util.
 
 Definition list_to_multiset {A} (l : list A) := MultiSet l.
 

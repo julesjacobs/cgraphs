@@ -664,3 +664,115 @@ Proof.
   specialize (HH i).
   destruct (m !! i); eauto; done.
 Qed.
+
+Definition fin_gset `{Countable A} n (f : fin n -> A) : gset A.
+Admitted.
+
+Lemma elem_of_fin_gset `{Countable A} n (f : fin n -> A) (x : A) :
+  x ∈ fin_gset n f <-> ∃ i, f i = x.
+Proof.
+Admitted.
+
+Definition all_fin n := fin_gset n id.
+
+Lemma all_fin_all n : ∀ i, i ∈ all_fin n.
+Proof.
+  intro. apply elem_of_fin_gset. eauto.
+Qed.
+
+Definition fin_union `{Countable A} n (f : fin n -> gset A) : gset A :=
+  set_fold union ∅ (fin_gset n f).
+
+Lemma elem_of_fin_union `{Countable A} n (f : fin n -> gset A) (x : A) :
+  x ∈ fin_union n f <-> ∃ i, x ∈ f i.
+Proof.
+Admitted.
+
+Definition fin_gmap {T} n : (fin n -> T) -> gmap nat T.
+Admitted.
+
+Lemma fin_gmap_lookup {T} n (f : fin n -> T) (i : fin n) :
+  fin_gmap n f !! (fin_to_nat i) = Some (f i).
+Proof. Admitted.
+
+Lemma fin_gmap_lookup_ne {T} n (f : fin n -> T) (k : nat) :
+  k >= n -> fin_gmap n f !! k = None.
+Proof. Admitted.
+
+Lemma fin_choice {T} n (P : fin n -> T -> Prop) :
+  (∀ i : fin n, ∃ y : T, P i y) -> ∃ f : fin n -> T, ∀ i, P i (f i).
+Proof.
+Admitted.
+
+Lemma lookup_alter_spec `{Countable K} {V} (f : V -> V) (m : gmap K V) i j :
+  alter f i m !! j = if decide (i = j) then f <$> m !! i else m !! j.
+Proof.
+  case_decide; subst.
+  - rewrite lookup_alter //.
+  - rewrite lookup_alter_ne //.
+Qed.
+
+Definition gmap_slice `{Countable K1, Countable K2} {A} (m : gmap (K1 * K2) A) (x : K1) : gmap K2 A :=
+  default ∅ (gmap_curry m !! x).
+
+Lemma gmap_slice_lookup `{Countable K1, Countable K2} {A}
+(m : gmap (K1*K2) A) x y :
+  gmap_slice m x !! y = m !! (x,y).
+Proof.
+  unfold gmap_slice.
+  destruct (gmap_curry m !! x) eqn:E; simpl.
+  - rewrite -lookup_gmap_curry E //.
+  - rewrite ->lookup_gmap_curry_None in E.
+    rewrite E lookup_empty //.
+Qed.
+
+Lemma gmap_slice_alter `{Countable K1, Countable K2} {A} (f : A -> A)
+  (m : gmap (K1*K2) A) x y x' :
+  gmap_slice (alter f (x,y) m) x' =
+    if decide (x = x')
+    then alter f y (gmap_slice m x')
+    else gmap_slice m x'.
+Proof.
+  eapply map_eq. intros.
+  case_decide; subst;
+  rewrite !gmap_slice_lookup ?lookup_alter_spec; repeat case_decide;
+  simplify_eq; eauto; rewrite gmap_slice_lookup //.
+Qed.
+
+Lemma gmap_slice_insert `{Countable K1, Countable K2} {A}
+  (m : gmap (K1*K2) A) x y x' v :
+  gmap_slice (<[ (x,y) := v ]> m) x' =
+    if decide (x = x')
+    then <[ y := v ]> (gmap_slice m x')
+    else gmap_slice m x'.
+Proof.
+  eapply map_eq. intros.
+  case_decide; subst; rewrite !gmap_slice_lookup ?lookup_insert_spec;
+  repeat case_decide; simplify_eq; rewrite // gmap_slice_lookup //.
+Qed.
+
+Lemma gmap_slice_delete `{Countable K1, Countable K2} {A}
+  (m : gmap (K1*K2) A) x y x' :
+  gmap_slice (delete (x,y) m) x' =
+    if decide (x = x')
+    then delete y (gmap_slice m x')
+    else gmap_slice m x'.
+Proof.
+  eapply map_eq. intros.
+  case_decide; subst; rewrite !gmap_slice_lookup ?lookup_delete_spec;
+  repeat case_decide; simplify_eq; rewrite // gmap_slice_lookup //.
+Qed.
+
+Lemma gmap_slice_empty `{Countable K1, Countable K2} {A} (x : K1) :
+  gmap_slice (∅ : gmap (K1*K2) A) x = ∅.
+Proof.
+  eapply map_eq. intros.
+  rewrite gmap_slice_lookup !lookup_empty //.
+Qed.
+
+Lemma gmap_slice_union `{Countable K1, Countable K2} {A} (m1 m2 : gmap (K1*K2) A) (x : K1) :
+  gmap_slice (m1 ∪ m2) x = gmap_slice m1 x ∪ gmap_slice m2 x.
+Proof.
+  eapply map_eq. intros.
+  rewrite lookup_union !gmap_slice_lookup lookup_union //.
+Qed.

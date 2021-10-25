@@ -1,10 +1,9 @@
 From iris.proofmode Require Import base tactics classes.
+From diris.multiparty Require Export mutil.
 
-Definition chan := nat.
-Definition endpoint := (chan * bool)%type.
-
-Definition other (e : endpoint) : endpoint :=
-    let '(x,b) := e in (x, negb b).
+Definition session := nat.
+Definition participant := nat.
+Definition endpoint := (session * participant)%type.
 
 Inductive val :=
     | UnitV : val
@@ -24,150 +23,97 @@ with expr :=
     | UApp : expr -> expr -> expr
     | Lam : string -> expr -> expr
     | ULam : string -> expr -> expr
-    | Send : expr -> expr -> expr
-    | Recv : expr -> expr
+    | Send : participant -> expr -> expr -> expr
+    | Recv : participant -> expr -> expr
     | Let : string -> expr -> expr -> expr
     | LetUnit : expr -> expr -> expr
     | LetProd : string -> string -> expr -> expr -> expr
     | MatchVoid : expr -> expr
     | MatchSum : expr -> string -> expr -> expr -> expr
     | If : expr -> expr -> expr -> expr
-    | Fork : expr -> expr
+    | Spawn n : (fin n -> expr) -> expr
     | Close : expr -> expr.
 
 Canonical Structure valO := leibnizO val.
 Canonical Structure exprO := leibnizO expr.
 
-Definition heap := gmap endpoint (list val).
-
-CoInductive chan_type' (T : Type) :=
-    | SendT : T -> chan_type' T -> chan_type' T
-    | RecvT : T -> chan_type' T -> chan_type' T
-    | EndT : chan_type' T.
-Arguments SendT {_} _ _.
-Arguments RecvT {_} _ _.
+CoInductive session_type' (T : Type) :=
+    | SendT : participant -> T -> session_type' T -> session_type' T
+    | RecvT : participant -> T -> session_type' T -> session_type' T
+    | EndT : session_type' T.
+Arguments SendT {_} _ _ _.
+Arguments RecvT {_} _ _ _.
 Arguments EndT {_}.
 Instance sendt_params : Params (@SendT) 1 := {}.
 Instance recvt_params : Params (@RecvT) 1 := {}.
 
-
-CoInductive chan_type_equiv `{Equiv T} : Equiv (chan_type' T) :=
+CoInductive session_type_equiv `{Equiv T} : Equiv (session_type' T) :=
     | cteq_EndT : EndT ≡ EndT
-    | cteq_SendT t1 t2 s1 s2 : t1 ≡ t2 -> s1 ≡ s2 -> SendT t1 s1 ≡ SendT t2 s2
-    | cteq_RecvT t1 t2 s1 s2 : t1 ≡ t2 -> s1 ≡ s2 -> RecvT t1 s1 ≡ RecvT t2 s2.
-Existing Instance chan_type_equiv.
+    | cteq_SendT t1 t2 s1 s2 p : t1 ≡ t2 -> s1 ≡ s2 -> SendT p t1 s1 ≡ SendT p t2 s2
+    | cteq_RecvT t1 t2 s1 s2 p : t1 ≡ t2 -> s1 ≡ s2 -> RecvT p t1 s1 ≡ RecvT p t2 s2.
+Existing Instance session_type_equiv.
 
-Lemma chan_type_reflexive `{Equiv T} :
-    Reflexive (≡@{T}) -> Reflexive (≡@{chan_type' T}).
+Lemma session_type_reflexive `{Equiv T} :
+    Reflexive (≡@{T}) -> Reflexive (≡@{session_type' T}).
 Proof.
     intros ?. cofix IH. intros []; constructor; done.
 Defined.
 
-Lemma chan_type_symmetric `{Equiv T} :
-    Symmetric (≡@{T}) -> Symmetric (≡@{chan_type' T}).
+Lemma session_type_symmetric `{Equiv T} :
+    Symmetric (≡@{T}) -> Symmetric (≡@{session_type' T}).
 Proof.
     intros ?. cofix IH. intros ??[]; constructor; done.
 Defined.
 
-Lemma chan_type_transitive `{Equiv T} :
-    Transitive (≡@{T}) -> Transitive (≡@{chan_type' T}).
+Lemma session_type_transitive `{Equiv T} :
+    Transitive (≡@{T}) -> Transitive (≡@{session_type' T}).
 Proof.
     intros ?. cofix IH. intros ???[]; inversion_clear 1; constructor; by etrans.
 Defined.
 
-Global Instance chan_type_equivalence `{Equiv T} :
-    Equivalence (≡@{T}) -> Equivalence (≡@{chan_type' T}).
+Global Instance session_type_equivalence `{Equiv T} :
+    Equivalence (≡@{T}) -> Equivalence (≡@{session_type' T}).
 Proof.
     split.
-    - apply chan_type_reflexive. apply _.
-    - apply chan_type_symmetric. apply _.
-    - apply chan_type_transitive. apply _.
+    - apply session_type_reflexive. apply _.
+    - apply session_type_symmetric. apply _.
+    - apply session_type_transitive. apply _.
 Qed.
 
-Global Instance sendt_proper `{Equiv T} : Proper ((≡) ==> (≡) ==> (≡)) (@SendT T).
+Global Instance sendt_proper `{Equiv T} p : Proper ((≡) ==> (≡) ==> (≡)) (@SendT T p).
 Proof. by constructor. Qed.
-Global Instance recvt_proper `{Equiv T} : Proper ((≡) ==> (≡) ==> (≡)) (@RecvT T).
+Global Instance recvt_proper `{Equiv T} p : Proper ((≡) ==> (≡) ==> (≡)) (@RecvT T p).
 Proof. by constructor. Qed.
 
-Definition chan_type_id {T} (s : chan_type' T) : chan_type' T :=
+Definition session_type_id {T} (s : session_type' T) : session_type' T :=
     match s with
-    | SendT t s' => SendT t s'
-    | RecvT t s' => RecvT t s'
+    | SendT p t s' => SendT p t s'
+    | RecvT p t s' => RecvT p t s'
     | EndT => EndT
     end.
 
-Lemma chan_type_id_id {T} (s : chan_type' T) :
-    chan_type_id s = s.
+Lemma session_type_id_id {T} (s : session_type' T) :
+    session_type_id s = s.
 Proof.
     by destruct s.
 Qed.
 
-Lemma chan_type_equiv_alt `{Equiv T} (s1 s2 : chan_type' T) :
-    chan_type_id s1 ≡ chan_type_id s2 -> s1 ≡ s2.
+Lemma session_type_equiv_alt `{Equiv T} (s1 s2 : session_type' T) :
+    session_type_id s1 ≡ session_type_id s2 -> s1 ≡ s2.
 Proof.
     intros.
-    rewrite -(chan_type_id_id s1).
-    rewrite -(chan_type_id_id s2).
+    rewrite -(session_type_id_id s1).
+    rewrite -(session_type_id_id s2).
     done.
 Defined.
 
-Lemma chan_type_equiv_end_eq `{Equiv T} (s : chan_type' T) :
+Lemma session_type_equiv_end_eq `{Equiv T} (s : session_type' T) :
     s ≡ EndT -> s = EndT.
 Proof.
     by inversion 1.
 Qed.
 
-CoFixpoint dual {T} (s : chan_type' T) : chan_type' T :=
-    match s with
-    | SendT t s' => RecvT t (dual s')
-    | RecvT t s' => SendT t (dual s')
-    | EndT => EndT
-    end.
-
-Global Instance dual_proper `{Equiv T} : Proper ((≡) ==> (≡)) (@dual T).
-Proof.
-    cofix IH.
-    intros s1 s2 HH.
-    apply chan_type_equiv_alt.
-    destruct HH; simpl; constructor; done || by apply IH.
-Qed.
-
-Section dual.
-    Context `{Equiv T, !Equivalence (≡@{T})}.
-    Implicit Type s : chan_type' T.
-
-    Lemma dual_dual s :
-        dual (dual s) ≡ s.
-    Proof.
-        apply chan_type_equiv_alt.
-        revert s. cofix IH. intros []; simpl; constructor; try done;
-        apply chan_type_equiv_alt; apply IH.
-    Qed.
-
-    Lemma dual_send s t : dual (SendT t s) ≡ RecvT t (dual s).
-    Proof.
-        apply chan_type_equiv_alt; done.
-    Qed.
-
-    Lemma dual_recv s t : dual (RecvT t s) ≡ SendT t (dual s).
-    Proof.
-        apply chan_type_equiv_alt; done.
-    Qed.
-
-    Lemma dual_end : dual (EndT : chan_type' T) ≡ EndT.
-    Proof.
-        apply chan_type_equiv_alt; done.
-    Qed.
-
-    Lemma dual_end_inv s : dual s ≡ EndT -> s = EndT.
-    Proof.
-        intros HH. destruct s; eauto.
-        - rewrite ->dual_send in HH. inversion HH.
-        - rewrite ->dual_recv in HH. inversion HH.
-    Qed.
-End dual.
-
-Canonical Structure chan_type'O (T:ofe) := discreteO (chan_type' T).
+Canonical Structure session_type'O (T:ofe) := discreteO (session_type' T).
 
 CoInductive type :=
     | UnitT : type
@@ -177,7 +123,7 @@ CoInductive type :=
     | SumT : type -> type -> type
     | FunT : type -> type -> type
     | UFunT : type -> type -> type
-    | ChanT : chan_type' type -> type.
+    | ChanT : session_type' type -> type.
 
 Definition type_id (t : type) :=
     match t with
@@ -210,15 +156,15 @@ Existing Instance type_equiv.
 Global Instance type_equivalence : Equivalence (≡@{type}).
 Proof.
     split.
-    - cofix IH. intros []; constructor; done || apply chan_type_reflexive, _.
-    - cofix IH. intros ??[]; constructor; done || by apply (chan_type_symmetric _).
+    - cofix IH. intros []; constructor; done || apply session_type_reflexive, _.
+    - cofix IH. intros ??[]; constructor; done || by apply (session_type_symmetric _).
     - cofix IH. intros ???[]; inversion_clear 1; constructor;
-      by etrans || by eapply (chan_type_transitive _).
+      by etrans || by eapply (session_type_transitive _).
 Qed.
 
 Canonical Structure typeO := discreteO type.
-Notation chan_type := (chan_type' type).
-Notation chan_typeO := (chan_type'O typeO).
+Notation session_type := (session_type' type).
+Notation session_typeO := (session_type'O typeO).
 
 Notation envT := (gmap string type).
 
@@ -240,10 +186,16 @@ Definition disj (Γ1 Γ2 : envT) : Prop :=
 Definition Γunrestricted (Γ : envT) :=
   ∀ x t, Γ !! x = Some t -> unrestricted t.
 
-Lemma Γunrestricted_empty : Γunrestricted ∅.
-Proof.
-  intros ??. rewrite lookup_empty. intro. congruence.
-Qed.
+Definition consistent n (σs : fin n -> session_type) : Prop.
+Admitted.
+
+Definition disj_union n (Γ : envT) (fΓ : fin n -> envT) : Prop :=
+    (∀ p q, p ≠ q -> disj (fΓ p) (fΓ q)) ∧
+    (∀ p x t, (fΓ p) !! x ≡ Some t -> Γ !! x ≡ Some t) ∧
+    (∀ x t, Γ !! x ≡ Some t -> ∃ p, (fΓ p) !! x ≡ Some t).
+
+Instance disj_union_Proper n : Proper ((≡) ==> (=) ==> (≡)) (disj_union n).
+Proof. Admitted.
 
 Inductive typed : envT -> expr -> type -> Prop :=
     | Unit_typed Γ :
@@ -281,14 +233,14 @@ Inductive typed : envT -> expr -> type -> Prop :=
         Γunrestricted Γ ->
         typed (Γ ∪ {[ x := t1 ]}) e t2 ->
         typed Γ (ULam x e) (UFunT t1 t2)
-    | Send_typed : ∀ Γ1 Γ2 e1 e2 t r,
+    | Send_typed : ∀ Γ1 Γ2 e1 e2 t r p,
         disj Γ1 Γ2 ->
-        typed Γ1 e1 (ChanT (SendT t r)) ->
+        typed Γ1 e1 (ChanT (SendT p t r)) ->
         typed Γ2 e2 t ->
-        typed (Γ1 ∪ Γ2) (Send e1 e2) (ChanT r)
-    | Recv_typed : ∀ Γ e t r,
-        typed Γ e (ChanT (RecvT t r)) ->
-        typed Γ (Recv e) (PairT (ChanT r) t)
+        typed (Γ1 ∪ Γ2) (Send p e1 e2) (ChanT r)
+    | Recv_typed : ∀ Γ e t r p,
+        typed Γ e (ChanT (RecvT p t r)) ->
+        typed Γ (Recv p e) (PairT (ChanT r) t)
     | Let_typed : ∀ Γ1 Γ2 e1 e2 t1 t2 x,
         disj Γ1 Γ2 ->
         Γ2 !! x = None ->
@@ -324,9 +276,11 @@ Inductive typed : envT -> expr -> type -> Prop :=
         typed Γ2 e2 t ->
         typed Γ2 e3 t ->
         typed (Γ1 ∪ Γ2) (If e1 e2 e3) t
-    | Fork_typed : ∀ Γ e ct,
-        typed Γ e (FunT (ChanT (dual ct)) UnitT) ->
-        typed Γ (Fork e) (ChanT ct)
+    | Spawn_typed : ∀ n Γ fΓ σs f,
+        consistent n σs ->
+        disj_union n Γ fΓ ->
+        (∀ p, typed (fΓ p) (f p) (FunT (ChanT (σs p)) UnitT)) ->
+        typed Γ (Spawn n f) UnitT
     | Close_typed : ∀ Γ e,
         typed Γ e (ChanT EndT) ->
         typed Γ (Close e) UnitT
@@ -345,8 +299,8 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   | UApp e1 e2 => UApp (subst x a e1) (subst x a e2)
   | Lam x' e1 => if decide (x = x') then e else Lam x' (subst x a e1)
   | ULam x' e1 => if decide (x = x') then e else ULam x' (subst x a e1)
-  | Send e1 e2 => Send (subst x a e1) (subst x a e2)
-  | Recv e1 => Recv (subst x a e1)
+  | Send p e1 e2 => Send p (subst x a e1) (subst x a e2)
+  | Recv p e1 => Recv p (subst x a e1)
   | Let x' e1 e2 => Let x' (subst x a e1) (if decide (x = x') then e2 else subst x a e2)
   | LetUnit e1 e2 => LetUnit (subst x a e1) (subst x a e2)
   | LetProd x' y' e1 e2 =>
@@ -357,7 +311,7 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
         (if decide (x = x') then eL else subst x a eL)
         (if decide (x = x') then eR else subst x a eR)
   | If e1 e2 e3 => If (subst x a e1) (subst x a e2) (subst x a e3)
-  | Fork e1 => Fork (subst x a e1)
+  | Spawn ps f => Spawn ps (λ p, subst x a (f p))
   | Close e1 => Close (subst x a e1)
   end.
 
@@ -389,44 +343,69 @@ Inductive pure_step : expr -> expr -> Prop :=
     | LetProd_step : ∀ x1 x2 v1 v2 e,
         pure_step (LetProd x1 x2 (Val (PairV v1 v2)) e) (subst x1 v1 $ subst x2 v2 e).
 
+Definition heap := gmap endpoint (gmap participant (list val)).
+
+Definition init_chans (i : session) (n : nat) : gmap endpoint (gmap participant (list val)).
+Admitted.
+
+Definition init_threads (i : session) (n : nat) (fv : fin n -> val) : list expr.
+Admitted.
+
 Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
     | Pure_step : ∀ e e' h,
         pure_step e e' -> head_step e h e' h []
-    | Send_step : ∀ h c y buf,
-        h !! (other c) = Some buf ->
-        head_step (Send (Val (ChanV c)) (Val y)) h (Val (ChanV c)) (<[ other c := buf ++ [y] ]> h) []
-    | Recv_step : ∀ h c y buf,
-        h !! c = Some (y::buf) ->
-        head_step (Recv (Val (ChanV c))) h (Val (PairV (ChanV c) y)) (<[ c := buf ]> h) []
-    | Close_step : ∀ c h,
-        h !! c = Some [] ->
-        head_step (Close (Val (ChanV c))) h (Val UnitV) (delete c h) []
-    | Fork_step : ∀ v (h : heap) i,
-        h !! (i,true) = None ->
-        h !! (i,false) = None ->
+    | Send_step : ∀ h c p q y, (* p is us, q is the one we send to *)
+                               (* send puts the value in the bufs of the other *)
+                               (* since we are participant p, we put it in that buffer *)
+        head_step (Send q (Val (ChanV (c,p))) (Val y)) h
+                  (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [y]) p) (c,q) h) []
+        (* We could instead to the following:
+           (that would move some of the work from the preservation proof to the progress proof.) *)
+        (*
+        h !! (c,q) = Some bufs ->
+        bufs !! p = Some buf ->
+        head_step (Send q (Val (ChanV (c,p))) (Val y)) h
+                  (Val (ChanV (c,p))) (<[ (c,q) := <[ p := buf ++ [y] ]> bufs ]> h) []
+        *)
+    | Recv_step : ∀ h c p q y bufs buf, (* p is us, q is the one we recv from *)
+        h !! (c,p) = Some bufs -> (* recv takes the value out of its own bufs *)
+        bufs !! q = Some (y::buf) -> (* since the recv is from p, we take it out of that buffer *)
+        head_step (Recv q (Val (ChanV (c,p)))) h
+                  (Val (PairV (ChanV (c,p)) y)) (<[ (c,p) := <[ q := buf ]> bufs ]> h) []
+    | Close_step : ∀ c p h,
+        (* We can add these conditions: that would move some of the work from the
+           preservation proof to the progress proof. *)
+        (* h !! (c,p) = Some bufs -> *)
+        (* (∀ q, bufs !! q = Some []) -> *)
+        head_step (Close (Val (ChanV (c,p)))) h
+                  (Val UnitV) (delete (c,p) h) []
+    | Spawn_step : ∀ (h : heap) i n f fv,
+        (∀ p, h !! (i,p) = None) ->
+        (∀ p, f p = Val (fv p)) ->
         head_step
-          (Fork (Val v)) h
-          (Val $ ChanV (i, true)) (<[ (i,true) := [] ]> $ <[ (i,false) := [] ]> h)
-          [App (Val v) (Val (ChanV (i, false)))].
+          (Spawn n f) h
+          (Val UnitV) (init_chans i n ∪ h)
+          (init_threads i n fv).
 
 Inductive ctx1 : (expr -> expr) -> Prop :=
-    | Ctx_App_l : ∀ e, ctx1 (λ x, App x e)
-    | Ctx_App_r : ∀ v, ctx1 (λ x, App (Val v) x)
-    | Ctx_Pair_l : ∀ e, ctx1 (λ x, Pair x e)
-    | Ctx_Pair_r : ∀ v, ctx1 (λ x, Pair (Val v) x)
-    | Ctx_Inj : ∀ b, ctx1 (λ x, Inj b x)
-    | Ctx_UApp_l : ∀ e, ctx1 (λ x, UApp x e)
-    | Ctx_UApp_r : ∀ v, ctx1 (λ x, UApp (Val v) x)
-    | Ctx_Send_l : ∀ e, ctx1 (λ x, Send x e)
-    | Ctx_Send_r : ∀ v, ctx1 (λ x, Send (Val v) x)
-    | Ctx_Recv : ctx1 (λ x, Recv x)
-    | Ctx_Let : ∀ s e, ctx1 (λ x, Let s x e)
-    | Ctx_LetUnit : ∀ e, ctx1 (λ x, LetUnit x e)
-    | Ctx_LetProd : ∀ s1 s2 e, ctx1 (λ x, LetProd s1 s2 x e)
+    | Ctx_App_l e : ctx1 (λ x, App x e)
+    | Ctx_App_r v : ctx1 (λ x, App (Val v) x)
+    | Ctx_Pair_l e : ctx1 (λ x, Pair x e)
+    | Ctx_Pair_r v : ctx1 (λ x, Pair (Val v) x)
+    | Ctx_Inj b : ctx1 (λ x, Inj b x)
+    | Ctx_UApp_l e : ctx1 (λ x, UApp x e)
+    | Ctx_UApp_r v : ctx1 (λ x, UApp (Val v) x)
+    | Ctx_Send_l p e : ctx1 (λ x, Send p x e)
+    | Ctx_Send_r p v : ctx1 (λ x, Send p (Val v) x)
+    | Ctx_Recv p : ctx1 (λ x, Recv p x)
+    | Ctx_Let s e : ctx1 (λ x, Let s x e)
+    | Ctx_LetUnit e : ctx1 (λ x, LetUnit x e)
+    | Ctx_LetProd s1 s2 e : ctx1 (λ x, LetProd s1 s2 x e)
     | Ctx_MatchVoid : ctx1 (λ x, MatchVoid x)
-    | Ctx_MatchSum : ∀ s e1 e2, ctx1 (λ x, MatchSum x s e1 e2)
-    | Ctx_If : ∀ e1 e2, ctx1 (λ x, If x e1 e2)
-    | Ctx_Fork : ctx1 (λ x, Fork x)
+    | Ctx_MatchSum s e1 e2 : ctx1 (λ x, MatchSum x s e1 e2)
+    | Ctx_If e1 e2 : ctx1 (λ x, If x e1 e2)
+    | Ctx_Spawn n (f : fin n -> expr) (p : fin n) :
+        ctx1 (λ x, Spawn n (λ q, if decide (p = q) then x else f q))
     | Ctx_Close : ctx1 (λ x, Close x).
 
 Inductive ctx : (expr -> expr) -> Prop :=

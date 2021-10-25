@@ -1,4 +1,4 @@
-From diris Require Import invariant progress.
+From diris.multiparty Require Import invariant progress.
 
 Theorem safety (e : expr) (es : list expr) (h : heap) :
   typed ∅ e UnitT ->

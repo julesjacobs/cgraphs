@@ -1,13 +1,13 @@
-From diris.sessiontypes Require Import invariant.
+From diris.multiparty Require Import invariant langdef.
 Require Import Coq.Logic.Classical.
 
 Lemma rtyped_inner e t :
   rtyped0 e t -∗ ⌜ (∃ v, e = Val v)  ∨
   ∃ k e0, ctx k ∧ e = k e0 ∧
     ((∃ e', pure_step e0 e') ∨
-     (∃ v, e0 = Recv (Val v)) ∨
-     (∃ v1 v2, e0 = Send (Val v1) (Val v2)) ∨
-     (∃ v, e0 = Fork (Val v)) ∨
+     (∃ v p, e0 = Recv p (Val v)) ∨
+     (∃ v1 v2 p, e0 = Send p (Val v1) (Val v2)) ∨
+     (∃ n f, e0 = Spawn n (Val ∘ f)) ∨
      (∃ v, e0 = Close (Val v))) ⌝.
 Proof.
   iIntros "H".
@@ -103,20 +103,20 @@ Proof.
         eexists (λ x, x), _.
         split_and!; [constructor|eauto 10..].
       * right.
-        eexists (λ x, Send (Val v) (k x)),_.
+        eexists (λ x, Send p (Val v) (k x)),_.
         split_and!; eauto.
         constructor; eauto. constructor.
     + right.
-      eexists (λ x, Send (k x) e2),_.
+      eexists (λ x, Send p (k x) e2),_.
       split_and!; eauto.
-      eapply (Ctx_cons (λ x, Send x e2)); eauto.
+      eapply (Ctx_cons (λ x, Send p x e2)); eauto.
       constructor.
   - iDestruct "H" as (r' r ->) "H".
     iDestruct ("IH" with "H") as "%". iClear "IH".
     iPureIntro. right.
     destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
     + eexists (λ x, x),_. split_and!; [constructor|eauto 10..].
-    + eexists (λ x, Recv (k x)),_. split_and!; eauto.
+    + eexists (λ x, Recv p (k x)),_. split_and!; eauto.
       constructor; eauto. constructor.
   - iDestruct "H" as (t') "[H1 H2]".
     iDestruct ("IH" with "H1") as "%". iClear "IH".
@@ -192,13 +192,37 @@ Proof.
       split_and!; eauto.
       eapply (Ctx_cons (λ x, If x e2 e3)); eauto.
       constructor.
-  - iDestruct "H" as (r ->) "H".
-    iDestruct ("IH" with "H") as "%". iClear "IH".
-    iPureIntro. right.
-    destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
-    + eexists (λ x, x),_. split_and!; [constructor|eauto 10..].
-    + eexists (λ x, Fork (k x)),_. split_and!; eauto.
-      constructor; eauto. constructor.
+  - iDestruct "H" as (σs [-> Hcons]) "H".
+    destruct (classic (∀ i, ∃ v, e i = Val v)) as [H|H].
+    + iPureIntro. right.
+      exists id, (Spawn n e).
+      split; first eauto using ctx.
+      split; first done.
+      right. right. right. left.
+      exists n.
+      eapply fin_choice in H as [f Hf].
+      exists f. f_equiv.
+      apply functional_extensionality; eauto.
+    + destruct (classic (∃ i, ∀ v, e i ≠ Val v)); last first.
+      { exfalso.
+        assert (∀ i, ¬ ∀ v, e i ≠ Val v) by naive_solver.
+        eapply H. intros. specialize (H1 i).
+        destruct (classic (∃ v, e i = Val v)); eauto.
+        exfalso. eapply H1. intros ??.
+        eapply H2. exists v. done. }
+      destruct H0 as [i Hi].
+      iRight.
+      iDestruct (big_sepS_elem_of_acc with "H") as "[H1 H2]".
+      { eapply all_fin_all. }
+      iDestruct ("IH" with "H1") as %HH. iPureIntro.
+      destruct HH; first naive_solver.
+      destruct H0 as (k & e0 & Hk & He & HH).
+      eexists ((λ x, Spawn n (λ j, if decide (i = j) then x else e j)) ∘ k),_.
+      split_and!; eauto.
+      * eapply (Ctx_cons (λ x, Spawn n (λ j, if decide (i = j) then x else e j)) k);
+        eauto using ctx1.
+      * simpl. f_equal. eapply functional_extensionality. intro.
+        case_decide; subst; eauto.
   - iDestruct "H" as (->) "H".
     iDestruct ("IH" with "H") as "%". iClear "IH".
     iPureIntro. right.
@@ -208,10 +232,11 @@ Proof.
       constructor; eauto. constructor.
 Qed.
 
-Definition thread_waiting (es : list expr) (h : heap) (i j : nat) :=
-  ∃ b k, ctx k ∧
-    es !! i = Some (k (Recv (Val (ChanV (j,b))))) ∧
-    h !! (j,b) = Some [].
+Definition thread_waiting (es : list expr) (h : heap) (i c: nat) :=
+  ∃ p q bufs k, ctx k ∧
+    es !! i = Some (k (Recv q (Val (ChanV (c,p))))) ∧
+    h !! (c,p) = Some bufs ∧
+    bufs !! q = Some [].
 
 Definition waiting es h (x y : object) (l : clabel) : Prop :=
   ∃ i j, x = Thread i ∧ y = Chan j ∧ thread_waiting es h i j.
@@ -219,11 +244,11 @@ Definition waiting es h (x y : object) (l : clabel) : Prop :=
 Definition active (x : object) (es : list expr) (h : heap) :=
   match x with
   | Thread i => ∃ e, es !! i = Some e ∧ e ≠ Val UnitV
-  | Chan i => ∃ b, is_Some (h !! (i,b))
+  | Chan i => ∃ p, is_Some (h !! (i,p))
   end.
 
 Lemma heap_fresh (h : heap) :
-  ∃ i, ∀ b, h !! (i,b) = None.
+  ∃ i, ∀ p, h !! (i,p) = None.
 Proof.
   exists (fresh (dom (gset nat) (gmap_curry h))).
   intro. pose proof (is_fresh (dom (gset nat) (gmap_curry h))).
@@ -256,15 +281,15 @@ Fixpoint expr_refs (e : expr) : gset object :=
   | UApp e1 e2 => expr_refs e1 ∪ expr_refs e2
   | Lam s e1 => expr_refs e1
   | ULam s e1 => expr_refs e1
-  | Send e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | Recv e1 => expr_refs e1
+  | Send p e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | Recv p e1 => expr_refs e1
   | Let s e1 e2 => expr_refs e1 ∪ expr_refs e2
   | LetUnit e1 e2 => expr_refs e1 ∪ expr_refs e2
   | LetProd s1 s2 e1 e2 => expr_refs e1 ∪ expr_refs e2
   | MatchVoid e1 => expr_refs e1
   | MatchSum e1 s e2 e3 => expr_refs e1 ∪ expr_refs e2
   | If e1 e2 e3 => expr_refs e1 ∪ expr_refs e2
-  | Fork e1 => expr_refs e1
+  | Spawn n f => fin_union n (expr_refs ∘ f)
   | Close e1 => expr_refs e1
   end
 with val_refs (v : val) : gset object :=
@@ -278,14 +303,45 @@ match v with
 | ChanV (c,b) => {[ Chan c ]}
 end.
 
-Definition buf_refs := foldr (λ v s, val_refs v ∪ s) ∅.
+Definition buf_refs (bufss : gmap participant (gmap participant (list val))) : gset object.
+Admitted.
 
 Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
   match x with
   | Thread n => from_option expr_refs ∅ (es !! n)
-  | Chan c => from_option buf_refs ∅ (h !! (c,true)) ∪ from_option buf_refs ∅ (h !! (c,false))
+  | Chan c => buf_refs (gmap_slice h c)
   end.
 
+Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom (gset object) Σ ⌝⌝ ∗ own Σ.
+
+Lemma own_dom_empty : own_dom ∅ ⊣⊢ emp.
+Proof.
+  iSplit; unfold own_dom; iIntros "H".
+  - iDestruct "H" as (? H) "H".
+    symmetry in H. apply dom_empty_iff_L in H as ->.
+    by iApply own_empty.
+  - iExists ∅. rewrite own_empty dom_empty_L //.
+Qed.
+
+Lemma own_dom_singleton k v : own {[ k := v ]} ⊢ own_dom {[ k ]}.
+Proof.
+  iIntros "H". iExists {[ k := v ]}.
+  rewrite dom_singleton_L. iFrame. done.
+Qed.
+
+Lemma own_dom_union A B : own_dom A ∗ own_dom B ⊢ own_dom (A ∪ B).
+Proof.
+  iIntros "[H1 H2]".
+  iDestruct "H1" as (Σ1 H1) "H1".
+  iDestruct "H2" as (Σ2 H2) "H2". subst.
+  iExists (Σ1 ∪ Σ2). rewrite dom_union_L. iSplit; eauto.
+  iApply own_union. iFrame.
+Qed.
+
+Lemma own_dom_fin_union n f :
+  ([∗ set] p ∈ all_fin n, own_dom (f p)) ⊢ own_dom (fin_union n f).
+Proof.
+Admitted.
 
 Lemma rtyped_refs Γ e t :
   rtyped Γ e t ⊢ own_dom (expr_refs e)
@@ -293,23 +349,22 @@ with val_typed_refs v t :
   val_typed v t ⊢ own_dom (val_refs v).
 Proof.
   - iIntros "H". destruct e; simpl; repeat (iDestruct "H" as (?) "H");
-    rewrite ?val_typed_refs ?rtyped_refs ?own_dom_empty ?own_dom_union; eauto;
-    iDestruct "H" as "[H1 [H2 _]]"; iApply own_dom_union; iFrame.
+    rewrite ?val_typed_refs ?rtyped_refs ?own_dom_empty ?own_dom_union; eauto.
+    + iDestruct "H" as "[H1 [H2 _]]"; iApply own_dom_union; iFrame.
+    + iDestruct "H" as "[H1 [H2 _]]"; iApply own_dom_union; iFrame.
+    + iApply own_dom_fin_union.
+      iApply (big_sepS_impl with "H"). iModIntro.
+      iIntros (x Hx) "H". simpl.
+      iApply rtyped_refs. done.
   - iIntros "H". destruct v; simpl; rewrite ?own_dom_empty; eauto;
     repeat (iDestruct "H" as (?) "H"); rewrite ?val_typed_refs ?rtyped_refs ?own_dom_union; eauto.
     destruct e. by iApply own_dom_singleton.
 Qed.
 
-Lemma buf_typed'_refs x y rest :
-  buf_typed' x y rest ⊢ own_dom (from_option buf_refs ∅ x).
+Lemma bufs_typed_refs bufss σs :
+  bufs_typed bufss σs ⊢ own_dom (buf_refs bufss).
 Proof.
-  unfold buf_typed'. iIntros "H". destruct x,y; eauto.
-  - iInduction l as [] "IH" forall (c rest); simpl; rewrite ?own_dom_empty //.
-    destruct c; simpl; eauto.
-    rewrite val_typed_refs. iApply own_dom_union.
-    iDestruct "H" as "[? H]". iFrame. iApply "IH". done.
-  - simpl. rewrite own_dom_empty //.
-Qed.
+Admitted.
 
 Lemma obj_refs_state_inv' es h x Δ :
   state_inv es h x Δ ⊢ own_dom (obj_refs es h x).
@@ -319,9 +374,7 @@ Proof.
   - iDestruct "H" as (?) "H". destruct (es !! n); simpl;
     rewrite -?rtyped_rtyped0_iff ?rtyped_refs ?own_dom_empty //.
   - iDestruct "H" as (σs H) "H".
-    iDestruct "H" as (rest) "[H1 H2]".
-    rewrite !buf_typed'_refs.
-    iApply own_dom_union. iFrame.
+    iApply bufs_typed_refs. done.
 Qed.
 
 Ltac model := repeat
@@ -347,9 +400,36 @@ Proof.
   intros HH. inversion HH. subst. eapply elem_of_dom. rewrite -H1 //.
 Qed.
 
+Definition if_recv_then_non_empty (bufs : gmap participant (list val)) (σ : session_type) :=
+  match σ with
+    | RecvT q _ _ => ∃ buf, bufs !! q = Some buf ∧ buf ≠ []
+    | _ => True
+    end.
+
+Definition can_progress (p : participant)
+  (bufss : gmap participant (gmap participant (list val)))
+  (σs : gmap participant session_type) := ∃ p σ bufs,
+    σs !! p = Some σ ∧
+    bufss !! p = Some bufs ∧
+    if_recv_then_non_empty bufs σ.
+
+Lemma bufs_typed_progress bufss σs :
+  bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ ∃ p, can_progress p bufss σs ⌝.
+Proof. Admitted.
+
+Lemma bufs_typed_recv bufss σs p q t σ :
+  σs !! p ≡ Some (RecvT q t σ) ->
+  bufs_typed bufss σs ⊢ ⌜ ∃ bufs buf,
+    bufss !! p = Some bufs ∧
+    bufs !! q = Some buf ⌝.
+Proof.
+Admitted.
+
 Lemma strong_progress es h x :
   invariant es h -> active x es h -> reachable es h x.
 Proof.
+  intros Hinv. assert (invariant es h) as Hinv'; eauto.
+  revert Hinv'.
   intros (g & Hwf & Hvs). revert x.
   eapply (cgraph_ind' (waiting es h) g (λ x,
     active x es h → reachable es h x));
@@ -358,7 +438,7 @@ Proof.
   (* Get the invariant for x *)
   pose proof (Hvs x) as Hx.
   (* Case analyze whether x is a channel or a thread *)
-  destruct x as [i|i]; simpl in *.
+  destruct x as [i|c]; simpl in *.
   - (* Thread *)
     destruct Hactive as (e & He & Heneq). (* Thread is active, so must have expression in thread pool *)
     rewrite He in Hx. (* We can conclude that this expression is well-typed wrt out edges *)
@@ -383,14 +463,13 @@ Proof.
       eapply Thread_step_reachable.
       eexists _,_.
       econstructor; last done.
-      econstructor; eauto.
-      econstructor. done.
+      eauto using head_step, ctx_step.
     * (* Recv *)
-      destruct H as [v ->].
+      destruct H as (v & p & ->).
       revert Het.
       model.
       intros (t' & r & -> & [c b] & -> & Het). simpl in *.
-      assert (out_edges g (Thread i) !! Chan c ≡ Some (b, RecvT t' r)) as HH.
+      assert (out_edges g (Thread i) !! Chan c ≡ Some (b, RecvT p t' r)) as HH.
       {
         rewrite Hout -Het. erewrite lookup_union_Some_l; first done.
         rewrite lookup_singleton. done.
@@ -398,266 +477,143 @@ Proof.
 
       pose proof (out_edges_in_labels _ _ _ _ HH) as [x Hin].
 
-      assert (∃ buf, h !! (c,b) = Some buf) as [buf Hbuf].
-      {
-        pose proof (Hvs (Chan c)) as Hc.
-        eapply prim_simple_adequacy; first done.
-        iIntros "H". simpl.
-        iDestruct "H" as (σs Hinlc) "H".
-        iDestruct (bufs_typed_wlog true b with "H") as "H".
-        assert (σs !! b ≡ Some (RecvT t' r)) as ->.
-        { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
-        unfold bufs_typed.
-        iDestruct "H" as (rest) "[H1 H2]".
-        destruct (h !! (c,b)) eqn:E; eauto.
-      }
-
+      pose proof (Hvs (Chan c)) as Hc.
+      revert Hc. rewrite Hin. intros Hc.
+      simpl in *.
+      eapply exists_holds in Hc as [σs Hc].
+      eapply pure_sep_holds in Hc as [Heq Hc].
+      eapply map_to_multiset_lookup in Heq.
+      eapply prim_simple_adequacy; first exact Hc.
+      iIntros "H".
+      iDestruct (bufs_typed_recv with "H") as %(bufs & buf & Hbufs & Hbuf); first done.
+      iPureIntro.
       destruct buf.
-      {
-        eapply Thread_waiting_reachable; last unfold thread_waiting; eauto 10.
+      + assert (thread_waiting es h i c) as Htw.
+        {
+          eexists _,_,_,_.
+          split; first done.
+          split; first done.
+          rewrite -gmap_slice_lookup.
+          eauto.
+        }
+        eapply Thread_waiting_reachable; last done.
         eapply Hind_out; eauto.
-        - unfold waiting, thread_waiting; eauto 10.
-        - simpl. exists b. rewrite Hbuf //.
-      }
-      eapply Thread_step_reachable. eexists _,_. econstructor; last done; econstructor; first done.
-      eapply Recv_step. done.
+        eexists _,_; eauto.
+        unfold active.
+        eexists _.
+        rewrite -gmap_slice_lookup //.
+      + eapply Thread_step_reachable.
+        unfold can_stepi.
+        eexists _,_.
+        econstructor; last done.
+        econstructor; first done.
+        eapply Recv_step; eauto.
+        rewrite -gmap_slice_lookup //.
     * (* Send *)
-      destruct H as (v1 & v2 & ->).
+      destruct H as (v1 & v2 & p & ->).
       revert Het. model.
       intros (r & t' & -> & Σ3 & Σ4 & Σeq & Hdisj' & ([c b] & -> & Het1) & Het2).
-
-      assert (out_edges g (Thread i) !! Chan c ≡ Some (b, SendT t' r)) as HH.
-      {
-        rewrite <-Het1 in Σeq. rewrite ->Σeq in Hout. rewrite ->Σeq in Hdisj. clear Σeq.
-        rewrite Hout. erewrite lookup_union_Some_l; first done.
-        erewrite lookup_union_Some_l; first done.
-        rewrite lookup_singleton. done.
-      }
-
-      pose proof (out_edges_in_labels _ _ _ _ HH) as [x Hin].
-
-      assert (∃ buf, h !! (c,negb b) = Some buf) as [buf Hbuf].
-      {
-        pose proof (Hvs (Chan c)) as Hc.
-        eapply prim_simple_adequacy; first done.
-        simpl.
-        iIntros "H". iDestruct "H" as (σs Hinlc) "H".
-        iDestruct (bufs_typed_wlog true b with "H") as "H".
-        assert (σs !! b ≡ Some (SendT t' r)) as ->.
-        { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hin. done. }
-        unfold bufs_typed.
-        iDestruct "H" as (rest) "[H1 H2]".
-        destruct (h !! (c,b)) eqn:E; eauto. simpl.
-        destruct (h !! (c,negb b)) eqn:F; eauto. simpl.
-        destruct (σs !! negb b) eqn:G; eauto.
-        iDestruct "H2" as "%". apply dual_end_inv in H. subst.
-        destruct l; eauto. simpl.
-        iDestruct "H1" as "%". inversion H.
-      }
-      eapply Thread_step_reachable. eexists _,_. econstructor; last done; econstructor; first done.
-      eapply Send_step. done.
+      eapply Thread_step_reachable. eexists _,_.
+      econstructor; last done.
+      eauto using head_step, ctx_step.
     * (* Fork *)
-      destruct H as (v & ->).
+      destruct H as (n & f & ->).
       destruct (heap_fresh h) as [ii HH].
-      eapply Thread_step_reachable. eexists _,_. econstructor; last done; econstructor; first done.
-      eapply Fork_step; eauto.
+      eapply Thread_step_reachable. eexists _,_.
+      econstructor; last done.
+      eauto using head_step, ctx_step.
     * (* Close *)
       destruct H as (v & ->).
       revert Het. model.
       intros (-> & ([c b] & -> & Het)).
-      assert (out_edges g (Thread i) !! (Chan c) ≡ Some (b,EndT)) as HH.
-      {
-        rewrite Hout -Het. erewrite lookup_union_Some_l; eauto.
-        rewrite lookup_singleton. done.
-      }
-
-      pose proof (out_edges_in_labels _ _ _ _ HH) as [x Hx].
-
-      assert (h !! (c,b) = Some []).
-      {
-        pose proof (Hvs (Chan c)) as Hc.
-        eapply prim_simple_adequacy; first done. simpl.
-        iIntros "H". iDestruct "H" as (σs Hinlc) "H".
-        iDestruct (bufs_typed_wlog true b with "H") as "H".
-        assert (σs !! b ≡ Some EndT) as ->.
-        { eapply map_to_multiset_lookup. rewrite <-Hinlc, Hx. done. }
-        unfold bufs_typed.
-        iDestruct "H" as (rest) "[H1 H2]".
-        destruct (h !! (c,b)) eqn:E; eauto.
-        simpl. destruct l; simpl; eauto.
-      }
-      eapply Thread_step_reachable. eexists _,_. econstructor; last done; econstructor; first done.
-      eapply Close_step. done.
+      eapply Thread_step_reachable. eexists _,_.
+      econstructor; last done.
+      eauto using head_step, ctx_step.
   - (* Channel *)
     destruct Hactive as (b & Hib).
+    rewrite -gmap_slice_lookup in Hib.
     apply exists_holds in Hx as [σs Hx].
     apply pure_sep_holds in Hx as [Hinl Hx].
-    eapply holds_entails in Hx; last by eapply (bufs_typed_wlog true b).
-    destruct Hib as [buf Hbuf].
-    rewrite Hbuf in Hx.
-    destruct (σs !! b) as [σ1|] eqn:E; last first.
-    { eapply prim_simple_adequacy; first done.
-      rewrite /bufs_typed /=. iIntros "H".
-      by iDestruct "H" as (?) "[% ?]". }
-    erewrite map_to_multiset_Some in Hinl; eauto.
+    eapply prim_simple_adequacy; first exact Hx.
+    iIntros "H".
+    iDestruct (bufs_typed_progress with "H") as %[HH|[p Hp]].
+    { rewrite HH lookup_empty in Hib. by destruct Hib. }
+    iPureIntro.
+    destruct Hp as (q & σ & bufs & Hσ & Hbufs & Hrne).
 
-    destruct (classic (∃ c q, out_edges g (Chan c) !! Chan i ≡ Some q)) as [(c & q & Hc)|Hnc].
-    { (* This thing will handle the case of a chan-chan reference for us *)
-      eapply (Chan_ref_reachable _ _ _ (Chan c)).
-      { erewrite obj_refs_state_inv; eauto.
-        eapply dom_lookup_Some_equiv; eauto. }
-      eapply (Hind_in (Chan c)); simpl; eauto. { rewrite /waiting. naive_solver. }
-      destruct (h !! (c,true)) eqn:Q; eauto.
-      destruct (h !! (c,false)) eqn:Q'; eauto.
-      assert (out_edges g (Chan c) = ∅) as H.
-      {
-        eapply prim_empty_adequacy; first exact (Hvs (Chan c)).
-        iIntros "H". simpl. rewrite Q Q' /bufs_typed /=.
-        iDestruct "H" as (σs' ? ?) "[H1 H2]".
-        destruct (σs' !! true),(σs' !! false); eauto.
-      }
-      rewrite H lookup_empty in Hc. inversion Hc.
-    }
-    (* Since the chan has a buffer, there exists somebody holding a ref to this chan *)
-    (* If the other one is a chan, we're done *)
-    assert (∃ y, out_edges g y !! (Chan i) ≡ Some (b,σ1)) as [[] Hy];
-      first (eapply in_labels_out_edges; eauto); last (exfalso; eauto).
-    (* The one holding the ref to the chan is a thread *)
-    pose proof (Hvs (Thread n)) as Hn. simpl in Hn.
-    eapply pure_sep_holds in Hn as [? Hn].
-    destruct (es !! n) eqn:En; last first.
+    assert (∃ x, out_edges g x !! (Chan c) ≡ Some (q, σ)) as [y Hy].
     {
-      eapply emp_holds in Hn.
-      eapply map_empty_equiv_eq in Hn.
-      rewrite Hn in Hy. rewrite lookup_empty in Hy. inversion Hy.
-    }
-    destruct (classic (waiting es h (Thread n) (Chan i) (b, σ1))) as [w|n0]; last first.
-    { (* The thread is not blocked on the chan (but could be blocked on another chan) *)
-      eapply (Chan_ref_reachable _ _ _ (Thread n)).
-      { erewrite obj_refs_state_inv; eauto.
-        eapply dom_lookup_Some_equiv; eauto. }
-      eapply Hind_in; eauto. (* We need to show that the thread hasn't terminated with a unit value *)
-      simpl. exists e. split; eauto. intros ->.
-      simpl in Hn.
-      eapply affinely_pure_holds in Hn as [].
-      eapply map_empty_equiv_eq in H0.
-      rewrite H0 lookup_empty in Hy. inversion Hy.
-    }
-    (* The thread is blocked on the chan *)
-    unfold waiting in w.
-    destruct w as (i0 & j & ? & ? & Htw). simplify_eq.
-    unfold thread_waiting in Htw.
-    destruct Htw as (b' & k & Hk & Hi0 & Hjb).
-    rewrite Hi0 in En. simplify_eq.
-    rewrite ->rtyped0_ctx in Hn; eauto.
-    eapply exists_holds in Hn as [t Hn].
-    eapply sep_holds in Hn as (?&?&?&?&?&?).
-    simpl in H2.
-    eapply exists_holds in H2 as [t' H2].
-    eapply exists_holds in H2 as [r H2].
-    eapply pure_sep_holds in H2 as [-> H2].
-    eapply exists_holds in H2 as [r0 H2].
-    eapply pure_sep_holds in H2 as [? H2]. simplify_eq.
-    eapply own_holds in H2.
-    assert (Some (b',RecvT t' r) ≡ Some (b,σ1)).
-    {
-      rewrite <- Hy.
-      rewrite H0.
-      rewrite <- H2.
-      rewrite lookup_union lookup_singleton.
-      destruct (x0 !! Chan j) eqn:Q; simpl.
-      - rewrite Q. simpl. done.
-      - rewrite Q. simpl. done.
-    }
-    inversion H4. inversion H7. simpl in *.
-    apply leibniz_equiv in H8.
-    simplify_eq.
-    rewrite Hbuf in Hjb. simplify_eq.
-    simpl in Hx.
-    eapply exists_holds in Hx as [rest Hx].
-    eapply pure_sep_holds in Hx as [-> Hx].
-    simpl in Hx.
-    destruct (h !! (j,negb b)) eqn:Q; last first.
-    {
-      simpl in Hx. destruct (σs !! negb b).
-      - eapply false_holds in Hx as [].
-      - eapply affinely_pure_holds in Hx as [].
-        rewrite <-H9 in H6.
-        rewrite ->dual_recv in H6. inversion H6.
-    }
-    simpl in Hx.
-    destruct (σs !! negb b) eqn:Q2; last first.
-    { eapply false_holds in Hx as []. }
-    assert (delete b σs !! negb b = Some c) as HHH.
-    { rewrite lookup_delete_ne //. by destruct b. }
-    erewrite map_to_multiset_Some in Hinl; eauto.
-
-    rewrite ->(comm (⋅)), <-assoc in Hinl; last apply _.
-
-    assert (∃ z, out_edges g z !! (Chan j) ≡ Some (negb b, c)) as [z Hzout].
-    {
+      erewrite map_to_multiset_Some in Hinl; last done.
       eapply in_labels_out_edges; eauto.
     }
-    clear HHH.
-    destruct z; last (exfalso; eauto).
-    pose proof (Hvs (Thread n)) as Hz. simpl in Hz.
-    eapply pure_sep_holds in Hz as [? Hz].
-    destruct (es !! n) eqn:R; last first.
+
+    eapply (Chan_ref_reachable _ _ _ y).
     {
-      eapply emp_holds in Hz.
-      eapply map_empty_equiv_eq in Hz.
-      rewrite Hz in Hzout. rewrite lookup_empty in Hzout.
-      inversion Hzout.
+      erewrite obj_refs_state_inv; eauto.
+      eapply dom_lookup_Some_equiv; eauto.
     }
-    destruct (classic (waiting es h (Thread n) (Chan j) (negb b, c))) as [w|n0]; last first.
-    {
-      eapply (Chan_ref_reachable _ _ _ (Thread n)).
-      { erewrite obj_refs_state_inv; eauto.
-        eapply dom_lookup_Some_equiv; eauto. }
-      eapply Hind_in; eauto.
-      simpl. exists e. split; eauto.
-      intros ->.
-      simpl in Hz.
-      eapply affinely_pure_holds in Hz as [].
-      eapply map_empty_equiv_eq in H6.
-      rewrite H6 in Hzout.
-      rewrite lookup_empty in Hzout.
-      inversion Hzout.
-    }
-    unfold waiting in w.
-    destruct w as (? & ? & ? & ? & Htw). simplify_eq.
-    unfold thread_waiting in Htw.
-    destruct Htw as (b' & ? & ? & HH & Hjb).
-    rewrite HH in R. simplify_eq.
-    rewrite ->rtyped0_ctx in Hz; eauto.
-    eapply exists_holds in Hz as [t Hz].
-    eapply sep_holds in Hz as (?&?&?&?&QQ&?).
-    simpl in *.
-    eapply exists_holds in QQ as [? QQ].
-    eapply exists_holds in QQ as [? QQ].
-    eapply pure_sep_holds in QQ as [-> QQ].
-    eapply exists_holds in QQ as [? QQ].
-    eapply pure_sep_holds in QQ as [? QQ]. simplify_eq.
-    eapply own_holds in QQ.
-    assert (Some (b',RecvT x6 x7) ≡ Some (negb b,c)).
-    {
-      rewrite <- Hzout.
-      rewrite H8.
-      rewrite <- QQ.
-      rewrite lookup_union lookup_singleton.
-      destruct (x5 !! Chan x2) eqn:Q'; simpl.
-      - rewrite Q'. simpl. done.
-      - rewrite Q'. simpl. done.
-    }
-    inversion H12. simplify_eq.
-    inversion H15. simpl in *. apply leibniz_equiv in H13.
-    simplify_eq.
-    rewrite Hjb in Q. simplify_eq.
-    simpl in Hx.
-    eapply affinely_pure_holds in Hx as [].
-    inversion H7. simpl in *.
-    inversion H18; simplify_eq. inversion H14.
-    simplify_eq. rewrite ->dual_recv in H16. inversion H16.
+
+    eapply Hind_in; eauto.
+    + intros (i & c' & -> & ? & Hw). simplify_eq.
+      unfold thread_waiting in Hw.
+      destruct Hw as (p' & q' & bufs' & k & Hk & Hi & Hc' & Hbufs').
+      specialize (Hvs (Thread i)).
+      eapply (holds_entails _ (∃ t s, own_out (Chan c') (p', RecvT q' t s) ∗ True)%I) in Hvs. 2:
+      {
+        simpl. iIntros "[_ H]". rewrite Hi.
+        rewrite rtyped0_ctx //.
+        iDestruct "H" as (t) "[H1 H2]". simpl.
+        iDestruct "H1" as (t' r ->) "H1".
+        iDestruct "H1" as (r0 HH) "H". simplify_eq.
+        iExists _,_. iFrame.
+      }
+      apply exists_holds in Hvs as [tt Hvs].
+      apply exists_holds in Hvs as [ss Hvs].
+      assert (out_edges g (Thread i) !! Chan c' ≡ Some (p', RecvT q' tt ss)) as Hoc'.
+      {
+        eapply sep_holds in Hvs as (Σ1 & Σ2 & H1 & HD & [HH _]).
+        rewrite H1.
+        eapply own_holds in HH.
+        rewrite lookup_union -HH lookup_singleton.
+        destruct (Σ2 !! Chan c') eqn:E; rewrite E; simpl; done.
+      }
+      revert Hoc'. rewrite Hy. intros Hoc'.
+      inversion Hoc'. simplify_eq. inversion H1. simpl in *.
+      inversion H0; simplify_eq.
+      simpl in *.
+      destruct Hrne as (buf & Hbuf & Hne).
+      rewrite gmap_slice_lookup Hc' in Hbufs. simplify_eq.
+    + specialize (Hvs y).
+      revert Hy Hvs. clear.
+      intros Hy Hvs.
+      destruct y; simpl in *.
+      { eapply pure_sep_holds in Hvs as [_ Hvs].
+        destruct (es !! n).
+        - eexists. split; first done.
+          intros ->. simpl in *.
+          eapply affinely_pure_holds in Hvs as [Hvs _].
+          revert Hy. rewrite Hvs lookup_empty. intros HH.
+          inversion HH.
+        - eapply emp_holds in Hvs. exfalso.
+          revert Hy. rewrite Hvs lookup_empty. intros HH.
+          inversion HH.
+      }
+      {
+        eapply exists_holds in Hvs as [σs Hvs].
+        eapply pure_sep_holds in Hvs as [_ Hvs].
+        destruct (classic (∃ p : participant, is_Some (h !! (s, p)))); eauto.
+        exfalso.
+        assert (gmap_slice h s = ∅) as HH.
+        { eapply map_eq. intros x.
+          rewrite lookup_empty gmap_slice_lookup.
+          destruct (h !! (s,x)) eqn:E; eauto.
+          exfalso. eauto. }
+        rewrite HH in Hvs.
+        eapply holds_entails in Hvs; last apply bufs_typed_empty_inv.
+        eapply affinely_pure_holds in Hvs as [Hvs _].
+        revert Hy. rewrite Hvs lookup_empty. intros HHH.
+        inversion HHH.
+      }
 Qed.
 
 Lemma active_progress es h x :
@@ -677,15 +633,15 @@ Proof.
   destruct (final_state_decision es h) as [Hdec|Hdec]; eauto; right.
   assert (∃ x, active x es h) as [x Hactive].
   { destruct Hdec as [(x&?)|(x&?)].
-    + destruct x. exists (Chan c). simpl. eauto.
+    + destruct x as [c b]. exists (Chan c). simpl. eauto.
     + destruct H0. eapply elem_of_list_lookup in H0 as [].
       exists (Thread x0). simpl. eauto. }
   eapply active_progress; eauto.
 Qed.
 
 (*
-  A subset of the threads & channels is in a partial deadlock (/ memory leak) if:
-  - All of the threads in the subset are blocked on one of the channels in the subset.
+  A subset of the threads & channels is in a deadlock (/ memory leak) if:
+  - All of the threads in the subset are blocked on channels in the subset.
   - All of the endpoints of the channels in the subset are held by one of the threads or channels in the subset.
 *)
 Record deadlock (es : list expr) (h : heap) (s : gset object) := {

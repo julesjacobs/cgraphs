@@ -399,4 +399,74 @@ Section genericinv.
         eauto with iFrame.
   Qed.
 
+  Lemma inv_alloc_rs (v1 : V) (n : nat)
+    (fv : fin n -> V)
+    (P P' : V -> multiset L -> hProp V L) :
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (P v)) ->
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (P' v)) ->
+    Inj eq eq fv ->
+    (∀ i, fv i ≠ v1) ->
+    (∀ v x, v ≠ v1 ∧ (∀ i, v ≠ fv i) -> P v x ⊢ P' v x) ->
+    (∀ i x, P (fv i) x ⊢ ⌜⌜ x ≡ ε ⌝⌝) ->
+    (∀ y, P v1 y ⊢
+      ∃ fl : fin n -> L,
+        P' v1 (y ⋅ fin_multiset n fl) ∗
+        ([∗ set] i ∈ all_fin n, own_out v1 (fl i) -∗ P' (fv i) ε)) ->
+    inv P -> inv P'.
+  Proof.
+    revert fv P P'. induction n; intros.
+    - eapply inv_impl; last done. intros.
+      iIntros "H". destruct (decide (v = v1)); subst.
+      + iDestruct (H6 with "H") as (fl) "[H1 H2]".
+        admit.
+      + iApply H4; last done.
+        split; eauto. intros. inversion i.
+    - admit.
+  Admitted.
+
+  Lemma inv_alloc_lrs (v1 v2 : V) (n : nat)
+    (fv : fin n -> V)
+    (P P' : V -> multiset L -> hProp V L) :
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (P v)) ->
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (P' v)) ->
+    Inj eq eq fv ->
+    v1 ≠ v2 ∧ (∀ i, fv i ≠ v1 ∧ fv i ≠ v2) ->
+    (∀ v x, v ≠ v1 ∧ v ≠ v2 ∧ (∀ i, v ≠ fv i) -> P v x ⊢ P' v x) ->
+    (∀ x, P v2 x ⊢ ⌜⌜ x ≡ ε ⌝⌝) ->
+    (∀ i x, P (fv i) x ⊢ ⌜⌜ x ≡ ε ⌝⌝) ->
+    (∀ y, P v1 y ⊢
+      ∃ fl : fin n -> L,
+        P' v1 y ∗
+        P' v2 (fin_multiset n fl) ∗
+        ([∗ set] i ∈ all_fin n, own_out v2 (fl i) -∗ P' (fv i) ε)) ->
+    inv P -> inv P'.
+  Proof.
+  Admitted.
+    (* intros Hproper Hproper' (Hneq1 & Hneq2 & Hneq3) Hrest H2 H3 H1 Hinv.
+    set q := (λ v x,
+      if decide (v = v1) then f' v1 x
+      else if decide (v = v2) then ∃ l2', f' v2 (x ⋅ {[l2']}) ∗ (own_out v2 l2' -∗ f' v3 ε)
+      else f v x)%I.
+    assert (inv q); subst q.
+    - eapply (inv_alloc_l v1 v2); last done; eauto.
+      + solve_proper.
+      + intros. iIntros "H". repeat case_decide; naive_solver.
+      + iIntros (y) "H".
+        iDestruct (H1 with "H") as (l1' l2') "[H1 H2]".
+        repeat case_decide; simplify_eq.
+        iExists l1'. iFrame.
+        iExists l2'. iFrame.
+    - eapply (inv_alloc_r v2 v3); last done.
+      + solve_proper.
+      + apply _.
+      + intros; simpl. repeat case_decide; simplify_eq; eauto.
+      + intros ? ? []. simpl.
+        repeat case_decide; simplify_eq; eauto.
+      + intros. simpl. sdec. eauto.
+      + intros. simpl. sdec.
+        iIntros "H".
+        iDestruct "H" as (?) "[H1 H2]".
+        eauto with iFrame.
+  Qed. *)
+
 End genericinv.
