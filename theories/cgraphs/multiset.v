@@ -1,4 +1,5 @@
 From iris.algebra Require Export cmra.
+From stdpp Require Import gmap.
 
 Record multiset A := MultiSet { multiset_car : list A }.
 Arguments MultiSet {_} _.
@@ -224,3 +225,235 @@ Proof.
   apply multiset_op_singleton in H. eauto.
 Qed.
 
+
+Definition map_kmap `{∀ A, Insert K2 A (M2 A), ∀ A, Empty (M2 A),
+    ∀ A, FinMapToList K1 A (M1 A)} {A} (f : K1 → K2) (m : M1 A) : M2 A :=
+  list_to_map (fmap (prod_map f id) (map_to_list m)).
+
+Section map_kmap.
+  Context `{FinMap K1 M1} `{FinMap K2 M2}.
+  Context (f : K1 → K2) `{!Inj (=) (=) f}.
+  Local Notation map_kmap := (map_kmap (M1:=M1) (M2:=M2)).
+
+  Lemma lookup_map_kmap_Some {A} (m : M1 A) (j : K2) x :
+    map_kmap f m !! j = Some x ↔ ∃ i, j = f i ∧ m !! i = Some x.
+  Proof.
+    assert (∀ x',
+      (j, x) ∈ prod_map f id <$> map_to_list m →
+      (j, x') ∈ prod_map f id <$> map_to_list m → x = x').
+    { intros x'. rewrite !elem_of_list_fmap.
+      intros [[? y1] [??]] [[? y2] [??]]; simplify_eq/=.
+      by apply (map_to_list_unique m k). }
+    unfold map_kmap. rewrite <-elem_of_list_to_map', elem_of_list_fmap by done.
+    setoid_rewrite elem_of_map_to_list'. split.
+    - intros [[??] [??]]; naive_solver.
+    - intros [? [??]]. eexists (_, _); naive_solver.
+  Qed.
+  Lemma lookup_map_kmap_is_Some {A} (m : M1 A) (j : K2) :
+    is_Some (map_kmap f m !! j) ↔ ∃ i, j = f i ∧ is_Some (m !! i).
+  Proof. unfold is_Some. setoid_rewrite lookup_map_kmap_Some. naive_solver. Qed.
+  Lemma lookup_map_kmap_None {A} (m : M1 A) (j : K2) :
+    map_kmap f m !! j = None ↔ ∀ i, j = f i → m !! i = None.
+  Proof.
+    setoid_rewrite eq_None_not_Some.
+    rewrite lookup_map_kmap_is_Some. naive_solver.
+  Qed.
+  Lemma lookup_map_kmap {A} (m : M1 A) (i : K1) :
+    map_kmap f m !! f i = m !! i.
+  Proof. apply option_eq. setoid_rewrite lookup_map_kmap_Some. naive_solver. Qed.
+  Lemma lookup_total_map_kmap `{Inhabited A} (m : M1 A) (i : K1) :
+    map_kmap f m !!! f i = m !!! i.
+  Proof. by rewrite !lookup_total_alt lookup_map_kmap. Qed.
+
+  Lemma map_kmap_empty {A} : map_kmap f ∅ =@{M2 A} ∅.
+  Proof. unfold map_kmap. by rewrite map_to_list_empty. Qed.
+  Lemma map_kmap_singleton {A} i (x : A) : map_kmap f {[ i := x ]} = {[ f i := x ]}.
+  Proof. unfold map_kmap. by rewrite map_to_list_singleton. Qed.
+
+  Lemma map_kmap_partial_alter {A} (g : option A → option A) (m : M1 A) i :
+    map_kmap f (partial_alter g i m) = partial_alter g (f i) (map_kmap f m).
+  Proof.
+    apply map_eq; intros j. apply option_eq; intros y.
+    destruct (decide (j = f i)) as [->|?].
+    { by rewrite lookup_partial_alter !lookup_map_kmap lookup_partial_alter. }
+    rewrite lookup_partial_alter_ne ?lookup_map_kmap_Some //. split.
+    - intros [i' [? Hm]]; simplify_eq/=.
+      rewrite lookup_partial_alter_ne in Hm; naive_solver.
+    - intros [i' [? Hm]]; simplify_eq/=. exists i'.
+      rewrite lookup_partial_alter_ne; naive_solver.
+  Qed.
+  Lemma map_kmap_insert {A} (m : M1 A) i x :
+    map_kmap f (<[i:=x]> m) = <[f i:=x]> (map_kmap f m).
+  Proof. apply map_kmap_partial_alter. Qed.
+  Lemma map_kmap_delete {A} (m : M1 A) i :
+    map_kmap f (delete i m) = delete (f i) (map_kmap f m).
+  Proof. apply map_kmap_partial_alter. Qed.
+  Lemma map_kmap_alter {A} (g : A → A) (m : M1 A) i :
+    map_kmap f (alter g i m) = alter g (f i) (map_kmap f m).
+  Proof. apply map_kmap_partial_alter. Qed.
+
+  Lemma map_kmap_imap {A B} (g : K2 → A → option B) (m : M1 A) :
+    map_kmap f (map_imap (g ∘ f) m) = map_imap g (map_kmap f m).
+  Proof.
+    apply map_eq; intros j. apply option_eq; intros y.
+    rewrite map_lookup_imap bind_Some. setoid_rewrite lookup_map_kmap_Some.
+    setoid_rewrite map_lookup_imap. setoid_rewrite bind_Some. naive_solver.
+  Qed.
+  Lemma map_kmap_omap {A B} (g : A → option B) (m : M1 A) :
+    map_kmap f (omap g m) = omap g (map_kmap f m).
+  Proof.
+    apply map_eq; intros j. apply option_eq; intros y.
+    rewrite lookup_omap bind_Some. setoid_rewrite lookup_map_kmap_Some.
+    setoid_rewrite lookup_omap. setoid_rewrite bind_Some. naive_solver.
+  Qed.
+  Lemma map_kmap_fmap {A B} (g : A → B) (m : M1 A) :
+    map_kmap f (g <$> m) = g <$> (map_kmap f m).
+  Proof. by rewrite !map_fmap_alt map_kmap_omap. Qed.
+End map_kmap.
+
+Definition list_to_multiset {A} (l : list A) := MultiSet l.
+
+Lemma list_to_multiset_cons {A:ofe} (l : list A) (x : A) :
+  list_to_multiset (x :: l) ≡ {[ x ]} ⋅ list_to_multiset l.
+Proof. done. Qed.
+
+Instance list_to_multiset_proper {A:ofe} : Proper ((≡ₚ) ==> (≡)) (list_to_multiset (A:=A)).
+Proof.
+  intros ???.
+  induction H; eauto.
+  - rewrite !list_to_multiset_cons IHPermutation //.
+  - rewrite !list_to_multiset_cons !assoc (comm (⋅) {[y]}) //.
+  - by rewrite IHPermutation1.
+Qed.
+
+Lemma lookup_insert_spec `{Countable K} {V} (A : gmap K V) i j v :
+  (<[ i := v]> A) !! j = if (decide (i = j)) then Some v else (A !! j).
+Proof.
+  case_decide.
+  - subst. apply lookup_insert.
+  - by apply lookup_insert_ne.
+Qed.
+
+
+Lemma lookup_delete_spec `{Countable K} {V} (A : gmap K V) i j :
+  (delete i A) !! j = if (decide (i = j)) then None else A !! j.
+Proof.
+  case_decide.
+  - apply lookup_delete_None; eauto.
+  - rewrite lookup_delete_ne; eauto.
+Qed.
+
+
+Section map_to_multiset.
+  Context {K : ofe}.
+  Context `{HC : Countable K}.
+  Context {HL : LeibnizEquiv K}.
+  Context {A:ofe}.
+  Implicit Type m : gmap K A.
+  Implicit Type x : multiset (K*A).
+  Implicit Type i : K.
+  Implicit Type v : A.
+
+  Definition map_to_multiset m :=
+    list_to_multiset (map_to_list m).
+
+  Lemma map_to_multiset_empty :
+    map_to_multiset ∅ = ε.
+  Proof.
+    unfold map_to_multiset.
+    rewrite map_to_list_empty //.
+  Qed.
+
+  Lemma map_to_multiset_empty' m :
+    (∀ i, m !! i = None) ->
+    map_to_multiset m = ε.
+  Proof.
+    intros HH.
+    assert (m = ∅) as -> by by apply map_empty.
+    apply map_to_multiset_empty.
+  Qed.
+
+  Lemma map_to_multiset_insert m i v :
+    m !! i = None ->
+    map_to_multiset (<[i:=v]> m) ≡ {[ (i, v) ]} ⋅ map_to_multiset m.
+  Proof.
+    intros Hi.
+    unfold map_to_multiset.
+    rewrite map_to_list_insert //.
+  Qed.
+
+  Lemma map_to_multiset_lookup m i v x :
+    {[ (i, v) ]} ⋅ x ≡ map_to_multiset m ->
+    m !! i ≡ Some v.
+  Proof.
+    revert x. induction m using map_ind; intros x'.
+    - rewrite map_to_multiset_empty.
+      intros HH. eapply multiset_empty_mult in HH as [].
+      exfalso.
+      eapply multiset_empty_neq_singleton; done.
+    - rewrite map_to_multiset_insert //.
+      intros HH.
+      eapply mset_xsplit in HH as (e11 & e12 & e21 & e22 & Q1 & Q2 & Q3 & Q4).
+      eapply multiset_singleton_mult in Q1.
+      eapply multiset_singleton_mult in Q3.
+      destruct Q1 as [[H11 H12]|[H11 H12]].
+      + rewrite ->H12 in Q4.
+        symmetry in Q4.
+        pose proof (IHm _ Q4) as H6.
+        rewrite lookup_insert_spec.
+        case_decide; subst; eauto.
+        rewrite H in H6. inversion H6.
+      + rewrite ->H12 in Q4.
+        revert Q4. rewrite left_id. intros Q4.
+        destruct Q3 as [[H31 H32]|[H31 H32]].
+        * rewrite ->H11 in H31.
+          exfalso. eapply multiset_empty_neq_singleton, multiset_unit_equiv_eq.
+          exact H31.
+        * rewrite ->H11 in H31.
+          eapply inj in H31; last apply _.
+          inversion H31; simpl in *.
+          rewrite H1.
+          assert (i = i0).
+          { apply leibniz_equiv. done. } subst.
+          rewrite lookup_insert //.
+  Qed.
+
+  Lemma map_to_multiset_delete m i v x :
+    {[ (i, v) ]} ⋅ x ≡ map_to_multiset m ->
+    x ≡ map_to_multiset (delete i m).
+  Proof.
+    intros HH.
+    pose proof (map_to_multiset_lookup _ _ _ _ HH) as Hi.
+    inversion Hi; subst.
+    replace m with (<[ i := x0 ]> (delete i m)) in HH; last first.
+    { apply map_eq. intros j.
+      rewrite lookup_insert_spec lookup_delete_spec.
+      case_decide; subst; eauto. }
+    rewrite ->map_to_multiset_insert in HH; last apply lookup_delete.
+    rewrite ->H1 in HH.
+    by apply multiset_op_inj in HH.
+  Qed.
+
+  Lemma map_to_multiset_update m x i v v' :
+    {[ (i, v) ]} ⋅ x ≡ map_to_multiset m ->
+    {[ (i, v') ]} ⋅ x ≡ map_to_multiset (<[i:=v']> m).
+  Proof.
+    rewrite <-fin_maps.insert_delete_insert.
+    rewrite map_to_multiset_insert; last apply lookup_delete.
+    intros H.
+    rewrite <-map_to_multiset_delete; done.
+  Qed.
+
+  Lemma map_to_multiset_Some m i v :
+    m !! i = Some v ->
+    map_to_multiset m ≡ {[ (i,v) ]} ⋅ map_to_multiset (delete i m).
+  Proof.
+    intros H.
+    replace m with (<[ i := v ]> (delete i m)); last first.
+    { apply map_eq. intros j.
+      rewrite lookup_insert_spec lookup_delete_spec.
+      case_decide; naive_solver. }
+    rewrite delete_insert; last apply lookup_delete.
+    rewrite map_to_multiset_insert //. apply lookup_delete.
+  Qed.
+End map_to_multiset.

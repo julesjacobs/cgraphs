@@ -108,10 +108,7 @@ Lemma gmap_slice_init_chans_ne c c' n :
   c ≠ c' -> gmap_slice (init_chans c n) c' = ∅.
 Proof. Admitted.
 
-Lemma fin_multiset_gmap {A:ofe} n (f : fin n -> A) :
-  fin_multiset n (λ m, (fin_to_nat m, f m)) ≡ map_to_multiset (fin_gmap n f).
-Proof.
-Admitted.
+
 
 (*
 L ::=(coind)  ![p]t.L | ?[p]t.L | End

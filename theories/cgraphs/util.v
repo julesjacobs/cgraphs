@@ -1,99 +1,6 @@
 From stdpp Require Import gmap.
 From diris.cgraphs Require Export multiset.
 
-Definition map_kmap `{∀ A, Insert K2 A (M2 A), ∀ A, Empty (M2 A),
-    ∀ A, FinMapToList K1 A (M1 A)} {A} (f : K1 → K2) (m : M1 A) : M2 A :=
-  list_to_map (fmap (prod_map f id) (map_to_list m)).
-
-Section map_kmap.
-  Context `{FinMap K1 M1} `{FinMap K2 M2}.
-  Context (f : K1 → K2) `{!Inj (=) (=) f}.
-  Local Notation map_kmap := (map_kmap (M1:=M1) (M2:=M2)).
-
-  Lemma lookup_map_kmap_Some {A} (m : M1 A) (j : K2) x :
-    map_kmap f m !! j = Some x ↔ ∃ i, j = f i ∧ m !! i = Some x.
-  Proof.
-    assert (∀ x',
-      (j, x) ∈ prod_map f id <$> map_to_list m →
-      (j, x') ∈ prod_map f id <$> map_to_list m → x = x').
-    { intros x'. rewrite !elem_of_list_fmap.
-      intros [[? y1] [??]] [[? y2] [??]]; simplify_eq/=.
-      by apply (map_to_list_unique m k). }
-    unfold map_kmap. rewrite <-elem_of_list_to_map', elem_of_list_fmap by done.
-    setoid_rewrite elem_of_map_to_list'. split.
-    - intros [[??] [??]]; naive_solver.
-    - intros [? [??]]. eexists (_, _); naive_solver.
-  Qed.
-  Lemma lookup_map_kmap_is_Some {A} (m : M1 A) (j : K2) :
-    is_Some (map_kmap f m !! j) ↔ ∃ i, j = f i ∧ is_Some (m !! i).
-  Proof. unfold is_Some. setoid_rewrite lookup_map_kmap_Some. naive_solver. Qed.
-  Lemma lookup_map_kmap_None {A} (m : M1 A) (j : K2) :
-    map_kmap f m !! j = None ↔ ∀ i, j = f i → m !! i = None.
-  Proof.
-    setoid_rewrite eq_None_not_Some.
-    rewrite lookup_map_kmap_is_Some. naive_solver.
-  Qed.
-  Lemma lookup_map_kmap {A} (m : M1 A) (i : K1) :
-    map_kmap f m !! f i = m !! i.
-  Proof. apply option_eq. setoid_rewrite lookup_map_kmap_Some. naive_solver. Qed.
-  Lemma lookup_total_map_kmap `{Inhabited A} (m : M1 A) (i : K1) :
-    map_kmap f m !!! f i = m !!! i.
-  Proof. by rewrite !lookup_total_alt lookup_map_kmap. Qed.
-
-  Lemma map_kmap_empty {A} : map_kmap f ∅ =@{M2 A} ∅.
-  Proof. unfold map_kmap. by rewrite map_to_list_empty. Qed.
-  Lemma map_kmap_singleton {A} i (x : A) : map_kmap f {[ i := x ]} = {[ f i := x ]}.
-  Proof. unfold map_kmap. by rewrite map_to_list_singleton. Qed.
-
-  Lemma map_kmap_partial_alter {A} (g : option A → option A) (m : M1 A) i :
-    map_kmap f (partial_alter g i m) = partial_alter g (f i) (map_kmap f m).
-  Proof.
-    apply map_eq; intros j. apply option_eq; intros y.
-    destruct (decide (j = f i)) as [->|?].
-    { by rewrite lookup_partial_alter !lookup_map_kmap lookup_partial_alter. }
-    rewrite lookup_partial_alter_ne ?lookup_map_kmap_Some //. split.
-    - intros [i' [? Hm]]; simplify_eq/=.
-      rewrite lookup_partial_alter_ne in Hm; naive_solver.
-    - intros [i' [? Hm]]; simplify_eq/=. exists i'.
-      rewrite lookup_partial_alter_ne; naive_solver.
-  Qed.
-  Lemma map_kmap_insert {A} (m : M1 A) i x :
-    map_kmap f (<[i:=x]> m) = <[f i:=x]> (map_kmap f m).
-  Proof. apply map_kmap_partial_alter. Qed.
-  Lemma map_kmap_delete {A} (m : M1 A) i :
-    map_kmap f (delete i m) = delete (f i) (map_kmap f m).
-  Proof. apply map_kmap_partial_alter. Qed.
-  Lemma map_kmap_alter {A} (g : A → A) (m : M1 A) i :
-    map_kmap f (alter g i m) = alter g (f i) (map_kmap f m).
-  Proof. apply map_kmap_partial_alter. Qed.
-
-  Lemma map_kmap_imap {A B} (g : K2 → A → option B) (m : M1 A) :
-    map_kmap f (map_imap (g ∘ f) m) = map_imap g (map_kmap f m).
-  Proof.
-    apply map_eq; intros j. apply option_eq; intros y.
-    rewrite map_lookup_imap bind_Some. setoid_rewrite lookup_map_kmap_Some.
-    setoid_rewrite map_lookup_imap. setoid_rewrite bind_Some. naive_solver.
-  Qed.
-  Lemma map_kmap_omap {A B} (g : A → option B) (m : M1 A) :
-    map_kmap f (omap g m) = omap g (map_kmap f m).
-  Proof.
-    apply map_eq; intros j. apply option_eq; intros y.
-    rewrite lookup_omap bind_Some. setoid_rewrite lookup_map_kmap_Some.
-    setoid_rewrite lookup_omap. setoid_rewrite bind_Some. naive_solver.
-  Qed.
-  Lemma map_kmap_fmap {A B} (g : A → B) (m : M1 A) :
-    map_kmap f (g <$> m) = g <$> (map_kmap f m).
-  Proof. by rewrite !map_fmap_alt map_kmap_omap. Qed.
-End map_kmap.
-
-Lemma lookup_insert_spec `{Countable K} {V} (A : gmap K V) i j v :
-  (<[ i := v]> A) !! j = if (decide (i = j)) then Some v else (A !! j).
-Proof.
-  case_decide.
-  - subst. apply lookup_insert.
-  - by apply lookup_insert_ne.
-Qed.
-
 Lemma list_lookup_insert_spec {V} (xs : list V) i j v :
   (<[ i := v ]> xs) !! j = if (decide (i = j ∧ i < length xs)) then Some v else (xs !! j).
 Proof.
@@ -102,14 +9,6 @@ Proof.
   - destruct (decide (i < length xs)).
     + assert (i ≠ j) by naive_solver. apply list_lookup_insert_ne. done.
     + rewrite list_insert_ge; [done|lia].
-Qed.
-
-Lemma lookup_delete_spec `{Countable K} {V} (A : gmap K V) i j :
-  (delete i A) !! j = if (decide (i = j)) then None else A !! j.
-Proof.
-  case_decide.
-  - apply lookup_delete_None; eauto.
-  - rewrite lookup_delete_ne; eauto.
 Qed.
 
 From iris.bi Require Import bi.
@@ -666,16 +565,21 @@ Proof.
   destruct (m !! i); eauto; done.
 Qed.
 
-Definition fin_list {A} n (f : fin n -> A) : list A.
-Admitted.
+Definition fin_list {A} n (f : fin n -> A) : list A := vec_to_list (fun_to_vec f).
 
 Lemma fin_list_lookup {A} n (f : fin n -> A) (i : fin n) :
   fin_list n f !! fin_to_nat i = Some (f i).
-Proof. Admitted.
+Proof.
+  unfold fin_list.
+  rewrite -vlookup_lookup lookup_fun_to_vec //.
+Qed.
 
 Lemma fin_list_length {A} n (f : fin n -> A) :
   length (fin_list n f) = n.
-Proof. Admitted.
+Proof.
+  unfold fin_list.
+  rewrite vec_to_list_length //.
+Qed.
 
 Lemma fin_list_lookup_ne {A} n (f : fin n -> A) (i : nat) :
   i >= n -> fin_list n f !! i = None.
@@ -716,10 +620,8 @@ Definition big_union `{Countable A} : gset (gset A) -> gset A := set_fold (∪) 
 Lemma elem_of_big_union `{Countable A} (s : gset (gset A)) (x : A) :
   x ∈ big_union s <-> ∃ a, a ∈ s ∧ x ∈ a.
 Proof.
-  revert s.
-  eapply (set_fold_ind_L (λ y s, x ∈ y ↔ (∃ a, a ∈ s ∧ x ∈ a))).
-  - set_solver.
-  - intros. rewrite elem_of_union H1. set_solver.
+  eapply (set_fold_ind_L (λ y s, x ∈ y ↔ (∃ a, a ∈ s ∧ x ∈ a))); first set_solver.
+  intros. rewrite elem_of_union H1. set_solver.
 Qed.
 
 Definition fin_union `{Countable A} n (f : fin n -> gset A) : gset A :=
@@ -734,16 +636,48 @@ Proof.
   naive_solver.
 Qed.
 
-Definition fin_gmap {T} n : (fin n -> T) -> gmap nat T.
-Admitted.
+Fixpoint list_to_mapi' {A} (xs : list A) (n : nat) : gmap nat A :=
+  match xs with
+  | [] => ∅
+  | x::r => <[ n := x ]> (list_to_mapi' r (S n))
+  end.
+
+Definition list_to_mapi {A} (xs : list A) := list_to_mapi' xs 0.
+
+Lemma list_to_mapi'_lookup {A} (xs : list A) (i n : nat) :
+  i >= n -> list_to_mapi' xs n !! i = xs !! (i - n).
+Proof.
+  revert i n. induction xs; simpl; intros.
+  - rewrite !lookup_empty. by destruct (i - n).
+  - rewrite lookup_insert_spec lookup_cons.
+    case_decide; subst.
+    + replace (i - i) with 0 by lia. done.
+    + destruct (i - n) eqn:E; try lia.
+      erewrite IHxs; last lia.
+      f_equal. lia.
+Qed.
+
+Lemma list_to_mapi_lookup {A} (xs : list A) (i : nat) :
+  list_to_mapi xs !! i = xs !! i.
+Proof.
+  unfold list_to_mapi. rewrite list_to_mapi'_lookup; f_equal; lia.
+Qed.
+
+Definition fin_gmap {T} n : (fin n -> T) -> gmap nat T := list_to_mapi ∘ fin_list n.
 
 Lemma fin_gmap_lookup {T} n (f : fin n -> T) (i : fin n) :
   fin_gmap n f !! (fin_to_nat i) = Some (f i).
-Proof. Admitted.
+Proof.
+  unfold fin_gmap. simpl.
+  rewrite list_to_mapi_lookup fin_list_lookup //.
+Qed.
 
 Lemma fin_gmap_lookup_ne {T} n (f : fin n -> T) (k : nat) :
   k >= n -> fin_gmap n f !! k = None.
-Proof. Admitted.
+Proof.
+  unfold fin_gmap. simpl. intros.
+  rewrite list_to_mapi_lookup fin_list_lookup_ne //.
+Qed.
 
 Lemma fin_choice {T} n (P : fin n -> T -> Prop) :
   (∀ i : fin n, ∃ y : T, P i y) -> ∃ f : fin n -> T, ∀ i, P i (f i).
@@ -823,5 +757,20 @@ Proof.
   rewrite lookup_union !gmap_slice_lookup lookup_union //.
 Qed.
 
-Definition fin_multiset {A} n (f : fin n -> A) : multiset A.
+Lemma imap_fin_list {A B} n (g : nat -> A -> B) (f : fin n -> A) :
+  imap g (fin_list n f) = fin_list n (λ i, g (fin_to_nat i) (f i)).
+Proof.
+  eapply list_eq. intros.
+  rewrite list_lookup_imap.
+  destruct (decide (i < n)) as [H|H].
+  - rewrite -(fin_to_nat_to_fin _ _ H).
+    rewrite !fin_list_lookup //.
+  - rewrite !fin_list_lookup_ne //; lia.
+Qed.
+
+Definition fin_multiset {A} n (f : fin n -> A) : multiset A := list_to_multiset (fin_list n f).
+
+Lemma fin_multiset_gmap {A:ofe} n (f : fin n -> A) :
+  fin_multiset n (λ m, (fin_to_nat m, f m)) ≡ map_to_multiset (fin_gmap n f).
+Proof.
 Admitted.

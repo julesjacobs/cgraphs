@@ -12,8 +12,8 @@
 -arg -w -arg -ambiguous-paths
 -arg -native-compiler -arg no
 
-theories/cgraphs/util.v
 theories/cgraphs/multiset.v
+theories/cgraphs/util.v
 theories/cgraphs/mapexcl.v
 theories/cgraphs/uforests.v
 theories/cgraphs/upred.v
