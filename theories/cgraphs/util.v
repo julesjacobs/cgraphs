@@ -1,4 +1,5 @@
 From stdpp Require Import gmap.
+From diris.cgraphs Require Export multiset.
 
 Definition map_kmap `{∀ A, Insert K2 A (M2 A), ∀ A, Empty (M2 A),
     ∀ A, FinMapToList K1 A (M1 A)} {A} (f : K1 → K2) (m : M1 A) : M2 A :=
@@ -37,7 +38,7 @@ Section map_kmap.
   Proof. apply option_eq. setoid_rewrite lookup_map_kmap_Some. naive_solver. Qed.
   Lemma lookup_total_map_kmap `{Inhabited A} (m : M1 A) (i : K1) :
     map_kmap f m !!! f i = m !!! i.
-  Proof. by rewrite !lookup_total_alt, lookup_map_kmap. Qed.
+  Proof. by rewrite !lookup_total_alt lookup_map_kmap. Qed.
 
   Lemma map_kmap_empty {A} : map_kmap f ∅ =@{M2 A} ∅.
   Proof. unfold map_kmap. by rewrite map_to_list_empty. Qed.
@@ -49,12 +50,12 @@ Section map_kmap.
   Proof.
     apply map_eq; intros j. apply option_eq; intros y.
     destruct (decide (j = f i)) as [->|?].
-    { by rewrite lookup_partial_alter, !lookup_map_kmap, lookup_partial_alter. }
-    rewrite lookup_partial_alter_ne, !lookup_map_kmap_Some by done. split.
+    { by rewrite lookup_partial_alter !lookup_map_kmap lookup_partial_alter. }
+    rewrite lookup_partial_alter_ne ?lookup_map_kmap_Some //. split.
     - intros [i' [? Hm]]; simplify_eq/=.
-      rewrite lookup_partial_alter_ne in Hm by naive_solver. naive_solver.
+      rewrite lookup_partial_alter_ne in Hm; naive_solver.
     - intros [i' [? Hm]]; simplify_eq/=. exists i'.
-      rewrite lookup_partial_alter_ne by naive_solver. naive_solver.
+      rewrite lookup_partial_alter_ne; naive_solver.
   Qed.
   Lemma map_kmap_insert {A} (m : M1 A) i x :
     map_kmap f (<[i:=x]> m) = <[f i:=x]> (map_kmap f m).
@@ -70,19 +71,19 @@ Section map_kmap.
     map_kmap f (map_imap (g ∘ f) m) = map_imap g (map_kmap f m).
   Proof.
     apply map_eq; intros j. apply option_eq; intros y.
-    rewrite map_lookup_imap, bind_Some. setoid_rewrite lookup_map_kmap_Some.
+    rewrite map_lookup_imap bind_Some. setoid_rewrite lookup_map_kmap_Some.
     setoid_rewrite map_lookup_imap. setoid_rewrite bind_Some. naive_solver.
   Qed.
   Lemma map_kmap_omap {A B} (g : A → option B) (m : M1 A) :
     map_kmap f (omap g m) = omap g (map_kmap f m).
   Proof.
     apply map_eq; intros j. apply option_eq; intros y.
-    rewrite lookup_omap, bind_Some. setoid_rewrite lookup_map_kmap_Some.
+    rewrite lookup_omap bind_Some. setoid_rewrite lookup_map_kmap_Some.
     setoid_rewrite lookup_omap. setoid_rewrite bind_Some. naive_solver.
   Qed.
   Lemma map_kmap_fmap {A B} (g : A → B) (m : M1 A) :
     map_kmap f (g <$> m) = g <$> (map_kmap f m).
-  Proof. by rewrite !map_fmap_alt, map_kmap_omap. Qed.
+  Proof. by rewrite !map_fmap_alt map_kmap_omap. Qed.
 End map_kmap.
 
 Lemma lookup_insert_spec `{Countable K} {V} (A : gmap K V) i j v :
@@ -665,13 +666,43 @@ Proof.
   destruct (m !! i); eauto; done.
 Qed.
 
-Definition fin_gset `{Countable A} n (f : fin n -> A) : gset A.
+Definition fin_list {A} n (f : fin n -> A) : list A.
 Admitted.
+
+Lemma fin_list_lookup {A} n (f : fin n -> A) (i : fin n) :
+  fin_list n f !! fin_to_nat i = Some (f i).
+Proof. Admitted.
+
+Lemma fin_list_length {A} n (f : fin n -> A) :
+  length (fin_list n f) = n.
+Proof. Admitted.
+
+Lemma fin_list_lookup_ne {A} n (f : fin n -> A) (i : nat) :
+  i >= n -> fin_list n f !! i = None.
+Proof.
+  intros. destruct (fin_list n f !! i) eqn:E; eauto.
+  exfalso. eapply lookup_lt_Some in E. rewrite fin_list_length in E. lia.
+Qed.
+
+
+Definition fin_gset `{Countable A} n (f : fin n -> A) : gset A
+  := list_to_set (fin_list n f).
 
 Lemma elem_of_fin_gset `{Countable A} n (f : fin n -> A) (x : A) :
   x ∈ fin_gset n f <-> ∃ i, f i = x.
 Proof.
-Admitted.
+  unfold fin_gset.
+  rewrite elem_of_list_to_set elem_of_list_lookup.
+  split.
+  - intros [i Hi].
+    assert (i < n) as Q.
+    { eapply lookup_lt_Some in Hi. rewrite fin_list_length in Hi. done. }
+    replace i with (fin_to_nat (nat_to_fin Q)) in Hi
+      by rewrite fin_to_nat_to_fin //.
+    rewrite fin_list_lookup in Hi. naive_solver.
+  - intros [i Hi]. exists (fin_to_nat i).
+    rewrite fin_list_lookup. by f_equal.
+Qed.
 
 Definition all_fin n := fin_gset n id.
 
@@ -776,3 +807,6 @@ Proof.
   eapply map_eq. intros.
   rewrite lookup_union !gmap_slice_lookup lookup_union //.
 Qed.
+
+Definition fin_multiset {A} n (f : fin n -> A) : multiset A.
+Admitted.

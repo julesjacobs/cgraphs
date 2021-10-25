@@ -23,3 +23,20 @@ Proof.
   iPureIntro. intros.
   apply G. apply all_fin_all.
 Qed.
+
+Lemma big_sepS_impl1 {PROP : bi} `{Countable A} (s : gset A) (P P' : A -> PROP) (x0 : A) :
+  x0 ∈ s ->
+  □ (∀ x, ⌜ x ≠ x0 ⌝ -∗ P x -∗ P' x) -∗
+    (P x0 -∗ P' x0) -∗
+    ([∗ set] x ∈ s, P x) -∗ [∗ set] x ∈ s, P' x.
+Proof.
+  iIntros (Hx0) "#Hr H1 H".
+  rewrite big_sepS_delete //.
+  iApply big_sepS_delete; first done.
+  iDestruct "H" as "[H0 H]".
+  iSplitL "H1 H0".
+  - iApply "H1". done.
+  - iApply (big_sepS_impl with "H"). iModIntro.
+    iIntros (x Hx) "H".
+    iApply ("Hr" with "[%] H"). set_solver.
+Qed.

@@ -8,7 +8,7 @@ Section bufs_typed.
   Definition bufs_typed (bufs : gmap participant (gmap participant (list val)))
                         (σs : gmap participant session_type) : rProp.
   Admitted.
-  (* Idea: finish the proof while admitting all lemmas about bufs_typed. *)
+  (* Idea: finish the proof while delaying all lemmas about bufs_typed. *)
   (* Figure out bufs_typed later. *)
   (* We need lemmas for preservation and a lemma for progress. *)
   (* For progress we need that everyone receiving on empty buffers can't happen. *)
@@ -103,15 +103,6 @@ Lemma bufs_typed_empty_inv σs :
   bufs_typed ∅ σs ⊢ ⌜⌜ σs = ∅ ⌝⌝.
 Proof.
 Admitted.
-
-Lemma init_threads_lookup (c : session) n (f : fin n -> val) (i : fin n) :
-  init_threads c n f !! fin_to_nat i =
-    Some (App (Val (f i)) (Val (ChanV (c, fin_to_nat i)))).
-Proof. Admitted.
-
-Lemma init_threads_lookup_ne (c : session) n (f : fin n -> val) (i : nat) :
-  i >= n -> init_threads c n f !! i = None.
-Proof. Admitted.
 
 Lemma gmap_slice_init_chans_ne c c' n :
   c ≠ c' -> gmap_slice (init_chans c n) c' = ∅.
@@ -237,11 +228,12 @@ Proof.
     + intros v' x (Hn1 & Hn2 & Hn3). iIntros "H".
       destruct v'; simpl.
       * iDestruct "H" as "[? H]". iFrame.
-        rewrite lookup_app list_lookup_insert_spec insert_length.
+        rewrite lookup_app list_lookup_insert_spec list.insert_length.
         case_decide.
         { destruct H3. simplify_eq. }
         destruct (es !! n0) eqn:E; eauto.
-        rewrite init_threads_lookup_ne; eauto.
+        unfold init_threads.
+        rewrite fin_list_lookup_ne; eauto.
         cut (n0 - length es < n -> False); try lia.
         intros HH.
         specialize (Hn3 (nat_to_fin HH)). eapply Hn3.
@@ -287,10 +279,10 @@ Proof.
       iApply (big_sepS_impl with "H1"). iModIntro.
       iIntros (m _) "Ht Ho".
       iSplit; eauto.
-      rewrite lookup_app_r. 2: { rewrite insert_length. lia. }
-      rewrite insert_length.
+      rewrite lookup_app_r. 2: { rewrite list.insert_length. lia. }
+      rewrite list.insert_length.
       replace (length es + m - length es) with (fin_to_nat m) by lia.
-      rewrite init_threads_lookup H2.
+      rewrite fin_list_lookup H2.
       simpl. eauto with iFrame.
 Qed.
 

@@ -1,5 +1,6 @@
 From iris.proofmode Require Import base tactics classes.
 From diris.multiparty Require Export mutil.
+From diris.cgraphs Require Export util.
 
 Definition session := nat.
 Definition participant := nat.
@@ -345,11 +346,11 @@ Inductive pure_step : expr -> expr -> Prop :=
 
 Definition heap := gmap endpoint (gmap participant (list val)).
 
-Definition init_chans (i : session) (n : nat) : gmap endpoint (gmap participant (list val)).
+Definition init_chans (c : session) (n : nat) : gmap endpoint (gmap participant (list val)).
 Admitted.
 
-Definition init_threads (i : session) (n : nat) (fv : fin n -> val) : list expr.
-Admitted.
+Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr
+    := fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, fin_to_nat i)))).
 
 Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
     | Pure_step : ∀ e e' h,

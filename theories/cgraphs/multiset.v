@@ -224,5 +224,3 @@ Proof.
   apply multiset_op_singleton in H. eauto.
 Qed.
 
-Definition fin_multiset {A} n (f : fin n -> A) : multiset A.
-Admitted.

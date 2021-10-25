@@ -622,6 +622,24 @@ Proof.
   eapply H in H1. rewrite -H3 //.
 Qed.
 
+Check disj_union.
+
+Lemma disj_big_union_Some n Γ fΓ x t :
+  disj_union n Γ fΓ -> Γ !! x ≡ Some t ->
+    (∃ i, fΓ i !! x ≡ Some t ∧ ∀ j, j ≠ i -> fΓ i !! x = None) ∨ unrestricted t.
+Proof.
+Admitted.
+
+Lemma disj_big_union_Same n Γ fΓ x t t' i :
+  disj_union n Γ fΓ -> Γ !! x ≡ Some t -> fΓ i !! x ≡ Some t' -> t ≡ t'.
+Proof.
+Admitted.
+
+Lemma disj_big_union_delete n Γ fΓ x :
+  disj_union n Γ fΓ -> disj_union n (delete x Γ) (delete x ∘ fΓ).
+Proof.
+Admitted.
+
 Lemma subst_rtyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) :
   Γ !! x ≡ Some vT ->
   val_typed v vT -∗
@@ -967,9 +985,21 @@ Proof.
         - iDestruct "H2" as "[_ H]".
           iApply ("IH2" with "[%] Hv H"). done. }
   - iDestruct "He" as (σs fΓ [-> [Hcons Hdisj]]) "He".
-    iExists σs. iExists _.
-    iSplit. { iPureIntro. split; first done. split; first done. admit. }
-    admit.
+    iExists σs, (delete x ∘ fΓ).
+    iSplit; first eauto using disj_big_union_delete.
+    destruct (disj_big_union_Some n Γ fΓ x vT Hdisj H) as [(i & Hi & Hr)|Hunr].
+    + admit.
+      
+    + iDestruct (unrestricted_box with "Hv") as "Hv"; eauto.
+      iDestruct "Hv" as "#Hv".
+      iApply (big_sepS_impl with "He"). iModIntro.
+      iIntros (i _) "H".
+      destruct (fΓ i !! x) eqn:E.
+      * iApply ("IH" with "[%] Hv H").
+        assert (vT ≡ t) as ->. { eapply disj_big_union_Same; eauto. rewrite -E //. }
+        rewrite -E //.
+      * iDestruct (typed_no_var_subst with "H") as %->; eauto.
+        rewrite delete_notin //.
   - iDestruct "He" as "[% He]".
     iSplit; first done.
     iApply ("IH" with "[%] Hv He"). done.
