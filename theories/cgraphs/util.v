@@ -1,4 +1,5 @@
 From stdpp Require Import gmap.
+From stdpp Require Export finite.
 From diris.cgraphs Require Export multiset.
 
 Lemma list_lookup_insert_spec {V} (xs : list V) i j v :
@@ -678,11 +679,6 @@ Proof.
   unfold fin_gmap. simpl. intros.
   rewrite list_to_mapi_lookup fin_list_lookup_ne //.
 Qed.
-
-Lemma fin_choice {T} n (P : fin n -> T -> Prop) :
-  (∀ i : fin n, ∃ y : T, P i y) -> ∃ f : fin n -> T, ∀ i, P i (f i).
-Proof.
-Admitted.
 
 Lemma lookup_alter_spec `{Countable K} {V} (f : V -> V) (m : gmap K V) i j :
   alter f i m !! j = if decide (i = j) then f <$> m !! i else m !! j.

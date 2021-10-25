@@ -1,7 +1,7 @@
 From diris Require Export seplogic.
 From stdpp Require Export gmap.
 From diris.multiparty Require Export mutil langdef.
-From Coq.Logic Require Export FunctionalExtensionality.
+From Coq.Logic Require Export FunctionalExtensionality Classical.
 
 Inductive object := Thread (_:nat) | Chan (_:session).
 
@@ -373,7 +373,11 @@ Ltac foo := simpl; repeat iMatchHyp (fun H P =>
 Lemma disj_union_None n Γ fΓ x i :
   disj_union n Γ fΓ -> Γ !! x = None -> fΓ i !! x = None.
 Proof.
-Admitted.
+  intros []H.
+  destruct (fΓ i !! x) eqn:E; eauto.
+  assert (fΓ i !! x ≡ Some t) as HH by rewrite E //.
+  eapply du_left in HH. rewrite H in HH. inversion HH.
+Qed.
 
 Lemma typed_no_var_subst e Γ t x v :
   Γ !! x = None ->
@@ -626,17 +630,46 @@ Lemma disj_big_union_Some n Γ fΓ x t :
   disj_union n Γ fΓ -> Γ !! x ≡ Some t ->
     (∃ i, fΓ i !! x ≡ Some t ∧ ∀ j, j ≠ i -> fΓ j !! x = None) ∨ unrestricted t.
 Proof.
-Admitted.
+  intros []H.
+  eapply du_right in H as [p Hp].
+  destruct (classic (unrestricted t)); eauto.
+  left. exists p.
+  split; eauto.
+  intros.
+  destruct (fΓ j !! x) eqn:E; eauto.
+  inversion Hp. subst.
+  unfold disj in *. exfalso.
+  eapply H. edestruct du_disj; eauto.
+  rewrite -H3 -H2 //.
+Qed.
 
 Lemma disj_big_union_Same n Γ fΓ x t t' i :
   disj_union n Γ fΓ -> Γ !! x ≡ Some t -> fΓ i !! x ≡ Some t' -> t ≡ t'.
+  intros [] H1 H2.
 Proof.
-Admitted.
+  eapply du_left in H2.
+  rewrite ->H1 in H2. inversion H2. done.
+Qed.
+
+Lemma disj_delete x a b :
+  disj a b -> disj (delete x a) (delete x b).
+Proof.
+  unfold disj. intros ????.
+  rewrite !lookup_delete_spec.
+  repeat case_decide; intros; simplify_eq. eauto.
+Qed.
 
 Lemma disj_big_union_delete n Γ fΓ x :
   disj_union n Γ fΓ -> disj_union n (delete x Γ) (delete x ∘ fΓ).
 Proof.
-Admitted.
+  intros []. split; simpl.
+  - eauto using disj_delete.
+  - intros ???. rewrite !lookup_delete_spec.
+    repeat case_decide; simplify_eq; eauto.
+  - intros ??. rewrite lookup_delete_spec.
+    setoid_rewrite lookup_delete_spec. case_decide; eauto.
+    subst. intros H. inversion H.
+Qed.
 
 Lemma subst_rtyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) :
   Γ !! x ≡ Some vT ->
@@ -1104,12 +1137,22 @@ Qed.
 Lemma disj_union_empty_inv n p fΓ :
   disj_union n ∅ fΓ -> fΓ p = ∅.
 Proof.
-Admitted.
+  intros [].
+  eapply map_eq. intros.
+  rewrite lookup_empty.
+  destruct (fΓ p !! i) eqn:E; eauto.
+  assert (fΓ p !! i ≡ Some t) by rewrite E //.
+  eapply du_left in H. rewrite lookup_empty in H.
+  inversion H.
+Qed.
 
 Lemma disj_union_empty n fΓ :
   (∀ p, fΓ p = ∅) -> disj_union n ∅ fΓ.
 Proof.
-Admitted.
+  intros H. split; setoid_rewrite H;
+  try setoid_rewrite lookup_empty; eauto using disj_empty_l.
+  intros. inversion H0.
+Qed.
 
 Lemma rtyped_rtyped0_iff e t :
   rtyped ∅ e t ⊣⊢ rtyped0 e t.

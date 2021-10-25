@@ -190,13 +190,24 @@ Definition Γunrestricted (Γ : envT) :=
 Definition consistent n (σs : fin n -> session_type) : Prop.
 Admitted.
 
-Definition disj_union n (Γ : envT) (fΓ : fin n -> envT) : Prop :=
-    (∀ p q, p ≠ q -> disj (fΓ p) (fΓ q)) ∧
-    (∀ p x t, (fΓ p) !! x ≡ Some t -> Γ !! x ≡ Some t) ∧
-    (∀ x t, Γ !! x ≡ Some t -> ∃ p, (fΓ p) !! x ≡ Some t).
+Record disj_union n (Γ : envT) (fΓ : fin n -> envT) : Prop := {
+  du_disj p q : p ≠ q -> disj (fΓ p) (fΓ q);
+  du_left p x t : (fΓ p) !! x ≡ Some t -> Γ !! x ≡ Some t;
+  du_right x t : Γ !! x ≡ Some t -> ∃ p, (fΓ p) !! x ≡ Some t
+}.
+
+Lemma disj_union_Proper_impl n Γ Γ' fΓ :
+  Γ ≡ Γ' -> disj_union n Γ fΓ → disj_union n Γ' fΓ.
+Proof.
+  intros H []. split; eauto; setoid_rewrite <-H; eauto.
+Qed.
 
 Instance disj_union_Proper n : Proper ((≡) ==> (=) ==> (≡)) (disj_union n).
-Proof. Admitted.
+Proof.
+    intros ??????.
+    split; subst; eauto using disj_union_Proper_impl.
+    symmetry in H. eauto using disj_union_Proper_impl.
+Qed.
 
 Inductive typed : envT -> expr -> type -> Prop :=
     | Unit_typed Γ :

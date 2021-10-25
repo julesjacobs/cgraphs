@@ -21,7 +21,6 @@ theories/cgraphs/bi.v
 theories/cgraphs/seplogic.v
 theories/cgraphs/cgraph.v
 theories/cgraphs/genericinv.v
-theories/cgraphs/map_to_multiset.v
 # theories/sessiontypes/langdef.v
 # theories/sessiontypes/rtypesystem.v
 # theories/sessiontypes/invariant.v
