@@ -4,10 +4,10 @@ From iris.prelude Require Import options.
 From iris Require Import bi.extensions.
 Import uPred_primitive.
 
-Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
-
 (** BI instances for [uPred], and re-stating the remaining primitive laws in
 terms of the BI interface. This file does *not* unseal. *)
+
+Notation "⌜⌜ p ⌝⌝" := (<affine> ⌜ p ⌝)%I : bi_scope.
 
 Local Existing Instance entails_po.
 

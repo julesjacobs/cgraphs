@@ -1,6 +1,6 @@
 From stdpp Require Import countable fin_sets functions.
 From iris Require Import proofmode tactics.
-From diris Require Import util.
+From diris Require Import util bi.
 
 
 Lemma big_sepS_pure_impl {PROP : bi} `{Countable A} (s : gset A) (P : A -> PROP) (Q : A -> Prop) :
@@ -26,7 +26,7 @@ Qed.
 
 Lemma big_sepS_impl1 {PROP : bi} `{Countable A} (s : gset A) (P P' : A -> PROP) (x0 : A) :
   x0 ∈ s ->
-  □ (∀ x, ⌜ x ≠ x0 ⌝ -∗ P x -∗ P' x) -∗
+  □ (∀ x, ⌜⌜ x ≠ x0 ⌝⌝ -∗ P x -∗ P' x) -∗
     (P x0 -∗ P' x0) -∗
     ([∗ set] x ∈ s, P x) -∗ [∗ set] x ∈ s, P' x.
 Proof.

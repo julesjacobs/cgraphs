@@ -622,11 +622,9 @@ Proof.
   eapply H in H1. rewrite -H3 //.
 Qed.
 
-Check disj_union.
-
 Lemma disj_big_union_Some n Γ fΓ x t :
   disj_union n Γ fΓ -> Γ !! x ≡ Some t ->
-    (∃ i, fΓ i !! x ≡ Some t ∧ ∀ j, j ≠ i -> fΓ i !! x = None) ∨ unrestricted t.
+    (∃ i, fΓ i !! x ≡ Some t ∧ ∀ j, j ≠ i -> fΓ j !! x = None) ∨ unrestricted t.
 Proof.
 Admitted.
 
@@ -988,8 +986,12 @@ Proof.
     iExists σs, (delete x ∘ fΓ).
     iSplit; first eauto using disj_big_union_delete.
     destruct (disj_big_union_Some n Γ fΓ x vT Hdisj H) as [(i & Hi & Hr)|Hunr].
-    + admit.
-      
+    + assert (i ∈ all_fin n) by eauto using all_fin_all.
+      iApply (big_sepS_impl1 with "[] [Hv] He"); first done; simpl.
+      * iModIntro. iIntros (k Hk) "H".
+        rewrite delete_notin; last eauto.
+        iDestruct (typed_no_var_subst with "H") as %->; eauto.
+      * iIntros "H". iApply ("IH" with "[%] Hv H"). done.
     + iDestruct (unrestricted_box with "Hv") as "Hv"; eauto.
       iDestruct "Hv" as "#Hv".
       iApply (big_sepS_impl with "He"). iModIntro.
@@ -998,12 +1000,12 @@ Proof.
       * iApply ("IH" with "[%] Hv H").
         assert (vT ≡ t) as ->. { eapply disj_big_union_Same; eauto. rewrite -E //. }
         rewrite -E //.
-      * iDestruct (typed_no_var_subst with "H") as %->; eauto.
+      * iDestruct (typed_no_var_subst with "H") as %->; eauto. simpl.
         rewrite delete_notin //.
   - iDestruct "He" as "[% He]".
     iSplit; first done.
     iApply ("IH" with "[%] Hv He"). done.
-Admitted.
+Qed.
 
 (* rtyped with empty environment *)
 

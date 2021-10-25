@@ -113,6 +113,35 @@ Lemma fin_multiset_gmap {A:ofe} n (f : fin n -> A) :
 Proof.
 Admitted.
 
+(*
+L ::=(coind)  ![p]t.L | ?[p]t.L | End
+G ::=(coind)  [p -> q]t.G | End
+
+consistent L_1 L_2 ... L_n :=
+  ∃ G, ∀ i, proj G i L_i       " proj(G,i) = L_i "
+
+
+global type:        [p -> r]t1 [p -> q]t2 [r -> p]t3 ...
+
+projection onto p:  ![r]t1.    ![q]t2.    ?[r]t3. ...
+
+
+G_r ::=(ind)  [p -> q]t G_r | [p => q]t G_r | G
+
+L = ![q] ?[p] ![q] ?[p] ![q] ?[p] ...
+
+G |->{r} L
+
+
+[p -> q] [p -> r] [a => b]t ... [a => b]t' [p -> q] [p -> r] [p -> q] [p -> r] [p -> q] [p -> r]
+
+(a,b) : [v, v', ...]
+         v : t, v' : t'
+*)
+
+(* (h !! (c,b)) !! a *)
+
+
 Lemma bufs_typed_init n i σs :
   consistent n σs ->
   emp ⊢ bufs_typed (gmap_slice (init_chans i n) i) (fin_gmap n σs).

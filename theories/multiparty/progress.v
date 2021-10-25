@@ -1,6 +1,8 @@
 From diris.multiparty Require Import invariant langdef.
 Require Import Coq.Logic.Classical.
 
+
+
 Lemma rtyped_inner e t :
   rtyped0 e t -∗ ⌜ (∃ v, e = Val v)  ∨
   ∃ k e0, ctx k ∧ e = k e0 ∧

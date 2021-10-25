@@ -711,13 +711,28 @@ Proof.
   intro. apply elem_of_fin_gset. eauto.
 Qed.
 
+Definition big_union `{Countable A} : gset (gset A) -> gset A := set_fold (∪) ∅.
+
+Lemma elem_of_big_union `{Countable A} (s : gset (gset A)) (x : A) :
+  x ∈ big_union s <-> ∃ a, a ∈ s ∧ x ∈ a.
+Proof.
+  revert s.
+  eapply (set_fold_ind_L (λ y s, x ∈ y ↔ (∃ a, a ∈ s ∧ x ∈ a))).
+  - set_solver.
+  - intros. rewrite elem_of_union H1. set_solver.
+Qed.
+
 Definition fin_union `{Countable A} n (f : fin n -> gset A) : gset A :=
-  set_fold union ∅ (fin_gset n f).
+  big_union (fin_gset n f).
 
 Lemma elem_of_fin_union `{Countable A} n (f : fin n -> gset A) (x : A) :
   x ∈ fin_union n f <-> ∃ i, x ∈ f i.
 Proof.
-Admitted.
+  unfold fin_union.
+  rewrite elem_of_big_union.
+  setoid_rewrite elem_of_fin_gset.
+  naive_solver.
+Qed.
 
 Definition fin_gmap {T} n : (fin n -> T) -> gmap nat T.
 Admitted.
