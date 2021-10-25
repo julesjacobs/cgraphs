@@ -357,11 +357,13 @@ Inductive pure_step : expr -> expr -> Prop :=
 
 Definition heap := gmap endpoint (gmap participant (list val)).
 
-Definition init_chans (c : session) (n : nat) : gmap endpoint (gmap participant (list val)).
-Admitted.
+Definition init_chan n : gmap participant (list val) :=
+    fin_gmap n (λ i, []).
+Definition init_chans n : gmap participant (gmap participant (list val)) :=
+    fin_gmap n (λ i, init_chan n).
 
-Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr
-    := fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, fin_to_nat i)))).
+Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr :=
+    fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, fin_to_nat i)))).
 
 Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
     | Pure_step : ∀ e e' h,
@@ -391,13 +393,13 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
         (* (∀ q, bufs !! q = Some []) -> *)
         head_step (Close (Val (ChanV (c,p)))) h
                   (Val UnitV) (delete (c,p) h) []
-    | Spawn_step : ∀ (h : heap) i n f fv,
-        (∀ p, h !! (i,p) = None) ->
+    | Spawn_step : ∀ (h : heap) c n f fv,
+        (∀ p, h !! (c,p) = None) ->
         (∀ p, f p = Val (fv p)) ->
         head_step
           (Spawn n f) h
-          (Val UnitV) (init_chans i n ∪ h)
-          (init_threads i n fv).
+          (Val UnitV) (gmap_unslice (init_chans n) c ∪ h)
+          (init_threads c n fv).
 
 Inductive ctx1 : (expr -> expr) -> Prop :=
     | Ctx_App_l e : ctx1 (λ x, App x e)

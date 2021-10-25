@@ -104,10 +104,6 @@ Lemma bufs_typed_empty_inv σs :
 Proof.
 Admitted.
 
-Lemma gmap_slice_init_chans_ne c c' n :
-  c ≠ c' -> gmap_slice (init_chans c n) c' = ∅.
-Proof. Admitted.
-
 
 
 (*
@@ -139,9 +135,9 @@ G |->{r} L
 (* (h !! (c,b)) !! a *)
 
 
-Lemma bufs_typed_init n i σs :
+Lemma bufs_typed_init n σs :
   consistent n σs ->
-  emp ⊢ bufs_typed (gmap_slice (init_chans i n) i) (fin_gmap n σs).
+  emp ⊢ bufs_typed (init_chans n) (fin_gmap n σs).
 Proof.
 Admitted.
 
@@ -243,7 +239,7 @@ Proof.
            apply map_to_multiset_lookup in Hσs.
            by iApply bufs_typed_dealloc.
   - (* Fork *)
-    eapply (inv_alloc_lrs (Thread i) (Chan i0)
+    eapply (inv_alloc_lrs (Thread i) (Chan c)
               n (λ i, Thread (length es + fin_to_nat i))); last done;
       first apply _; first apply _.
     + intros m1 m2. intro HH. simplify_eq.
@@ -267,11 +263,12 @@ Proof.
         eapply lookup_ge_None in E. lia.
       * iDestruct "H" as (σs Hσs) "H".
         iExists σs. iSplit; eauto.
-        rewrite gmap_slice_union gmap_slice_init_chans_ne ?left_id //.
-        intros ->. simplify_eq.
+        rewrite gmap_slice_union gmap_slice_unslice.
+        case_decide; simplify_eq.
+        rewrite left_id //.
     + iIntros (x) "H". simpl.
       iDestruct "H" as (σs Hσs) "H".
-      assert (gmap_slice h i0 = ∅) as ->.
+      assert (gmap_slice h c = ∅) as ->.
       {
         eapply map_eq. intro. rewrite gmap_slice_lookup H1 lookup_empty //.
       }
@@ -296,10 +293,11 @@ Proof.
       {
         iExists (fin_gmap n σs).
         rewrite gmap_slice_union.
-        assert (gmap_slice h i0 = ∅) as ->.
+        assert (gmap_slice h c = ∅) as ->.
         { eapply map_eq. intro. rewrite gmap_slice_lookup lookup_empty //. }
         rewrite right_id fin_multiset_gmap.
         iSplit; first done.
+        rewrite gmap_slice_unslice. case_decide; simplify_eq.
         iApply bufs_typed_init; eauto.
       }
       iApply (big_sepS_impl with "H1"). iModIntro.

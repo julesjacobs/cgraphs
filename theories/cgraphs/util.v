@@ -753,6 +753,21 @@ Proof.
   rewrite lookup_union !gmap_slice_lookup lookup_union //.
 Qed.
 
+Definition gmap_unslice `{Countable K1, Countable K2} {A} (m : gmap K2 A) (x : K1) : gmap (K1 * K2) A :=
+  map_kmap (λ y, (x,y)) m.
+
+Lemma gmap_slice_unslice `{Countable K1, Countable K2} {A} (m : gmap K2 A) (x y : K1) :
+  gmap_slice (gmap_unslice m x) y = if decide (x = y) then m else ∅.
+Proof.
+  eapply map_eq. intros i.
+  rewrite gmap_slice_lookup.
+  unfold gmap_unslice.
+  case_decide.
+  - subst. rewrite lookup_map_kmap //.
+  - rewrite lookup_empty lookup_map_kmap_None.
+    intros; simplify_eq.
+Qed.
+
 Lemma imap_fin_list {A B} n (g : nat -> A -> B) (f : fin n -> A) :
   imap g (fin_list n f) = fin_list n (λ i, g (fin_to_nat i) (f i)).
 Proof.
