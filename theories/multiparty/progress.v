@@ -305,8 +305,13 @@ match v with
 | ChanV (c,b) => {[ Chan c ]}
 end.
 
-Definition buf_refs (bufss : gmap participant (gmap participant (list val))) : gset object.
-Admitted.
+Definition map_union `{Countable K, Countable A} {V} (f : V -> gset A) (m : gmap K V) :=
+  map_fold (λ k v s, f v ∪ s) ∅ m.
+
+Definition buf_refs (buf : list val) := foldr (λ v s, val_refs v ∪ s) ∅ buf.
+
+Definition bufs_refs (bufss : gmap participant (gmap participant (list val))) : gset object :=
+  map_union (map_union buf_refs) bufss.
 
 Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
   match x with
