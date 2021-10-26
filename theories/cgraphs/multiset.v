@@ -10,14 +10,14 @@ Section multiset.
   Implicit Types x y : A.
   Implicit Types X Y : multiset A.
 
-  Local Instance multiset_equiv_instance : Equiv (multiset A) := λ X1 X2,
+  Global Instance multiset_equiv_instance : Equiv (multiset A) := λ X1 X2,
     ∃ xs, multiset_car X1 ≡ₚ xs ∧ xs ≡ multiset_car X2.
-  Local Instance multiset_valid_instance : Valid (multiset A) := λ _, True.
-  Local Instance multiset_validN_instance : ValidN (multiset A) := λ _ _, True.
-  Local Instance multiset_unit_instance : Unit (multiset A) := MultiSet [].
-  Local Instance multiset_op_instance : Op (multiset A) := λ X1 X2,
+    Global Instance multiset_valid_instance : Valid (multiset A) := λ _, True.
+  Global Instance multiset_validN_instance : ValidN (multiset A) := λ _ _, True.
+  Global Instance multiset_unit_instance : Unit (multiset A) := MultiSet [].
+  Global Instance multiset_op_instance : Op (multiset A) := λ X1 X2,
     MultiSet (multiset_car X1 ++ multiset_car X2).
-  Local Instance multiset_pcore_instance : PCore (multiset A) := λ X, Some ε.
+  Global Instance multiset_pcore_instance : PCore (multiset A) := λ X, Some ε.
 
   Global Instance multiset_singleton : Singleton A (multiset A) := λ x,
     MultiSet [x].
@@ -196,7 +196,6 @@ Proof.
   intro.
   eapply multiset_singleton_not_unit.
   apply multiset_unit_equiv_eq. done.
-  Unshelve. done. done.
 Qed.
 
 Lemma mset_xsplit {A : ofe} (e1 e2 e1' e2' : multiset A) :

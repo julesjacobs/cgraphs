@@ -809,3 +809,79 @@ Proof.
     destruct (fin_list n f !! i) eqn:E; last naive_solver.
     destruct (fin_list n f !! j) eqn:F; naive_solver.
 Qed.
+
+Lemma fin_list_0 {A} (f : fin 0 -> A) : fin_list 0 f = [].
+Proof. done. Qed.
+
+Lemma fin_gset_0 `{Countable A} (f : fin 0 -> A) : fin_gset 0 f = ∅.
+Proof. done. Qed.
+
+Lemma fin_gmap_0 {A} (f : fin 0 -> A) : fin_gmap 0 f = ∅.
+Proof. done. Qed.
+
+Lemma fin_multiset_0 {A : ofe} (f : fin 0 -> A) : fin_multiset 0 f = ε.
+Proof. done. Qed.
+
+Lemma fin_union_0 `{Countable A} (f : fin 0 -> gset A) : fin_union 0 f = ∅.
+Proof. done. Qed.
+
+
+Lemma fin_list_S {A} n (f : fin (S n) -> A) :
+  fin_list (S n) f = f 0%fin :: fin_list n (λ i, f (FS i)).
+Proof. done. Qed.
+
+Lemma fin_gset_S `{Countable A} n (f : fin (S n) -> A) :
+  fin_gset (S n) f = {[ f 0%fin ]} ∪ fin_gset n (λ i, f (FS i)).
+Proof. done. Qed.
+
+(* Lemma fin_gmap_S {A} n (f : fin (S n) -> A) :
+  fin_gmap (S n) f = <[ 0 := f 0%fin ]> (fin_gmap n (λ i, f (FS i))).
+Proof.
+  unfold fin_gmap. simpl.
+   done. Qed. *)
+
+Lemma fin_multiset_S {A : ofe} n (f : fin (S n) -> A) :
+  fin_multiset (S n) f = {[ f 0%fin ]} ⋅ fin_multiset n (λ i, f (FS i)).
+Proof. done. Qed.
+
+Lemma big_union_empty `{Countable A} :
+  big_union (∅ : gset (gset A)) = ∅.
+Proof. done. Qed.
+
+Lemma big_union_singleton `{Countable A} (a : gset A) :
+  big_union {[ a ]} = a.
+Proof.
+  unfold big_union.
+  rewrite set_fold_singleton right_id_L //.
+Qed.
+
+Lemma big_union_singleton_union `{Countable A} (a : gset A) (b : gset (gset A)) :
+  big_union ({[ a ]} ∪ b) = a ∪ big_union b.
+Proof.
+  destruct (decide (a ∈ b)) as [Q|Q].
+  - rewrite subseteq_union_1_L; last rewrite singleton_subseteq_l //.
+    eapply set_eq. intros.
+    rewrite elem_of_union.
+    rewrite !elem_of_big_union.
+    set_solver.
+  - unfold big_union.
+    assert (a ∪ set_fold union ∅ b = set_fold union (set_fold union ∅ b) ({[ a ]} : gset (gset A))) as ->.
+    { rewrite set_fold_singleton //. }
+    rewrite -set_fold_disj_union; last set_solver.
+    rewrite comm_L //.
+Qed.
+
+Lemma big_union_union `{Countable A} (a b : gset (gset A)) :
+  big_union (a ∪ b) = big_union a ∪ big_union b.
+Proof.
+  revert b. induction a using set_ind_L; intros.
+  - rewrite !left_id_L //.
+  - rewrite -assoc_L !big_union_singleton_union IHa assoc_L //.
+Qed.
+
+Lemma fin_union_S `{Countable A} n (f : fin (S n) -> gset A) :
+  fin_union (S n) f = (f 0%fin) ∪ fin_union n (λ i, f (FS i)).
+Proof.
+  unfold fin_union.
+  rewrite fin_gset_S big_union_union big_union_singleton //.
+Qed.

@@ -345,6 +345,7 @@ Qed.
 Lemma own_dom_fin_union n f :
   ([∗ set] p ∈ all_fin n, own_dom (f p)) ⊢ own_dom (fin_union n f).
 Proof.
+  induction n.
 Admitted.
 
 Lemma rtyped_refs Γ e t :
@@ -419,7 +420,8 @@ Definition can_progress (p : participant)
 
 Lemma bufs_typed_progress bufss σs :
   bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ ∃ p, can_progress p bufss σs ⌝.
-Proof. Admitted.
+Proof.
+Admitted.
 
 Lemma bufs_typed_recv bufss σs p q t σ :
   σs !! p ≡ Some (RecvT q t σ) ->
