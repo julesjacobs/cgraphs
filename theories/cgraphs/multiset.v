@@ -457,3 +457,6 @@ Section map_to_multiset.
     rewrite map_to_multiset_insert //. apply lookup_delete.
   Qed.
 End map_to_multiset.
+
+Instance multiset_fmap : FMap multiset :=
+  λ A B f m, list_to_multiset (f <$> multiset_car m).

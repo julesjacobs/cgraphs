@@ -305,6 +305,8 @@ match v with
 | ChanV (c,b) => {[ Chan c ]}
 end.
 
+
+
 Definition buf_refs (bufss : gmap participant (gmap participant (list val))) : gset object.
 Admitted.
 

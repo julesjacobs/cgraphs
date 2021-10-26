@@ -779,9 +779,33 @@ Proof.
   - rewrite !fin_list_lookup_ne //; lia.
 Qed.
 
-Definition fin_multiset {A} n (f : fin n -> A) : multiset A := list_to_multiset (fin_list n f).
+Lemma list_to_mapi_imap {A} (xs : list A) :
+  list_to_mapi xs = list_to_map (imap (λ i a, (i,a)) xs).
+Proof.
+  apply map_eq. intros.
+  rewrite list_to_mapi_lookup.
+  destruct (list_to_map (imap (λ (i0 : nat) (a : A), (i0, a)) xs) !! i) eqn:E.
+  - eapply elem_of_list_to_map_2 in E.
+    eapply elem_of_lookup_imap_1 in E as (j & y & H1 & H2).
+    by simplify_eq.
+  - eapply not_elem_of_list_to_map_2 in E.
+    rewrite fmap_imap in E.
+    rewrite ->elem_of_lookup_imap in E.
+    destruct (xs !! i) eqn:F; eauto.
+    exfalso. apply E. eauto.
+Qed.
+
+Definition fin_multiset {A} n (f : fin n -> A) : multiset A :=
+  list_to_multiset (fin_list n f).
 
 Lemma fin_multiset_gmap {A:ofe} n (f : fin n -> A) :
   fin_multiset n (λ m, (fin_to_nat m, f m)) ≡ map_to_multiset (fin_gmap n f).
 Proof.
-Admitted.
+  unfold fin_multiset, fin_gmap, map_to_multiset. simpl.
+  rewrite list_to_mapi_imap map_to_list_to_map.
+  - rewrite imap_fin_list //.
+  - rewrite fmap_imap NoDup_alt. intros ???.
+    rewrite !list_lookup_imap.
+    destruct (fin_list n f !! i) eqn:E; last naive_solver.
+    destruct (fin_list n f !! j) eqn:F; naive_solver.
+Qed.
