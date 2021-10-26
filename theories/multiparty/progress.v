@@ -305,8 +305,6 @@ match v with
 | ChanV (c,b) => {[ Chan c ]}
 end.
 
-
-
 Definition buf_refs (bufss : gmap participant (gmap participant (list val))) : gset object.
 Admitted.
 
@@ -342,11 +340,33 @@ Proof.
   iApply own_union. iFrame.
 Qed.
 
+Lemma own_dom_fin_gset `{Countable A} n (g : fin n -> A) (f : A -> gset object) :
+  ([∗ set] p ∈ fin_gset n g, own_dom (f p)) -∗ own_dom (big_union (fin_gset n (f ∘ g))).
+Proof.
+  induction n.
+  - rewrite !fin_gset_0 big_union_empty big_sepS_empty own_dom_empty //.
+  - rewrite !fin_gset_S big_union_singleton_union.
+    destruct (decide (g 0%fin ∈ fin_gset n (λ i : fin n, g (FS i)))).
+    + rewrite subseteq_union_1_L; last rewrite singleton_subseteq_l //.
+      rewrite subseteq_union_1_L; first apply IHn.
+      eapply elem_of_fin_gset in e.
+      intros ??.
+      eapply elem_of_big_union.
+      destruct e. simpl in *.
+      rewrite -H1 in H0.
+      eexists. split; last done.
+      eapply elem_of_fin_gset. eauto.
+    + rewrite big_sepS_insert //.
+      iIntros "[H1 H2]".
+      iDestruct (IHn with "H2") as "H2".
+      iApply own_dom_union. iFrame.
+Qed.
+
 Lemma own_dom_fin_union n f :
   ([∗ set] p ∈ all_fin n, own_dom (f p)) ⊢ own_dom (fin_union n f).
 Proof.
-  induction n.
-Admitted.
+  iApply own_dom_fin_gset.
+Qed.
 
 Lemma rtyped_refs Γ e t :
   rtyped Γ e t ⊢ own_dom (expr_refs e)
