@@ -1,5 +1,6 @@
 Require Export diris.cgraphs.cgraph.
 Require Export diris.cgraphs.seplogic.
+From Coq.Logic Require Import Classical.
 
 Section genericinv.
   Context {V : Type}.
@@ -398,6 +399,13 @@ Section genericinv.
         eauto with iFrame.
   Qed.
 
+  Lemma big_sepS_incr n (P : fin (S n) -> hProp V L) :
+    ([∗ set] i ∈ (all_fin (S n) ∖ {[0%fin]}), P i) ⊢
+    [∗ set] i ∈ all_fin n, P (FS i).
+  Proof.
+    Search ([∗ set] _ ∈ _, _)%I set_map.
+  Admitted.
+
   Lemma inv_alloc_rs (v1 : V) (n : nat)
     (fv : fin n -> V)
     (P P' : V -> multiset L -> hProp V L) :
@@ -414,14 +422,74 @@ Section genericinv.
     inv P -> inv P'.
   Proof.
     revert fv P P'. induction n; intros.
-    - eapply inv_impl; last done. intros.
+    {
+      eapply inv_impl; last done. intros.
       iIntros "H". destruct (decide (v = v1)); subst.
       + iDestruct (H6 with "H") as (fl) "[H1 H2]".
-        admit.
+        rewrite /all_fin fin_gset_0 fin_multiset_0 right_id. iFrame.
       + iApply H4; last done.
         split; eauto. intros. inversion i.
-    - admit.
-  Admitted.
+    }
+    (* Now we have the induction hypothesis *)
+    set q := (λ v x,
+      if decide (v = v1) then
+        ∃ l : L, P' v (x ⋅ {[ l ]}) ∗ (own_out v1 l -∗ P' (fv 0%fin) ε)
+      else if decide (v = fv 0%fin) then
+        P v x
+      else
+        P' v x)%I.
+    assert (inv q); subst q.
+    - eapply (IHn (fv ∘ FS)); last done.
+      + solve_proper.
+      + solve_proper.
+      + eapply compose_inj; eauto. apply _.
+      + eauto.
+      + iIntros (v x []) "H". sdec; eauto.
+        iApply H4; last done. split; eauto. intros ??. subst.
+        inv_fin i; intros; simplify_eq.
+        eapply H9. eauto.
+      + eauto.
+      + iIntros (y) "H". sdec.
+        iDestruct (H6 with "H") as (fl) "[H1 H2]".
+        iExists (fl ∘ FS).
+        assert (0%fin ∈ all_fin (S n)) by apply all_fin_all.
+        rewrite big_sepS_delete; last done.
+        iDestruct "H2" as "[H2 H3]".
+        iSplitL "H1 H2".
+        { iExists _. iFrame.
+          rewrite fin_multiset_S.
+          rewrite (comm (⋅) {[fl 0%fin]}) assoc //. }
+        rewrite big_sepS_incr.
+        iApply (big_sepS_impl with "H3").
+        iModIntro. iIntros (x Hx).
+        sdec; [exfalso;naive_solver..|].
+        simpl. iIntros "H". eauto.
+    - eapply (inv_alloc_r v1 (fv 0%fin)); last done; simpl.
+      + solve_proper.
+      + solve_proper.
+      + naive_solver.
+      + iIntros (v x []) "H". by sdec.
+      + iIntros (x) "H".
+        sdec; first naive_solver.
+        iApply H5. eauto.
+      + iIntros (y) "H".
+        sdec. iDestruct "H" as (l) "[H1 H2]".
+        eauto with iFrame.
+  Qed.
+
+  Lemma fin_dec n v (fv : fin n -> V) : Decision (∃ i, v = fv i).
+  Proof.
+    induction n.
+    - right. intro. destruct H0. inversion x.
+    - destruct (IHn (fv ∘ FS)) as [Hi|Hni].
+      + left. destruct Hi. eauto.
+      + destruct (decide (fv 0%fin = v)). subst.
+        * left. eauto.
+        * right. intros [i Hi].
+          subst.
+          inv_fin i; intros; simplify_eq.
+          eapply Hni. eauto.
+  Qed.
 
   Lemma inv_alloc_lrs (v1 v2 : V) (n : nat)
     (fv : fin n -> V)
@@ -434,38 +502,42 @@ Section genericinv.
     (∀ x, P v2 x ⊢ ⌜⌜ x ≡ ε ⌝⌝) ->
     (∀ i x, P (fv i) x ⊢ ⌜⌜ x ≡ ε ⌝⌝) ->
     (∀ y, P v1 y ⊢
-      ∃ fl : fin n -> L,
-        P' v1 y ∗
-        P' v2 (fin_multiset n fl) ∗
+      ∃ (l : L) (fl : fin n -> L),
+        (own_out v2 l -∗ P' v1 y) ∗
+        P' v2 ({[ l ]} ⋅ fin_multiset n fl) ∗
         ([∗ set] i ∈ all_fin n, own_out v2 (fl i) -∗ P' (fv i) ε)) ->
     inv P -> inv P'.
   Proof.
-  Admitted.
-    (* intros Hproper Hproper' (Hneq1 & Hneq2 & Hneq3) Hrest H2 H3 H1 Hinv.
+    intros Hproper Hproper' Hinj (Hneq1 & Hneq2) Hrest H2 H3 H1 Hinv.
     set q := (λ v x,
-      if decide (v = v1) then f' v1 x
-      else if decide (v = v2) then ∃ l2', f' v2 (x ⋅ {[l2']}) ∗ (own_out v2 l2' -∗ f' v3 ε)
-      else f v x)%I.
+        if decide (v = v1) then P' v1 x
+        else if decide (v = v2) then
+          ∃ (fl : fin n -> L), P' v2 (x ⋅ fin_multiset n fl) ∗
+            ([∗ set] i ∈ all_fin n, own_out v2 (fl i) -∗ P' (fv i) ε)
+        else if fin_dec n v fv then ⌜⌜ x ≡ ε ⌝⌝ else P' v x)%I.
     assert (inv q); subst q.
     - eapply (inv_alloc_l v1 v2); last done; eauto.
       + solve_proper.
-      + intros. iIntros "H". repeat case_decide; naive_solver.
+      + intros ?? []. iIntros "H". sdec.
+        destruct (fin_dec n v fv) as [[? ->]|].
+        { by iApply H3. }
+        iApply Hrest; naive_solver.
       + iIntros (y) "H".
-        iDestruct (H1 with "H") as (l1' l2') "[H1 H2]".
-        repeat case_decide; simplify_eq.
-        iExists l1'. iFrame.
-        iExists l2'. iFrame.
-    - eapply (inv_alloc_r v2 v3); last done.
+        iDestruct (H1 with "H") as (l fl) "[H1 [H2 H3]]".
+        iExists l.
+        sdec. eauto with iFrame.
+    - eapply (inv_alloc_rs v2 n fv); last done.
       + solve_proper.
-      + apply _.
-      + intros; simpl. repeat case_decide; simplify_eq; eauto.
-      + intros ? ? []. simpl.
-        repeat case_decide; simplify_eq; eauto.
-      + intros. simpl. sdec. eauto.
+      + solve_proper.
+      + intros; simpl. sdec. eauto.
+      + naive_solver.
+      + intros. simpl. destruct H4. sdec; first done.
+        destruct (fin_dec n v fv) as [[? ->]|]; naive_solver.
       + intros. simpl. sdec.
-        iIntros "H".
-        iDestruct "H" as (?) "[H1 H2]".
-        eauto with iFrame.
-  Qed. *)
+        * naive_solver.
+        * naive_solver.
+        * destruct (fin_dec n (fv i) fv) as [[]|]; naive_solver.
+      + intros. simpl. sdec. eauto.
+  Qed.
 
 End genericinv.
