@@ -705,9 +705,38 @@ Proof.
   induction H; naive_solver.
 Qed.
 
+Lemma activeset_exists es h :
+  ∃ s : gset object, ∀ x, active x es h -> x ∈ s.
+Proof.
+  exists (list_to_set (Thread <$> seq 0 (length es)) ∪
+          set_map (Chan ∘ fst) (dom (gset endpoint) h)).
+  intros. rewrite elem_of_union.
+  rewrite elem_of_list_to_set elem_of_list_fmap elem_of_map.
+  setoid_rewrite elem_of_seq.
+  setoid_rewrite elem_of_dom. simpl.
+  unfold active in *.
+  destruct x;[left|right].
+  - destruct H as (?&?&?). eapply lookup_lt_Some in H. eauto with lia.
+  - destruct H as (?&?). exists (c,x). eauto.
+Qed.
+
+Lemma subset_exists `{Countable A} (P : A -> Prop) (s : gset A) :
+  (∀ x, P x -> x ∈ s) -> ∃ s' : gset A, ∀ x, x ∈ s' <-> P x.
+Proof.
+  revert P; induction s using set_ind_L; intros P Q.
+  - exists ∅. set_solver.
+  - destruct (IHs (λ y, P y ∧ y ≠ x)); first set_solver.
+    destruct (classic (P x)).
+    + exists (x0 ∪ {[ x ]}). set_solver.
+    + exists x0. set_solver.
+Qed.
+
 Lemma activereachableset_exists es h :
   ∃ s : gset object, ∀ x, x ∈ s <-> active x es h ∧ ¬ reachable es h x.
-Proof. Admitted.
+Proof.
+  edestruct activeset_exists.
+  eapply subset_exists. naive_solver.
+Qed.
 
 Lemma obj_refs_active es h x y :
   y ∈ obj_refs es h x -> active x es h.
