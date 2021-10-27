@@ -704,3 +704,49 @@ Proof.
   assert (reachable es h x) as H by eauto using strong_progress.
   induction H; naive_solver.
 Qed.
+
+Lemma activereachableset_exists es h :
+  ∃ s : gset object, ∀ x, x ∈ s <-> active x es h ∧ ¬ reachable es h x.
+Proof. Admitted.
+
+Lemma obj_refs_active es h x y :
+  y ∈ obj_refs es h x -> active x es h.
+Proof.
+  destruct x; simpl.
+  - destruct (es !! n); simpl; last set_solver.
+    destruct (classic (e = Val UnitV)); eauto.
+    subst. simpl. set_solver.
+  - destruct (h !! (c, true)) eqn:E;
+    destruct (h !! (c, false)) eqn:F; simpl; eauto.
+    set_solver.
+Qed.
+
+Lemma reachability_deadlock_freedom es h :
+  (∀ s, ¬ deadlock es h s) <-> (∀ x, active x es h -> reachable es h x).
+Proof.
+  split.
+  - intros. destruct (classic (reachable es h x)); eauto.
+    destruct (activereachableset_exists es h) as [s Hs].
+    exfalso. eapply (H s).
+    split; eauto.
+    + set_solver.
+    + naive_solver.
+    + intros ???. assert (¬ reachable es h (Thread i)) by naive_solver.
+      eauto using reachable.
+    + intros ????.
+      destruct (classic (Chan c ∈ s)); eauto. exfalso.
+      eapply Hs in H2 as [].
+      destruct (classic (reachable es h (Chan c))); eauto using reachable.
+      assert (active (Chan c) es h).
+      { destruct H3 as (?&?&?&?&?). eexists. eauto. }
+      naive_solver.
+    + intros. apply Hs in H2 as [].
+      rewrite Hs.
+      split. { by eapply obj_refs_active. }
+      intro. eapply H4.
+      eauto using reachable.
+  - intros. intros [].
+    eapply set_choose_L in dl_nonempty0 as [x Hx].
+    assert (reachable es h x) as Q by eauto using strong_progress.
+    induction Q; naive_solver.
+Qed.
