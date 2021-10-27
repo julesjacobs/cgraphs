@@ -696,15 +696,6 @@ Record deadlock (es : list expr) (h : heap) (s : gset object) := {
   dl_chan c x : Chan c ∈ s -> Chan c ∈ obj_refs es h x -> x ∈ s
 }.
 
-Lemma deadlock_freedom es h s :
-  invariant es h -> ¬ deadlock es h s.
-Proof.
-  intros Hinv [].
-  eapply set_choose_L in dl_nonempty0 as [x Hx].
-  assert (reachable es h x) as H by eauto using strong_progress.
-  induction H; naive_solver.
-Qed.
-
 Lemma activeset_exists es h :
   ∃ s : gset object, ∀ x, active x es h -> x ∈ s.
 Proof.
@@ -718,24 +709,6 @@ Proof.
   destruct x;[left|right].
   - destruct H as (?&?&?). eapply lookup_lt_Some in H. eauto with lia.
   - destruct H as (?&?). exists (c,x). eauto.
-Qed.
-
-Lemma subset_exists `{Countable A} (P : A -> Prop) (s : gset A) :
-  (∀ x, P x -> x ∈ s) -> ∃ s' : gset A, ∀ x, x ∈ s' <-> P x.
-Proof.
-  revert P; induction s using set_ind_L; intros P Q.
-  - exists ∅. set_solver.
-  - destruct (IHs (λ y, P y ∧ y ≠ x)); first set_solver.
-    destruct (classic (P x)).
-    + exists (x0 ∪ {[ x ]}). set_solver.
-    + exists x0. set_solver.
-Qed.
-
-Lemma activereachableset_exists es h :
-  ∃ s : gset object, ∀ x, x ∈ s <-> active x es h ∧ ¬ reachable es h x.
-Proof.
-  edestruct activeset_exists.
-  eapply subset_exists. naive_solver.
 Qed.
 
 Lemma obj_refs_active es h x y :
@@ -755,7 +728,8 @@ Lemma reachability_deadlock_freedom es h :
 Proof.
   split.
   - intros. destruct (classic (reachable es h x)); eauto.
-    destruct (activereachableset_exists es h) as [s Hs].
+    assert (∃ s : gset object, ∀ x, x ∈ s <-> active x es h ∧ ¬ reachable es h x) as [s Hs].
+    { edestruct activeset_exists. eapply subset_exists. naive_solver. }
     exfalso. eapply (H s).
     split; eauto.
     + set_solver.
@@ -778,4 +752,12 @@ Proof.
     eapply set_choose_L in dl_nonempty0 as [x Hx].
     assert (reachable es h x) as Q by eauto using strong_progress.
     induction Q; naive_solver.
+Qed.
+
+Lemma deadlock_freedom es h :
+  invariant es h -> ∀ s, ¬ deadlock es h s.
+Proof.
+  intros Hinv.
+  eapply reachability_deadlock_freedom.
+  eauto using strong_progress.
 Qed.
