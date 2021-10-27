@@ -399,12 +399,37 @@ Section genericinv.
         eauto with iFrame.
   Qed.
 
+  Lemma big_sepS_set_map `{Countable A, Countable B}
+      (P : B -> hProp V L) (f : A -> B) (s : gset A) :
+    Inj eq eq f ->
+    ([∗ set] x ∈ set_map f s, P x) ⊢
+    [∗ set] x ∈ s, P (f x).
+  Proof.
+    intros Hinj.
+    induction s using set_ind_L.
+    - rewrite !set_map_empty. eauto.
+    - rewrite set_map_union_L set_map_singleton_L.
+      rewrite big_sepS_delete; last first.
+      { rewrite elem_of_union. left. by apply elem_of_singleton. }
+      iIntros "H".
+      iApply big_sepS_delete.
+      { rewrite elem_of_union. left. by apply elem_of_singleton. }
+      iDestruct "H" as "[? H]". iFrame.
+      assert (({[x]} ∪ X) ∖ {[x]} = X) as -> by set_solver.
+      assert ((({[f x]} ∪ set_map f X) ∖ {[f x]}) = set_map f X) as -> by set_solver.
+      iApply IHs. done.
+  Qed.
+
   Lemma big_sepS_incr n (P : fin (S n) -> hProp V L) :
     ([∗ set] i ∈ (all_fin (S n) ∖ {[0%fin]}), P i) ⊢
     [∗ set] i ∈ all_fin n, P (FS i).
   Proof.
-    Search ([∗ set] _ ∈ _, _)%I set_map.
-  Admitted.
+    assert (all_fin (S n) ∖ {[0%fin]} = set_map FS (all_fin n)) as ->.
+    { apply set_eq. intro.
+      rewrite elem_of_difference elem_of_singleton elem_of_map.
+      inv_fin x; naive_solver (eauto using all_fin_all). }
+    eapply big_sepS_set_map. apply _.
+  Qed.
 
   Lemma inv_alloc_rs (v1 : V) (n : nat)
     (fv : fin n -> V)
