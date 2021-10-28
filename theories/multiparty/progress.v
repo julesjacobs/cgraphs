@@ -316,7 +316,7 @@ Fixpoint expr_refs (e : expr) : gset object :=
   | MatchVoid e1 => expr_refs e1
   | MatchSum e1 s e2 e3 => expr_refs e1 ∪ expr_refs e2
   | InjN i e => expr_refs e
-  | MatchSumN n e f => expr_refs e ∪ fin_union n (expr_refs ∘ f)
+  | MatchSumN n e f => expr_refs e ∪ expr_refs (f 0%fin)
   | If e1 e2 e3 => expr_refs e1 ∪ expr_refs e2
   | Spawn n f => fin_union n (expr_refs ∘ f)
   | Close e1 => expr_refs e1
@@ -409,7 +409,8 @@ Proof.
   - iIntros "H". destruct e; simpl; repeat (iDestruct "H" as (?) "H");
     rewrite ?val_typed_refs ?rtyped_refs ?own_dom_empty ?own_dom_union; eauto.
     + iDestruct "H" as "[H1 [H2 _]]"; iApply own_dom_union; iFrame.
-    + admit.
+    + iDestruct "H" as "[H1 H2]". iApply own_dom_union; iFrame.
+      iApply rtyped_refs. eauto.
     + iDestruct "H" as "[H1 [H2 _]]"; iApply own_dom_union; iFrame.
     + iApply own_dom_fin_union.
       iApply (big_sepS_impl with "H"). iModIntro.
@@ -418,7 +419,7 @@ Proof.
   - iIntros "H". destruct v; simpl; rewrite ?own_dom_empty; eauto;
     repeat (iDestruct "H" as (?) "H"); rewrite ?val_typed_refs ?rtyped_refs ?own_dom_union; eauto.
     destruct e. by iApply own_dom_singleton.
-Admitted.
+Qed.
 
 Lemma bufs_typed_refs bufss σs :
   bufs_typed bufss σs ⊢ own_dom (bufs_refs bufss).
@@ -467,7 +468,7 @@ Definition if_recv_then_non_empty (bufs : gmap participant (list val)) (σ : ses
 
 Definition can_progress (p : participant)
   (bufss : gmap participant (gmap participant (list val)))
-  (σs : gmap participant session_type) := ∃ p σ bufs,
+  (σs : gmap participant session_type) := ∃ σ bufs,
     σs !! p = Some σ ∧
     bufss !! p = Some bufs ∧
     if_recv_then_non_empty bufs σ.
@@ -599,9 +600,9 @@ Proof.
     iDestruct (bufs_typed_progress with "H") as %[HH|[p Hp]].
     { rewrite HH lookup_empty in Hib. by destruct Hib. }
     iPureIntro.
-    destruct Hp as (q & σ & bufs & Hσ & Hbufs & Hrne).
+    destruct Hp as (σ & bufs & Hσ & Hbufs & Hrne).
 
-    assert (∃ x, out_edges g x !! (Chan c) ≡ Some (q, σ)) as [y Hy].
+    assert (∃ x, out_edges g x !! (Chan c) ≡ Some (p, σ)) as [y Hy].
     {
       erewrite map_to_multiset_Some in Hinl; last done.
       eapply in_labels_out_edges; eauto.

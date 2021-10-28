@@ -33,7 +33,7 @@ with expr :=
   | LetProd : string -> string -> expr -> expr -> expr
   | MatchVoid : expr -> expr
   | MatchSum : expr -> string -> expr -> expr -> expr
-  | MatchSumN n : expr -> (fin n -> expr) -> expr
+  | MatchSumN n : expr -> (fin (S n) -> expr) -> expr
   | If : expr -> expr -> expr -> expr
   | Spawn n : (fin n -> expr) -> expr
   | Close : expr -> expr.
@@ -125,7 +125,7 @@ CoInductive type :=
   | NatT : type
   | PairT : type -> type -> type
   | SumT : type -> type -> type
-  | SumNT n : (fin n -> type) -> type
+  | SumNT n : (fin (S n) -> type) -> type
   | FunT : type -> type -> type
   | UFunT : type -> type -> type
   | ChanT : session_type' type -> type.
@@ -198,8 +198,37 @@ Definition disj (Γ1 Γ2 : envT) : Prop :=
 Definition Γunrestricted (Γ : envT) :=
   ∀ x t, Γ !! x = Some t -> unrestricted t.
 
-Definition consistent n (σs : fin n -> session_type) : Prop.
+
+Axiom global_type : Type.
+Definition proj : global_type -> participant -> session_type -> Prop.
 Admitted.
+
+(*
+
+Example global type: [p -> q]{0: nat.G_1, 1: string.G_2, 2: bool.G_3}
+
+G ::=(coind)   [p -> q]{l_i: t_i.G_i}_{i ∈ I} | End
+L ::=(coind)   ![p]{l_i: t_i.L_i}_{i ∈ I} | ?[p]{l_i: t_i.L_i}_{i ∈ I} | End
+
+[p -> q][r => q][p -> q][r => q] ...
+
+rc : ![q] ...
+
+*)
+
+(*
+...
+let c0 = spawn((λ c1, ...),(λ c2, ...))
+...
+*)
+
+Definition occurs_in : global_type -> participant -> Prop.
+Admitted.
+
+Definition consistent n (σs : fin n -> session_type) :=
+  ∃ G : global_type,
+    (∀ i, proj G (fin_to_nat i) (σs i)) ∧
+    (∀ j, j >= n -> ¬ occurs_in G j).
 
 Record disj_union n (Γ : envT) (fΓ : fin n -> envT) : Prop := {
   du_disj p q : p ≠ q -> disj (fΓ p) (fΓ q);
@@ -298,9 +327,9 @@ Inductive typed : envT -> expr -> type -> Prop :=
     typed Γ (InjN (fin_to_nat i) e) (SumNT n f)
   | MatchSumN_typed : ∀ n Γ1 Γ2 t f fc e,
     disj Γ1 Γ2 ->
-    typed Γ1 e (SumNT n f) ->
+    typed Γ1 e (SumNT (S n) f) ->
     (∀ i, typed Γ2 (fc i) (FunT (f i) t)) ->
-    typed (Γ1 ∪ Γ2) (MatchSumN n e fc) t
+    typed (Γ1 ∪ Γ2) (MatchSumN (S n) e fc) t
   | If_typed : ∀ Γ1 Γ2 e1 e2 e3 t,
     disj Γ1 Γ2 ->
     typed Γ1 e1 NatT ->
@@ -444,7 +473,7 @@ Inductive ctx1 : (expr -> expr) -> Prop :=
   | Ctx_MatchVoid : ctx1 (λ x, MatchVoid x)
   | Ctx_MatchSum s e1 e2 : ctx1 (λ x, MatchSum x s e1 e2)
   | Ctx_InjN i : ctx1 (λ x, InjN i x)
-  | Ctx_MatchSumN n (f : fin n -> expr) : ctx1 (λ x, MatchSumN n x f)
+  | Ctx_MatchSumN n (f : fin (S n) -> expr) : ctx1 (λ x, MatchSumN n x f)
   | Ctx_If e1 e2 : ctx1 (λ x, If x e1 e2)
   | Ctx_Spawn n (f : fin n -> expr) (p : fin n) :
     ctx1 (λ x, Spawn n (λ q, if decide (p = q) then x else f q))

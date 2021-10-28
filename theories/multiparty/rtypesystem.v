@@ -76,10 +76,10 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
   | MatchSum e1 x eL eR => ∃ (t1 t2 : type) (Γ1 Γ2 : envT),
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ∧ Γ2 !! x = None ⌝⌝ ∗
       rtyped Γ1 e1 (SumT t1 t2) ∗ (rtyped (Γ2 ∪ {[ x := t1 ]}) eL t ∧ rtyped (Γ2 ∪ {[ x := t2 ]}) eR t)
-  | InjN i e => ∃ n (f : fin n -> type) i',
+  | InjN i e => ∃ n (f : fin (S n) -> type) i',
       ⌜⌜ t = SumNT n f ∧ i = fin_to_nat i' ⌝⌝ ∗
       rtyped Γ e (f i')
-  | MatchSumN n e fc => ∃ (f : fin n -> type) Γ1 Γ2,
+  | MatchSumN n e fc => ∃ (f : fin (S n) -> type) Γ1 Γ2,
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
       rtyped Γ1 e (SumNT n f) ∗
       ∀ i, rtyped Γ2 (fc i) (FunT (f i) t)
@@ -98,7 +98,7 @@ with val_typed (v : val) (t : type) : rProp :=
   | NatV n => ⌜⌜ t = NatT ⌝⌝
   | PairV a b => ∃ t1 t2, ⌜⌜ t = PairT t1 t2 ⌝⌝ ∗ val_typed a t1 ∗ val_typed b t2
   | InjV b a => ∃ t1 t2, ⌜⌜ t = SumT t1 t2 ⌝⌝ ∗ val_typed a (if b then t1 else t2)
-  | InjNV i a => ∃ n (f : fin n -> type) i', ⌜⌜ t = SumNT n f ∧ i = fin_to_nat i' ⌝⌝ ∗ val_typed a (f i')
+  | InjNV i a => ∃ n (f : fin (S n) -> type) i', ⌜⌜ t = SumNT n f ∧ i = fin_to_nat i' ⌝⌝ ∗ val_typed a (f i')
   | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
   | UFunV x e => ∃ t1 t2, ⌜⌜ t = UFunT t1 t2 ⌝⌝ ∗ □ rtyped {[ x := t1 ]} e t2
   | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own_ep c r
@@ -1129,8 +1129,8 @@ Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
   | LetProd x1 x2 e1 e2 => ∃ t1 t2, ⌜⌜ x1 ≠ x2 ⌝⌝ ∗ rtyped0 e1 (PairT t1 t2) ∗ rtyped ({[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
   | MatchVoid e => rtyped0 e VoidT
   | MatchSum e x eL eR => ∃ t1 t2, rtyped0 e (SumT t1 t2) ∗ (rtyped {[ x := t1 ]} eL t ∧ rtyped {[ x := t2 ]} eR t)
-  | InjN i e => ∃ n (f : fin n -> type) i', ⌜⌜ t = SumNT n f ∧ i = fin_to_nat i' ⌝⌝ ∗ rtyped0 e (f i')
-  | MatchSumN n e fc => ∃ (f : fin n -> type), rtyped0 e (SumNT n f) ∗ ∀ i, rtyped0 (fc i) (FunT (f i) t)
+  | InjN i e => ∃ n (f : fin (S n) -> type) i', ⌜⌜ t = SumNT n f ∧ i = fin_to_nat i' ⌝⌝ ∗ rtyped0 e (f i')
+  | MatchSumN n e fc => ∃ (f : fin (S n) -> type), rtyped0 e (SumNT n f) ∗ ∀ i, rtyped0 (fc i) (FunT (f i) t)
   | If e1 e2 e3 => rtyped0 e1 NatT ∗ (rtyped0 e2 t ∧ rtyped0 e3 t)
   | Spawn n f => ∃ σs, ⌜⌜ t ≡ ChanT (σs 0%fin) ∧ consistent (S n) σs ⌝⌝ ∗ [∗ set] p ∈ all_fin n, rtyped0 (f p) (FunT (ChanT (σs (FS p))) UnitT)
   | Close e => ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped0 e (ChanT EndT)
