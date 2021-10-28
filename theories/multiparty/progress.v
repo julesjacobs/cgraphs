@@ -45,6 +45,7 @@ Proof.
       split_and!; eauto.
       eapply (Ctx_cons (λ x, Inj b x)); eauto.
       constructor.
+  - admit.
   - iDestruct "H" as (t') "[H1 H2]".
     iDestruct ("IH" with "H1") as "%". iClear "IH".
     iDestruct ("IH1" with "H2") as "%". iClear "IH1".
@@ -177,6 +178,7 @@ Proof.
       split_and!; eauto.
       eapply (Ctx_cons (λ x, MatchSum x s e2 e3)); eauto.
       constructor.
+  - admit.
   - iDestruct "H" as "[H1 H2]".
     iDestruct ("IH" with "H1") as "%". iClear "IH".
     destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
@@ -232,7 +234,7 @@ Proof.
     + eexists (λ x, x),_. split_and!; [constructor|eauto 10..].
     + eexists (λ x, Close (k x)),_. split_and!; eauto.
       constructor; eauto. constructor.
-Qed.
+Admitted.
 
 Definition thread_waiting (es : list expr) (h : heap) (i c: nat) :=
   ∃ p q bufs k, ctx k ∧
@@ -290,6 +292,8 @@ Fixpoint expr_refs (e : expr) : gset object :=
   | LetProd s1 s2 e1 e2 => expr_refs e1 ∪ expr_refs e2
   | MatchVoid e1 => expr_refs e1
   | MatchSum e1 s e2 e3 => expr_refs e1 ∪ expr_refs e2
+  | InjN i e => expr_refs e
+  | MatchSumN n e f => expr_refs e ∪ fin_union n (expr_refs ∘ f)
   | If e1 e2 e3 => expr_refs e1 ∪ expr_refs e2
   | Spawn n f => fin_union n (expr_refs ∘ f)
   | Close e1 => expr_refs e1
@@ -300,6 +304,7 @@ match v with
 | NatV n => ∅
 | PairV v1 v2 => val_refs v1 ∪ val_refs v2
 | InjV b v1 => val_refs v1
+| InjNV i v1 => val_refs v1
 | FunV s e1 => expr_refs e1
 | UFunV s e1 => expr_refs e1
 | ChanV (c,b) => {[ Chan c ]}
@@ -316,7 +321,7 @@ Definition bufs_refs (bufss : gmap participant (gmap participant (list val))) : 
 Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
   match x with
   | Thread n => from_option expr_refs ∅ (es !! n)
-  | Chan c => buf_refs (gmap_slice h c)
+  | Chan c => bufs_refs (gmap_slice h c)
   end.
 
 Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom (gset object) Σ ⌝⌝ ∗ own Σ.
@@ -381,6 +386,7 @@ Proof.
   - iIntros "H". destruct e; simpl; repeat (iDestruct "H" as (?) "H");
     rewrite ?val_typed_refs ?rtyped_refs ?own_dom_empty ?own_dom_union; eauto.
     + iDestruct "H" as "[H1 [H2 _]]"; iApply own_dom_union; iFrame.
+    + admit.
     + iDestruct "H" as "[H1 [H2 _]]"; iApply own_dom_union; iFrame.
     + iApply own_dom_fin_union.
       iApply (big_sepS_impl with "H"). iModIntro.
@@ -389,10 +395,10 @@ Proof.
   - iIntros "H". destruct v; simpl; rewrite ?own_dom_empty; eauto;
     repeat (iDestruct "H" as (?) "H"); rewrite ?val_typed_refs ?rtyped_refs ?own_dom_union; eauto.
     destruct e. by iApply own_dom_singleton.
-Qed.
+Admitted.
 
 Lemma bufs_typed_refs bufss σs :
-  bufs_typed bufss σs ⊢ own_dom (buf_refs bufss).
+  bufs_typed bufss σs ⊢ own_dom (bufs_refs bufss).
 Proof.
 Admitted.
 

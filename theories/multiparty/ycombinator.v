@@ -1,5 +1,6 @@
 From iris.proofmode Require Import base tactics classes.
 From diris.multiparty Require Import langdef rtypesystem.
+From stdpp Require Import gmap.
 
 Section ycombinator.
   (* We define the y-combinator for creating recursive functions t1 -> t2. *)
