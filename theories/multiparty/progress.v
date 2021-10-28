@@ -219,7 +219,7 @@ Proof.
       split_and!; eauto.
       eapply (Ctx_cons (λ x, If x e2 e3)); eauto.
       constructor.
-  - iDestruct "H" as (σs [-> Hcons]) "H".
+  - iDestruct "H" as (σs [Hteq Hcons]) "H".
     destruct (classic (∀ i, ∃ v, e i = Val v)) as [H|H].
     + iPureIntro. right.
       exists id, (Spawn n e).

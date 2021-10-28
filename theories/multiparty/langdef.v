@@ -307,11 +307,11 @@ Inductive typed : envT -> expr -> type -> Prop :=
     typed Γ2 e2 t ->
     typed Γ2 e3 t ->
     typed (Γ1 ∪ Γ2) (If e1 e2 e3) t
-  | Spawn_typed : ∀ n Γ fΓ σs f,
-    consistent n σs ->
+  | Spawn_typed : ∀ n Γ (fΓ : fin n -> envT) (f : fin n -> expr) (σs : fin (S n) -> session_type),
+    consistent (S n) σs ->
     disj_union n Γ fΓ ->
-    (∀ p, typed (fΓ p) (f p) (FunT (ChanT (σs p)) UnitT)) ->
-    typed Γ (Spawn n f) UnitT
+    (∀ p, typed (fΓ p) (f p) (FunT (ChanT (σs (FS p))) UnitT)) ->
+    typed Γ (Spawn n f) (ChanT (σs 0%fin))
   | Close_typed : ∀ Γ e,
     typed Γ e (ChanT EndT) ->
     typed Γ (Close e) UnitT
@@ -388,7 +388,7 @@ Definition init_chans n : gmap participant (gmap participant (list val)) :=
   fin_gmap n (λ i, init_chan n).
 
 Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr :=
-  fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, fin_to_nat i)))).
+  fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, S (fin_to_nat i))))).
 
 Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
   | Pure_step : ∀ e e' h,
@@ -423,7 +423,8 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
     (∀ p, f p = Val (fv p)) ->
     head_step
       (Spawn n f) h
-      (Val UnitV) (gmap_unslice (init_chans n) c ∪ h)
+      (Val (ChanV (c, 0)))
+      (gmap_unslice (init_chans (S n)) c ∪ h)
       (init_threads c n fv).
 
 Inductive ctx1 : (expr -> expr) -> Prop :=

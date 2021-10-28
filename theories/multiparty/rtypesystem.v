@@ -87,8 +87,8 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
       rtyped Γ1 e1 NatT ∗ (rtyped Γ2 e2 t ∧ rtyped Γ2 e3 t)
   | Spawn n f => ∃ σs fΓ,
-      ⌜⌜ t = UnitT ∧ consistent n σs ∧ disj_union n Γ fΓ ⌝⌝ ∗
-      [∗ set] p ∈ all_fin n, rtyped (fΓ p) (f p) (FunT (ChanT (σs p)) UnitT)
+      ⌜⌜ t ≡ ChanT (σs 0%fin) ∧ consistent (S n) σs ∧ disj_union n Γ fΓ ⌝⌝ ∗
+      [∗ set] p ∈ all_fin n, rtyped (fΓ p) (f p) (FunT (ChanT (σs (FS p))) UnitT)
   | Close e =>
       ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped Γ e (ChanT EndT)
   end
@@ -320,13 +320,9 @@ Proof.
           iApply rtyped_proper_impl; last done; eauto. }
     + iIntros "H".
       iDestruct "H" as (σs fΓ (HH & Hcons & Hdisj)) "H". subst.
-      inversion H2. subst.
       iExists σs,fΓ.
-      iSplit. { by rewrite -H1. }
+      iSplit. { rewrite -H1 -H2 //. }
       done.
-      (* iApply rtyped_proper_impl; last done; eauto. *)
-      (* do 2 constructor; eauto. *)
-      (* rewrite H0 //. *)
     + iIntros "[-> H]".
       inversion H2. subst.
       iSplit; first done.
@@ -522,7 +518,7 @@ Proof.
     iDestruct ("IH2" with "[%] [H2]") as %?; eauto.
     { iDestruct "H2" as "[_ H2]". done. }
     by rewrite H H2.
-  - iDestruct "Ht" as (σs fΓ [-> [HH1 HH2]]) "H".
+  - iDestruct "Ht" as (σs fΓ [HH [HH1 HH2]]) "H".
     iDestruct (big_sepF_pure_impl with "[] H") as %HQ.
     {
       iModIntro. iIntros (i) "H".
@@ -1089,7 +1085,7 @@ Proof.
           iApply ("IH1" with "[%] Hv H"). done.
         - iDestruct "H2" as "[_ H]".
           iApply ("IH2" with "[%] Hv H"). done. }
-  - iDestruct "He" as (σs fΓ [-> [Hcons Hdisj]]) "He".
+  - iDestruct "He" as (σs fΓ [HH [Hcons Hdisj]]) "He".
     iExists σs, (delete x ∘ fΓ).
     iSplit; first eauto using disj_big_union_delete.
     destruct (disj_big_union_Some n Γ fΓ x vT Hdisj H) as [(i & Hi & Hr)|Hunr].
@@ -1136,7 +1132,7 @@ Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
   | InjN i e => ∃ n (f : fin n -> type) i', ⌜⌜ t = SumNT n f ∧ i = fin_to_nat i' ⌝⌝ ∗ rtyped0 e (f i')
   | MatchSumN n e fc => ∃ (f : fin n -> type), rtyped0 e (SumNT n f) ∗ ∀ i, rtyped0 (fc i) (FunT (f i) t)
   | If e1 e2 e3 => rtyped0 e1 NatT ∗ (rtyped0 e2 t ∧ rtyped0 e3 t)
-  | Spawn n f => ∃ σs, ⌜⌜ t = UnitT ∧ consistent n σs ⌝⌝ ∗ [∗ set] p ∈ all_fin n, rtyped0 (f p) (FunT (ChanT (σs p)) UnitT)
+  | Spawn n f => ∃ σs, ⌜⌜ t ≡ ChanT (σs 0%fin) ∧ consistent (S n) σs ⌝⌝ ∗ [∗ set] p ∈ all_fin n, rtyped0 (f p) (FunT (ChanT (σs (FS p))) UnitT)
   | Close e => ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped0 e (ChanT EndT)
  end%I.
 Instance : Params (@rtyped0) 1 := {}.
@@ -1254,7 +1250,7 @@ Proof.
       iIntros. rewrite -H.
       erewrite disj_union_empty_inv; eauto.
     + iIntros "H".
-      iDestruct "H" as ([-> Hc]) "H".
+      iDestruct "H" as ([HH Hc]) "H".
       iExists (λ p, ∅).
       iSplit; first eauto using disj_union_empty.
       iApply (big_sepS_impl with "H"). iModIntro.

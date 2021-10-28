@@ -239,8 +239,7 @@ Proof.
            apply map_to_multiset_lookup in Hσs.
            by iApply bufs_typed_dealloc.
   - (* Fork *)
-    admit.
-    (* eapply (inv_alloc_lrs (Thread i) (Chan c)
+    eapply (inv_alloc_lrs (Thread i) (Chan c)
               n (λ i, Thread (length es + fin_to_nat i))); last done;
       first apply _; first apply _.
     + intros m1 m2. intro HH. simplify_eq.
@@ -283,22 +282,30 @@ Proof.
     + iIntros (y0) "H". simpl. rewrite H0.
       iDestruct "H" as (HH) "H".
       iDestruct (rtyped0_ctx with "H") as (t) "[H1 H2]"; eauto. simpl.
-      iDestruct "H1" as (σs [-> Hcons]) "H1".
-      iExists (λ m, (fin_to_nat m, σs m)).
+      iDestruct "H1" as (σs [Hteq Hcons]) "H1".
+      iExists (0, σs 0%fin).
+      iExists (λ m, (S (fin_to_nat m), σs (FS m))).
       iSplitL "H2".
       {
         rewrite lookup_app list_lookup_insert; eauto using lookup_lt_Some.
-        iSplit; eauto. iApply "H2". done.
+        iIntros "H".
+        iSplit; eauto. iApply "H2". simpl.
+        remember (ChanT (σs 0%fin)).
+        inversion Hteq; simplify_eq.
+        iExists _. iSplit; first done.
+        rewrite -H3 //.
       }
       iSplitR.
       {
-        iExists (fin_gmap n σs).
+        iExists (fin_gmap (S n) σs).
         rewrite gmap_slice_union.
         assert (gmap_slice h c = ∅) as ->.
         { eapply map_eq. intro. rewrite gmap_slice_lookup lookup_empty //. }
-        rewrite right_id fin_multiset_gmap.
-        iSplit; first done.
+        iSplit.
+        { iPureIntro. rewrite <-fin_multiset_gmap.
+          rewrite fin_multiset_S //. }
         rewrite gmap_slice_unslice. case_decide; simplify_eq.
+        rewrite right_id.
         iApply bufs_typed_init; eauto.
       }
       iApply (big_sepS_impl with "H1"). iModIntro.
@@ -308,8 +315,11 @@ Proof.
       rewrite list.insert_length.
       replace (length es + m - length es) with (fin_to_nat m) by lia.
       rewrite fin_list_lookup H2.
-      simpl. eauto with iFrame. *)
-Admitted.
+      simpl.
+      remember (ChanT (σs 0%fin)).
+      inversion Hteq; simplify_eq.
+      eauto with iFrame.
+Qed.
 
 Lemma preservationN (threads threads' : list expr) (chans chans' : heap) :
   steps threads chans threads' chans' ->
