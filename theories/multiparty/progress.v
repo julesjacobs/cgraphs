@@ -45,7 +45,19 @@ Proof.
       split_and!; eauto.
       eapply (Ctx_cons (λ x, Inj b x)); eauto.
       constructor.
-  - admit.
+  - iDestruct "H" as (n0 f i' [-> ->]) "H".
+    iDestruct ("IH" with "H") as "%". iClear "IH".
+    destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
+    + iPureIntro. right. exists (λ x, x). eexists.
+      split_and!; eauto.
+      { constructor. }
+      left. eexists.
+      constructor.
+    + iPureIntro. right.
+      eexists (λ x, InjN i' (k x)),_.
+      split_and!; eauto.
+      eapply (Ctx_cons (λ x, InjN i' x)); eauto.
+      econstructor.
   - iDestruct "H" as (t') "[H1 H2]".
     iDestruct ("IH" with "H1") as "%". iClear "IH".
     iDestruct ("IH1" with "H2") as "%". iClear "IH1".
@@ -178,7 +190,18 @@ Proof.
       split_and!; eauto.
       eapply (Ctx_cons (λ x, MatchSum x s e2 e3)); eauto.
       constructor.
-  - admit.
+  - iDestruct "H" as (f) "[H1 H2]".
+    iDestruct ("IH1" with "H1") as "%". iClear "IH IH1".
+    destruct H as [[v ->]|(k & e0' & Hk & -> & H)].
+    + simpl. rewrite val_typed_val_typed'. simpl.
+      iDestruct "H1" as (i a) "[-> H1]".
+      iPureIntro. right. exists (λ x, x). eexists.
+      split_and!; eauto using ctx, pure_step.
+    + iPureIntro. right.
+      eexists (λ x, MatchSumN n (k x) e0),_.
+      split_and!; eauto.
+      eapply (Ctx_cons (λ x, MatchSumN n x e0)); eauto.
+      constructor.
   - iDestruct "H" as "[H1 H2]".
     iDestruct ("IH" with "H1") as "%". iClear "IH".
     destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
@@ -234,9 +257,9 @@ Proof.
     + eexists (λ x, x),_. split_and!; [constructor|eauto 10..].
     + eexists (λ x, Close (k x)),_. split_and!; eauto.
       constructor; eauto. constructor.
-Admitted.
+Qed.
 
-Definition thread_waiting (es : list expr) (h : heap) (i c: nat) :=
+Definition thread_waiting (es : list expr) (h : heap) (i c : nat) :=
   ∃ p q bufs k, ctx k ∧
     es !! i = Some (k (Recv q (Val (ChanV (c,p))))) ∧
     h !! (c,p) = Some bufs ∧

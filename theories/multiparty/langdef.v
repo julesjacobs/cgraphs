@@ -296,11 +296,10 @@ Inductive typed : envT -> expr -> type -> Prop :=
   | InjN_typed : ∀ Γ n f i e,
     typed Γ e (f i) ->
     typed Γ (InjN (fin_to_nat i) e) (SumNT n f)
-  | MatchSumN_typed : ∀ n Γ1 Γ2 Γ2' t f fc e,
+  | MatchSumN_typed : ∀ n Γ1 Γ2 t f fc e,
     disj Γ1 Γ2 ->
-    disj_union n Γ2 Γ2' ->
     typed Γ1 e (SumNT n f) ->
-    (∀ i, typed (Γ2' i) (fc i) (FunT (f i) t)) ->
+    (∀ i, typed Γ2 (fc i) (FunT (f i) t)) ->
     typed (Γ1 ∪ Γ2) (MatchSumN n e fc) t
   | If_typed : ∀ Γ1 Γ2 e1 e2 e3 t,
     disj Γ1 Γ2 ->
@@ -443,6 +442,7 @@ Inductive ctx1 : (expr -> expr) -> Prop :=
   | Ctx_LetProd s1 s2 e : ctx1 (λ x, LetProd s1 s2 x e)
   | Ctx_MatchVoid : ctx1 (λ x, MatchVoid x)
   | Ctx_MatchSum s e1 e2 : ctx1 (λ x, MatchSum x s e1 e2)
+  | Ctx_InjN i : ctx1 (λ x, InjN i x)
   | Ctx_MatchSumN n (f : fin n -> expr) : ctx1 (λ x, MatchSumN n x f)
   | Ctx_If e1 e2 : ctx1 (λ x, If x e1 e2)
   | Ctx_Spawn n (f : fin n -> expr) (p : fin n) :
