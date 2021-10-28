@@ -314,9 +314,9 @@ Fixpoint expr_refs (e : expr) : gset object :=
   | LetUnit e1 e2 => expr_refs e1 ∪ expr_refs e2
   | LetProd s1 s2 e1 e2 => expr_refs e1 ∪ expr_refs e2
   | MatchVoid e1 => expr_refs e1
-  | MatchSum e1 s e2 e3 => expr_refs e1 ∪ expr_refs e2
+  | MatchSum e1 s e2 e3 => expr_refs e1 ∪ expr_refs e2 ∪ expr_refs e3
   | InjN i e => expr_refs e
-  | MatchSumN n e f => expr_refs e ∪ expr_refs (f 0%fin)
+  | MatchSumN n e f => expr_refs e ∪ fin_union n (expr_refs ∘ f)
   | If e1 e2 e3 => expr_refs e1 ∪ expr_refs e2
   | Spawn n f => fin_union n (expr_refs ∘ f)
   | Close e1 => expr_refs e1
@@ -401,6 +401,36 @@ Proof.
   iApply own_dom_fin_gset.
 Qed.
 
+Ltac model := repeat
+  (setoid_rewrite pure_sep_holds || setoid_rewrite exists_holds
+  || setoid_rewrite own_holds || setoid_rewrite val_typed_val_typed'
+  || setoid_rewrite sep_holds).
+
+Lemma own_dom_all {A} (f : A -> gset object) :
+  (∀ i, own_dom (f i)) ⊢ ⌜ ∀ i j, f i = f j ⌝.
+Proof.
+Admitted.
+
+Lemma own_dom_and A B :
+  own_dom A ∧ own_dom B ⊢ ⌜ A = B ⌝.
+Proof.
+  iIntros "H".
+  iAssert (∀ c:bool, own_dom (if c then A else B))%I with "[H]" as "H".
+  { iIntros ([]).
+    - by iDestruct "H" as "[H _]".
+    - by iDestruct "H" as "[_ H]". }
+  iDestruct (own_dom_all with "H") as %Q.
+  specialize (Q true false). simpl in *. eauto.
+Qed.
+
+Lemma fin_union_same `{Countable A} n (s : gset A) :
+  fin_union (S n) (λ i, s) = s.
+Proof.
+  induction n.
+  - rewrite fin_union_S fin_union_0 right_id_L //.
+  - rewrite fin_union_S IHn union_idemp_L //.
+Qed.
+
 Lemma rtyped_refs Γ e t :
   rtyped Γ e t ⊢ own_dom (expr_refs e)
 with val_typed_refs v t :
@@ -408,9 +438,21 @@ with val_typed_refs v t :
 Proof.
   - iIntros "H". destruct e; simpl; repeat (iDestruct "H" as (?) "H");
     rewrite ?val_typed_refs ?rtyped_refs ?own_dom_empty ?own_dom_union; eauto.
-    + iDestruct "H" as "[H1 [H2 _]]"; iApply own_dom_union; iFrame.
+    + iDestruct "H" as "[H1 H2]".
+      rewrite -assoc_L.
+      iApply own_dom_union. iFrame.
+      iDestruct (own_dom_and with "H2") as %->.
+      iDestruct "H2" as "[_ H2]".
+      rewrite union_idemp_L //.
     + iDestruct "H" as "[H1 H2]". iApply own_dom_union; iFrame.
-      iApply rtyped_refs. eauto.
+      case_decide; subst. { rewrite fin_union_0 own_dom_empty //. }
+      iAssert (∀ i, own_dom (expr_refs (e0 i)))%I with "[H2]" as "H".
+      { iIntros (i). iApply rtyped_refs. eauto. }
+      destruct n; simplify_eq.
+      iDestruct (own_dom_all with "H") as %Q.
+      assert (expr_refs ∘ e0 = λ i, expr_refs (e0 0%fin)) as ->.
+      { apply functional_extensionality. intros. eapply Q. }
+      rewrite fin_union_same. iApply "H".
     + iDestruct "H" as "[H1 [H2 _]]"; iApply own_dom_union; iFrame.
     + iApply own_dom_fin_union.
       iApply (big_sepS_impl with "H"). iModIntro.
@@ -436,11 +478,6 @@ Proof.
   - iDestruct "H" as (σs H) "H".
     iApply bufs_typed_refs. done.
 Qed.
-
-Ltac model := repeat
-  (setoid_rewrite pure_sep_holds || setoid_rewrite exists_holds
-  || setoid_rewrite own_holds || setoid_rewrite val_typed_val_typed'
-  || setoid_rewrite sep_holds).
 
 Lemma obj_refs_state_inv es h x Δ Σ :
   holds (state_inv es h x Δ) Σ -> obj_refs es h x = dom (gset object) Σ.

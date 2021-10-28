@@ -33,7 +33,7 @@ with expr :=
   | LetProd : string -> string -> expr -> expr -> expr
   | MatchVoid : expr -> expr
   | MatchSum : expr -> string -> expr -> expr -> expr
-  | MatchSumN n : expr -> (fin (S n) -> expr) -> expr
+  | MatchSumN n : expr -> (fin n -> expr) -> expr
   | If : expr -> expr -> expr -> expr
   | Spawn n : (fin n -> expr) -> expr
   | Close : expr -> expr.
@@ -125,7 +125,7 @@ CoInductive type :=
   | NatT : type
   | PairT : type -> type -> type
   | SumT : type -> type -> type
-  | SumNT n : (fin (S n) -> type) -> type
+  | SumNT n : (fin n -> type) -> type
   | FunT : type -> type -> type
   | UFunT : type -> type -> type
   | ChanT : session_type' type -> type.
@@ -325,11 +325,12 @@ Inductive typed : envT -> expr -> type -> Prop :=
   | InjN_typed : ∀ Γ n f i e,
     typed Γ e (f i) ->
     typed Γ (InjN (fin_to_nat i) e) (SumNT n f)
-  | MatchSumN_typed : ∀ n Γ1 Γ2 t f fc e,
+  | MatchSumN_typed : ∀ n Γ1 Γ2 t (f : fin n -> type) fc e,
     disj Γ1 Γ2 ->
-    typed Γ1 e (SumNT (S n) f) ->
+    (n = 0 -> Γ2 = ∅) ->
+    typed Γ1 e (SumNT n f) ->
     (∀ i, typed Γ2 (fc i) (FunT (f i) t)) ->
-    typed (Γ1 ∪ Γ2) (MatchSumN (S n) e fc) t
+    typed (Γ1 ∪ Γ2) (MatchSumN n e fc) t
   | If_typed : ∀ Γ1 Γ2 e1 e2 e3 t,
     disj Γ1 Γ2 ->
     typed Γ1 e1 NatT ->
@@ -473,7 +474,7 @@ Inductive ctx1 : (expr -> expr) -> Prop :=
   | Ctx_MatchVoid : ctx1 (λ x, MatchVoid x)
   | Ctx_MatchSum s e1 e2 : ctx1 (λ x, MatchSum x s e1 e2)
   | Ctx_InjN i : ctx1 (λ x, InjN i x)
-  | Ctx_MatchSumN n (f : fin (S n) -> expr) : ctx1 (λ x, MatchSumN n x f)
+  | Ctx_MatchSumN n f : ctx1 (λ x, MatchSumN n x f)
   | Ctx_If e1 e2 : ctx1 (λ x, If x e1 e2)
   | Ctx_Spawn n (f : fin n -> expr) (p : fin n) :
     ctx1 (λ x, Spawn n (λ q, if decide (p = q) then x else f q))
