@@ -42,19 +42,46 @@ Canonical Structure valO := leibnizO val.
 Canonical Structure exprO := leibnizO expr.
 
 CoInductive session_type' (T : Type) :=
-  | SendT : participant -> T -> session_type' T -> session_type' T
-  | RecvT : participant -> T -> session_type' T -> session_type' T
+  | SendT n : participant -> (fin n -> T) -> (fin n -> session_type' T) -> session_type' T
+  | RecvT n : participant -> (fin n -> T) -> (fin n -> session_type' T) -> session_type' T
   | EndT : session_type' T.
+Check SendT.
 Arguments SendT {_} _ _ _.
 Arguments RecvT {_} _ _ _.
 Arguments EndT {_}.
 Instance sendt_params : Params (@SendT) 1 := {}.
 Instance recvt_params : Params (@RecvT) 1 := {}.
 
+Global Instance finvec_equiv `{Equiv T} n : Equiv (fin n -> T) := λ f g, ∀ i, f i ≡ g i.
+
+Global Instance finvec_reflexive `{Equiv T} n :
+  Reflexive (≡@{T}) -> Reflexive (≡@{fin n -> T}).
+Proof.
+  intro. repeat intro; eauto.
+Defined.
+
+Global Instance finvec_symmetric `{Equiv T} n :
+  Symmetric (≡@{T}) -> Symmetric (≡@{fin n -> T}).
+Proof.
+  intro. repeat intro; eauto.
+Defined.
+
+Global Instance finvec_transitive `{Equiv T} n :
+  Transitive (≡@{T}) -> Transitive (≡@{fin n -> T}).
+Proof.
+  intro. repeat intro; eauto.
+Defined.
+
+Global Instance finvec_equivalence `{Equiv T} n :
+  Equivalence (≡@{T}) -> Equivalence (≡@{fin n -> T}).
+Proof.
+  intros []. constructor; apply _.
+Defined.
+
 CoInductive session_type_equiv `{Equiv T} : Equiv (session_type' T) :=
   | cteq_EndT : EndT ≡ EndT
-  | cteq_SendT t1 t2 s1 s2 p : t1 ≡ t2 -> s1 ≡ s2 -> SendT p t1 s1 ≡ SendT p t2 s2
-  | cteq_RecvT t1 t2 s1 s2 p : t1 ≡ t2 -> s1 ≡ s2 -> RecvT p t1 s1 ≡ RecvT p t2 s2.
+  | cteq_SendT n t1 t2 f1 f2 p : t1 ≡ t2 -> f1 ≡ f2 -> SendT n p t1 f1 ≡ SendT n p t2 f2
+  | cteq_RecvT n t1 t2 f1 f2 p : t1 ≡ t2 -> f1 ≡ f2 -> RecvT n p t1 f1 ≡ RecvT n p t2 f2.
 Existing Instance session_type_equiv.
 
 Lemma session_type_reflexive `{Equiv T} :
@@ -66,13 +93,20 @@ Defined.
 Lemma session_type_symmetric `{Equiv T} :
   Symmetric (≡@{T}) -> Symmetric (≡@{session_type' T}).
 Proof.
-  intros ?. cofix IH. intros ??[]; constructor; done.
+  intros ?. cofix IH. intros ??[]; constructor; intro; done.
 Defined.
 
 Lemma session_type_transitive `{Equiv T} :
   Transitive (≡@{T}) -> Transitive (≡@{session_type' T}).
 Proof.
-  intros ?. cofix IH. intros ???[]; inversion_clear 1; constructor; by etrans.
+  intros ?. cofix IH. intros ???[].
+  - inversion_clear 1. constructor.
+  - remember (SendT n p t2 f2).
+    inversion 1; simplify_eq.
+    constructor; etrans; eauto.
+  - remember (RecvT n p t2 f2).
+    inversion 1; simplify_eq.
+    constructor; etrans; eauto.
 Defined.
 
 Global Instance session_type_equivalence `{Equiv T} :
@@ -84,15 +118,15 @@ Proof.
   - apply session_type_transitive. apply _.
 Qed.
 
-Global Instance sendt_proper `{Equiv T} p : Proper ((≡) ==> (≡) ==> (≡)) (@SendT T p).
+Global Instance sendt_proper `{Equiv T} n p : Proper ((≡) ==> (≡) ==> (≡)) (@SendT T n p).
 Proof. by constructor. Qed.
-Global Instance recvt_proper `{Equiv T} p : Proper ((≡) ==> (≡) ==> (≡)) (@RecvT T p).
+Global Instance recvt_proper `{Equiv T} n p : Proper ((≡) ==> (≡) ==> (≡)) (@RecvT T n p).
 Proof. by constructor. Qed.
 
 Definition session_type_id {T} (s : session_type' T) : session_type' T :=
   match s with
-  | SendT p t s' => SendT p t s'
-  | RecvT p t s' => RecvT p t s'
+  | SendT n p t s' => SendT n p t s'
+  | RecvT n p t s' => RecvT n p t s'
   | EndT => EndT
   end.
 
