@@ -243,8 +243,19 @@ Inductive occurs_in (p : participant) : global_type -> Prop :=
   | oi_here_receiver n q t g : occurs_in p (Message n q p t g)
   | oi_later n q r t g : (∀ i, occurs_in p (g i)) -> occurs_in p (Message n q r t g).
 
-Definition proj : global_type -> participant -> session_type -> Prop.
-Admitted.
+CoInductive proj (p : participant) : global_type -> session_type -> Prop :=
+  | proj_send n q t g σ :
+      p ≠ q -> (∀ i, proj p (g i) (σ i)) ->
+        proj p (Message n p q t g) (SendT n q t σ)
+  | proj_recv n q t g σ :
+      p ≠ q -> (∀ i, proj p (g i) (σ i)) ->
+        proj p (Message n q p t g) (RecvT n q t σ)
+  | proj_skip n q r t g σ :
+      p ≠ q -> p ≠ r -> (∀ i, proj p (g i) σ) -> (∀ i, occurs_in p (g i)) ->
+        proj p (Message n q r t g) σ
+  | proj_end g :
+      ¬ occurs_in p g ->
+        proj p g EndT.
 
 (*
 
