@@ -26,7 +26,7 @@ with expr :=
   | UApp : expr -> expr -> expr
   | Lam : string -> expr -> expr
   | ULam : string -> expr -> expr
-  | Send : participant -> expr -> expr -> expr
+  | Send : participant -> expr -> nat -> expr -> expr
   | Recv : participant -> expr -> expr
   | Let : string -> expr -> expr -> expr
   | LetUnit : expr -> expr -> expr
@@ -319,14 +319,14 @@ Inductive typed : envT -> expr -> type -> Prop :=
     Γunrestricted Γ ->
     typed (Γ ∪ {[ x := t1 ]}) e t2 ->
     typed Γ (ULam x e) (UFunT t1 t2)
-  | Send_typed : ∀ Γ1 Γ2 e1 e2 t r p,
+  | Send_typed : ∀ Γ1 Γ2 e1 e2 n t r p i,
     disj Γ1 Γ2 ->
-    typed Γ1 e1 (ChanT (SendT p t r)) ->
-    typed Γ2 e2 t ->
-    typed (Γ1 ∪ Γ2) (Send p e1 e2) (ChanT r)
-  | Recv_typed : ∀ Γ e t r p,
-    typed Γ e (ChanT (RecvT p t r)) ->
-    typed Γ (Recv p e) (PairT (ChanT r) t)
+    typed Γ1 e1 (ChanT (SendT n p t r)) ->
+    typed Γ2 e2 (t i) ->
+    typed (Γ1 ∪ Γ2) (Send p e1 (fin_to_nat i) e2) (ChanT (r i))
+  | Recv_typed : ∀ Γ e n t r p,
+    typed Γ e (ChanT (RecvT n p t r)) ->
+    typed Γ (Recv p e) (SumNT n (λ i, PairT (ChanT (r i)) (t i)))
   | Let_typed : ∀ Γ1 Γ2 e1 e2 t1 t2 x,
     disj Γ1 Γ2 ->
     Γ2 !! x = None ->
@@ -394,7 +394,7 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   | UApp e1 e2 => UApp (subst x a e1) (subst x a e2)
   | Lam x' e1 => if decide (x = x') then e else Lam x' (subst x a e1)
   | ULam x' e1 => if decide (x = x') then e else ULam x' (subst x a e1)
-  | Send p e1 e2 => Send p (subst x a e1) (subst x a e2)
+  | Send p e1 i e2 => Send p (subst x a e1) i (subst x a e2)
   | Recv p e1 => Recv p (subst x a e1)
   | Let x' e1 e2 => Let x' (subst x a e1) (if decide (x = x') then e2 else subst x a e2)
   | LetUnit e1 e2 => LetUnit (subst x a e1) (subst x a e2)
@@ -457,11 +457,11 @@ Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr 
 Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
   | Pure_step : ∀ e e' h,
     pure_step e e' -> head_step e h e' h []
-  | Send_step : ∀ h c p q y, (* p is us, q is the one we send to *)
+  | Send_step : ∀ h c p q y i, (* p is us, q is the one we send to *)
                  (* send puts the value in the bufs of the other *)
                  (* since we are participant p, we put it in that buffer *)
-    head_step (Send q (Val (ChanV (c,p))) (Val y)) h
-          (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [y]) p) (c,q) h) []
+    head_step (Send q (Val (ChanV (c,p))) i (Val y)) h
+          (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [InjNV i y]) p) (c,q) h) []
     (* We could instead to the following:
        (that would move some of the work from the preservation proof to the progress proof.) *)
     (*
@@ -499,8 +499,8 @@ Inductive ctx1 : (expr -> expr) -> Prop :=
   | Ctx_Inj b : ctx1 (λ x, Inj b x)
   | Ctx_UApp_l e : ctx1 (λ x, UApp x e)
   | Ctx_UApp_r v : ctx1 (λ x, UApp (Val v) x)
-  | Ctx_Send_l p e : ctx1 (λ x, Send p x e)
-  | Ctx_Send_r p v : ctx1 (λ x, Send p (Val v) x)
+  | Ctx_Send_l p e i : ctx1 (λ x, Send p x i e)
+  | Ctx_Send_r p v i : ctx1 (λ x, Send p (Val v) i x)
   | Ctx_Recv p : ctx1 (λ x, Recv p x)
   | Ctx_Let s e : ctx1 (λ x, Let s x e)
   | Ctx_LetUnit e : ctx1 (λ x, LetUnit x e)
