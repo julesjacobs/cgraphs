@@ -233,7 +233,16 @@ Definition Γunrestricted (Γ : envT) :=
   ∀ x t, Γ !! x = Some t -> unrestricted t.
 
 
-Axiom global_type : Type.
+CoInductive global_type : Type :=
+  | Message n : participant -> participant ->
+                (fin n -> type) -> (fin n -> global_type) -> global_type
+  | EndG : global_type.
+
+Inductive occurs_in (p : participant) : global_type -> Prop :=
+  | oi_here_sender n q t g : occurs_in p (Message n p q t g)
+  | oi_here_receiver n q t g : occurs_in p (Message n q p t g)
+  | oi_later n q r t g : (∀ i, occurs_in p (g i)) -> occurs_in p (Message n q r t g).
+
 Definition proj : global_type -> participant -> session_type -> Prop.
 Admitted.
 
@@ -255,10 +264,6 @@ rc : ![q] ...
 let c0 = spawn((λ c1, ...),(λ c2, ...))
 ...
 *)
-
-Definition occurs_in : global_type -> participant -> Prop.
-Admitted.
-
 Definition consistent n (σs : fin n -> session_type) :=
   ∃ G : global_type,
     (∀ i, proj G (fin_to_nat i) (σs i)) ∧
