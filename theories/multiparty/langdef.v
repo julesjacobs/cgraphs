@@ -238,23 +238,23 @@ CoInductive global_type : Type :=
                 (fin n -> type) -> (fin n -> global_type) -> global_type
   | EndG : global_type.
 
-Inductive occurs_in (p : participant) : global_type -> Prop :=
-  | oi_here_sender n q t g : occurs_in p (Message n p q t g)
-  | oi_here_receiver n q t g : occurs_in p (Message n q p t g)
-  | oi_later n q r t g : (∀ i, occurs_in p (g i)) -> occurs_in p (Message n q r t g).
+Inductive occurs_in (r : participant) : global_type -> Prop :=
+  | oi_here_sender n q t g : occurs_in r (Message n r q t g)
+  | oi_here_receiver n p t g : occurs_in r (Message n p r t g)
+  | oi_later n p q t g : (∀ i, occurs_in r (g i)) -> occurs_in r (Message n p q t g).
 
-CoInductive proj (p : participant) : global_type -> session_type -> Prop :=
+CoInductive proj (r : participant) : global_type -> session_type -> Prop :=
   | proj_send n q t G σ :
-      p ≠ q -> (∀ i, proj p (G i) (σ i)) ->
-        proj p (Message n p q t G) (SendT n q t σ)
-  | proj_recv n q t G σ :
-      p ≠ q -> (∀ i, proj p (G i) (σ i)) ->
-        proj p (Message n q p t G) (RecvT n q t σ)
-  | proj_skip n q r t G σ :
-      p ≠ q -> p ≠ r -> (∀ i, proj p (G i) σ) -> (∀ i, occurs_in p (G i)) ->
-        proj p (Message n q r t G) σ
+      r ≠ q -> (∀ i, proj r (G i) (σ i)) ->
+        proj r (Message n r q t G) (SendT n q t σ)
+  | proj_recv n p t G σ :
+      r ≠ p -> (∀ i, proj p (G i) (σ i)) ->
+        proj r (Message n p r t G) (RecvT n p t σ)
+  | proj_skip n p q t G σ :
+      r ≠ p -> r ≠ q -> (∀ i, proj r (G i) σ) -> (∀ i, occurs_in r (G i)) ->
+        proj r (Message n p q t G) σ
   | proj_end G :
-      ¬ occurs_in p G -> proj p G EndT.
+      ¬ occurs_in r G -> proj r G EndT.
 
 (*
 
@@ -459,11 +459,26 @@ Inductive pure_step : expr -> expr -> Prop :=
   | LetProd_step : ∀ x1 x2 v1 v2 e,
     pure_step (LetProd x1 x2 (Val (PairV v1 v2)) e) (subst x1 v1 $ subst x2 v2 e).
 
-Definition bufT := list (nat * val).
-Definition heap := gmap endpoint (gmap participant bufT).
+Definition entryT := (nat * val)%type.
+Definition bufT := list entryT.
+Definition bufsT := gmap participant bufT.
+Definition heap := gmap endpoint bufsT.
 
 Definition init_chan n : gmap participant bufT :=
   fin_gmap n (λ i, []).
+
+(* Definition push_chan (p : participant) (x : entryT) (bufs : bufsT) : bufsT :=
+  match bufs !! p with
+  | Some buf => <[ p := buf ++ [x]]> bufs
+  | None => <[ p := [x] ]> bufs
+  end.
+
+Definition pop_chan (p : participant) (bufs : bufT) : option (entryT * bufT) :=
+  match bufs !! p with
+  | Some (x :: buf) => Some (x, <[ p := buf ]> bufs)
+  | _ => None
+  end. *)
+
 Definition init_chans n : gmap participant (gmap participant bufT) :=
   fin_gmap n (λ i, init_chan n).
 

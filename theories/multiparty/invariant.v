@@ -12,54 +12,73 @@ Section bufs_typed.
                   (fin n -> type) -> (fin n -> rglobal_type) -> rglobal_type
     | ContinueR : global_type -> rglobal_type.
 
-  Inductive roccurs_in (p : participant) : rglobal_type -> Prop :=
-    | roi_here_sender n q t g : roccurs_in p (MessageR n p q t g)
-    | roi_here_receiver n q t g : roccurs_in p (MessageR n q p t g)
-    | roi_buf_receiver n i q t g : roccurs_in p (BufMessageR n i q p t g)
-    | roi_later n q r t g :
-        p ≠ q -> p ≠ r -> (∀ i, roccurs_in p (g i)) ->
-          roccurs_in p (MessageR n q r t g)
-    | roi_buf_later n i q r t g :
-        p ≠ r -> (∀ i, roccurs_in p (g i)) ->
-          roccurs_in p (BufMessageR n i q r t g).
+  Inductive roccurs_in (r : participant) : rglobal_type -> Prop :=
+    | roi_here_sender n q t g : roccurs_in r (MessageR n r q t g)
+    | roi_here_receiver n p t g : roccurs_in r (MessageR n p r t g)
+    | roi_buf_receiver n i p t g : roccurs_in r (BufMessageR n i p r t g)
+    | roi_later n p q t g :
+        r ≠ p -> r ≠ q -> (∀ i, roccurs_in r (g i)) -> roccurs_in r (MessageR n p q t g)
+    | roi_buf_later n i p q t g :
+        r ≠ q -> (∀ i, roccurs_in r (g i)) -> roccurs_in r (BufMessageR n i p q t g).
 
-  Inductive rproj (p : participant) : rglobal_type -> session_type -> Prop :=
+  Inductive rproj (r : participant) : rglobal_type -> session_type -> Prop :=
     | rproj_send n q t G σ :
-        p ≠ q -> (∀ i, rproj p (G i) (σ i)) ->
-          rproj p (MessageR n p q t G) (SendT n q t σ)
-    | rproj_recv n q t G σ :
-        p ≠ q -> (∀ i, rproj p (G i) (σ i)) ->
-          rproj p (MessageR n q p t G) (RecvT n q t σ)
-    | rproj_buf_recv n i q t G σ :
-        p ≠ q -> (∀ i, rproj p (G i) (σ i)) ->
-          rproj p (BufMessageR n i q p t G) (RecvT n q t σ)
-    | rproj_buf_send n i q t G σ :
-        p ≠ q -> (∀ i, rproj p (G i) (σ i)) ->
-          rproj p (BufMessageR n i p q t G) (SendT n q t σ)
-    | rproj_skip n q r t G σ :
-        p ≠ q -> p ≠ r -> (∀ i, rproj p (G i) σ) -> (∀ i, roccurs_in p (G i)) ->
-          rproj p (MessageR n q r t G) σ
+        r ≠ q -> (∀ i, rproj r (G i) (σ i)) ->
+          rproj r (MessageR n r q t G) (SendT n q t σ)
+    | rproj_recv n p t G σ :
+        r ≠ p -> (∀ i, rproj r (G i) (σ i)) ->
+          rproj r (MessageR n p r t G) (RecvT n p t σ)
+    | rproj_buf_recv n i p t G σ :
+        r ≠ p -> (∀ i, rproj r (G i) (σ i)) ->
+          rproj r (BufMessageR n i p r t G) (RecvT n p t σ)
+    | rproj_skip n p q t G σ :
+        r ≠ p -> r ≠ q -> (∀ i, rproj r (G i) σ) ->
+          rproj r (MessageR n p q t G) σ
+    | rproj_buf_skip n i p q t G σ :
+        r ≠ q -> rproj r (G i) σ ->
+          rproj r (BufMessageR n i p q t G) σ
     (* | rproj_buf_skip n i q r t G σ :
         p ≠ r -> (∀ i, rproj p (G i) σ) -> (∀ i, roccurs_in p (G i)) ->
           rproj p (BufMessageR n i q r t G) σ *)
-    | rproj_end G :
-        ¬ roccurs_in p G -> rproj p G EndT
     | rproj_continue G σ :
-        proj p G σ -> rproj p (ContinueR G) σ.
+        proj r G σ -> rproj r (ContinueR G) σ.
 
-  Fixpoint bufproj (p : participant) (G : rglobal_type) (buf : gmap participant bufT) : rProp :=
+  Fixpoint bufproj (r : participant) (G : rglobal_type) (buf : gmap participant bufT) : rProp :=
     match G with
-    | MessageR n q r t G' => ∀ i, bufproj p (G' i) buf
-    | BufMessageR n i q r t G' => bufproj p (G' i) buf
-    | ContinueR G' => ⌜⌜ ∀ q, (roccurs_in q G -> buf !! q = Some []) ∧
-                              (¬ roccurs_in q G -> buf !! q = None) ⌝⌝
+    | MessageR n p q t G' => ∀ i, bufproj r (G' i) buf
+    | BufMessageR n i p q t G' => ∃ v, ⌜⌜ True ⌝⌝ ∗ val_typed v (t i) ∗ bufproj r (G' i) buf
+    | ContinueR G' => ⌜⌜ ∀ p, buf !! p = None ∨ buf !! p = Some [] ⌝⌝
+                              (* (¬ occurs_in p G' -> buf !! p = None) ⌝⌝ *)
+    end.
+
+  Fixpoint bufprojs (G : rglobal_type) (bufs : gmap participant (gmap participant bufT)) : rProp :=
+    match G with
+    | MessageR n p q t G' => True
+    | BufMessageR n i p q t G' => True
+    | ContinueR G' => True
     end.
 
   Definition bufs_typed (bufs : gmap participant (gmap participant bufT))
                         (σs : gmap participant session_type) : rProp :=
     ∃ G : rglobal_type,
-      ⌜⌜ ∀ p, is_Some (bufs !! p) <-> roccurs_in p G ⌝⌝ ∗
+      ⌜⌜ ∀ p, roccurs_in p G -> is_Some (bufs !! p) ⌝⌝ ∗
       [∗ map] p ↦ buf;σ ∈ bufs;σs, ⌜⌜ rproj p G σ ⌝⌝ ∗ bufproj p G buf.
+
+  Definition bufs_typed' (bufs : gmap participant (gmap participant bufT))
+                        (σs : gmap participant session_type) : rProp :=
+    ∃ G : rglobal_type,
+      ⌜⌜ dom (gset _) bufs = dom (gset _) σs ∧           (* ugly *)
+         ∀ p, rproj p G (default EndT (σs !! p)) ⌝⌝ ∗
+         bufprojs G bufs.
+
+  Definition bufs_typed'' (bufs : gmap participant (gmap participant bufT))
+                        (σs : gmap participant session_type) : rProp :=
+    ∃ G : rglobal_type,
+      ⌜⌜ dom (gset _) bufs = dom (gset _) σs ∧           (* ugly *)
+         ∀ p, rproj p G (default EndT (σs !! p)) ⌝⌝ ∗
+         [∗ map] p ↦ buf ∈ bufs, bufproj p G buf.
+
+
 
   (*
   Global Instance bufs_typed_params : Params (@bufs_typed) 2 := {}.
@@ -122,7 +141,7 @@ Section bufs_typed.
   Admitted.
 
   Definition if_recv_then_non_empty (bufs : gmap participant bufT) (σ : session_type) :=
-  match σ with
+    match σ with
     | RecvT n q _ _ => ∃ y buf, bufs !! q = Some (y :: buf)
     | _ => True
     end.
