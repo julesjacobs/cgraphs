@@ -188,7 +188,7 @@ CoInductive type_equiv : Equiv type :=
   | teq_NatT : NatT ≡ NatT
   | teq_PairT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> PairT t1 t1' ≡ PairT t2 t2'
   | teq_SumT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> SumT t1 t1' ≡ SumT t2 t2'
-  | teq_SumNT n f1 f2 : (∀ i, f1 i ≡ f2 i) -> SumNT n f1 ≡ SumNT n f2
+  | teq_SumNT n f1 f2 : f1 ≡ f2 -> SumNT n f1 ≡ SumNT n f2
   | teq_FunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> FunT t1 t1' ≡ FunT t2 t2'
   | teq_UFunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> UFunT t1 t1' ≡ UFunT t2 t2'
   | teq_ChanT s1 s2 : s1 ≡ s2 -> ChanT s1 ≡ ChanT s2.
@@ -444,11 +444,12 @@ Inductive pure_step : expr -> expr -> Prop :=
   | LetProd_step : ∀ x1 x2 v1 v2 e,
     pure_step (LetProd x1 x2 (Val (PairV v1 v2)) e) (subst x1 v1 $ subst x2 v2 e).
 
-Definition heap := gmap endpoint (gmap participant (list val)).
+Definition bufT := list (nat * val).
+Definition heap := gmap endpoint (gmap participant bufT).
 
-Definition init_chan n : gmap participant (list val) :=
+Definition init_chan n : gmap participant bufT :=
   fin_gmap n (λ i, []).
-Definition init_chans n : gmap participant (gmap participant (list val)) :=
+Definition init_chans n : gmap participant (gmap participant bufT) :=
   fin_gmap n (λ i, init_chan n).
 
 Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr :=
@@ -461,7 +462,7 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
                  (* send puts the value in the bufs of the other *)
                  (* since we are participant p, we put it in that buffer *)
     head_step (Send q (Val (ChanV (c,p))) i (Val y)) h
-          (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [InjNV i y]) p) (c,q) h) []
+          (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [(i,y)]) p) (c,q) h) []
     (* We could instead to the following:
        (that would move some of the work from the preservation proof to the progress proof.) *)
     (*
@@ -470,11 +471,11 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
     head_step (Send q (Val (ChanV (c,p))) (Val y)) h
           (Val (ChanV (c,p))) (<[ (c,q) := <[ p := buf ++ [y] ]> bufs ]> h) []
     *)
-  | Recv_step : ∀ h c p q y bufs buf, (* p is us, q is the one we recv from *)
+  | Recv_step : ∀ h c p q i y bufs buf, (* p is us, q is the one we recv from *)
     h !! (c,p) = Some bufs -> (* recv takes the value out of its own bufs *)
-    bufs !! q = Some (y::buf) -> (* since the recv is from p, we take it out of that buffer *)
+    bufs !! q = Some ((i,y)::buf) -> (* since the recv is from p, we take it out of that buffer *)
     head_step (Recv q (Val (ChanV (c,p)))) h
-          (Val (PairV (ChanV (c,p)) y)) (<[ (c,p) := <[ q := buf ]> bufs ]> h) []
+          (Val (InjNV i (PairV (ChanV (c,p)) y))) (<[ (c,p) := <[ q := buf ]> bufs ]> h) []
   | Close_step : ∀ c p h,
     (* We can add these conditions: that would move some of the work from the
        preservation proof to the progress proof. *)

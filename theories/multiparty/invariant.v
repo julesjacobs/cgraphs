@@ -5,42 +5,87 @@ Require Export diris.multiparty.mutil.
 
 Section bufs_typed.
 
-  Definition bufs_typed (bufs : gmap participant (gmap participant (list val)))
+  Definition bufs_typed (bufs : gmap participant (gmap participant bufT))
                         (σs : gmap participant session_type) : rProp.
   Admitted.
-  (* Idea: finish the proof while delaying all lemmas about bufs_typed. *)
-  (* Figure out bufs_typed later. *)
-  (* We need lemmas for preservation and a lemma for progress. *)
-  (* For progress we need that everyone receiving on empty buffers can't happen. *)
-  (* Might be able to get a tighter result: even a partial deadlock within
-     a single multiparty session cannot happen. *)
-
-  (*
-  Lemma for initialization:
-    If consistent σs then emp ⊢ bufs_typed empty_bufs σs
-
-  Lemma for close:
-    If σs is all end, then bufs_typed bufs σs ⊢ emp
-
-  Lemma for send:
-    If some type is a send, and we put something in that buffer, then it preserves bufs_typed
-
-  Lemma for receive:
-    If some type is a recv, and we take something out of that buffer, then it preserves bufs_typed
-
-  Lemma for progress:
-    If there is a buffer still allocated, then there is a participant that
-    does not have type recv and that buffer is empty.
-
-  *)
-
-    (* ∃ σs', ⌜⌜ consistent σs' ⌝⌝ ∗ big_sepM3 (λ _, buf_typed) bufs σs' σs. *)
-
   (*
   Global Instance bufs_typed_params : Params (@bufs_typed) 2 := {}.
   Global Instance bufs_typed_proper b1 b2 : Proper ((≡) ==> (≡) ==> (≡)) (bufs_typed b1 b2).
   Proof. solve_proper. Qed.
   *)
+
+  Lemma bufs_typed_push (bufss : gmap participant (gmap participant bufT))
+                        (σs : gmap participant session_type)
+                        (n : nat) (i : fin n) (p q : participant) t r v :
+    σs !! p ≡ Some (SendT n q t r) ->
+    val_typed v (t i) ∗ bufs_typed bufss σs ⊢
+    bufs_typed (alter (alter (λ buf, buf ++ [(fin_to_nat i,v)]) p) q bufss)
+              (<[p:=r i]> σs).
+  Proof.
+  Admitted.
+
+  Lemma bufs_typed_pop (σs : gmap participant session_type)
+    (bufss : gmap participant (gmap participant bufT))
+    (bufs : gmap participant bufT)
+    (buf : bufT) (n : nat) (p q : participant) v i t r :
+    σs !! p ≡ Some (RecvT n q t r) ->
+    bufss !! p = Some bufs ->
+    bufs !! q = Some ((i,v) :: buf) ->
+    bufs_typed bufss σs ⊢ ∃ i', ⌜⌜ i = fin_to_nat i' ⌝⌝ ∗
+      val_typed v (t i') ∗
+      bufs_typed (<[ p := <[ q := buf ]> bufs ]> bufss) (<[ p := r i' ]> σs).
+  Proof.
+  Admitted.
+
+  Lemma bufs_typed_dealloc bufss σs p :
+    σs !! p ≡ Some EndT ->
+    bufs_typed bufss σs ⊢
+    bufs_typed (delete p bufss) (delete p σs).
+  Proof.
+  Admitted.
+
+  Lemma bufs_typed_empty  :
+    emp ⊢ bufs_typed ∅ ∅.
+  Proof.
+  Admitted.
+
+  Lemma bufs_typed_empty_inv σs :
+    bufs_typed ∅ σs ⊢ ⌜⌜ σs = ∅ ⌝⌝.
+  Proof.
+  Admitted.
+
+  Lemma bufs_typed_init n σs :
+    consistent n σs ->
+    emp ⊢ bufs_typed (init_chans n) (fin_gmap n σs).
+  Proof.
+  Admitted.
+
+  Lemma bufs_typed_recv bufss σs p q n t σ :
+    σs !! p ≡ Some (RecvT n q t σ) ->
+    bufs_typed bufss σs ⊢ ⌜ ∃ bufs buf,
+      bufss !! p = Some bufs ∧
+      bufs !! q = Some buf ⌝.
+  Proof.
+  Admitted.
+
+  Definition if_recv_then_non_empty (bufs : gmap participant bufT) (σ : session_type) :=
+  match σ with
+    | RecvT n q _ _ => ∃ y buf, bufs !! q = Some (y :: buf)
+    | _ => True
+    end.
+
+  Definition can_progress (p : participant)
+    (bufss : gmap participant (gmap participant bufT))
+    (σs : gmap participant session_type) := ∃ σ bufs,
+      σs !! p = Some σ ∧
+      bufss !! p = Some bufs ∧
+      if_recv_then_non_empty bufs σ.
+
+  Lemma bufs_typed_progress bufss σs :
+    bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ ∃ p, can_progress p bufss σs ⌝.
+  Proof.
+  Admitted.
+
 End bufs_typed.
 
 Section invariant.
@@ -63,48 +108,6 @@ End invariant.
 Instance state_inv_proper es h v : Proper ((≡) ==> (⊣⊢)) (state_inv es h v).
 Proof. solve_proper_prepare. destruct v; [solve_proper|by setoid_rewrite H]. Qed.
 Instance state_inv_params : Params (@state_inv) 3. Defined.
-
-
-
-Lemma bufs_typed_push (bufss : gmap participant (gmap participant (list val)))
-                      (σs : gmap participant session_type)
-                      (p q : participant) (t : type) r v :
-  σs !! p ≡ Some (SendT q t r) ->
-  val_typed v t ∗ bufs_typed bufss σs ⊢
-  bufs_typed (alter (alter (λ buf, buf ++ [v]) p) q bufss) (<[p:=r]> σs).
-Proof.
-Admitted.
-
-Lemma bufs_typed_pop (σs : gmap participant session_type)
-  (bufss : gmap participant (gmap participant (list val)))
-  (bufs : gmap participant (list val))
-  (buf : list val) (p q : participant) (v : val) (t : type) (s : session_type) :
-  σs !! p ≡ Some (RecvT q t s) ->
-  bufss !! p = Some bufs ->
-  bufs !! q = Some (v :: buf) ->
-  bufs_typed bufss σs ⊢ val_typed v t ∗
-  bufs_typed (<[ p := <[ q := buf ]> bufs ]> bufss) (<[ p := s ]> σs).
-Proof.
-Admitted.
-
-Lemma bufs_typed_dealloc bufss σs p :
-  σs !! p ≡ Some EndT ->
-  bufs_typed bufss σs ⊢
-  bufs_typed (delete p bufss) (delete p σs).
-Proof.
-Admitted.
-
-Lemma bufs_typed_empty  :
-  emp ⊢ bufs_typed ∅ ∅.
-Proof.
-Admitted.
-
-Lemma bufs_typed_empty_inv σs :
-  bufs_typed ∅ σs ⊢ ⌜⌜ σs = ∅ ⌝⌝.
-Proof.
-Admitted.
-
-
 
 (*
 L ::=(coind)  ![p]t.L | ?[p]t.L | End
@@ -135,12 +138,6 @@ G |->{r} L
 (* (h !! (c,b)) !! a *)
 
 
-Lemma bufs_typed_init n σs :
-  consistent n σs ->
-  emp ⊢ bufs_typed (init_chans n) (fin_gmap n σs).
-Proof.
-Admitted.
-
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
   invariant threads chans ->
@@ -168,18 +165,18 @@ Proof.
     + iIntros (y0) "H". simpl. rewrite H0.
       iDestruct "H" as (HH) "H".
       iDestruct (rtyped0_ctx with "H") as (t) "[H1 H2]"; eauto. simpl.
-      iDestruct "H1" as (r t' ->) "[H1 H1']".
+      iDestruct "H1" as (n r t' i' [-> ->]) "[H1 H1']".
       iDestruct "H1" as (r0 ?) "H1". simplify_eq.
       iExists _. iFrame.
       iIntros (x) "H". simpl in *.
       iDestruct "H" as (σs Hσs) "H".
-      iExists (p,r).
+      iExists (p,r i').
       rewrite list_lookup_insert; last by eapply lookup_lt_Some.
       iSplitL "H2".
       * iIntros "H1".
         iSplit; eauto.
         iApply "H2". simpl. eauto.
-      * iExists (<[ p := r ]> σs).
+      * iExists (<[ p := r i' ]> σs).
         iSplit.
         -- iPureIntro. eapply map_to_multiset_update. done.
         -- rewrite gmap_slice_alter.
@@ -195,23 +192,30 @@ Proof.
     + iIntros (y0) "H". simpl. rewrite H0.
       iDestruct "H" as (HH) "H".
       iDestruct (rtyped0_ctx with "H") as (t) "[H1 H2]"; eauto. simpl.
-      iDestruct "H1" as (t' r ->) "H1".
+      iDestruct "H1" as (n t' r Q) "H1".
       iDestruct "H1" as (r0 HH') "H1". simplify_eq.
       iExists _. iFrame.
       iIntros (x) "H". simpl.
       iDestruct "H" as (σs Hσs) "H".
-      iExists (p, r).
-      rewrite list_lookup_insert; last by eapply lookup_lt_Some.
       eapply map_to_multiset_lookup in Hσs as Hp.
-      iDestruct (bufs_typed_pop with "H") as "[Hv H]"; eauto.
+      iDestruct (bufs_typed_pop with "H") as (i' ?) "[Hv H]"; eauto.
       { rewrite gmap_slice_lookup //. }
+      subst. rewrite list_lookup_insert; last by eapply lookup_lt_Some.
+      iExists (p, r i').
       iSplitL "H2 Hv".
       * iIntros "H1".
         iSplit; eauto.
-        iApply "H2". simpl.
+        iApply "H2". simpl. simplify_eq.
+        remember (SumNT n (λ i : fin n, PairT (ChanT (r i)) (t' i))).
+        inversion Q; simplify_eq.
+        iExists _,_,_. iSplit; first done.
+        specialize (H3 i'). simpl in *.
+        inversion H3; simplify_eq.
         iExists _,_. iSplit; first done.
-        eauto with iFrame.
-      * iExists (<[ p := r ]> σs).
+        rewrite -H8. iFrame.
+        inversion H7. simplify_eq.
+        iExists _. iSplit; first done. unfold own_ep. simpl. rewrite H9 //.
+      * iExists (<[ p := r i' ]> σs).
         rewrite gmap_slice_insert. case_decide; simplify_eq.
         iFrame. iPureIntro.
         by eapply map_to_multiset_update.

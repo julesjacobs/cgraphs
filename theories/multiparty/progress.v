@@ -1,14 +1,12 @@
 From diris.multiparty Require Import invariant langdef.
 Require Import Coq.Logic.Classical.
 
-
-
 Lemma rtyped_inner e t :
   rtyped0 e t -∗ ⌜ (∃ v, e = Val v)  ∨
   ∃ k e0, ctx k ∧ e = k e0 ∧
     ((∃ e', pure_step e0 e') ∨
      (∃ v p, e0 = Recv p (Val v)) ∨
-     (∃ v1 v2 p, e0 = Send p (Val v1) (Val v2)) ∨
+     (∃ v1 v2 p i, e0 = Send p (Val v1) i (Val v2)) ∨
      (∃ n f, e0 = Spawn n (Val ∘ f)) ∨
      (∃ v, e0 = Close (Val v))) ⌝.
 Proof.
@@ -108,7 +106,7 @@ Proof.
     eexists (λ x, x),_.
     split_and!; [constructor|eauto|].
     left. eexists. constructor.
-  - iDestruct "H" as (r t' ->) "[H1 H2]".
+  - iDestruct "H" as (n' r t' i [-> ->]) "[H1 H2]".
     iDestruct ("IH" with "H1") as "%". iClear "IH".
     iDestruct ("IH1" with "H2") as "%". iClear "IH1".
     iPureIntro.
@@ -118,15 +116,15 @@ Proof.
         eexists (λ x, x), _.
         split_and!; [constructor|eauto 10..].
       * right.
-        eexists (λ x, Send p (Val v) (k x)),_.
+        eexists (λ x, Send p (Val v) _ (k x)),_.
         split_and!; eauto.
         constructor; eauto. constructor.
     + right.
-      eexists (λ x, Send p (k x) e2),_.
+      eexists (λ x, Send p (k x) _ e2),_.
       split_and!; eauto.
-      eapply (Ctx_cons (λ x, Send p x e2)); eauto.
+      eapply (Ctx_cons (λ x, Send p x _ e2)); eauto.
       constructor.
-  - iDestruct "H" as (r' r ->) "H".
+  - iDestruct "H" as (n r' r Q) "H".
     iDestruct ("IH" with "H") as "%". iClear "IH".
     iPureIntro. right.
     destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
@@ -308,7 +306,7 @@ Fixpoint expr_refs (e : expr) : gset object :=
   | UApp e1 e2 => expr_refs e1 ∪ expr_refs e2
   | Lam s e1 => expr_refs e1
   | ULam s e1 => expr_refs e1
-  | Send p e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | Send p e1 i e2 => expr_refs e1 ∪ expr_refs e2
   | Recv p e1 => expr_refs e1
   | Let s e1 e2 => expr_refs e1 ∪ expr_refs e2
   | LetUnit e1 e2 => expr_refs e1 ∪ expr_refs e2
@@ -336,9 +334,9 @@ end.
 Definition map_union `{Countable K, Countable A} {V} (f : V -> gset A) (m : gmap K V) :=
   map_fold (λ k v s, f v ∪ s) ∅ m.
 
-Definition buf_refs (buf : list val) := foldr (λ v s, val_refs v ∪ s) ∅ buf.
+Definition buf_refs (buf : bufT) := foldr (λ '(i,v) s, val_refs v ∪ s) ∅ buf.
 
-Definition bufs_refs (bufss : gmap participant (gmap participant (list val))) : gset object :=
+Definition bufs_refs (bufss : gmap participant (gmap participant bufT)) : gset object :=
   map_union (map_union buf_refs) bufss.
 
 Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
@@ -513,32 +511,6 @@ Proof.
   intros HH. inversion HH. subst. eapply elem_of_dom. rewrite -H1 //.
 Qed.
 
-Definition if_recv_then_non_empty (bufs : gmap participant (list val)) (σ : session_type) :=
-  match σ with
-    | RecvT q _ _ => ∃ buf, bufs !! q = Some buf ∧ buf ≠ []
-    | _ => True
-    end.
-
-Definition can_progress (p : participant)
-  (bufss : gmap participant (gmap participant (list val)))
-  (σs : gmap participant session_type) := ∃ σ bufs,
-    σs !! p = Some σ ∧
-    bufss !! p = Some bufs ∧
-    if_recv_then_non_empty bufs σ.
-
-Lemma bufs_typed_progress bufss σs :
-  bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ ∃ p, can_progress p bufss σs ⌝.
-Proof.
-Admitted.
-
-Lemma bufs_typed_recv bufss σs p q t σ :
-  σs !! p ≡ Some (RecvT q t σ) ->
-  bufs_typed bufss σs ⊢ ⌜ ∃ bufs buf,
-    bufss !! p = Some bufs ∧
-    bufs !! q = Some buf ⌝.
-Proof.
-Admitted.
-
 Lemma strong_progress es h x :
   invariant es h -> active x es h -> reachable es h x.
 Proof.
@@ -582,8 +554,8 @@ Proof.
       destruct H as (v & p & ->).
       revert Het.
       model.
-      intros (t' & r & -> & [c b] & -> & Het). simpl in *.
-      assert (out_edges g (Thread i) !! Chan c ≡ Some (b, RecvT p t' r)) as HH.
+      intros (n & t' & r & Q & [c b] & -> & Het). simpl in *.
+      assert (out_edges g (Thread i) !! Chan c ≡ Some (b, RecvT n p t' r)) as HH.
       {
         rewrite Hout -Het. erewrite lookup_union_Some_l; first done.
         rewrite lookup_singleton. done.
@@ -617,6 +589,7 @@ Proof.
         eexists _.
         rewrite -gmap_slice_lookup //.
       + eapply Thread_step_reachable.
+        destruct p0.
         unfold can_stepi.
         eexists _,_.
         econstructor; last done.
@@ -624,9 +597,9 @@ Proof.
         eapply Recv_step; eauto.
         rewrite -gmap_slice_lookup //.
     * (* Send *)
-      destruct H as (v1 & v2 & p & ->).
+      destruct H as (v1 & v2 & p & i' & ->).
       revert Het. model.
-      intros (r & t' & -> & Σ3 & Σ4 & Σeq & Hdisj' & ([c b] & -> & Het1) & Het2).
+      intros (j & r & t' & j' & [-> ->] & Σ3 & Σ4 & Σeq & Hdisj' & ([c b] & -> & Het1) & Het2).
       eapply Thread_step_reachable. eexists _,_.
       econstructor; last done.
       eauto using head_step, ctx_step.
@@ -672,18 +645,21 @@ Proof.
       unfold thread_waiting in Hw.
       destruct Hw as (p' & q' & bufs' & k & Hk & Hi & Hc' & Hbufs').
       specialize (Hvs (Thread i)).
-      eapply (holds_entails _ (∃ t s, own_out (Chan c') (p', RecvT q' t s) ∗ True)%I) in Hvs. 2:
+      eapply (holds_entails _ (∃ n t s, own_out (Chan c') (p', RecvT n q' t s) ∗ True)%I) in Hvs. 2:
       {
         simpl. iIntros "[_ H]". rewrite Hi.
         rewrite rtyped0_ctx //.
         iDestruct "H" as (t) "[H1 H2]". simpl.
-        iDestruct "H1" as (t' r ->) "H1".
-        iDestruct "H1" as (r0 HH) "H". simplify_eq.
-        iExists _,_. iFrame.
+        iDestruct "H1" as (? t' r ? Q) "H1".
+        remember (SumNT n (λ i : fin n, PairT (ChanT (r i)) (t' i))).
+        inversion H; simplify_eq.
+        iDestruct "H1" as (HH) "H". simplify_eq.
+        iExists _,_,_. iFrame.
       }
+      apply exists_holds in Hvs as [n Hvs].
       apply exists_holds in Hvs as [tt Hvs].
       apply exists_holds in Hvs as [ss Hvs].
-      assert (out_edges g (Thread i) !! Chan c' ≡ Some (p', RecvT q' tt ss)) as Hoc'.
+      assert (out_edges g (Thread i) !! Chan c' ≡ Some (p', RecvT n q' tt ss)) as Hoc'.
       {
         eapply sep_holds in Hvs as (Σ1 & Σ2 & H1 & HD & [HH _]).
         rewrite H1.

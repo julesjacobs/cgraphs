@@ -56,12 +56,12 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
   | ULam x e => ∃ t1 t2,
       ⌜⌜ t = UFunT t1 t2 ∧ Γ !! x = None ∧ Γunrestricted Γ ⌝⌝ ∗
       □ rtyped (Γ ∪ {[ x := t1 ]}) e t2
-  | Send p e1 e2 => ∃ r t' Γ1 Γ2,
-      ⌜⌜ t = ChanT r ∧ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
-      rtyped Γ1 e1 (ChanT (SendT p t' r)) ∗ rtyped Γ2 e2 t'
-  | Recv p e => ∃ t' r,
-      ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗
-      rtyped Γ e (ChanT (RecvT p t' r))
+  | Send p e1 i e2 => ∃ n r t' i' Γ1 Γ2,
+      ⌜⌜ i = fin_to_nat i' ∧ t = ChanT (r i') ∧ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ⌝⌝ ∗
+      rtyped Γ1 e1 (ChanT (SendT n p t' r)) ∗ rtyped Γ2 e2 (t' i')
+  | Recv p e => ∃ n t' r,
+      ⌜⌜ t ≡ SumNT n (λ i, PairT (ChanT (r i)) (t' i)) ⌝⌝ ∗
+      rtyped Γ e (ChanT (RecvT n p t' r))
   | Let x e1 e2 => ∃ (t' : type) (Γ1 Γ2 : envT),
       ⌜⌜ Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2 ∧ Γ2 !! x = None ⌝⌝ ∗
       rtyped Γ1 e1 t' ∗ rtyped (Γ2 ∪ {[ x := t' ]}) e2 t
@@ -219,26 +219,25 @@ Proof.
       iApply rtyped_proper_impl; last done; eauto.
       rewrite H1. rewrite H3. done.
     + iIntros "H".
-      iDestruct "H" as (r t' Γ0 Γ3 [-> [-> HH]]) "[H1 H2]".
+      iDestruct "H" as (n' r t' i' Γ0 Γ3 (-> & -> & -> & H4)) "[H1 H2]".
       inversion H2. subst.
       symmetry in H1.
       eapply map_union_equiv_eq in H1 as (y' & z' & Q1 & Q2 & Q3). subst.
-      iExists _,_,_,_.
+      iExists _,(λ i, if decide(i=i') then s2 else r i),_,_,_,_.
       iSplit.
-      { iPureIntro. split_and!; eauto.
+      { iPureIntro. split_and!; try case_decide; simplify_eq; eauto.
         rewrite Q2 Q3 //. }
       iSplitL "H1".
       * iApply rtyped_proper_impl; last done; eauto.
         constructor; eauto. constructor; eauto.
+        intros ?. case_decide; simplify_eq; done.
       * iApply rtyped_proper_impl; last done; eauto.
     + iIntros "H".
-      iDestruct "H" as (t' r ->) "H".
-      inversion H2. subst. inversion H3. subst.
-      iExists _,_.
+      iDestruct "H" as (n t' r Q) "H".
+      iExists _,_,_.
       iSplit.
-      { iPureIntro. done. }
+      { iPureIntro. rewrite -H2 //. }
       iApply rtyped_proper_impl; last done; eauto.
-      do 2 constructor; eauto.
     + iIntros "H".
       iDestruct "H" as (t' Γ0 Γ3 [-> [HH1 HH2]]) "[H1 H2]".
       symmetry in H1.
@@ -456,12 +455,12 @@ Proof.
     iDestruct ("IH" with "[%] H") as %?.
     + rewrite lookup_union. rewrite Hx lookup_singleton_ne; eauto.
     + rewrite H1. done.
-  - iDestruct "Ht" as (r t' Γ1 Γ2 (-> & -> & Hdisj)) "[H1 H2]".
+  - iDestruct "Ht" as (n' r t' i' Γ1 Γ2 (-> & -> & -> & Hdisj)) "[H1 H2]".
     apply lookup_union_None in Hx as [].
     iDestruct ("IH" with "[%] H1") as %?; first done.
     iDestruct ("IH1" with "[%] H2") as %?; first done.
     by rewrite H1 H2.
-  - iDestruct "Ht" as (t' r ->) "H".
+  - iDestruct "Ht" as (n t' r Q) "H".
     iDestruct ("IH" with "[%] H") as %?; eauto.
     by rewrite H.
   - iDestruct "Ht" as (t' Γ1 Γ2 (-> & Hdisj & Hnone)) "[H1 H2]".
@@ -843,27 +842,27 @@ Proof.
             - rewrite lookup_union. rewrite lookup_singleton_ne; eauto.
               rewrite <-H. destruct (Γ !! x); eauto.
             - rewrite delete_union. rewrite delete_singleton_ne; eauto. }
-  - iDestruct "He" as (r t' Γ1 Γ2 (-> & -> & ?)) "[H1 H2]".
+  - iDestruct "He" as (n' r t' i' Γ1 Γ2 (-> & -> & -> & ?)) "[H1 H2]".
     eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
-    + iExists _,_,_,_. iSplit.
-      { iPureIntro. split; eauto. by apply delete_union_l'. }
+    + iExists _,_,_,_,_,_. iSplit.
+      { iPureIntro. do 2 split; eauto. by apply delete_union_l'. }
       iSplitL "H1 Hv".
       { by iApply ("IH" with "[%] Hv"). }
       { by iDestruct (typed_no_var_subst with "H2") as %->. }
-    + iExists _,_,_,_. iSplit.
-      { iPureIntro. split; eauto. by apply delete_union_r'. }
+    + iExists _,_,_,_,_,_. iSplit.
+      { iPureIntro. do 2 split; eauto. by apply delete_union_r'. }
       iSplitR "H2 Hv".
       { by iDestruct (typed_no_var_subst with "H1") as %->. }
       { by iApply ("IH1" with "[%] Hv"). }
-    + iExists _,_,_,_. iSplit.
-      { iPureIntro. split; first done. by eapply delete_union_lr'. }
+    + iExists _,_,_,_,_,_. iSplit.
+      { iPureIntro. do 2 split; first done. by eapply delete_union_lr'. }
       iDestruct (unrestricted_box with "Hv") as "Hv"; eauto.
       iDestruct "Hv" as "#Hv".
       iSplitL "H1".
       { iApply ("IH" with "[%]"); eauto. }
       { iApply ("IH1" with "[%]"); eauto. }
-  - iDestruct "He" as (t r ->) "H".
-    iExists _,_. iSplit. done.
+  - iDestruct "He" as (n t r Q) "H".
+    iExists _,_,_. iSplit. done.
     iApply ("IH" with "[%] Hv H"). done.
   - iDestruct "He" as (t' Γ1 Γ2 (-> & ? & ?)) "[H1 H2]".
     eapply disj_union_Some in H as [[]|[[]|[?[]]]]; last done.
@@ -1127,8 +1126,8 @@ Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
   | UApp e1 e2 => ∃ t', rtyped0 e1 (UFunT t' t) ∗ rtyped0 e2 t'
   | Lam x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
   | ULam x e => ∃ t1 t2, ⌜⌜ t = UFunT t1 t2 ⌝⌝ ∗ □ rtyped {[ x := t1 ]} e t2
-  | Send p e1 e2 => ∃ r t', ⌜⌜ t = ChanT r⌝⌝ ∗ rtyped0 e1 (ChanT (SendT p t' r)) ∗ rtyped0 e2 t'
-  | Recv p e => ∃ t' r, ⌜⌜ t = PairT (ChanT r) t' ⌝⌝ ∗ rtyped0 e (ChanT (RecvT p t' r))
+  | Send p e1 i e2 => ∃ n r t' i', ⌜⌜ i = fin_to_nat i' ∧ t = ChanT (r i')⌝⌝ ∗ rtyped0 e1 (ChanT (SendT n p t' r)) ∗ rtyped0 e2 (t' i')
+  | Recv p e => ∃ n t' r, ⌜⌜ t ≡ SumNT n (λ i, PairT (ChanT (r i)) (t' i)) ⌝⌝ ∗ rtyped0 e (ChanT (RecvT n p t' r))
   | Let x e1 e2 => ∃ t', rtyped0 e1 t' ∗ rtyped {[ x := t' ]} e2 t
   | LetUnit e1 e2 => rtyped0 e1 UnitT ∗ rtyped0 e2 t
   | LetProd x1 x2 e1 e2 => ∃ t1 t2, ⌜⌜ x1 ≠ x2 ⌝⌝ ∗ rtyped0 e1 (PairT t1 t2) ∗ rtyped ({[ x1 := t1 ]} ∪ {[ x2 := t2 ]}) e2 t
