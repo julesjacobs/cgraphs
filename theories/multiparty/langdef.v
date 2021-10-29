@@ -244,18 +244,17 @@ Inductive occurs_in (p : participant) : global_type -> Prop :=
   | oi_later n q r t g : (∀ i, occurs_in p (g i)) -> occurs_in p (Message n q r t g).
 
 CoInductive proj (p : participant) : global_type -> session_type -> Prop :=
-  | proj_send n q t g σ :
-      p ≠ q -> (∀ i, proj p (g i) (σ i)) ->
-        proj p (Message n p q t g) (SendT n q t σ)
-  | proj_recv n q t g σ :
-      p ≠ q -> (∀ i, proj p (g i) (σ i)) ->
-        proj p (Message n q p t g) (RecvT n q t σ)
-  | proj_skip n q r t g σ :
-      p ≠ q -> p ≠ r -> (∀ i, proj p (g i) σ) -> (∀ i, occurs_in p (g i)) ->
-        proj p (Message n q r t g) σ
-  | proj_end g :
-      ¬ occurs_in p g ->
-        proj p g EndT.
+  | proj_send n q t G σ :
+      p ≠ q -> (∀ i, proj p (G i) (σ i)) ->
+        proj p (Message n p q t G) (SendT n q t σ)
+  | proj_recv n q t G σ :
+      p ≠ q -> (∀ i, proj p (G i) (σ i)) ->
+        proj p (Message n q p t G) (RecvT n q t σ)
+  | proj_skip n q r t G σ :
+      p ≠ q -> p ≠ r -> (∀ i, proj p (G i) σ) -> (∀ i, occurs_in p (G i)) ->
+        proj p (Message n q r t G) σ
+  | proj_end G :
+      ¬ occurs_in p G -> proj p G EndT.
 
 (*
 
@@ -277,8 +276,8 @@ let c0 = spawn((λ c1, ...),(λ c2, ...))
 *)
 Definition consistent n (σs : fin n -> session_type) :=
   ∃ G : global_type,
-    (∀ i, proj G (fin_to_nat i) (σs i)) ∧
-    (∀ j, j >= n -> ¬ occurs_in G j).
+    (∀ i, proj (fin_to_nat i) G (σs i)) ∧
+    (∀ j, j >= n -> ¬ occurs_in j G).
 
 Record disj_union n (Γ : envT) (fΓ : fin n -> envT) : Prop := {
   du_disj p q : p ≠ q -> disj (fΓ p) (fΓ q);
