@@ -99,7 +99,7 @@ Section bufs_typed.
                         (n : nat) (i : fin n) (p q : participant) t r v :
     σs !! p ≡ Some (SendT n q t r) ->
     val_typed v (t i) ∗ bufs_typed bufss σs ⊢
-    bufs_typed (alter (alter (λ buf, buf ++ [(fin_to_nat i,v)]) p) q bufss)
+    bufs_typed (push q p (fin_to_nat i,v) bufss)
               (<[p:=r i]> σs).
   Proof.
   Admitted.
@@ -210,7 +210,38 @@ G |->{r} L
 *)
 
 (* (h !! (c,b)) !! a *)
+Lemma gmap_slice_push `{Countable A,Countable B,Countable C} {V}
+  (c : A) (p : B) (q : C) (x : V) (m : bufsT (A*B) C V) :
+  gmap_slice (push (c, p) q x m) c = push p q x (gmap_slice m c).
+Proof.
+  unfold push. rewrite gmap_slice_alter. case_decide; simplify_eq. done.
+Qed.
 
+Lemma gmap_slice_pop `{Countable A,Countable B,Countable C} {V}
+  (c : A) (p : B) (q : C) (x : V) (m m' : bufsT (A*B) C V) :
+  pop (c,p) q m = Some(x,m') ->
+  pop p q (gmap_slice m c) = Some(x,gmap_slice m' c).
+Proof.
+  unfold pop. intros. rewrite gmap_slice_lookup.
+  destruct (m !! (c, p)); last simplify_eq.
+  destruct (g !! q); last simplify_eq.
+  destruct l; simplify_eq.
+  rewrite gmap_slice_insert. case_decide; simplify_eq. done.
+Qed.
+
+Lemma gmap_slice_pop_ne `{Countable A,Countable B,Countable C} {V}
+  (c c' : A) (p : B) (q : C) (x : V) (m m' : bufsT (A*B) C V) :
+  c ≠ c' ->
+  pop (c,p) q m = Some(x,m') ->
+  gmap_slice m c' = gmap_slice m' c'.
+Proof.
+  unfold pop. intros.
+  destruct (m !! (c, p)); last simplify_eq.
+  destruct (g !! q); last simplify_eq.
+  destruct l; simplify_eq.
+  rewrite gmap_slice_insert.
+  case_decide; simplify_eq. done.
+Qed.
 
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
@@ -253,8 +284,7 @@ Proof.
       * iExists (<[ p := r i' ]> σs).
         iSplit.
         -- iPureIntro. eapply map_to_multiset_update. done.
-        -- rewrite gmap_slice_alter.
-           case_decide;simplify_eq.
+        -- rewrite gmap_slice_push.
            eapply map_to_multiset_lookup in Hσs.
            iApply bufs_typed_push; eauto with iFrame.
   - (* Receive *)
@@ -262,7 +292,8 @@ Proof.
     + intros v x []. iIntros "H".
       destruct v; simpl.
       * rewrite list_lookup_insert_spec. case_decide; naive_solver.
-      * setoid_rewrite gmap_slice_insert. case_decide; naive_solver.
+      * iDestruct "H" as (σs) "H". iExists σs.
+        erewrite gmap_slice_pop_ne; last done; eauto.
     + iIntros (y0) "H". simpl. rewrite H0.
       iDestruct "H" as (HH) "H".
       iDestruct (rtyped0_ctx with "H") as (t) "[H1 H2]"; eauto. simpl.
@@ -272,8 +303,8 @@ Proof.
       iIntros (x) "H". simpl.
       iDestruct "H" as (σs Hσs) "H".
       eapply map_to_multiset_lookup in Hσs as Hp.
+      apply gmap_slice_pop in H1.
       iDestruct (bufs_typed_pop with "H") as (i' ?) "[Hv H]"; eauto.
-      { rewrite gmap_slice_lookup //. }
       subst. rewrite list_lookup_insert; last by eapply lookup_lt_Some.
       iExists (p, r i').
       iSplitL "H2 Hv".
@@ -283,15 +314,13 @@ Proof.
         remember (SumNT n (λ i : fin n, PairT (ChanT (r i)) (t' i))).
         inversion Q; simplify_eq.
         iExists _,_,_. iSplit; first done.
-        specialize (H3 i'). simpl in *.
-        inversion H3; simplify_eq.
+        specialize (H2 i'). simpl in *.
+        inversion H2; simplify_eq.
         iExists _,_. iSplit; first done.
-        rewrite -H8. iFrame.
-        inversion H7. simplify_eq.
-        iExists _. iSplit; first done. unfold own_ep. simpl. rewrite H9 //.
-      * iExists (<[ p := r i' ]> σs).
-        rewrite gmap_slice_insert. case_decide; simplify_eq.
-        iFrame. iPureIntro.
+        rewrite -H7. iFrame.
+        inversion H6. simplify_eq.
+        iExists _. iSplit; first done. unfold own_ep. simpl. rewrite H8 //.
+      * iExists (<[ p := r i' ]> σs). iFrame. iPureIntro.
         by eapply map_to_multiset_update.
   - (* Close *)
     eapply (inv_dealloc (Thread i) (Chan c)); last done; try apply _.
