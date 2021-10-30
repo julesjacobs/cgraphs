@@ -479,6 +479,16 @@ Qed.
 Lemma bufs_typed_refs bufss σs :
   bufs_typed bufss σs ⊢ own_dom (bufs_refs bufss).
 Proof.
+  iIntros "[_ H]".
+  iDestruct "H" as (G _) "H".
+  iInduction G as [] "IH" forall (bufss); simpl.
+  - iDestruct "H" as (?) "H".
+    iApply "IH". eauto.
+  - iDestruct "H" as (v bufs' Hpop) "[Hv H]".
+    admit.
+  - iDestruct "H" as %H.
+    assert (bufs_refs bufss = ∅) as ->; last by iApply own_dom_empty.
+    admit.
 Admitted.
 
 Lemma obj_refs_state_inv' es h x Δ :
@@ -599,8 +609,10 @@ Proof.
       eapply Hind_out. { unfold waiting; eauto. }
       eexists _,_; eauto.
       unfold active.
-      eexists _.
-      rewrite -gmap_slice_lookup //. admit.
+      exists b.
+      rewrite -gmap_slice_lookup.
+      eapply prim_simple_adequacy; first exact Hc.
+      eapply bufs_typed_recv; eauto.
     * (* Send *)
       destruct H as (v1 & v2 & p & i' & ->).
       revert Het. model.

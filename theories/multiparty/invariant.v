@@ -85,8 +85,7 @@ Section bufs_typed.
                         (n : nat) (i : fin n) (p q : participant) t r v :
     σs !! p ≡ Some (SendT n q t r) ->
     val_typed v (t i) ∗ bufs_typed bufss σs ⊢
-    bufs_typed (push q p (fin_to_nat i,v) bufss)
-               (<[p:=r i]> σs).
+        bufs_typed (push q p (fin_to_nat i,v) bufss) (<[p:=r i]> σs).
   Proof.
   Admitted.
 
@@ -96,8 +95,7 @@ Section bufs_typed.
     σs !! p ≡ Some (RecvT n q t r) ->
     pop p q bufs = Some((i,v),bufs') ->
     bufs_typed bufs σs ⊢ ∃ i', ⌜⌜ i = fin_to_nat i' ⌝⌝ ∗
-      val_typed v (t i') ∗
-      bufs_typed bufs' (<[ p := r i' ]> σs).
+      val_typed v (t i') ∗ bufs_typed bufs' (<[ p := r i' ]> σs).
   Proof.
     iIntros (Hp Hpop) "H".
     iDestruct "H" as (Hdom G Hprojs) "H".
@@ -107,6 +105,20 @@ Section bufs_typed.
       admit.
     - iDestruct "H" as %Hemp. rewrite Hemp in Hpop. simplify_eq.
   Admitted.
+
+  Lemma pop_delete_None `{Countable A, Countable B} {V}
+    (p p' : A) (q : B) (m : bufsT A B V):
+    pop p q m = None ->
+    pop p q (delete p' m) = None.
+  Proof.
+    unfold pop in *. intros.
+    rewrite lookup_delete_spec.
+    case_decide; eauto.
+    destruct (m !! p); eauto.
+    destruct (g !! q); eauto.
+    destruct l; eauto.
+    simplify_eq.
+  Qed.
 
   Lemma bufs_typed_dealloc bufss σs p :
     σs !! p ≡ Some EndT ->
@@ -128,19 +140,31 @@ Section bufs_typed.
     clear Hp Hdom Hprojs.
     iInduction G as [] "IH" forall (bufss); simpl.
     - iDestruct "H" as (Hpop) "H".
-      iSplit; first admit.
+      iSplit; first by eauto using pop_delete_None.
       iIntros (i).
       iApply ("IH" with "[%] [H]"); eauto.
-      admit.
+      remember (MessageR n p0 p1 t r).
+      inversion Hprojp; simplify_eq; eauto.
     - iDestruct "H" as (v bufs' Hpop) "[Hv H]".
       remember (BufMessageR n t p0 p1 t0 r).
       inversion Hprojp; simplify_eq.
       iExists _,_.
       iDestruct ("IH" with "[%] H") as "H". { done. }
-      iFrame. admit.
+      iFrame. iPureIntro.
+      unfold pop in *.
+      rewrite lookup_delete_spec; case_decide; simplify_eq.
+      destruct (bufss !! p1); simplify_eq.
+      destruct (g !! p0); simplify_eq.
+      destruct l; simplify_eq.
+      do 2 f_equal.
+      apply map_eq. intro.
+      rewrite !lookup_delete_spec !lookup_insert_spec lookup_delete_spec.
+      repeat case_decide;simplify_eq; eauto.
     - iDestruct "H" as %Hbe. iPureIntro.
-      admit.
-  Admitted.
+      intros ??.
+      specialize (Hbe p0 q).
+      by apply pop_delete_None.
+  Qed.
 
   Lemma bufs_typed_empty  :
     emp ⊢ bufs_typed ∅ ∅.
@@ -183,7 +207,7 @@ Section bufs_typed.
   Proof.
     iIntros (Hcons) "_".
     unfold bufs_typed.
-    iSplit. { admit. }
+    iSplit. { iPureIntro. admit. }
     destruct Hcons as [G [Hprosj Hocc]].
     iExists (ContinueR G).
     iSplit.
@@ -193,16 +217,21 @@ Section bufs_typed.
         rewrite fin_gmap_lookup. simpl. eauto.
       + rewrite fin_gmap_lookup_ne; last lia. simpl.
         econstructor. eauto with lia.
-    - simpl. admit.
+    - simpl. iPureIntro.
+      intros ??. unfold init_chans.
+      unfold pop. admit.
   Admitted.
 
   Lemma bufs_typed_recv bufss σs p q n t σ :
     σs !! p ≡ Some (RecvT n q t σ) ->
-    bufs_typed bufss σs ⊢ ⌜ ∃ bufs buf,
-      bufss !! p = Some bufs ∧
-      bufs !! q = Some buf ⌝.
+    bufs_typed bufss σs ⊢ ⌜ is_Some (bufss !! p) ⌝.
   Proof.
-  Admitted.
+    iIntros (Q) "[% H]".
+    iPureIntro.
+    eapply elem_of_dom. rewrite H.
+    apply elem_of_dom.
+    inversion Q. rewrite -H0. eauto.
+  Qed.
 
   Definition can_progress
     (bufs : bufsT participant participant entryT)
