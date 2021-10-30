@@ -459,28 +459,33 @@ Inductive pure_step : expr -> expr -> Prop :=
   | LetProd_step : ∀ x1 x2 v1 v2 e,
     pure_step (LetProd x1 x2 (Val (PairV v1 v2)) e) (subst x1 v1 $ subst x2 v2 e).
 
+Notation bufsT A B V := (gmap A (gmap B (list V))).
 Definition entryT := (nat * val)%type.
-Definition bufT := list entryT.
-Definition bufsT := gmap participant bufT.
-Definition heap := gmap endpoint bufsT.
+Definition heap := bufsT endpoint participant entryT.
 
-Definition init_chan n : gmap participant bufT :=
-  fin_gmap n (λ i, []).
+(* Definition init_chan n : gmap participant bufT :=
+  fin_gmap n (λ i, []). *)
 
-(* Definition push_chan (p : participant) (x : entryT) (bufs : bufsT) : bufsT :=
-  match bufs !! p with
-  | Some buf => <[ p := buf ++ [x]]> bufs
-  | None => <[ p := [x] ]> bufs
+Definition push `{Countable A, Countable B} {V} (p : A) (q : B) (x : V) (bufss : bufsT A B V) : bufsT A B V :=
+  alter (λ bufs,
+    match bufs !! q with
+    | Some buf => <[ q := buf ++ [x] ]> bufs
+    | None => <[ q := [x] ]> bufs
+    end
+  ) p bufss.
+
+Definition pop `{Countable A, Countable B} {V} (p : A) (q : B) (bufss : bufsT A B V) : option (V * bufsT A B V) :=
+  match bufss !! p with
+  | None => None
+  | Some bufs =>
+    match bufs !! q with
+    | Some (v :: buf) => Some (v, <[ p := <[ q := buf ]> bufs ]> bufss)
+    | _ => None
+    end
   end.
 
-Definition pop_chan (p : participant) (bufs : bufT) : option (entryT * bufT) :=
-  match bufs !! p with
-  | Some (x :: buf) => Some (x, <[ p := buf ]> bufs)
-  | _ => None
-  end. *)
-
-Definition init_chans n : gmap participant (gmap participant bufT) :=
-  fin_gmap n (λ i, init_chan n).
+Definition init_chans n : bufsT participant participant entryT :=
+  fin_gmap n (λ i, ∅).
 
 Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr :=
   fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, S (fin_to_nat i))))).
@@ -492,7 +497,9 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
                  (* send puts the value in the bufs of the other *)
                  (* since we are participant p, we put it in that buffer *)
     head_step (Send q (Val (ChanV (c,p))) i (Val y)) h
-          (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [(i,y)]) p) (c,q) h) []
+          (Val (ChanV (c,p))) (push (c,q) p (i,y) h) []
+    (* head_step (Send q (Val (ChanV (c,p))) i (Val y)) h *)
+          (* (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [(i,y)]) p) (c,q) h) [] *)
     (* We could instead to the following:
        (that would move some of the work from the preservation proof to the progress proof.) *)
     (*
@@ -501,11 +508,14 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
     head_step (Send q (Val (ChanV (c,p))) (Val y)) h
           (Val (ChanV (c,p))) (<[ (c,q) := <[ p := buf ++ [y] ]> bufs ]> h) []
     *)
-  | Recv_step : ∀ h c p q i y bufs buf, (* p is us, q is the one we recv from *)
+  | Recv_step : ∀ h c p q i y h', (* p is us, q is the one we recv from *)
+    pop (c,p) q h = Some ((i,y), h') ->
+    (*
     h !! (c,p) = Some bufs -> (* recv takes the value out of its own bufs *)
     bufs !! q = Some ((i,y)::buf) -> (* since the recv is from p, we take it out of that buffer *)
+    *)
     head_step (Recv q (Val (ChanV (c,p)))) h
-          (Val (InjNV i (PairV (ChanV (c,p)) y))) (<[ (c,p) := <[ q := buf ]> bufs ]> h) []
+          (Val (InjNV i (PairV (ChanV (c,p)) y))) h' []
   | Close_step : ∀ c p h,
     (* We can add these conditions: that would move some of the work from the
        preservation proof to the progress proof. *)

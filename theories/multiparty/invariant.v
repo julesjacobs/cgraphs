@@ -42,11 +42,16 @@ Section bufs_typed.
           rproj p (BufMessageR n i q r t G) σ *)
     | rproj_continue G σ :
         proj r G σ -> rproj r (ContinueR G) σ.
-
+(*
   Fixpoint bufproj (r : participant) (G : rglobal_type) (buf : gmap participant bufT) : rProp :=
     match G with
-    | MessageR n p q t G' => ∀ i, bufproj r (G' i) buf
-    | BufMessageR n i p q t G' => ∃ v, ⌜⌜ True ⌝⌝ ∗ val_typed v (t i) ∗ bufproj r (G' i) buf
+    | MessageR n p q t G' =>
+        ⌜⌜ r = q -> buf !!  ∀ i, bufproj r (G' i) buf
+    | BufMessageR n i p q t G' =>
+        if decide (r = q) then
+          ∃ v, ⌜⌜ True ⌝⌝ ∗ val_typed v (t i) ∗ bufproj r (G' i) buf
+        else
+          bufproj r (G' i) buf
     | ContinueR G' => ⌜⌜ ∀ p, buf !! p = None ∨ buf !! p = Some [] ⌝⌝
                               (* (¬ occurs_in p G' -> buf !! p = None) ⌝⌝ *)
     end.
@@ -78,15 +83,18 @@ Section bufs_typed.
          ∀ p, rproj p G (default EndT (σs !! p)) ⌝⌝ ∗
          [∗ map] p ↦ buf ∈ bufs, bufproj p G buf.
 
+ *)
 
-
+  Definition bufs_typed (bufs : bufsT participant participant entryT)
+                        (σs : gmap participant session_type) : rProp.
+  Admitted.
   (*
   Global Instance bufs_typed_params : Params (@bufs_typed) 2 := {}.
   Global Instance bufs_typed_proper b1 b2 : Proper ((≡) ==> (≡) ==> (≡)) (bufs_typed b1 b2).
   Proof. solve_proper. Qed.
   *)
 
-  Lemma bufs_typed_push (bufss : gmap participant (gmap participant bufT))
+  Lemma bufs_typed_push (bufss : bufsT participant participant entryT)
                         (σs : gmap participant session_type)
                         (n : nat) (i : fin n) (p q : participant) t r v :
     σs !! p ≡ Some (SendT n q t r) ->
@@ -97,15 +105,13 @@ Section bufs_typed.
   Admitted.
 
   Lemma bufs_typed_pop (σs : gmap participant session_type)
-    (bufss : gmap participant (gmap participant bufT))
-    (bufs : gmap participant bufT)
-    (buf : bufT) (n : nat) (p q : participant) v i t r :
+    (bufs bufs' : bufsT participant participant entryT)
+    (n : nat) (p q : participant) v i t r :
     σs !! p ≡ Some (RecvT n q t r) ->
-    bufss !! p = Some bufs ->
-    bufs !! q = Some ((i,v) :: buf) ->
-    bufs_typed bufss σs ⊢ ∃ i', ⌜⌜ i = fin_to_nat i' ⌝⌝ ∗
+    pop p q bufs = Some((i,v),bufs') ->
+    bufs_typed bufs σs ⊢ ∃ i', ⌜⌜ i = fin_to_nat i' ⌝⌝ ∗
       val_typed v (t i') ∗
-      bufs_typed (<[ p := <[ q := buf ]> bufs ]> bufss) (<[ p := r i' ]> σs).
+      bufs_typed bufs' (<[ p := r i' ]> σs).
   Proof.
   Admitted.
 
@@ -140,21 +146,17 @@ Section bufs_typed.
   Proof.
   Admitted.
 
-  Definition if_recv_then_non_empty (bufs : gmap participant bufT) (σ : session_type) :=
-    match σ with
-    | RecvT n q _ _ => ∃ y buf, bufs !! q = Some (y :: buf)
-    | _ => True
-    end.
-
-  Definition can_progress (p : participant)
-    (bufss : gmap participant (gmap participant bufT))
-    (σs : gmap participant session_type) := ∃ σ bufs,
+  Definition can_progress
+    (bufs : bufsT participant participant entryT)
+    (σs : gmap participant session_type) := ∃ p σ,
       σs !! p = Some σ ∧
-      bufss !! p = Some bufs ∧
-      if_recv_then_non_empty bufs σ.
+      match σ with
+      | RecvT n q _ _ => ∃ y bufs', pop p q bufs = Some(y,bufs')
+      | _ => True
+      end.
 
   Lemma bufs_typed_progress bufss σs :
-    bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ ∃ p, can_progress p bufss σs ⌝.
+    bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ can_progress bufss σs ⌝.
   Proof.
   Admitted.
 
