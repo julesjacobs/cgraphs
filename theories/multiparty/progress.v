@@ -258,10 +258,9 @@ Proof.
 Qed.
 
 Definition thread_waiting (es : list expr) (h : heap) (i c : nat) :=
-  ∃ p q bufs k, ctx k ∧
+  ∃ p q k, ctx k ∧
     es !! i = Some (k (Recv q (Val (ChanV (c,p))))) ∧
-    h !! (c,p) = Some bufs ∧
-    bufs !! q = Some [].
+    pop (c,p) q h = None.
 
 Definition waiting es h (x y : object) (l : clabel) : Prop :=
   ∃ i j, x = Thread i ∧ y = Chan j ∧ thread_waiting es h i j.
@@ -334,9 +333,9 @@ end.
 Definition map_union `{Countable K, Countable A} {V} (f : V -> gset A) (m : gmap K V) :=
   map_fold (λ k v s, f v ∪ s) ∅ m.
 
-Definition buf_refs (buf : bufT) := foldr (λ '(i,v) s, val_refs v ∪ s) ∅ buf.
+Definition buf_refs (buf : list entryT) := foldr (λ '(i,v) s, val_refs v ∪ s) ∅ buf.
 
-Definition bufs_refs (bufss : gmap participant (gmap participant bufT)) : gset object :=
+Definition bufs_refs (bufss : bufsT participant participant entryT) : gset object :=
   map_union (map_union buf_refs) bufss.
 
 Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
@@ -511,6 +510,17 @@ Proof.
   intros HH. inversion HH. subst. eapply elem_of_dom. rewrite -H1 //.
 Qed.
 
+Lemma gmap_slice_pop_fmap `{Countable A,Countable B,Countable C} {V}
+  (c : A) (p : B) (q : C) (m : bufsT (A*B) C V) :
+  pop p q (gmap_slice m c) = (λ '(x,m'), (x,gmap_slice m' c)) <$> pop (c,p) q m.
+Proof.
+  unfold pop. rewrite gmap_slice_lookup.
+  destruct (m !! (c, p)); eauto.
+  destruct (g !! q); eauto.
+  destruct l; eauto. simpl.
+  rewrite gmap_slice_insert. case_decide; simplify_eq. done.
+Qed.
+
 Lemma strong_progress es h x :
   invariant es h -> active x es h -> reachable es h x.
 Proof.
@@ -555,6 +565,7 @@ Proof.
       revert Het.
       model.
       intros (n & t' & r & Q & [c b] & -> & Het). simpl in *.
+
       assert (out_edges g (Thread i) !! Chan c ≡ Some (b, RecvT n p t' r)) as HH.
       {
         rewrite Hout -Het. erewrite lookup_union_Some_l; first done.
@@ -573,29 +584,23 @@ Proof.
       iIntros "H".
       iDestruct (bufs_typed_recv with "H") as %(bufs & buf & Hbufs & Hbuf); first done.
       iPureIntro.
-      destruct buf.
-      + assert (thread_waiting es h i c) as Htw.
-        {
-          eexists _,_,_,_.
-          split; first done.
-          split; first done.
-          rewrite -gmap_slice_lookup.
-          eauto.
-        }
-        eapply Thread_waiting_reachable; last done.
-        eapply Hind_out; eauto.
-        eexists _,_; eauto.
-        unfold active.
-        eexists _.
-        rewrite -gmap_slice_lookup //.
-      + eapply Thread_step_reachable.
-        destruct p0.
+      destruct (pop (c, b) p h) as [[[]]|] eqn:E.
+      {
+        eapply Thread_step_reachable.
         unfold can_stepi.
         eexists _,_.
         econstructor; last done.
         econstructor; first done.
         eapply Recv_step; eauto.
-        rewrite -gmap_slice_lookup //.
+      }
+      assert (thread_waiting es h i c).
+      { unfold thread_waiting. eauto 10. }
+      eapply Thread_waiting_reachable; eauto.
+      eapply Hind_out. { unfold waiting; eauto. }
+      eexists _,_; eauto.
+      unfold active.
+      eexists _.
+      rewrite -gmap_slice_lookup //.
     * (* Send *)
       destruct H as (v1 & v2 & p & i' & ->).
       revert Het. model.
@@ -623,10 +628,12 @@ Proof.
     apply pure_sep_holds in Hx as [Hinl Hx].
     eapply prim_simple_adequacy; first exact Hx.
     iIntros "H".
-    iDestruct (bufs_typed_progress with "H") as %[HH|[p Hp]].
+    iDestruct (bufs_typed_progress with "H") as %[HH|Hcp].
     { rewrite HH lookup_empty in Hib. by destruct Hib. }
     iPureIntro.
-    destruct Hp as (σ & bufs & Hσ & Hbufs & Hrne).
+    unfold can_progress in *.
+    destruct Hcp as (p & σ & Hp & Hσ).
+    (* destruct Hp as (σ & bufs & Hσ & Hbufs & Hrne). *)
 
     assert (∃ x, out_edges g x !! (Chan c) ≡ Some (p, σ)) as [y Hy].
     {
@@ -643,7 +650,7 @@ Proof.
     eapply Hind_in; eauto.
     + intros (i & c' & -> & ? & Hw). simplify_eq.
       unfold thread_waiting in Hw.
-      destruct Hw as (p' & q' & bufs' & k & Hk & Hi & Hc' & Hbufs').
+      destruct Hw as (p' & q' & k & Hctx & Hi & Hpop).
       specialize (Hvs (Thread i)).
       eapply (holds_entails _ (∃ n t s, own_out (Chan c') (p', RecvT n q' t s) ∗ True)%I) in Hvs. 2:
       {
@@ -670,9 +677,9 @@ Proof.
       revert Hoc'. rewrite Hy. intros Hoc'.
       inversion Hoc'. simplify_eq. inversion H1. simpl in *.
       inversion H0; simplify_eq.
-      simpl in *.
-      destruct Hrne as (buf & Hbuf & Hne).
-      rewrite gmap_slice_lookup Hc' in Hbufs. simplify_eq.
+      destruct Hσ as (y & bufs' & Hσ).
+      rewrite gmap_slice_pop_fmap Hpop in Hσ.
+      simplify_eq.
     + specialize (Hvs y).
       revert Hy Hvs. clear.
       intros Hy Hvs.
