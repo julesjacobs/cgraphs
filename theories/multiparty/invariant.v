@@ -37,57 +37,43 @@ Section bufs_typed.
     | rproj_buf_skip n i p q t G σ :
         r ≠ q -> rproj r (G i) σ ->
           rproj r (BufMessageR n i p q t G) σ
-    (* | rproj_buf_skip n i q r t G σ :
-        p ≠ r -> (∀ i, rproj p (G i) σ) -> (∀ i, roccurs_in p (G i)) ->
-          rproj p (BufMessageR n i q r t G) σ *)
     | rproj_continue G σ :
         proj r G σ -> rproj r (ContinueR G) σ.
-(*
-  Fixpoint bufproj (r : participant) (G : rglobal_type) (buf : gmap participant bufT) : rProp :=
+
+  Definition bufs_empty (bufs : bufsT participant participant entryT) :=
+    ∀ p q, pop p q bufs = None.
+
+  Fixpoint bufprojs (G : rglobal_type) (bufs : bufsT participant participant entryT) : rProp :=
     match G with
     | MessageR n p q t G' =>
-        ⌜⌜ r = q -> buf !!  ∀ i, bufproj r (G' i) buf
+        ⌜⌜ pop p q bufs = None ⌝⌝ ∗ ∀ i, bufprojs (G' i) bufs
     | BufMessageR n i p q t G' =>
-        if decide (r = q) then
-          ∃ v, ⌜⌜ True ⌝⌝ ∗ val_typed v (t i) ∗ bufproj r (G' i) buf
-        else
-          bufproj r (G' i) buf
-    | ContinueR G' => ⌜⌜ ∀ p, buf !! p = None ∨ buf !! p = Some [] ⌝⌝
-                              (* (¬ occurs_in p G' -> buf !! p = None) ⌝⌝ *)
+        ∃ v bufs', ⌜⌜ pop q p bufs = Some ((fin_to_nat i,v), bufs') ⌝⌝ ∗
+          val_typed v (t i) ∗ bufprojs (G' i) bufs'
+    | ContinueR G' => ⌜⌜ bufs_empty bufs ⌝⌝
     end.
 
-  Fixpoint bufprojs (G : rglobal_type) (bufs : gmap participant (gmap participant bufT)) : rProp :=
-    match G with
-    | MessageR n p q t G' => True
-    | BufMessageR n i p q t G' => True
-    | ContinueR G' => True
-    end.
+  Definition bufs_typed (bufs : bufsT participant participant entryT)
+                        (σs : gmap participant session_type) : rProp :=
+    ⌜⌜ dom (gset _) bufs = dom (gset _) σs ⌝⌝ ∗      (* ugly... *)
+    ∃ G : rglobal_type,
+         ⌜⌜ ∀ p, rproj p G (default EndT (σs !! p)) ⌝⌝ ∗
+         bufprojs G bufs.
 
-  Definition bufs_typed (bufs : gmap participant (gmap participant bufT))
+  (* Definition bufs_typed (bufs : gmap participant (gmap participant bufT))
                         (σs : gmap participant session_type) : rProp :=
     ∃ G : rglobal_type,
       ⌜⌜ ∀ p, roccurs_in p G -> is_Some (bufs !! p) ⌝⌝ ∗
-      [∗ map] p ↦ buf;σ ∈ bufs;σs, ⌜⌜ rproj p G σ ⌝⌝ ∗ bufproj p G buf.
+      [∗ map] p ↦ buf;σ ∈ bufs;σs, ⌜⌜ rproj p G σ ⌝⌝ ∗ bufproj p G buf. *)
 
-  Definition bufs_typed' (bufs : gmap participant (gmap participant bufT))
+
+  (* Definition bufs_typed (bufs : gmap participant (gmap participant bufT))
                         (σs : gmap participant session_type) : rProp :=
     ∃ G : rglobal_type,
       ⌜⌜ dom (gset _) bufs = dom (gset _) σs ∧           (* ugly *)
          ∀ p, rproj p G (default EndT (σs !! p)) ⌝⌝ ∗
-         bufprojs G bufs.
+         [∗ map] p ↦ buf ∈ bufs, bufproj p G buf. *)
 
-  Definition bufs_typed'' (bufs : gmap participant (gmap participant bufT))
-                        (σs : gmap participant session_type) : rProp :=
-    ∃ G : rglobal_type,
-      ⌜⌜ dom (gset _) bufs = dom (gset _) σs ∧           (* ugly *)
-         ∀ p, rproj p G (default EndT (σs !! p)) ⌝⌝ ∗
-         [∗ map] p ↦ buf ∈ bufs, bufproj p G buf.
-
- *)
-
-  Definition bufs_typed (bufs : bufsT participant participant entryT)
-                        (σs : gmap participant session_type) : rProp.
-  Admitted.
   (*
   Global Instance bufs_typed_params : Params (@bufs_typed) 2 := {}.
   Global Instance bufs_typed_proper b1 b2 : Proper ((≡) ==> (≡) ==> (≡)) (bufs_typed b1 b2).
@@ -100,7 +86,7 @@ Section bufs_typed.
     σs !! p ≡ Some (SendT n q t r) ->
     val_typed v (t i) ∗ bufs_typed bufss σs ⊢
     bufs_typed (push q p (fin_to_nat i,v) bufss)
-              (<[p:=r i]> σs).
+               (<[p:=r i]> σs).
   Proof.
   Admitted.
 
@@ -113,6 +99,13 @@ Section bufs_typed.
       val_typed v (t i') ∗
       bufs_typed bufs' (<[ p := r i' ]> σs).
   Proof.
+    iIntros (Hp Hpop) "H".
+    iDestruct "H" as (Hdom G Hprojs) "H".
+    iInduction G as [] "IH" forall (bufs Hpop Hdom Hprojs); simpl.
+    - admit.
+    - iDestruct "H" as (v0 bufs'0 Hpop') "[Hv H]".
+      admit.
+    - iDestruct "H" as %Hemp. rewrite Hemp in Hpop. simplify_eq.
   Admitted.
 
   Lemma bufs_typed_dealloc bufss σs p :
@@ -120,22 +113,87 @@ Section bufs_typed.
     bufs_typed bufss σs ⊢
     bufs_typed (delete p bufss) (delete p σs).
   Proof.
+    iIntros (Hpp) "H".
+    assert (σs !! p = Some EndT) as Hp.
+    { inversion Hpp. inversion H1. simplify_eq. rewrite H //. }
+    clear Hpp.
+    iDestruct "H" as (Hdom) "H".
+    iSplit. { iPureIntro. rewrite !dom_delete_L Hdom //. }
+    iDestruct "H" as (G Hprojs) "H".
+    assert (rproj p G EndT) as Hprojp.
+    { specialize (Hprojs p). rewrite Hp in Hprojs. done. }
+    iExists G. iSplit.
+    { iPureIntro. intros p'. rewrite lookup_delete_spec.
+      case_decide; subst; eauto. }
+    clear Hp Hdom Hprojs.
+    iInduction G as [] "IH" forall (bufss); simpl.
+    - iDestruct "H" as (Hpop) "H".
+      iSplit; first admit.
+      iIntros (i).
+      iApply ("IH" with "[%] [H]"); eauto.
+      admit.
+    - iDestruct "H" as (v bufs' Hpop) "[Hv H]".
+      remember (BufMessageR n t p0 p1 t0 r).
+      inversion Hprojp; simplify_eq.
+      iExists _,_.
+      iDestruct ("IH" with "[%] H") as "H". { done. }
+      iFrame. admit.
+    - iDestruct "H" as %Hbe. iPureIntro.
+      admit.
   Admitted.
 
   Lemma bufs_typed_empty  :
     emp ⊢ bufs_typed ∅ ∅.
   Proof.
-  Admitted.
+    iIntros "_".
+    iSplit. { rewrite !dom_empty_L //. }
+    iExists (ContinueR EndG).
+    iSplit.
+    - iPureIntro. intros.
+      rewrite lookup_empty /=.
+      constructor. constructor. intros H.
+      inversion H.
+    - simpl. iPureIntro.
+      intros ??. unfold pop. rewrite lookup_empty //.
+  Qed.
 
   Lemma bufs_typed_empty_inv σs :
     bufs_typed ∅ σs ⊢ ⌜⌜ σs = ∅ ⌝⌝.
   Proof.
-  Admitted.
+    iIntros "[% H]".
+    iDestruct "H" as (G Hprojs) "H".
+    rewrite dom_empty_L in H.
+    symmetry in H.
+    apply dom_empty_iff_L in H. subst.
+    setoid_rewrite lookup_empty in Hprojs. simpl in *.
+    assert (G = ContinueR EndG) as ->.
+    { destruct G.
+      - specialize (Hprojs p0); inversion Hprojs; simplify_eq.
+      - specialize (Hprojs p0); inversion Hprojs; simplify_eq.
+      - destruct g; eauto.
+        specialize (Hprojs p0); inversion Hprojs; simplify_eq.
+        inversion H0; simplify_eq.
+        exfalso. apply H. eauto using occurs_in. }
+    simpl. eauto.
+  Qed.
 
   Lemma bufs_typed_init n σs :
     consistent n σs ->
     emp ⊢ bufs_typed (init_chans n) (fin_gmap n σs).
   Proof.
+    iIntros (Hcons) "_".
+    unfold bufs_typed.
+    iSplit. { admit. }
+    destruct Hcons as [G [Hprosj Hocc]].
+    iExists (ContinueR G).
+    iSplit.
+    - iPureIntro. intros. econstructor.
+      destruct (decide (p < n)).
+      + rewrite <-(fin_to_nat_to_fin _ _ l).
+        rewrite fin_gmap_lookup. simpl. eauto.
+      + rewrite fin_gmap_lookup_ne; last lia. simpl.
+        econstructor. eauto with lia.
+    - simpl. admit.
   Admitted.
 
   Lemma bufs_typed_recv bufss σs p q n t σ :
@@ -158,7 +216,55 @@ Section bufs_typed.
   Lemma bufs_typed_progress bufss σs :
     bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ can_progress bufss σs ⌝.
   Proof.
-  Admitted.
+    iIntros "[% H]".
+    iDestruct "H" as (G Hprojs) "H".
+    destruct G; simpl.
+    - iPureIntro. right.
+      unfold can_progress.
+      specialize (Hprojs p).
+      exists p.
+      destruct (σs !! p); last (inversion Hprojs; simplify_eq).
+      eexists _; split; first done.
+      destruct s; eauto. simpl in *.
+      inversion Hprojs; simplify_eq.
+    - specialize (Hprojs p0).
+      iRight. unfold can_progress.
+      iExists p0.
+      destruct (σs !! p0); last (inversion Hprojs; simplify_eq). simpl in *.
+      iExists s. iSplit; eauto.
+      destruct s; eauto.
+      iDestruct "H" as (v bufs' Hpop) "[Hv H]".
+      inversion Hprojs; simplify_eq.
+      eauto.
+    - destruct (classic (bufss = ∅)) as [|Q]; eauto.
+      eapply map_choose in Q as [p [x Hp]].
+      iRight. iDestruct "H" as %Q.
+      iPureIntro.
+      unfold can_progress.
+      destruct g.
+      + specialize (Hprojs p0).
+        exists p0.
+        destruct (σs !! p0); simpl in *.
+        * inversion Hprojs; subst.
+          remember (Message n p0 p1 t g).
+          inversion H1; simplify_eq.
+          { eexists. split; eauto. simpl. eauto. }
+          exfalso. eauto using occurs_in.
+        * inversion Hprojs; simplify_eq. inversion H1; simplify_eq.
+          exfalso. eauto using occurs_in.
+      + specialize (Hprojs p).
+        exists p.
+        destruct (σs !! p) eqn:E; last first.
+        { apply not_elem_of_dom in E.
+          exfalso. apply E.
+          rewrite -H.
+          apply elem_of_dom. rewrite Hp. eauto. }
+        eexists. split; first done.
+        destruct s; eauto.
+        simpl in *.
+        inversion Hprojs; simplify_eq.
+        inversion H1; simplify_eq.
+  Qed.
 
 End bufs_typed.
 
