@@ -241,7 +241,13 @@ CoInductive global_type : Type :=
 Inductive occurs_in (r : participant) : global_type -> Prop :=
   | oi_here_sender n q t g : occurs_in r (Message n r q t g)
   | oi_here_receiver n p t g : occurs_in r (Message n p r t g)
-  | oi_later n p q t g : (∀ i, occurs_in r (g i)) -> occurs_in r (Message n p q t g).
+  | oi_later n p q t g i : occurs_in r (g i) -> occurs_in r (Message n p q t g).
+
+Inductive guarded (r : participant) : global_type -> Prop :=
+  | gu_here_sender n q t g : guarded r (Message n r q t g)
+  | gu_here_receiver n p t g : guarded r (Message n p r t g)
+  | gu_later n p q t g : (∀ i, guarded r (g i)) -> guarded r (Message n p q t g).
+
 
 CoInductive proj (r : participant) : global_type -> session_type -> Prop :=
   | proj_send n q t G σ :
@@ -251,10 +257,98 @@ CoInductive proj (r : participant) : global_type -> session_type -> Prop :=
       r ≠ p -> (∀ i, proj r (G i) (σ i)) ->
         proj r (Message n p r t G) (RecvT n p t σ)
   | proj_skip n p q t G σ :
-      r ≠ p -> r ≠ q -> (∀ i, proj r (G i) σ) -> (∀ i, occurs_in r (G i)) ->
+      r ≠ p -> r ≠ q -> (∀ i, proj r (G i) σ) -> (∀ i, guarded r (G i)) ->
         proj r (Message n p q t G) σ
   | proj_end G :
       ¬ occurs_in r G -> proj r G EndT.
+
+(*
+Lemma projno_det r G σ :
+  ¬ occurs_in r G -> proj r G σ -> σ ≡ EndT.
+Proof.
+  revert r G σ.
+  intros r G σ Hoc Hproj.
+  inv Hproj; simplify_eq;
+  try solve [exfalso; eauto using occurs_in].
+  done.
+  Unshelve. exact 0%fin.
+Qed. *)
+
+(* Lemma projo_det r G σ1 σ2 :
+  occurs_in r G -> proj r G σ1 -> proj r G σ2 -> σ1 ≡ σ2.
+Proof.
+  revert r G σ1 σ2.
+  cofix IH.
+  intros r G σ1 σ2 Ho. revert σ1 σ2.
+  induction Ho; intros σ1 σ2 H1 H2.
+  - inv H1; inv H2; last done;
+    try solve [exfalso; eauto using occurs_in].
+    constructor; eauto. intro.
+    destruct (classic (occurs_in r (g i))); eauto.
+    rewrite (projno_det r _ (σ i)); eauto.
+    rewrite (projno_det r _ (σ0 i)); eauto.
+  - inv H1; inv H2; last done;
+    try solve [exfalso; eauto using occurs_in].
+    constructor; eauto. intro.
+    destruct (classic (occurs_in r (g i))); eauto.
+    rewrite (projno_det r _ (σ i)); eauto.
+    rewrite (projno_det r _ (σ0 i)); eauto.
+  - inv H1; inv H2;
+    try solve [exfalso; eauto using occurs_in].
+    + constructor; first done.
+      intro.
+      destruct (classic (occurs_in p (g i0))); eauto.
+      rewrite (projno_det p _ (σ i0)); eauto.
+      rewrite (projno_det p _ (σ0 i0)); eauto.
+    + constructor; first done.
+      intro.
+      destruct (classic (occurs_in q (g i0))); eauto.
+      rewrite (projno_det q _ (σ i0)); eauto.
+      rewrite (projno_det q _ (σ0 i0)); eauto.
+    + eapply IHHo; eauto.
+Qed.
+
+Lemma proj_det r G σ1 σ2 :
+  proj r G σ1 -> proj r G σ2 -> σ1 ≡ σ2.
+Proof.
+  revert r G σ1 σ2.
+  cofix IH.
+  intros r G σ1 σ2.
+  intros Hproj1 Hproj2.
+  inv Hproj1; inv Hproj2; try econstructor; try done;
+  try solve [exfalso; eauto using occurs_in];
+  try solve [intro; eauto using occurs_in].
+  specialize (H1 (magic n)).
+  specialize (H11 (magic n)).
+  specialize (H2 (magic n)).
+  remember (G0 (magic n)).
+  revert H1 H2 H11 IH. clear.
+  intros H1 Hoc H2 IH.
+  induction Hoc.
+  - inv H1; [inv H2|]; try solve [exfalso; eauto using occurs_in].
+    constructor; first done. intro. eauto.
+  - inv H1; [inv H2|]; try solve [exfalso; eauto using occurs_in].
+    constructor; first done. intro. eauto.
+  - inv H1; inv H2; try econstructor; try done;
+    try solve [exfalso; eauto using occurs_in];
+    try solve [intro; eauto using occurs_in].
+    eapply IHHoc; eauto.
+    Unshelve. apply magic. apply magic.
+Qed.
+
+    + inv H2.
+      * constructor; first done.
+        intro. eapply IH; eauto.
+      *
+  - admit.
+  -
+  specialize (IH _ _ _ _ H1 H11).
+  done.
+  Unshelve. apply magic. apply magic.
+Qed.
+
+  (* Can't allow 0-ary choices!! *)
+Admitted. *)
 
 (*
 
@@ -277,7 +371,7 @@ let c0 = spawn((λ c1, ...),(λ c2, ...))
 Definition consistent n (σs : fin n -> session_type) :=
   ∃ G : global_type,
     (∀ i, proj (fin_to_nat i) G (σs i)) ∧
-    (∀ j, j >= n -> ¬ occurs_in j G).
+    (∀ j, j >= n -> proj j G EndT).
 
 Record disj_union n (Γ : envT) (fΓ : fin n -> envT) : Prop := {
   du_disj p q : p ≠ q -> disj (fΓ p) (fΓ q);
@@ -459,33 +553,28 @@ Inductive pure_step : expr -> expr -> Prop :=
   | LetProd_step : ∀ x1 x2 v1 v2 e,
     pure_step (LetProd x1 x2 (Val (PairV v1 v2)) e) (subst x1 v1 $ subst x2 v2 e).
 
-Notation bufsT A B V := (gmap A (gmap B (list V))).
+Notation bufsT A B V := (gmap B (gmap A (list V))).
 Definition entryT := (nat * val)%type.
-Definition heap := bufsT endpoint participant entryT.
+Definition heap := bufsT participant endpoint entryT.
 
 (* Definition init_chan n : gmap participant bufT :=
   fin_gmap n (λ i, []). *)
 
 Definition push `{Countable A, Countable B} {V} (p : A) (q : B) (x : V) (bufss : bufsT A B V) : bufsT A B V :=
-  alter (λ bufs,
-    match bufs !! q with
-    | Some buf => <[ q := buf ++ [x] ]> bufs
-    | None => <[ q := [x] ]> bufs
-    end
-  ) p bufss.
+  alter (alter (λ buf, buf ++ [x]) p) q bufss.
 
 Definition pop `{Countable A, Countable B} {V} (p : A) (q : B) (bufss : bufsT A B V) : option (V * bufsT A B V) :=
-  match bufss !! p with
-  | None => None
+  match bufss !! q with
   | Some bufs =>
-    match bufs !! q with
-    | Some (v :: buf) => Some (v, <[ p := <[ q := buf ]> bufs ]> bufss)
+    match bufs !! p with
+    | Some (v :: buf) => Some (v, <[ q := <[ p := buf ]> bufs ]> bufss)
     | _ => None
     end
+  | None => None
   end.
 
 Definition init_chans n : bufsT participant participant entryT :=
-  fin_gmap n (λ i, ∅).
+  fin_gmap n (λ i, fin_gmap n (λ j, [])).
 
 Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr :=
   fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, S (fin_to_nat i))))).
@@ -497,7 +586,7 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
                  (* send puts the value in the bufs of the other *)
                  (* since we are participant p, we put it in that buffer *)
     head_step (Send q (Val (ChanV (c,p))) i (Val y)) h
-          (Val (ChanV (c,p))) (push (c,q) p (i,y) h) []
+          (Val (ChanV (c,p))) (push p (c,q) (i,y) h) []
     (* head_step (Send q (Val (ChanV (c,p))) i (Val y)) h *)
           (* (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [(i,y)]) p) (c,q) h) [] *)
     (* We could instead to the following:
@@ -509,13 +598,13 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
           (Val (ChanV (c,p))) (<[ (c,q) := <[ p := buf ++ [y] ]> bufs ]> h) []
     *)
   | Recv_step : ∀ h c p q i y h', (* p is us, q is the one we recv from *)
-    pop (c,p) q h = Some ((i,y), h') ->
+    pop p (c,q) h = Some ((i,y), h') ->
     (*
     h !! (c,p) = Some bufs -> (* recv takes the value out of its own bufs *)
     bufs !! q = Some ((i,y)::buf) -> (* since the recv is from p, we take it out of that buffer *)
     *)
-    head_step (Recv q (Val (ChanV (c,p)))) h
-          (Val (InjNV i (PairV (ChanV (c,p)) y))) h' []
+    head_step (Recv p (Val (ChanV (c,q)))) h
+          (Val (InjNV i (PairV (ChanV (c,q)) y))) h' []
   | Close_step : ∀ c p h,
     (* We can add these conditions: that would move some of the work from the
        preservation proof to the progress proof. *)
