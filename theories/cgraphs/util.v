@@ -835,11 +835,18 @@ Lemma fin_gset_S `{Countable A} n (f : fin (S n) -> A) :
   fin_gset (S n) f = {[ f 0%fin ]} ∪ fin_gset n (λ i, f (FS i)).
 Proof. done. Qed.
 
-(* Lemma fin_gmap_S {A} n (f : fin (S n) -> A) :
-  fin_gmap (S n) f = <[ 0 := f 0%fin ]> (fin_gmap n (λ i, f (FS i))).
+Lemma fin_gmap_dom {A} n (f : fin n -> A) (k : nat) :
+  k ∈ dom (gset _) (fin_gmap n f) <-> k < n.
 Proof.
-  unfold fin_gmap. simpl.
-   done. Qed. *)
+  rewrite elem_of_dom.
+  destruct (decide (k < n)) as [H|H].
+  - rewrite -(fin_to_nat_to_fin _ _ H).
+    rewrite fin_gmap_lookup.
+    erewrite !fin_to_nat_to_fin. naive_solver.
+  - rewrite fin_gmap_lookup_ne; last lia.
+    split; intros; try lia.
+    destruct H0. discriminate.
+Qed.
 
 Lemma fin_multiset_S {A : ofe} n (f : fin (S n) -> A) :
   fin_multiset (S n) f = {[ f 0%fin ]} ⋅ fin_multiset n (λ i, f (FS i)).

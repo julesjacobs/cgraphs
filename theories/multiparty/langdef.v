@@ -45,7 +45,7 @@ CoInductive session_type' (T : Type) :=
   | SendT n : participant -> (fin n -> T) -> (fin n -> session_type' T) -> session_type' T
   | RecvT n : participant -> (fin n -> T) -> (fin n -> session_type' T) -> session_type' T
   | EndT : session_type' T.
-Check SendT.
+
 Arguments SendT {_} _ _ _.
 Arguments RecvT {_} _ _ _.
 Arguments EndT {_}.
@@ -248,7 +248,7 @@ CoInductive proj (r : participant) : global_type -> session_type -> Prop :=
       r ≠ q -> (∀ i, proj r (G i) (σ i)) ->
         proj r (Message n r q t G) (SendT n q t σ)
   | proj_recv n p t G σ :
-      r ≠ p -> (∀ i, proj p (G i) (σ i)) ->
+      r ≠ p -> (∀ i, proj r (G i) (σ i)) ->
         proj r (Message n p r t G) (RecvT n p t σ)
   | proj_skip n p q t G σ :
       r ≠ p -> r ≠ q -> (∀ i, proj r (G i) σ) -> (∀ i, occurs_in r (G i)) ->

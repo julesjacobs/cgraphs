@@ -485,7 +485,18 @@ Proof.
   - iDestruct "H" as (?) "H".
     iApply "IH". eauto.
   - iDestruct "H" as (v bufs' Hpop) "[Hv H]".
-    admit.
+    iDestruct ("IH" with "H") as "H".
+    iDestruct (val_typed_refs with "Hv") as "Hv".
+    assert (bufs_refs bufss = bufs_refs bufs' ∪ val_refs v) as ->.
+    {
+      unfold pop in *.
+      destruct (bufss !! p0) eqn:E; simplify_eq.
+      destruct (g !! p) eqn:F; simplify_eq.
+      destruct l eqn:G; simplify_eq.
+      unfold bufs_refs.
+      admit.
+    }
+    iApply own_dom_union. iFrame.
   - iDestruct "H" as %H.
     assert (bufs_refs bufss = ∅) as ->; last by iApply own_dom_empty.
     admit.

@@ -6,37 +6,32 @@ Require Export diris.multiparty.mutil.
 Section bufs_typed.
 
   Inductive rglobal_type : Type :=
-    | MessageR n : participant -> participant ->
-                  (fin n -> type) -> (fin n -> rglobal_type) -> rglobal_type
-    | BufMessageR n : fin n -> participant -> participant ->
+    | MessageR n : option (fin n) -> participant -> participant ->
                   (fin n -> type) -> (fin n -> rglobal_type) -> rglobal_type
     | ContinueR : global_type -> rglobal_type.
 
-  Inductive roccurs_in (r : participant) : rglobal_type -> Prop :=
+  (* Inductive roccurs_in (r : participant) : rglobal_type -> Prop :=
     | roi_here_sender n q t g : roccurs_in r (MessageR n r q t g)
     | roi_here_receiver n p t g : roccurs_in r (MessageR n p r t g)
     | roi_buf_receiver n i p t g : roccurs_in r (BufMessageR n i p r t g)
     | roi_later n p q t g :
         r ≠ p -> r ≠ q -> (∀ i, roccurs_in r (g i)) -> roccurs_in r (MessageR n p q t g)
     | roi_buf_later n i p q t g :
-        r ≠ q -> (∀ i, roccurs_in r (g i)) -> roccurs_in r (BufMessageR n i p q t g).
+        r ≠ q -> (∀ i, roccurs_in r (g i)) -> roccurs_in r (BufMessageR n i p q t g). *)
 
   Inductive rproj (r : participant) : rglobal_type -> session_type -> Prop :=
-    | rproj_send n q t G σ :
-        r ≠ q -> (∀ i, rproj r (G i) (σ i)) ->
-          rproj r (MessageR n r q t G) (SendT n q t σ)
-    | rproj_recv n p t G σ :
-        r ≠ p -> (∀ i, rproj r (G i) (σ i)) ->
-          rproj r (MessageR n p r t G) (RecvT n p t σ)
-    | rproj_buf_recv n i p t G σ :
-        r ≠ p -> (∀ i, rproj r (G i) (σ i)) ->
-          rproj r (BufMessageR n i p r t G) (RecvT n p t σ)
-    | rproj_skip n p q t G σ :
-        r ≠ p -> r ≠ q -> (∀ i, rproj r (G i) σ) ->
-          rproj r (MessageR n p q t G) σ
-    | rproj_buf_skip n i p q t G σ :
-        r ≠ q -> rproj r (G i) σ ->
-          rproj r (BufMessageR n i p q t G) σ
+    | rproj_send n q ts Gs σs :
+        q ≠ r -> (∀ i, rproj r (Gs i) (σs i)) ->
+          rproj r (MessageR n None r q ts Gs) (SendT n q ts σs)
+    | rproj_recv n o p ts Gs σs :
+        p ≠ r -> (∀ i, rproj r (Gs i) (σs i)) ->
+          rproj r (MessageR n o p r ts Gs) (RecvT n p ts σs)
+    | rproj_skip n p q ts Gs σ :
+        p ≠ r -> q ≠ r -> (∀ i, rproj r (Gs i) σ) ->
+          rproj r (MessageR n None p q ts Gs) σ
+    | rproj_buf_skip n i p q ts Gs σ :
+        q ≠ r -> rproj r (Gs i) σ ->
+          rproj r (MessageR n (Some i) p q ts Gs) σ
     | rproj_continue G σ :
         proj r G σ -> rproj r (ContinueR G) σ.
 
@@ -45,11 +40,14 @@ Section bufs_typed.
 
   Fixpoint bufprojs (G : rglobal_type) (bufs : bufsT participant participant entryT) : rProp :=
     match G with
-    | MessageR n p q t G' =>
-        ⌜⌜ pop p q bufs = None ⌝⌝ ∗ ∀ i, bufprojs (G' i) bufs
-    | BufMessageR n i p q t G' =>
+    | MessageR n o p q ts Gs =>
+      match o with
+      | None =>
+        ⌜⌜ pop p q bufs = None ⌝⌝ ∗ ∀ i, bufprojs (Gs i) bufs
+      | Some i =>
         ∃ v bufs', ⌜⌜ pop q p bufs = Some ((fin_to_nat i,v), bufs') ⌝⌝ ∗
-          val_typed v (t i) ∗ bufprojs (G' i) bufs'
+          val_typed v (ts i) ∗ bufprojs (Gs i) bufs'
+      end
     | ContinueR G' => ⌜⌜ bufs_empty bufs ⌝⌝
     end.
 
@@ -80,14 +78,157 @@ Section bufs_typed.
   Proof. solve_proper. Qed.
   *)
 
-  Lemma bufs_typed_push (bufss : bufsT participant participant entryT)
+  Global Instance bufs_typed_Proper : Proper ((=) ==> (≡) ==> (≡)) bufs_typed.
+  Proof. Admitted.
+
+  Inductive pushUG (p q : participant) (n : nat) (i : fin n) : type -> global_type -> rglobal_type -> Prop :=
+    | pushU_skip n' p' q' t ts Gs Gs' :
+        p' ≠ p -> (∀ j, pushUG p q n i t (Gs j) (Gs' j)) ->
+        pushUG p q n i t (Message n' p' q' ts Gs) (MessageR n' None p' q' ts Gs')
+    | pushU_here ts Gs :
+        pushUG p q n i (ts i) (Message n p q ts Gs) (MessageR n (Some i) p q ts (λ j, ContinueR (Gs j))).
+
+  Inductive pushG (p q : participant) (n : nat) (i : fin n) : type -> rglobal_type -> rglobal_type -> Prop :=
+    | push_skipN n' p' q' ts Gs Gs' t :
+        p' ≠ p -> (∀ j, pushG p q n i t (Gs j) (Gs' j)) ->
+        pushG p q n i t (MessageR n' None p' q' ts Gs) (MessageR n' None p' q' ts Gs')
+    | push_skipS n' i' p' q' ts Gs Gs' t :
+        pushG p q n i t (Gs i') (Gs' i') -> (∀ j, j ≠ i' -> Gs j = Gs' j) ->
+        pushG p q n i t (MessageR n' (Some i') p' q' ts Gs) (MessageR n' (Some i') p' q' ts Gs')
+    | push_here ts Gs :
+        pushG p q n i (ts i) (MessageR n None p q ts Gs) (MessageR n (Some i) p q ts Gs)
+    | push_cont G G' t : pushUG p q n i t G G' -> pushG p q n i t (ContinueR G) G'.
+
+  Lemma send_pushUG p q G n t r i :
+    proj p G (SendT n q t r) -> ∃ G', pushUG p q n i G G'.
+  Proof.
+    intros H.
+    remember (SendT n q t r).
+    inversion H; simplify_eq.
+    - eexists. eapply pushU_here.
+    - admit.
+  Admitted.
+
+  Lemma send_pushG p q G n t r i :
+    rproj p G (SendT n q t r) -> ∃ G', pushG p q n i G G'.
+  Proof.
+    intros H.
+    remember (SendT n q t r).
+    induction G.
+    - remember (MessageR n0 o p0 p1 t0 r0).
+      remember (SendT n q t r).
+      inversion H; simplify_eq.
+      + admit.
+      + admit.
+      + admit.
+    - inversion H. subst.
+      eapply send_pushUG in H1 as [].
+      eauto using pushG.
+  Admitted.
+
+  Lemma pushUG_send p q n i G G' t r :
+    pushUG p q n i G G' -> proj p G (SendT n q t r) -> rproj p G' (r i).
+  Proof.
+    induction 1; intros Hproj; inversion Hproj; simplify_eq; eauto using rproj.
+  Qed.
+
+  Lemma pushG_send p q n i G G' t r :
+    pushG p q n i G G' -> rproj p G (SendT n q t r) -> rproj p G' (r i).
+  Proof.
+    induction 1; intros Hproj; inversion Hproj; simplify_eq; eauto using rproj, pushUG_send.
+  Qed.
+
+  Lemma pushUG_other p q r n i G G' σ :
+    r ≠ p -> pushUG p q n i G G' -> proj r G σ -> rproj r G' σ.
+  Proof.
+    intros Hneq Hpush. revert σ; induction Hpush; intros σ Hproj.
+    - inversion Hproj; simplify_eq; eauto using rproj.
+      admit.
+    - inversion Hproj; simplify_eq; eauto using rproj.
+      admit.
+  Admitted.
+
+  Lemma pushG_bufs p q n i G G' bufs v :
+    pushG p q n i t G G' ->
+    val_typed v t ∗ bufprojs G bufs ⊢
+    bufprojs G' (push q p (fin_to_nat i,v) bufs).
+  Proof.
+  Admitted.
+
+  Lemma bufs_typed_push' (bufss : bufsT participant participant entryT)
                         (σs : gmap participant session_type)
                         (n : nat) (i : fin n) (p q : participant) t r v :
-    σs !! p ≡ Some (SendT n q t r) ->
+    σs !! p = Some (SendT n q t r) ->
     val_typed v (t i) ∗ bufs_typed bufss σs ⊢
         bufs_typed (push q p (fin_to_nat i,v) bufss) (<[p:=r i]> σs).
   Proof.
+    iIntros (Hp) "[Hv H]".
+    iDestruct "H" as (Hdom G Hprojs) "H".
+    iSplit. { admit. }
+    iInduction G as [] "IH" forall (σs bufss Hp Hdom Hprojs); simpl.
+    - unfold bufs_typed.
+      iDestruct "H" as (Hpop) "H".
+      pose proof (Hprojs p) as Hproj.
+      rewrite Hp in Hproj. simpl in *.
+      remember (MessageR n0 p0 p1 t0 r0).
+      remember (SendT n q t r).
+      inversion Hproj; revert Hdom; simplify_eq; intros Hdom.
+      + iExists (BufMessageR n0 i p0 p1 t r0). simpl.
+        iSplit. {
+          iPureIntro. intros. rewrite lookup_insert_spec.
+          case_decide; simplify_eq; simpl.
+          - econstructor; eauto.
+          - specialize (Hprojs p).
+            remember (MessageR n0 p0 p1 t r0).
+            inversion Hprojs; simplify_eq; econstructor; eauto.
+        }
+        iExists _,_. iSpecialize ("H" $! i). iFrame.
+        admit.
+      + iDestruct ("IH" with "[%] [%] [%] Hv [H]") as "H"; eauto.
+        admit.
+    - iDestruct "H" as (v0 bufs' Hpop') "[Hv' H]".
+      pose proof (Hprojs p) as Hproj.
+      remember (BufMessageR n0 t0 p0 p1 t1 r0).
+      inversion Hproj; simplify_eq; admit.
+    - admit.
   Admitted.
+
+  Lemma bufs_typed_pop' (σs : gmap participant session_type)
+    (bufs bufs' : bufsT participant participant entryT)
+    (n : nat) (p q : participant) v i t r :
+    σs !! p = Some (RecvT n q t r) ->
+    pop p q bufs = Some((i,v),bufs') ->
+    bufs_typed bufs σs ⊢ ∃ i', ⌜⌜ i = fin_to_nat i' ⌝⌝ ∗
+      val_typed v (t i') ∗ bufs_typed bufs' (<[ p := r i' ]> σs).
+  Proof.
+    iIntros (Hp Hpop) "H".
+    iDestruct "H" as (Hdom G Hprojs) "H".
+    unfold bufs_typed.
+    iInduction G as [] "IH" forall (bufs Hpop Hdom Hprojs); simpl.
+    - iDestruct "H" as (Hpop') "H".
+      iDestruct ("IH" with "[%] [%] [%] [H]") as "H"; eauto.
+      intros p2. specialize (Hprojs p2).
+      remember (MessageR n0 p0 p1 t0 r0).
+      admit.
+    - iDestruct "H" as (v0 bufs'0 Hpop') "[Hv H]".
+      admit.
+    - iDestruct "H" as %Hemp. rewrite Hemp in Hpop. simplify_eq.
+  Admitted.
+
+  Lemma bufs_typed_push (bufss : bufsT participant participant entryT)
+    (σs : gmap participant session_type)
+    (n : nat) (i : fin n) (p q : participant) t r v :
+    σs !! p ≡ Some (SendT n q t r) ->
+    val_typed v (t i) ∗ bufs_typed bufss σs ⊢
+      bufs_typed (push q p (fin_to_nat i,v) bufss) (<[p:=r i]> σs).
+  Proof.
+    iIntros (H) "[H1 H2]".
+    inversion H. remember (SendT n q t r).
+    inversion H2; simplify_eq.
+    rewrite -(H4 i).
+    iApply bufs_typed_push'; first done. iFrame.
+    rewrite (H3 i) //.
+  Qed.
 
   Lemma bufs_typed_pop (σs : gmap participant session_type)
     (bufs bufs' : bufsT participant participant entryT)
@@ -97,14 +238,15 @@ Section bufs_typed.
     bufs_typed bufs σs ⊢ ∃ i', ⌜⌜ i = fin_to_nat i' ⌝⌝ ∗
       val_typed v (t i') ∗ bufs_typed bufs' (<[ p := r i' ]> σs).
   Proof.
-    iIntros (Hp Hpop) "H".
-    iDestruct "H" as (Hdom G Hprojs) "H".
-    iInduction G as [] "IH" forall (bufs Hpop Hdom Hprojs); simpl.
-    - admit.
-    - iDestruct "H" as (v0 bufs'0 Hpop') "[Hv H]".
-      admit.
-    - iDestruct "H" as %Hemp. rewrite Hemp in Hpop. simplify_eq.
-  Admitted.
+    intros H. inversion H. simplify_eq.
+    remember (RecvT n q t r).
+    inversion H2; simplify_eq. symmetry in H0.
+    intros.
+    eapply bufs_typed_pop' in H0; last done.
+    iIntros "H".
+    iDestruct (H0 with "H") as (i' Hi') "H". subst.
+    iExists _. iSplit; first done. rewrite (H1 i') (H3 i') //.
+  Qed.
 
   Lemma pop_delete_None `{Countable A, Countable B} {V}
     (p p' : A) (q : B) (m : bufsT A B V):
@@ -207,7 +349,7 @@ Section bufs_typed.
   Proof.
     iIntros (Hcons) "_".
     unfold bufs_typed.
-    iSplit. { iPureIntro. admit. }
+    iSplit. { iPureIntro. apply set_eq. intros. rewrite !fin_gmap_dom. done. }
     destruct Hcons as [G [Hprosj Hocc]].
     iExists (ContinueR G).
     iSplit.
@@ -219,8 +361,16 @@ Section bufs_typed.
         econstructor. eauto with lia.
     - simpl. iPureIntro.
       intros ??. unfold init_chans.
-      unfold pop. admit.
-  Admitted.
+      unfold pop.
+      destruct (fin_gmap n (λ _, ∅ : gmap participant (list entryT)) !! p) eqn:E; rewrite E //.
+      destruct (g !! q) eqn:F; eauto.
+      destruct l eqn:I; eauto.
+      exfalso.
+      destruct (decide (p < n)).
+      { rewrite -(fin_to_nat_to_fin _ _ l1) in E.
+        rewrite fin_gmap_lookup in E. simplify_eq. }
+      rewrite fin_gmap_lookup_ne in E; simplify_eq; lia.
+  Qed.
 
   Lemma bufs_typed_recv bufss σs p q n t σ :
     σs !! p ≡ Some (RecvT n q t σ) ->
