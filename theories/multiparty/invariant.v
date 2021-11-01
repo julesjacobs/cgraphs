@@ -426,17 +426,17 @@ Section bufs_typed.
   Lemma pop_delete_Some `{Countable A, Countable B} {V} (p : A) (q q' : B) (x : V) bufss bufs' :
     q ≠ q' ->
     pop p q bufss = Some (x, bufs') ->
-    pop p q (delete q' bufss) = Some (x, bufs').
+    pop p q (delete q' bufss) = Some (x, delete q' bufs').
   Proof.
     intros ? Hpop. unfold pop in *.
-    rewrite lookup_delete_spec. smap.
+    rewrite !lookup_delete_spec. smap.
     destruct (bufss !! q) eqn:E; smap.
     destruct (g !! p) eqn:F; smap.
     destruct l; smap.
     do 2 f_equal.
     apply map_eq. intro.
-    smap. rewrite lookup_delete_spec. smap.
-  Admitted.
+    smap; rewrite !lookup_delete_spec; smap.
+  Qed.
 
   Lemma bufs_typed_dealloc bufss σs p :
     σs !! p ≡ Some EndT ->
@@ -462,11 +462,10 @@ Section bufs_typed.
       iIntros (i). iApply ("IH" with "[%] [H]"); eauto.
     - iDestruct "H" as (v bufs' Hpop) "[Hv H]".
       iExists _,_.
-      iSplit; last iFrame.
-      iPureIntro.
-      admit.
+      iSplit; first eauto using pop_delete_Some. iFrame.
+      iApply ("IH" with "[%] H"). eauto.
     - iDestruct "H" as "%". eauto using bufs_empty_delete.
-  Admitted.
+  Qed.
 
   Lemma dom_valid_empty : dom_valid ∅ ∅.
   Proof.
