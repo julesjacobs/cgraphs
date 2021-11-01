@@ -258,7 +258,7 @@ CoInductive proj (r : participant) : global_type -> session_type -> Prop :=
         proj r (Message n p r t G) (RecvT n p t σ)
   | proj_skip n p q t G σ :
       r ≠ p -> r ≠ q -> (∀ i, proj r (G i) σ) -> (∀ i, guarded r (G i)) ->
-        proj r (Message n p q t G) σ
+        proj r (Message (S n) p q t G) σ
   | proj_end G :
       ¬ occurs_in r G -> proj r G EndT.
 
