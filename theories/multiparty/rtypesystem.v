@@ -720,6 +720,20 @@ Proof.
     subst. intros H. inversion H.
 Qed.
 
+
+(* Definition substitution Γ1 Γ2 ρ :=
+    ∀ x, x ∈ Γ1 ∧ x ∉ Γ2 -> x ∈ ρ
+         x ∉ .
+
+Lemma subst_rtyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) :
+  substitution Γ1 Γ2 ρ -∗
+  rtyped Γ1 e t -∗
+  rtyped Γ2 (subst ρ e) t.
+
+  Γ1 = Γ1a + Γ1b -> ∃ Γ2 = Γ2a + Γ2b, substitution Γ1a Γ2a ρ ∗ substitution Γ1a Γ2a ρ
+  unrestricted Γ1 -> ??? *)
+
+
 Lemma subst_rtyped (Γ : envT) (x : string) (v : val) (vT : type) (e : expr) (eT : type) :
   Γ !! x ≡ Some vT ->
   val_typed v vT -∗
