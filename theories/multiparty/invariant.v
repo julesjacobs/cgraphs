@@ -3,6 +3,9 @@ Require Export diris.multiparty.langdef.
 Require Export diris.multiparty.rtypesystem.
 Require Export diris.multiparty.mutil.
 
+Ltac sdec := repeat case_decide; simplify_eq; simpl in *; eauto; try done.
+Ltac smap := repeat (rewrite lookup_alter_spec || rewrite lookup_insert_spec || sdec).
+
 Section bufs_typed.
 
   Inductive rglobal_type : Type :=
@@ -181,8 +184,6 @@ Section bufs_typed.
     rewrite -H; eauto.
   Qed.
 
-  Ltac sdec := repeat case_decide; simplify_eq; simpl in *; eauto; try done.
-  Ltac smap := repeat (rewrite lookup_alter_spec || rewrite lookup_insert_spec || sdec).
 
   Lemma pop_push_None `{Countable A, Countable B} {V}
       (p p' : A) (q q' : B) (x : V) (bufs : bufsT A B V) :
@@ -352,10 +353,10 @@ Section bufs_typed.
   Lemma bufs_typed_pop' (σs : gmap participant session_type)
     (bufs bufs' : bufsT participant participant entryT)
     (n : nat) (p q : participant) v i ts ss :
-    σs !! p = Some (RecvT n q ts ss) ->
+    σs !! q = Some (RecvT n p ts ss) ->
     pop p q bufs = Some((i,v),bufs') ->
     bufs_typed bufs σs ⊢ ∃ i', ⌜⌜ i = fin_to_nat i' ⌝⌝ ∗
-      val_typed v (ts i') ∗ bufs_typed bufs' (<[ p := ss i' ]> σs).
+      val_typed v (ts i') ∗ bufs_typed bufs' (<[ q := ss i' ]> σs).
   Proof.
     iIntros (Hp Hpop) "H".
     iDestruct "H" as (Hdom G Hprojs) "H".
@@ -379,19 +380,20 @@ Section bufs_typed.
   Lemma bufs_typed_pop (σs : gmap participant session_type)
     (bufs bufs' : bufsT participant participant entryT)
     (n : nat) (p q : participant) v i ts ss :
-    σs !! p ≡ Some (RecvT n q ts ss) ->
+    σs !! q ≡ Some (RecvT n p ts ss) ->
     pop p q bufs = Some((i,v),bufs') ->
     bufs_typed bufs σs ⊢ ∃ i', ⌜⌜ i = fin_to_nat i' ⌝⌝ ∗
-      val_typed v (ts i') ∗ bufs_typed bufs' (<[ p := ss i' ]> σs).
+      val_typed v (ts i') ∗ bufs_typed bufs' (<[ q := ss i' ]> σs).
   Proof.
     intros H. inversion H. simplify_eq.
-    remember (RecvT n q ts ss).
+    remember (RecvT n p ts ss).
     inversion H2; simplify_eq. symmetry in H0.
     intros.
     eapply bufs_typed_pop' in H0; last done.
     iIntros "H".
-    iDestruct (H0 with "H") as (i' Hi') "H". subst.
-    iExists _. iSplit; first done. rewrite (H1 i') (H3 i') //.
+    iDestruct (H0 with "H") as (j ->) "[Hv H]".
+    iExists _. iSplit; first done.
+    rewrite -(H1 j) -(H3 j) //. iFrame.
   Qed.
 
   Lemma pop_delete_None `{Countable A, Countable B} {V}
@@ -641,38 +643,37 @@ Instance state_inv_proper es h v : Proper ((≡) ==> (⊣⊢)) (state_inv es h v
 Proof. solve_proper_prepare. destruct v; [solve_proper|by setoid_rewrite H]. Qed.
 Instance state_inv_params : Params (@state_inv) 3. Defined.
 
-(* (h !! (c,b)) !! a *)
 Lemma gmap_slice_push `{Countable A,Countable B,Countable C} {V}
-  (c : A) (p : B) (q : C) (x : V) (m : bufsT (A*B) C V) :
-  gmap_slice (push (c, p) q x m) c = push p q x (gmap_slice m c).
+    (p : A) (c : B) (q : C) (x : V) (m : bufsT A (B*C) V) :
+  gmap_slice (push p (c, q) x m) c = push p q x (gmap_slice m c).
 Proof.
   unfold push. rewrite gmap_slice_alter. case_decide; simplify_eq. done.
 Qed.
 
 Lemma gmap_slice_pop `{Countable A,Countable B,Countable C} {V}
-  (c : A) (p : B) (q : C) (x : V) (m m' : bufsT (A*B) C V) :
-  pop (c,p) q m = Some(x,m') ->
+    (p : A) (c : B) (q : C) (x : V) (m m' : bufsT A (B*C) V) :
+  pop p (c,q) m = Some(x,m') ->
   pop p q (gmap_slice m c) = Some(x,gmap_slice m' c).
 Proof.
   unfold pop. intros. rewrite gmap_slice_lookup.
-  destruct (m !! (c, p)); last simplify_eq.
-  destruct (g !! q); last simplify_eq.
-  destruct l; simplify_eq.
-  rewrite gmap_slice_insert. case_decide; simplify_eq. done.
+  destruct (m !! (c, q)); smap.
+  destruct (g !! p); smap.
+  destruct l; smap. do 2 f_equal.
+  apply map_eq. intro. smap;
+  rewrite gmap_slice_insert; smap.
 Qed.
 
 Lemma gmap_slice_pop_ne `{Countable A,Countable B,Countable C} {V}
-  (c c' : A) (p : B) (q : C) (x : V) (m m' : bufsT (A*B) C V) :
+    (p : A) (c c' : B) (q : C) (x : V) (m m' : bufsT A (B*C) V) :
   c ≠ c' ->
-  pop (c,p) q m = Some(x,m') ->
+  pop p (c,q) m = Some(x,m') ->
   gmap_slice m c' = gmap_slice m' c'.
 Proof.
   unfold pop. intros.
-  destruct (m !! (c, p)); last simplify_eq.
-  destruct (g !! q); last simplify_eq.
-  destruct l; simplify_eq.
-  rewrite gmap_slice_insert.
-  case_decide; simplify_eq. done.
+  destruct (m !! (c, q)); smap.
+  destruct (g !! p); smap.
+  destruct l; smap.
+  rewrite gmap_slice_insert. smap.
 Qed.
 
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
@@ -738,7 +739,7 @@ Proof.
       apply gmap_slice_pop in H1.
       iDestruct (bufs_typed_pop with "H") as (i' ?) "[Hv H]"; eauto.
       subst. rewrite list_lookup_insert; last by eapply lookup_lt_Some.
-      iExists (p, r i').
+      iExists (q, r i').
       iSplitL "H2 Hv".
       * iIntros "H1".
         iSplit; eauto.
@@ -752,7 +753,7 @@ Proof.
         rewrite -H7. iFrame.
         inversion H6. simplify_eq.
         iExists _. iSplit; first done. unfold own_ep. simpl. rewrite H8 //.
-      * iExists (<[ p := r i' ]> σs). iFrame. iPureIntro.
+      * iExists (<[ q := r i' ]> σs). iFrame. iPureIntro.
         by eapply map_to_multiset_update.
   - (* Close *)
     eapply (inv_dealloc (Thread i) (Chan c)); last done; try apply _.
