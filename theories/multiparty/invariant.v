@@ -53,11 +53,8 @@ Section bufs_typed.
 
   Definition dom_valid (bufss : bufsT participant participant entryT) (d : gset participant) :=
     ∀ p, match bufss !! p with
-         | Some bufs => p ∈ d ∧
-          ∀ q, match bufs !! q with
-               | Some buf => buf ≠ [] -> q ∈ d
-               | None => q ∉ d
-               end
+         | Some bufs => p ∈ d ∧ ∀ q, q ∈ d ->
+            match bufs !! q with Some _ => True | None => False end
          | None => p ∉ d
          end.
 
@@ -381,14 +378,14 @@ Section bufs_typed.
 
   Lemma bufs_typed_pop (σs : gmap participant session_type)
     (bufs bufs' : bufsT participant participant entryT)
-    (n : nat) (p q : participant) v i t r :
-    σs !! p ≡ Some (RecvT n q t r) ->
+    (n : nat) (p q : participant) v i ts ss :
+    σs !! p ≡ Some (RecvT n q ts ss) ->
     pop p q bufs = Some((i,v),bufs') ->
     bufs_typed bufs σs ⊢ ∃ i', ⌜⌜ i = fin_to_nat i' ⌝⌝ ∗
-      val_typed v (t i') ∗ bufs_typed bufs' (<[ p := r i' ]> σs).
+      val_typed v (ts i') ∗ bufs_typed bufs' (<[ p := ss i' ]> σs).
   Proof.
     intros H. inversion H. simplify_eq.
-    remember (RecvT n q t r).
+    remember (RecvT n q ts ss).
     inversion H2; simplify_eq. symmetry in H0.
     intros.
     eapply bufs_typed_pop' in H0; last done.
@@ -398,18 +395,48 @@ Section bufs_typed.
   Qed.
 
   Lemma pop_delete_None `{Countable A, Countable B} {V}
-    (p p' : A) (q : B) (m : bufsT A B V):
+    (p : A) (q q' : B) (m : bufsT A B V):
     pop p q m = None ->
-    pop p q (delete p' m) = None.
+    pop p q (delete q' m) = None.
   Proof.
     unfold pop in *. intros.
-    rewrite lookup_delete_spec.
-    case_decide; eauto.
-    destruct (m !! p); eauto.
-    destruct (g !! q); eauto.
-    destruct l; eauto.
-    simplify_eq.
+    rewrite lookup_delete_spec. sdec.
+    destruct (m !! q); sdec.
+    destruct (g !! p); eauto.
+    destruct l; sdec.
   Qed.
+
+  Lemma dom_valid_delete p d bufss :
+    dom_valid bufss d ->
+    dom_valid (delete p bufss) (d ∖ {[ p ]}).
+  Proof.
+    intros Hdv.
+    unfold dom_valid in *.
+    intros q. specialize (Hdv q).
+    rewrite lookup_delete_spec. smap; first set_solver.
+    destruct (bufss !! q); smap; set_solver.
+  Qed.
+
+  Lemma bufs_empty_delete bufs p :
+    bufs_empty bufs -> bufs_empty (delete p bufs).
+  Proof.
+    intros ???. eauto using pop_delete_None.
+  Qed.
+
+  Lemma pop_delete_Some `{Countable A, Countable B} {V} (p : A) (q q' : B) (x : V) bufss bufs' :
+    q ≠ q' ->
+    pop p q bufss = Some (x, bufs') ->
+    pop p q (delete q' bufss) = Some (x, bufs').
+  Proof.
+    intros ? Hpop. unfold pop in *.
+    rewrite lookup_delete_spec. smap.
+    destruct (bufss !! q) eqn:E; smap.
+    destruct (g !! p) eqn:F; smap.
+    destruct l; smap.
+    do 2 f_equal.
+    apply map_eq. intro.
+    smap. rewrite lookup_delete_spec. smap.
+  Admitted.
 
   Lemma bufs_typed_dealloc bufss σs p :
     σs !! p ≡ Some EndT ->
@@ -421,7 +448,7 @@ Section bufs_typed.
     { inversion Hpp. inversion H1. simplify_eq. rewrite H //. }
     clear Hpp.
     iDestruct "H" as (Hdom) "H".
-    iSplit. { iPureIntro. rewrite !dom_delete_L Hdom //. }
+    iSplit. { iPureIntro. rewrite dom_delete_L. eapply dom_valid_delete; done. }
     iDestruct "H" as (G Hprojs) "H".
     assert (rproj p G EndT) as Hprojp.
     { specialize (Hprojs p). rewrite Hp in Hprojs. done. }
@@ -429,39 +456,28 @@ Section bufs_typed.
     { iPureIntro. intros p'. rewrite lookup_delete_spec.
       case_decide; subst; eauto. }
     clear Hp Hdom Hprojs.
-    iInduction G as [] "IH" forall (bufss); simpl.
+    iInduction G as [] "IH" forall (bufss); inv Hprojp; simpl.
     - iDestruct "H" as (Hpop) "H".
-      iSplit; first by eauto using pop_delete_None.
-      iIntros (i).
-      iApply ("IH" with "[%] [H]"); eauto.
-      remember (MessageR n p0 p1 t r).
-      inversion Hprojp; simplify_eq; eauto.
+      iSplit; first eauto using pop_delete_None.
+      iIntros (i). iApply ("IH" with "[%] [H]"); eauto.
     - iDestruct "H" as (v bufs' Hpop) "[Hv H]".
-      remember (BufMessageR n t p0 p1 t0 r).
-      inversion Hprojp; simplify_eq.
       iExists _,_.
-      iDestruct ("IH" with "[%] H") as "H". { done. }
-      iFrame. iPureIntro.
-      unfold pop in *.
-      rewrite lookup_delete_spec; case_decide; simplify_eq.
-      destruct (bufss !! p1); simplify_eq.
-      destruct (g !! p0); simplify_eq.
-      destruct l; simplify_eq.
-      do 2 f_equal.
-      apply map_eq. intro.
-      rewrite !lookup_delete_spec !lookup_insert_spec lookup_delete_spec.
-      repeat case_decide;simplify_eq; eauto.
-    - iDestruct "H" as %Hbe. iPureIntro.
-      intros ??.
-      specialize (Hbe p0 q).
-      by apply pop_delete_None.
+      iSplit; last iFrame.
+      iPureIntro.
+      admit.
+    - iDestruct "H" as "%". eauto using bufs_empty_delete.
+  Admitted.
+
+  Lemma dom_valid_empty : dom_valid ∅ ∅.
+  Proof.
+    intros ?. rewrite lookup_empty. set_solver.
   Qed.
 
-  Lemma bufs_typed_empty  :
+  Lemma bufs_typed_empty :
     emp ⊢ bufs_typed ∅ ∅.
   Proof.
     iIntros "_".
-    iSplit. { rewrite !dom_empty_L //. }
+    iSplit. { iPureIntro. rewrite dom_empty_L. apply dom_valid_empty. }
     iExists (ContinueR EndG).
     iSplit.
     - iPureIntro. intros.
@@ -472,18 +488,24 @@ Section bufs_typed.
       intros ??. unfold pop. rewrite lookup_empty //.
   Qed.
 
+  Lemma dom_valid_empty_inv d : dom_valid ∅ d -> d = ∅.
+  Proof.
+    intros Hdom. cut (¬ ∃ x, x ∈ d); try set_solver.
+    intros []. unfold dom_valid in *.
+    specialize (Hdom x).
+    rewrite lookup_empty in Hdom. set_solver.
+  Qed.
+
   Lemma bufs_typed_empty_inv σs :
     bufs_typed ∅ σs ⊢ ⌜⌜ σs = ∅ ⌝⌝.
   Proof.
     iIntros "[% H]".
     iDestruct "H" as (G Hprojs) "H".
-    rewrite dom_empty_L in H.
-    symmetry in H.
+    apply dom_valid_empty_inv in H.
     apply dom_empty_iff_L in H. subst.
     setoid_rewrite lookup_empty in Hprojs. simpl in *.
     assert (G = ContinueR EndG) as ->.
     { destruct G.
-      - specialize (Hprojs p0); inversion Hprojs; simplify_eq.
       - specialize (Hprojs p0); inversion Hprojs; simplify_eq.
       - destruct g; eauto.
         specialize (Hprojs p0); inversion Hprojs; simplify_eq.
@@ -498,7 +520,7 @@ Section bufs_typed.
   Proof.
     iIntros (Hcons) "_".
     unfold bufs_typed.
-    iSplit. { iPureIntro. apply set_eq. intros. rewrite !fin_gmap_dom. done. }
+    iSplit. { iPureIntro. admit. }
     destruct Hcons as [G [Hprosj Hocc]].
     iExists (ContinueR G).
     iSplit.
@@ -506,10 +528,12 @@ Section bufs_typed.
       destruct (decide (p < n)).
       + rewrite <-(fin_to_nat_to_fin _ _ l).
         rewrite fin_gmap_lookup. simpl. eauto.
-      + rewrite fin_gmap_lookup_ne; last lia. simpl.
-        econstructor. eauto with lia.
+      + rewrite fin_gmap_lookup_ne; eauto with lia.
     - simpl. iPureIntro.
-      intros ??. unfold init_chans.
+      intros ??.
+      admit.
+  Admitted.
+       (* Search bufs_empty pop. unfold init_chans.
       unfold pop.
       destruct (fin_gmap n (λ _, ∅ : gmap participant (list entryT)) !! p) eqn:E; rewrite E //.
       destruct (g !! q) eqn:F; eauto.
@@ -519,7 +543,7 @@ Section bufs_typed.
       { rewrite -(fin_to_nat_to_fin _ _ l1) in E.
         rewrite fin_gmap_lookup in E. simplify_eq. }
       rewrite fin_gmap_lookup_ne in E; simplify_eq; lia.
-  Qed.
+  Qed. *)
 
   Lemma bufs_typed_recv bufss σs p q n t σ :
     σs !! p ≡ Some (RecvT n q t σ) ->
@@ -527,10 +551,11 @@ Section bufs_typed.
   Proof.
     iIntros (Q) "[% H]".
     iPureIntro.
-    eapply elem_of_dom. rewrite H.
+  Admitted.
+    (* eapply elem_of_dom. rewrite H.
     apply elem_of_dom.
     inversion Q. rewrite -H0. eauto.
-  Qed.
+  Qed. *)
 
   Definition can_progress
     (bufs : bufsT participant participant entryT)
@@ -544,7 +569,8 @@ Section bufs_typed.
   Lemma bufs_typed_progress bufss σs :
     bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ can_progress bufss σs ⌝.
   Proof.
-    iIntros "[% H]".
+  Admitted.
+    (* iIntros "[% H]".
     iDestruct "H" as (G Hprojs) "H".
     destruct G; simpl.
     - iPureIntro. right.
@@ -592,7 +618,7 @@ Section bufs_typed.
         simpl in *.
         inversion Hprojs; simplify_eq.
         inversion H1; simplify_eq.
-  Qed.
+  Qed. *)
 
 End bufs_typed.
 
