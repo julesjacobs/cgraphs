@@ -641,32 +641,6 @@ Instance state_inv_proper es h v : Proper ((≡) ==> (⊣⊢)) (state_inv es h v
 Proof. solve_proper_prepare. destruct v; [solve_proper|by setoid_rewrite H]. Qed.
 Instance state_inv_params : Params (@state_inv) 3. Defined.
 
-(*
-L ::=(coind)  ![p]t.L | ?[p]t.L | End
-G ::=(coind)  [p -> q]t.G | End
-
-consistent L_1 L_2 ... L_n :=
-  ∃ G, ∀ i, proj G i L_i       " proj(G,i) = L_i "
-
-
-global type:        [p -> r]t1 [p -> q]t2 [r -> p]t3 ...
-
-projection onto p:  ![r]t1.    ![q]t2.    ?[r]t3. ...
-
-
-G_r ::=(ind)  [p -> q]t G_r | [p => q]t G_r | G
-
-L = ![q] ?[p] ![q] ?[p] ![q] ?[p] ...
-
-G |->{r} L
-
-
-[p -> q] [p -> r] [a => b]t ... [a => b]t' [p -> q] [p -> r] [p -> q] [p -> r] [p -> q] [p -> r]
-
-(a,b) : [v, v', ...]
-         v : t, v' : t'
-*)
-
 (* (h !! (c,b)) !! a *)
 Lemma gmap_slice_push `{Countable A,Countable B,Countable C} {V}
   (c : A) (p : B) (q : C) (x : V) (m : bufsT (A*B) C V) :
