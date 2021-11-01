@@ -513,36 +513,35 @@ Section bufs_typed.
     simpl. eauto.
   Qed.
 
+  Lemma dom_valid_init n d :
+    (∀ k, k ∈ d <-> k < n) ->
+    dom_valid (init_chans n) d.
+  Proof.
+    intros Hd.
+    unfold dom_valid. intros p. unfold init_chans.
+  Admitted.
+
+  Lemma bufs_empty_init_chans n :
+    bufs_empty (init_chans n).
+  Proof.
+  Admitted.
+
   Lemma bufs_typed_init n σs :
     consistent n σs ->
     emp ⊢ bufs_typed (init_chans n) (fin_gmap n σs).
   Proof.
     iIntros (Hcons) "_".
     unfold bufs_typed.
-    iSplit. { iPureIntro. admit. }
+    iSplit; first by eauto using dom_valid_init, fin_gmap_dom.
     destruct Hcons as [G [Hprosj Hocc]].
     iExists (ContinueR G).
-    iSplit.
-    - iPureIntro. intros. econstructor.
-      destruct (decide (p < n)).
-      + rewrite <-(fin_to_nat_to_fin _ _ l).
-        rewrite fin_gmap_lookup. simpl. eauto.
-      + rewrite fin_gmap_lookup_ne; eauto with lia.
-    - simpl. iPureIntro.
-      intros ??.
-      admit.
-  Admitted.
-       (* Search bufs_empty pop. unfold init_chans.
-      unfold pop.
-      destruct (fin_gmap n (λ _, ∅ : gmap participant (list entryT)) !! p) eqn:E; rewrite E //.
-      destruct (g !! q) eqn:F; eauto.
-      destruct l eqn:I; eauto.
-      exfalso.
-      destruct (decide (p < n)).
-      { rewrite -(fin_to_nat_to_fin _ _ l1) in E.
-        rewrite fin_gmap_lookup in E. simplify_eq. }
-      rewrite fin_gmap_lookup_ne in E; simplify_eq; lia.
-  Qed. *)
+    iSplit; eauto using bufs_empty_init_chans.
+    iPureIntro. intros. econstructor.
+    destruct (decide (p < n)).
+    + rewrite <-(fin_to_nat_to_fin _ _ l).
+      rewrite fin_gmap_lookup. simpl. eauto.
+    + rewrite fin_gmap_lookup_ne; eauto with lia.
+  Qed.
 
   Lemma bufs_typed_recv bufss σs p q n t σ :
     σs !! p ≡ Some (RecvT n q t σ) ->
@@ -550,11 +549,11 @@ Section bufs_typed.
   Proof.
     iIntros (Q) "[% H]".
     iPureIntro.
-  Admitted.
-    (* eapply elem_of_dom. rewrite H.
-    apply elem_of_dom.
-    inversion Q. rewrite -H0. eauto.
-  Qed. *)
+    unfold dom_valid in *.
+    specialize (H p).
+    destruct (bufss !! p); eauto.
+    exfalso. apply H. apply elem_of_dom. inv Q. rewrite -H0. eauto.
+  Qed.
 
   Definition can_progress
     (bufs : bufsT participant participant entryT)
