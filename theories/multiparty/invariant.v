@@ -216,6 +216,23 @@ Section pushpop.
     smap; rewrite !lookup_delete_spec; smap.
   Qed.
 
+  Lemma pop_pop_None `{Countable A, Countable B} {V} (p p' : A) (q q' : B) (x : V) bufs bufs' :
+    pop p q bufs = Some (x, bufs') ->
+    pop p' q' bufs = None ->
+    pop p' q' bufs' = None.
+  Proof.
+    intros H1 H2.
+    unfold pop in *.
+    destruct (bufs !! q) eqn:E; smap.
+    destruct (g !! p) eqn:E'; smap.
+    destruct l eqn:E''; smap;
+    destruct (bufs !! q') eqn:F; smap;
+    destruct (g !! p') eqn:F'; smap;
+    try destruct l eqn:F''; smap;
+    destruct (g0 !! p') eqn:G; smap;
+    destruct l eqn:G'; smap.
+  Qed.
+
 End pushpop.
 
 Section bufs_typed.
@@ -481,7 +498,7 @@ Section bufs_typed.
     inv Hsb; eauto using sbufprojs.
     - edestruct H1; eauto. clear H3. subst.
       split; eauto.
-      econstructor. { admit. }
+      econstructor. { Search pop None. admit. }
       intros. edestruct H1; eauto.
     - edestruct IHHpopG. 2: eauto. { admit. }
       subst; split; eauto. econstructor; eauto.
