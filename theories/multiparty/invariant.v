@@ -567,13 +567,23 @@ Section bufs_typed.
   Global Instance bufs_typed_Proper bufs : Proper ((≡) ==> (≡)) (bufs_typed bufs).
   Proof. Admitted.
 
-  Lemma sbufs_Some_present σs p q n ts ss sbufs :
+  Lemma sbufs_Some_present σs p q n ts ss sbufs (i : fin n) :
     σs !! p = Some (SendT n q ts ss) ->
     sbufs_typed sbufs σs ->
     is_present p q sbufs.
   Proof.
-    intros Hp Hsbufs.
-  Admitted.
+    intros Hp [Hdv [G [Hprojs bufs]]].
+    pose proof (Hprojs p) as Hproj.
+    rewrite Hp in Hproj. simpl in *.
+    eapply send_pushG in Hproj as [G' HpushG]. Unshelve. 2: eauto.
+    assert (¬ rproj q G EndT); eauto using proj_consistent.
+    destruct (σs !! q) eqn:E.
+    {
+      eapply dom_valid_is_present; eauto; apply elem_of_dom; rewrite ?E ?Hp; eauto.
+    }
+    specialize (Hprojs q).
+    rewrite E in Hprojs. done.
+  Qed.
 
   Lemma entries_typed_push  bufss sbufs p q i v t :
     is_present p q sbufs ->
@@ -582,6 +592,8 @@ Section bufs_typed.
     entries_typed (push p q (i, v) bufss) (push p q (i, t) sbufs).
   Proof.
     iIntros (Hpq) "Hv He".
+    unfold entries_typed.
+    unfold push.
   Admitted.
 
   Lemma bufs_typed_push' (bufss : bufsT participant participant entryT)
@@ -604,13 +616,18 @@ Section bufs_typed.
     pop p q bufs = Some ((i,v),bufs') ->
     entries_typed bufs sbufs -∗
     ⌜ ∃ t sbufs', pop p q sbufs = Some ((i,t),sbufs') ⌝.
-  Proof. Admitted.
+  Proof.
+
+  Admitted.
 
   Lemma entries_typed_pop p q i v t bufs bufs' sbufs sbufs' :
     pop p q bufs = Some (i, v, bufs') ->
     pop p q sbufs = Some (i, t, sbufs') ->
     entries_typed bufs sbufs ⊢ val_typed v t ∗ entries_typed bufs' sbufs'.
   Proof.
+    iIntros (Hpop Hspop) "H".
+
+
   Admitted.
 
   Lemma bufs_typed_pop' (σs : gmap participant session_type)
@@ -683,13 +700,52 @@ Section bufs_typed.
     eauto using sbufprojs,pop_delete_None,pop_delete_Some,bufs_empty_delete.
   Qed.
 
+  Definition buf_empty (bufs : bufsT participant participant sentryT) (p : participant ):=
+    ∀ bs, bufs !! p = Some bs ->
+      ∀ q buf, bs !! q = Some buf -> buf = [].
+
+
   Lemma entries_typed_delete p bufs sbufs :
+    buf_empty sbufs p ->
     entries_typed bufs sbufs ⊢ entries_typed (delete p bufs) (delete p sbufs).
   Proof.
-    iIntros "H".
+    iIntros (Hbe) "H".
     unfold entries_typed.
     (* Need additional hypothesis to show that bufs !! p is empty *)
   Admitted.
+
+  Lemma bufs_empty_buf_empty bufs p :
+    bufs_empty bufs -> buf_empty bufs p.
+  Proof.
+    intros H???q buf?.
+    specialize (H q p).
+    unfold pop in *.
+    rewrite H0 H1 in H.
+    destruct buf; sdec.
+  Qed.
+
+  Lemma buf_empty_pop p p' q v  bufs bufs' :
+    q ≠ p ->
+    pop p' q bufs = Some (v, bufs') ->
+    buf_empty bufs' p ->
+    buf_empty bufs p.
+  Proof.
+    intros Hneq Hpop Hbe.
+    admit.
+  Admitted.
+
+  Lemma sbufs_typed_end_empty σs p bufs :
+    σs !! p = Some EndT ->
+    sbufs_typed bufs σs ->
+    buf_empty bufs p.
+  Proof.
+    intros Hp [Hdv [G [Hprojs Hsb]]].
+    specialize (Hprojs p).
+    rewrite Hp in Hprojs. simpl in *.
+    clear Hdv.
+    induction Hsb; inv Hprojs; eauto using bufs_empty_buf_empty,buf_empty_pop.
+    Unshelve. exact 0%fin.
+  Qed.
 
   Lemma bufs_typed_dealloc bufss σs p :
     σs !! p ≡ Some EndT ->
@@ -703,7 +759,7 @@ Section bufs_typed.
     iDestruct "H" as (sbufs Hsbufs) "H".
     iExists (delete p sbufs).
     iSplit. { eauto using sbufs_typed_dealloc. }
-    iApply entries_typed_delete; done.
+    iApply entries_typed_delete; eauto using sbufs_typed_end_empty.
   Qed.
 
   Lemma sbufs_typed_empty : sbufs_typed ∅ ∅.
@@ -738,7 +794,6 @@ Section bufs_typed.
     rewrite <-entries_typed_empty. done.
   Qed.
 
-
   Lemma entries_typed_empty_inv_r bufs :
     entries_typed bufs ∅ ⊢ ⌜⌜ bufs = ∅ ⌝⌝.
   Proof.
@@ -769,8 +824,8 @@ Section bufs_typed.
     (∀ k, k ∈ d <-> k < n) ->
     dom_valid (init_chans n) d.
   Proof.
-    intros Hd.
-    unfold dom_valid. intros p. unfold init_chans.
+    intros Hd. unfold dom_valid. intros p. unfold init_chans.
+
   Admitted.
 
   Lemma bufs_empty_init_chans n :
