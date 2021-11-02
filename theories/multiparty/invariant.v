@@ -6,21 +6,224 @@ Require Export diris.multiparty.mutil.
 Ltac sdec := repeat case_decide; simplify_eq; simpl in *; eauto; try done.
 Ltac smap := repeat (rewrite lookup_alter_spec || rewrite lookup_insert_spec || sdec).
 
+Section pushpop.
+
+  Lemma pop_push_None `{Countable A, Countable B} {V}
+      (p p' : A) (q q' : B) (x : V) (bufs : bufsT A B V) :
+    p ≠ p' ∨ q ≠ q' ->
+    pop p' q' bufs = None ->
+    pop p' q' (push p q x bufs) = None.
+  Proof.
+    intros Hne Hpop.
+    unfold pop,push in *.
+    smap; destruct (bufs !! q'); smap;
+    destruct (g !! p'); smap;
+    destruct l; smap; destruct Hne; smap.
+  Qed.
+
+  Lemma pop_push_Some `{Countable A, Countable B} {V}
+      (p p' : A) (q q' : B) (x x' : V) (bufs bufs' : bufsT A B V) :
+    pop p' q' bufs = Some (x', bufs') ->
+    pop p' q' (push p q x bufs) = Some (x', push p q x bufs').
+  Proof.
+    unfold pop,push.
+    intros Q. smap;
+    destruct (bufs !! q'); smap;
+    destruct (g !! p'); smap;
+    destruct l; smap; do 2 f_equal;
+    apply map_eq; intro; smap;
+    f_equal; apply map_eq; intro; smap.
+  Qed.
+
+  Definition is_present `{Countable A, Countable B} {V}
+      p q (bufss : bufsT A B V) :=
+    match bufss !! q with
+    | Some bufs => match bufs !! p with Some _ => True | None => False end
+    | None => False
+    end.
+
+  Lemma pop_push_single `{Countable A, Countable B} {V}
+      (p : A) (q : B) (x : V) (bufs : bufsT A B V) :
+    is_present p q bufs ->
+    pop p q bufs = None ->
+    pop p q (push p q x bufs) = Some (x, bufs).
+  Proof.
+    intros Hpres Hpop.
+    unfold is_present,pop,push in *.
+    smap; destruct (bufs !! q) eqn:E; smap;
+    destruct (g !! p) eqn:F; smap;
+    destruct l; smap.
+    do 2 f_equal. apply map_eq; intro; smap.
+    rewrite E. f_equal.
+    apply map_eq. intro. smap.
+  Qed.
+
+  Lemma pop_is_present `{Countable A, Countable B} {V}
+      (p p' : A) (q q' : B) (x : V) (bufs bufs' : bufsT A B V) :
+    pop p' q' bufs = Some (x, bufs') ->
+    is_present p q bufs -> is_present p q bufs'.
+  Proof.
+    intros Hpop Hpres.
+    unfold pop,is_present in *.
+    destruct (bufs !! q') eqn:E; smap.
+    destruct (g !! p') eqn:E'; smap.
+    destruct l eqn:E''; smap.
+    destruct (bufs !! q) eqn:F; smap.
+  Qed.
+
+  Lemma pop_swap `{Countable A, Countable B} {V}
+      (p p' : A) (q q' : B) (x y : V) (bufs bufs' bufs'' : bufsT A B V) :
+    q ≠ q' ->
+    pop p q bufs = Some (x, bufs') ->
+    pop p' q' bufs = Some (y, bufs'') ->
+    match pop p q bufs'' with
+    | None => False
+    | Some (z,_) => x = z
+    end.
+  Proof.
+    unfold pop. intros.
+    destruct (bufs !! q) eqn:E; smap.
+    destruct (g !! p) eqn:E'; smap.
+    destruct l eqn:E''; smap.
+    destruct (bufs !! q') eqn:F; smap.
+    destruct (g0 !! p') eqn:F'; smap.
+    destruct l eqn:F''; smap.
+    destruct (bufs !! q) eqn:Q; smap.
+    destruct (g !! p) eqn:Q'; smap.
+  Qed.
+
+  Lemma pop_swap' `{Countable A, Countable B} {V}
+      (p p' : A) (q q' : B) (x y : V) (bufs bufs' bufs'' : bufsT A B V) :
+    q ≠ q' ->
+    pop p q bufs = Some (x, bufs') ->
+    pop p' q' bufs = Some (y, bufs'') ->
+    ∃ bufs''', pop p q bufs'' = Some (x, bufs''').
+  Proof.
+    intros.
+    eapply pop_swap in H1; eauto.
+    destruct (pop p q bufs''); sdec. destruct p0. subst.
+    eauto.
+  Qed.
+
+  Definition dom_valid {A} (bufss : bufsT participant participant A) (d : gset participant) :=
+    ∀ p, match bufss !! p with
+         | Some bufs => p ∈ d ∧ ∀ q, q ∈ d ->
+            match bufs !! q with Some _ => True | None => False end
+         | None => p ∉ d
+         end.
+
+  Lemma dom_valid_push {A} d p q x (bufss : bufsT participant participant A) :
+    p ∈ d ->
+    dom_valid bufss d ->
+    dom_valid (push p q x bufss) d.
+  Proof.
+    intros Hin Hdom p'.
+    unfold dom_valid in *.
+    specialize (Hdom p').
+    unfold push. smap;
+    destruct (bufss !! p') eqn:E; smap.
+    destruct Hdom. split; eauto.
+    intros q. specialize (H0 q).
+    smap. destruct (g !! q) eqn:F; smap.
+  Qed.
+
+  Lemma dom_valid_is_present {A} p q (bufs : bufsT participant participant A) d :
+    dom_valid bufs d ->
+    p ∈ d -> q ∈ d ->
+    is_present p q bufs.
+  Proof.
+    intros Hdv Hp Hq.
+    unfold dom_valid, is_present in *.
+    specialize (Hdv q).
+    destruct (bufs !! q); smap. destruct Hdv.
+    specialize (H0 p).
+    destruct (g !! p); smap.
+  Qed.
+
+  Lemma dom_valid_empty {A} : dom_valid (∅ : bufsT participant participant A) ∅.
+  Proof.
+    intros ?. rewrite lookup_empty. set_solver.
+  Qed.
+
+  Lemma dom_valid_empty_inv {A} d : dom_valid (∅ : bufsT participant participant A) d -> d = ∅.
+  Proof.
+    intros Hdom. cut (¬ ∃ x, x ∈ d); try set_solver.
+    intros []. unfold dom_valid in *.
+    specialize (Hdom x).
+    rewrite lookup_empty in Hdom. set_solver.
+  Qed.
+
+  Lemma dom_valid_pop {A} p q (bufs bufs' : bufsT participant participant A) x d :
+    pop p q bufs = Some (x, bufs') ->
+    dom_valid bufs d ->
+    dom_valid bufs' d.
+  Proof.
+    intros Hpop Hdom r.
+    specialize (Hdom r).
+    unfold pop in *.
+    destruct (bufs !! q) eqn:E; smap.
+    destruct (g !! p) eqn:E'; smap.
+    destruct l eqn:E''; smap.
+    destruct (bufs !! r) eqn:F; smap.
+    destruct Hdom; split; smap.
+    intros q. specialize (H0 q). smap.
+  Qed.
+
+  Lemma dom_valid_delete {A} p d (bufss : bufsT participant participant A) :
+    dom_valid bufss d ->
+    dom_valid (delete p bufss) (d ∖ {[ p ]}).
+  Proof.
+    intros Hdv.
+    unfold dom_valid in *.
+    intros q. specialize (Hdv q).
+    rewrite lookup_delete_spec. smap; first set_solver.
+    destruct (bufss !! q); smap; set_solver.
+  Qed.
+
+  Lemma pop_delete_None `{Countable A, Countable B} {V}
+    (p : A) (q q' : B) (m : bufsT A B V):
+    pop p q m = None ->
+    pop p q (delete q' m) = None.
+  Proof.
+    unfold pop in *. intros.
+    rewrite lookup_delete_spec. sdec.
+    destruct (m !! q); sdec.
+    destruct (g !! p); eauto.
+    destruct l; sdec.
+  Qed.
+
+  Definition bufs_empty {A} (bufs : bufsT participant participant A) :=
+    ∀ p q, pop p q bufs = None.
+
+  Lemma bufs_empty_delete {A} (bufs : bufsT participant participant A) p :
+    bufs_empty bufs -> bufs_empty (delete p bufs).
+  Proof.
+    intros ???. eauto using pop_delete_None.
+  Qed.
+
+  Lemma pop_delete_Some `{Countable A, Countable B} {V} (p : A) (q q' : B) (x : V) bufss bufs' :
+    q ≠ q' ->
+    pop p q bufss = Some (x, bufs') ->
+    pop p q (delete q' bufss) = Some (x, delete q' bufs').
+  Proof.
+    intros ? Hpop. unfold pop in *.
+    rewrite !lookup_delete_spec. smap.
+    destruct (bufss !! q) eqn:E; smap.
+    destruct (g !! p) eqn:F; smap.
+    destruct l; smap.
+    do 2 f_equal.
+    apply map_eq. intro.
+    smap; rewrite !lookup_delete_spec; smap.
+  Qed.
+
+End pushpop.
+
 Section bufs_typed.
 
   Inductive rglobal_type : Type :=
     | MessageR n : option (fin n) -> participant -> participant ->
                   (fin n -> type) -> (fin n -> rglobal_type) -> rglobal_type
     | ContinueR : global_type -> rglobal_type.
-
-  (* Inductive roccurs_in (r : participant) : rglobal_type -> Prop :=
-    | roi_here_sender n q t g : roccurs_in r (MessageR n r q t g)
-    | roi_here_receiver n p t g : roccurs_in r (MessageR n p r t g)
-    | roi_buf_receiver n i p t g : roccurs_in r (BufMessageR n i p r t g)
-    | roi_later n p q t g :
-        r ≠ p -> r ≠ q -> (∀ i, roccurs_in r (g i)) -> roccurs_in r (MessageR n p q t g)
-    | roi_buf_later n i p q t g :
-        r ≠ q -> (∀ i, roccurs_in r (g i)) -> roccurs_in r (BufMessageR n i p q t g). *)
 
   Inductive rproj (r : participant) : rglobal_type -> session_type -> Prop :=
     | rproj_send n q ts Gs σs :
@@ -38,10 +241,21 @@ Section bufs_typed.
     | rproj_continue G σ :
         proj r G σ -> rproj r (ContinueR G) σ.
 
-  Definition bufs_empty (bufs : bufsT participant participant entryT) :=
-    ∀ p q, pop p q bufs = None.
 
-  Fixpoint bufprojs (G : rglobal_type) (bufs : bufsT participant participant entryT) : rProp :=
+  Definition sentryT := (nat * type)%type.
+  Definition sbufsT := bufsT participant participant sentryT.
+
+  Inductive sbufprojs : rglobal_type -> sbufsT -> Prop :=
+    | bp_skip n p q ts Gs bufs :
+        pop p q bufs = None -> (∀ i, sbufprojs (Gs i) bufs) ->
+        sbufprojs (MessageR n None p q ts Gs) bufs
+    | bp_here n p q i bufs bufs' ts Gs :
+        pop p q bufs = Some ((fin_to_nat i, ts i), bufs') ->
+        sbufprojs (Gs i) bufs' ->
+        sbufprojs (MessageR n (Some i) p q ts Gs) bufs
+    | bp_end G' bufs : bufs_empty bufs -> sbufprojs (ContinueR G') bufs.
+
+  (* Fixpoint bufprojs (G : rglobal_type) (bufs : sbufsT) : rProp :=
     match G with
     | MessageR n o p q ts Gs =>
       match o with
@@ -52,46 +266,16 @@ Section bufs_typed.
           val_typed v (ts i) ∗ bufprojs (Gs i) bufs'
       end
     | ContinueR G' => ⌜⌜ bufs_empty bufs ⌝⌝
-    end.
+    end. *)
 
-  Definition dom_valid (bufss : bufsT participant participant entryT) (d : gset participant) :=
-    ∀ p, match bufss !! p with
-         | Some bufs => p ∈ d ∧ ∀ q, q ∈ d ->
-            match bufs !! q with Some _ => True | None => False end
-         | None => p ∉ d
-         end.
 
-  Definition bufs_typed (bufs : bufsT participant participant entryT)
-                        (σs : gmap participant session_type) : rProp :=
-    ⌜⌜ dom_valid bufs (dom (gset _) σs) ⌝⌝ ∗
+  Definition sbufs_typed (bufs : bufsT participant participant sentryT)
+                        (σs : gmap participant session_type) : Prop :=
+    dom_valid bufs (dom (gset _) σs) ∧
     ∃ G : rglobal_type,
-         ⌜⌜ ∀ p, rproj p G (default EndT (σs !! p)) ⌝⌝ ∗
-         bufprojs G bufs.
+        (∀ p, rproj p G (default EndT (σs !! p))) ∧
+        sbufprojs G bufs.
 
-  Global Instance : Params bufs_typed 1 := {}.
-
-  (* Definition bufs_typed (bufs : gmap participant (gmap participant bufT))
-                        (σs : gmap participant session_type) : rProp :=
-    ∃ G : rglobal_type,
-      ⌜⌜ ∀ p, roccurs_in p G -> is_Some (bufs !! p) ⌝⌝ ∗
-      [∗ map] p ↦ buf;σ ∈ bufs;σs, ⌜⌜ rproj p G σ ⌝⌝ ∗ bufproj p G buf. *)
-
-
-  (* Definition bufs_typed (bufs : gmap participant (gmap participant bufT))
-                        (σs : gmap participant session_type) : rProp :=
-    ∃ G : rglobal_type,
-      ⌜⌜ dom (gset _) bufs = dom (gset _) σs ∧           (* ugly *)
-         ∀ p, rproj p G (default EndT (σs !! p)) ⌝⌝ ∗
-         [∗ map] p ↦ buf ∈ bufs, bufproj p G buf. *)
-
-  (*
-  Global Instance bufs_typed_params : Params (@bufs_typed) 2 := {}.
-  Global Instance bufs_typed_proper b1 b2 : Proper ((≡) ==> (≡) ==> (≡)) (bufs_typed b1 b2).
-  Proof. solve_proper. Qed.
-  *)
-
-  Global Instance bufs_typed_Proper bufs : Proper ((≡) ==> (≡)) (bufs_typed bufs).
-  Proof. Admitted.
 
   Inductive pushUG (p q : participant) (n : nat) (i : fin n) : type -> global_type -> rglobal_type -> Prop :=
     | pushU_skip n' p' q' t ts Gs Gs' :
@@ -186,56 +370,17 @@ Section bufs_typed.
     rewrite -H; eauto.
   Qed.
 
-
-  Lemma pop_push_None `{Countable A, Countable B} {V}
-      (p p' : A) (q q' : B) (x : V) (bufs : bufsT A B V) :
-    p ≠ p' ∨ q ≠ q' ->
-    pop p' q' bufs = None ->
-    pop p' q' (push p q x bufs) = None.
+  Lemma proj_consistent p q n i t G G' :
+    pushG p q n i t G G' -> ¬ rproj q G EndT.
   Proof.
-    intros Hne Hpop.
-    unfold pop,push in *.
-    smap; destruct (bufs !! q'); smap;
-    destruct (g !! p'); smap;
-    destruct l; smap; destruct Hne; smap.
+    induction 1; intros Hproj; inv Hproj.
+    - eapply H1. eauto. Unshelve. exact 0%fin.
+    - induction H; inv H1; eauto using occurs_in.
+      eapply H2. econstructor. intro.
+      eauto using occurs_in. Unshelve. exact 0%fin. exact 0%fin.
   Qed.
 
-  Lemma pop_push_Some `{Countable A, Countable B} {V}
-      (p p' : A) (q q' : B) (x x' : V) (bufs bufs' : bufsT A B V) :
-    pop p' q' bufs = Some (x', bufs') ->
-    pop p' q' (push p q x bufs) = Some (x', push p q x bufs').
-  Proof.
-    unfold pop,push.
-    intros Q. smap;
-    destruct (bufs !! q'); smap;
-    destruct (g !! p'); smap;
-    destruct l; smap; do 2 f_equal;
-    apply map_eq; intro; smap;
-    f_equal; apply map_eq; intro; smap.
-  Qed.
 
-  Definition is_present `{Countable A, Countable B} {V}
-      p q (bufss : bufsT A B V) :=
-    match bufss !! q with
-    | Some bufs => match bufs !! p with Some _ => True | None => False end
-    | None => False
-    end.
-
-  Lemma pop_push_single `{Countable A, Countable B} {V}
-      (p : A) (q : B) (x : V) (bufs : bufsT A B V) :
-    is_present p q bufs ->
-    pop p q bufs = None ->
-    pop p q (push p q x bufs) = Some (x, bufs).
-  Proof.
-    intros Hpres Hpop.
-    unfold is_present,pop,push in *.
-    smap; destruct (bufs !! q) eqn:E; smap;
-    destruct (g !! p) eqn:F; smap;
-    destruct l; smap.
-    do 2 f_equal. apply map_eq; intro; smap.
-    rewrite E. f_equal.
-    apply map_eq. intro. smap.
-  Qed.
 
   Lemma pushUG_bufs p q n i t G G' v bufs :
     pushUG p q n i t G G' -> bufs_empty bufs -> is_present p q bufs ->
@@ -250,18 +395,6 @@ Section bufs_typed.
       apply pop_push_single; eauto.
   Qed.
 
-  Lemma pop_is_present `{Countable A, Countable B} {V}
-      (p p' : A) (q q' : B) (x : V) (bufs bufs' : bufsT A B V) :
-    pop p' q' bufs = Some (x, bufs') ->
-    is_present p q bufs -> is_present p q bufs'.
-  Proof.
-    intros Hpop Hpres.
-    unfold pop,is_present in *.
-    destruct (bufs !! q') eqn:E; smap.
-    destruct (g !! p') eqn:E'; smap.
-    destruct l eqn:E''; smap.
-    destruct (bufs !! q) eqn:F; smap.
-  Qed.
 
   Lemma pushG_bufs p q n i G G' bufs v t :
     pushG p q n i t G G' -> is_present p q bufs ->
@@ -288,43 +421,9 @@ Section bufs_typed.
       iApply pushUG_bufs; eauto.
   Qed.
 
-  Lemma dom_valid_push d p q x bufss :
-    p ∈ d ->
-    dom_valid bufss d ->
-    dom_valid (push p q x bufss) d.
-  Proof.
-    intros Hin Hdom p'.
-    unfold dom_valid in *.
-    specialize (Hdom p').
-    unfold push. smap;
-    destruct (bufss !! p') eqn:E; smap.
-    destruct Hdom. split; eauto.
-    intros q. specialize (H0 q).
-    smap. destruct (g !! q) eqn:F; smap.
-  Qed.
 
-  Lemma dom_valid_is_present p q bufs d :
-    dom_valid bufs d ->
-    p ∈ d -> q ∈ d ->
-    is_present p q bufs.
-  Proof.
-    intros Hdv Hp Hq.
-    unfold dom_valid, is_present in *.
-    specialize (Hdv q).
-    destruct (bufs !! q); smap. destruct Hdv.
-    specialize (H0 p).
-    destruct (g !! p); smap.
-  Qed.
 
-  Lemma proj_consistent p q n i t G G' :
-    pushG p q n i t G G' -> ¬ rproj q G EndT.
-  Proof.
-    induction 1; intros Hproj; inv Hproj.
-    - eapply H1. eauto. Unshelve. exact 0%fin.
-    - induction H; inv H1; eauto using occurs_in.
-      eapply H2. econstructor. intro.
-      eauto using occurs_in. Unshelve. exact 0%fin. exact 0%fin.
-  Qed.
+
 
   Lemma bufs_typed_push' (bufss : bufsT participant participant entryT)
                         (σs : gmap participant session_type)
@@ -362,39 +461,6 @@ Section bufs_typed.
     | pop_here ts Gs :
         popG p q n i (ts i) (MessageR n (Some i) p q ts Gs) (Gs i).
 
-  Lemma pop_swap `{Countable A, Countable B} {V}
-      (p p' : A) (q q' : B) (x y : V) (bufs bufs' bufs'' : bufsT A B V) :
-    q ≠ q' ->
-    pop p q bufs = Some (x, bufs') ->
-    pop p' q' bufs = Some (y, bufs'') ->
-    match pop p q bufs'' with
-    | None => False
-    | Some (z,_) => x = z
-    end.
-  Proof.
-    unfold pop. intros.
-    destruct (bufs !! q) eqn:E; smap.
-    destruct (g !! p) eqn:E'; smap.
-    destruct l eqn:E''; smap.
-    destruct (bufs !! q') eqn:F; smap.
-    destruct (g0 !! p') eqn:F'; smap.
-    destruct l eqn:F''; smap.
-    destruct (bufs !! q) eqn:Q; smap.
-    destruct (g !! p) eqn:Q'; smap.
-  Qed.
-
-  Lemma pop_swap' `{Countable A, Countable B} {V}
-      (p p' : A) (q q' : B) (x y : V) (bufs bufs' bufs'' : bufsT A B V) :
-    q ≠ q' ->
-    pop p q bufs = Some (x, bufs') ->
-    pop p' q' bufs = Some (y, bufs'') ->
-    ∃ bufs''', pop p q bufs'' = Some (x, bufs''').
-  Proof.
-    intros.
-    eapply pop_swap in H1; eauto.
-    destruct (pop p q bufs''); sdec. destruct p0. subst.
-    eauto.
-  Qed.
 
   Lemma bufprojs_popG (G : rglobal_type)
     (bufs bufs' : bufsT participant participant entryT)
@@ -464,21 +530,6 @@ Section bufs_typed.
     - admit.
   Admitted.
 
-  Lemma dom_valid_pop p q bufs bufs' x d :
-    pop p q bufs = Some (x, bufs') ->
-    dom_valid bufs d ->
-    dom_valid bufs' d.
-  Proof.
-    intros Hpop Hdom r.
-    specialize (Hdom r).
-    unfold pop in *.
-    destruct (bufs !! q) eqn:E; smap.
-    destruct (g !! p) eqn:E'; smap.
-    destruct l eqn:E''; smap.
-    destruct (bufs !! r) eqn:F; smap.
-    destruct Hdom; split; smap.
-    intros q. specialize (H0 q). smap.
-  Qed.
 
   Lemma bufs_typed_pop' (σs : gmap participant session_type)
     (bufs bufs' : bufsT participant participant entryT)
@@ -535,49 +586,6 @@ Section bufs_typed.
     rewrite -(H1 j) -(H3 j) //. iFrame.
   Qed.
 
-  Lemma pop_delete_None `{Countable A, Countable B} {V}
-    (p : A) (q q' : B) (m : bufsT A B V):
-    pop p q m = None ->
-    pop p q (delete q' m) = None.
-  Proof.
-    unfold pop in *. intros.
-    rewrite lookup_delete_spec. sdec.
-    destruct (m !! q); sdec.
-    destruct (g !! p); eauto.
-    destruct l; sdec.
-  Qed.
-
-  Lemma dom_valid_delete p d bufss :
-    dom_valid bufss d ->
-    dom_valid (delete p bufss) (d ∖ {[ p ]}).
-  Proof.
-    intros Hdv.
-    unfold dom_valid in *.
-    intros q. specialize (Hdv q).
-    rewrite lookup_delete_spec. smap; first set_solver.
-    destruct (bufss !! q); smap; set_solver.
-  Qed.
-
-  Lemma bufs_empty_delete bufs p :
-    bufs_empty bufs -> bufs_empty (delete p bufs).
-  Proof.
-    intros ???. eauto using pop_delete_None.
-  Qed.
-
-  Lemma pop_delete_Some `{Countable A, Countable B} {V} (p : A) (q q' : B) (x : V) bufss bufs' :
-    q ≠ q' ->
-    pop p q bufss = Some (x, bufs') ->
-    pop p q (delete q' bufss) = Some (x, delete q' bufs').
-  Proof.
-    intros ? Hpop. unfold pop in *.
-    rewrite !lookup_delete_spec. smap.
-    destruct (bufss !! q) eqn:E; smap.
-    destruct (g !! p) eqn:F; smap.
-    destruct l; smap.
-    do 2 f_equal.
-    apply map_eq. intro.
-    smap; rewrite !lookup_delete_spec; smap.
-  Qed.
 
   Lemma bufs_typed_dealloc bufss σs p :
     σs !! p ≡ Some EndT ->
@@ -608,10 +616,6 @@ Section bufs_typed.
     - iDestruct "H" as "%". eauto using bufs_empty_delete.
   Qed.
 
-  Lemma dom_valid_empty : dom_valid ∅ ∅.
-  Proof.
-    intros ?. rewrite lookup_empty. set_solver.
-  Qed.
 
   Lemma bufs_typed_empty :
     emp ⊢ bufs_typed ∅ ∅.
@@ -628,13 +632,7 @@ Section bufs_typed.
       intros ??. unfold pop. rewrite lookup_empty //.
   Qed.
 
-  Lemma dom_valid_empty_inv d : dom_valid ∅ d -> d = ∅.
-  Proof.
-    intros Hdom. cut (¬ ∃ x, x ∈ d); try set_solver.
-    intros []. unfold dom_valid in *.
-    specialize (Hdom x).
-    rewrite lookup_empty in Hdom. set_solver.
-  Qed.
+
 
   Lemma bufs_typed_empty_inv σs :
     bufs_typed ∅ σs ⊢ ⌜⌜ σs = ∅ ⌝⌝.
