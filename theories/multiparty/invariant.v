@@ -705,6 +705,15 @@ Section bufs_typed.
     rewrite <-entries_typed_empty. done.
   Qed.
 
+
+  Lemma entries_typed_empty_inv_r bufs :
+    entries_typed bufs ∅ ⊢ ⌜⌜ bufs = ∅ ⌝⌝.
+  Proof.
+    iIntros "H".
+    iDestruct (big_sepM2_empty_l with "H") as %->.
+    rewrite <-entries_typed_empty. done.
+  Qed.
+
   Lemma sbufs_typed_empty_inv σs :
     sbufs_typed ∅ σs -> σs = ∅.
   Proof.
@@ -742,7 +751,10 @@ Section bufs_typed.
   Proof.
     iIntros (Hcons) "_".
     unfold bufs_typed.
-    iSplit; first by eauto using dom_valid_init, fin_gmap_dom.
+    (* iExists (init_chans n). *)
+    (* Need sbufs version of that *)
+  Admitted.
+    (* iSplit; first by eauto using dom_valid_init, fin_gmap_dom.
     destruct Hcons as [G [Hprosj Hocc]].
     iExists (ContinueR G).
     iSplit; eauto using bufs_empty_init_chans.
@@ -751,37 +763,36 @@ Section bufs_typed.
     + rewrite <-(fin_to_nat_to_fin _ _ l).
       rewrite fin_gmap_lookup. simpl. eauto.
     + rewrite fin_gmap_lookup_ne; eauto with lia.
-  Qed.
+  Qed. *)
 
   Lemma bufs_typed_recv bufss σs p q n t σ :
     σs !! p ≡ Some (RecvT n q t σ) ->
     bufs_typed bufss σs ⊢ ⌜ is_Some (bufss !! p) ⌝.
   Proof.
-    iIntros (Q) "[% H]".
+  Admitted.
+    (* iIntros (Q) "[% H]".
     iPureIntro.
     unfold dom_valid in *.
     specialize (H p).
     destruct (bufss !! p); eauto.
     exfalso. apply H. apply elem_of_dom. inv Q. rewrite -H0. eauto.
-  Qed.
+  Qed. *)
 
-  Definition can_progress
-    (bufs : bufsT participant participant entryT)
-    (σs : gmap participant session_type) := ∃ p σ,
-      σs !! p = Some σ ∧
+  Definition can_progress {A}
+    (bufs : bufsT participant participant A)
+    (σs : gmap participant session_type) := ∃ q σ,
+      σs !! q = Some σ ∧
       match σ with
-      | RecvT n q _ _ => ∃ y bufs', pop p q bufs = Some(y,bufs')
+      | RecvT n p _ _ => ∃ y bufs', pop p q bufs = Some(y,bufs')
       | _ => True
       end.
 
-  Lemma bufs_typed_progress bufss σs :
-    bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ can_progress bufss σs ⌝.
+  Lemma sbufs_typed_progress bufss σs :
+    sbufs_typed bufss σs -> bufss = ∅ ∨ can_progress bufss σs.
   Proof.
-  Admitted.
-    (* iIntros "[% H]".
-    iDestruct "H" as (G Hprojs) "H".
-    destruct G; simpl.
-    - iPureIntro. right.
+    intros [Hdv [G [Hprojs Hsbufs]]].
+    inv Hsbufs.
+    - right.
       unfold can_progress.
       specialize (Hprojs p).
       exists p.
@@ -789,44 +800,56 @@ Section bufs_typed.
       eexists _; split; first done.
       destruct s; eauto. simpl in *.
       inversion Hprojs; simplify_eq.
-    - specialize (Hprojs p0).
-      iRight. unfold can_progress.
-      iExists p0.
-      destruct (σs !! p0); last (inversion Hprojs; simplify_eq). simpl in *.
-      iExists s. iSplit; eauto.
-      destruct s; eauto.
-      iDestruct "H" as (v bufs' Hpop) "[Hv H]".
-      inversion Hprojs; simplify_eq.
-      eauto.
-    - destruct (classic (bufss = ∅)) as [|Q]; eauto.
-      eapply map_choose in Q as [p [x Hp]].
-      iRight. iDestruct "H" as %Q.
-      iPureIntro.
+    - right.
+      specialize (Hprojs q).
       unfold can_progress.
-      destruct g.
-      + specialize (Hprojs p0).
-        exists p0.
-        destruct (σs !! p0); simpl in *.
-        * inversion Hprojs; subst.
-          remember (Message n p0 p1 t g).
-          inversion H1; simplify_eq.
-          { eexists. split; eauto. simpl. eauto. }
-          exfalso. eauto using occurs_in.
-        * inversion Hprojs; simplify_eq. inversion H1; simplify_eq.
-          exfalso. eauto using occurs_in.
-      + specialize (Hprojs p).
-        exists p.
-        destruct (σs !! p) eqn:E; last first.
-        { apply not_elem_of_dom in E.
-          exfalso. apply E.
-          rewrite -H.
-          apply elem_of_dom. rewrite Hp. eauto. }
-        eexists. split; first done.
-        destruct s; eauto.
-        simpl in *.
-        inversion Hprojs; simplify_eq.
+      exists q.
+      destruct (σs !! q); last (inversion Hprojs; simplify_eq). simpl in *.
+      exists s. split; eauto.
+      destruct s; eauto.
+      inv Hprojs; eauto.
+  - destruct (classic (bufss = ∅)) as [|Q]; eauto.
+    eapply map_choose in Q as [p [x Hp]].
+    right. unfold can_progress.
+    destruct G'.
+    + specialize (Hprojs p0).
+      exists p0.
+      destruct (σs !! p0); simpl in *.
+      * inversion Hprojs; subst.
+        remember (Message n p0 p1 t g).
         inversion H1; simplify_eq.
-  Qed. *)
+        { eexists. split; eauto. simpl. eauto. }
+        exfalso. eauto using occurs_in.
+      * inversion Hprojs; simplify_eq. inversion H1; simplify_eq.
+        exfalso. eauto using occurs_in.
+    + specialize (Hprojs p).
+      exists p.
+      destruct (σs !! p) eqn:E; last first.
+      { apply not_elem_of_dom in E.
+        exfalso. apply E.
+        apply elem_of_dom. admit. }
+      eexists. split; first done.
+      destruct s; eauto.
+      simpl in *.
+      inversion Hprojs; simplify_eq.
+      inversion H1; simplify_eq.
+  Admitted.
+
+  Lemma entries_typed_can_progress bufs sbufs σs :
+    can_progress sbufs σs ->
+    entries_typed bufs sbufs ⊢ ⌜ can_progress bufs σs ⌝.
+  Proof.
+  Admitted.
+
+  Lemma bufs_typed_progress bufss σs :
+    bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ can_progress bufss σs ⌝.
+  Proof.
+    iIntros "H".
+    iDestruct "H" as (bufs Hbufs) "H".
+    apply sbufs_typed_progress in Hbufs as []; subst.
+    - iLeft. rewrite entries_typed_empty_inv_r. eauto.
+    - iRight. iApply entries_typed_can_progress; eauto.
+  Qed.
 
 End bufs_typed.
 
