@@ -922,13 +922,37 @@ Section bufs_typed.
     dom_valid (init_chans n) d.
   Proof.
     intros Hd. unfold dom_valid. intros p. unfold init_chans.
-
-  Admitted.
+    destruct (decide (p < n)).
+    - rewrite -(fin_to_nat_to_fin _ _ l).
+      rewrite fin_gmap_lookup.
+      split. { rewrite Hd. rewrite fin_to_nat_to_fin //. }
+      intros.
+      destruct (decide (q < n)).
+      + rewrite -(fin_to_nat_to_fin _ _ l0).
+        rewrite fin_gmap_lookup //.
+      + naive_solver lia.
+    - rewrite fin_gmap_lookup_ne; try lia.
+      naive_solver lia.
+  Qed.
 
   Lemma bufs_empty_init_chans n :
     bufs_empty (init_chans n).
   Proof.
-  Admitted.
+    intros ??.
+    unfold pop.
+    destruct (init_chans n !! q) eqn:E; smap.
+    destruct (g !! p) eqn:E'; smap.
+    destruct l eqn:E''; smap.
+    exfalso.
+    destruct (decide (q < n)).
+    - rewrite -(fin_to_nat_to_fin _ _ l) in E.
+      rewrite fin_gmap_lookup in E. sdec.
+      destruct (decide (p < n)).
+      + rewrite -(fin_to_nat_to_fin _ _ l1) in E'.
+        rewrite fin_gmap_lookup in E'. sdec.
+      + rewrite fin_gmap_lookup_ne in E'; sdec. lia.
+    - rewrite fin_gmap_lookup_ne in E; sdec. lia.
+  Qed.
 
   Lemma bufs_typed_init n σs :
     consistent n σs ->
