@@ -467,7 +467,7 @@ Definition pop `{Countable A, Countable B} {V} (p : A) (q : B) (bufss : bufsT A 
   | None => None
   end.
 
-Definition init_chans n : bufsT participant participant entryT :=
+Definition init_chans {A} n : bufsT participant participant A :=
   fin_gmap n (λ i, fin_gmap n (λ j, [])).
 
 Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr :=

@@ -665,9 +665,17 @@ Section bufs_typed.
     entries_typed bufss sbufs -∗
     entries_typed (push p q (i, v) bufss) (push p q (i, t) sbufs).
   Proof.
-    iIntros (Hpq) "Hv He".
+    iIntros (Hpres) "Hv He".
     unfold entries_typed.
-    unfold push.
+    iDestruct (big_sepM2_lookup_iff with "He") as %Q.
+    unfold is_present in *.
+    destruct (sbufs !! q) eqn:E; smap.
+    destruct (g !! p) eqn:E'; smap.
+    assert (is_Some (bufss !! q)) as [g' H]. { rewrite Q E //. }
+    iDestruct (big_sepM2_lookup_acc with "He") as "[He1 He2]"; eauto.
+    iDestruct (big_sepM2_lookup_iff with "He1") as %Q'.
+    assert (is_Some (g' !! p)) as [l' H']. { rewrite Q' E' //. }
+    iDestruct (big_sepM2_lookup_acc with "He1") as "[He11 He12]"; eauto.
   Admitted.
 
   Lemma bufs_typed_push' (bufss : bufsT participant participant entryT)
@@ -797,13 +805,28 @@ Section bufs_typed.
     entries_typed bufs sbufs ⊢ entries_typed (delete p bufs) (delete p sbufs).
   Proof.
     iIntros (Hbe) "H".
-    unfold entries_typed.
-    iApply (big_sepM2_delete).
-    destruct (bufs !! p) eqn:E; last first.
-    rewrite delete_notin.
-    iApply (big_sepM2_impl with "H").
-    eapply bigSep_M2_impl.
-  Admitted.
+    unfold buf_empty in *.
+    iDestruct (big_sepM2_lookup_iff with "H") as %Q.
+    specialize (Q p).
+    destruct (sbufs !! p) eqn:E.
+    - destruct Q. destruct H0. rewrite E //.
+      unfold entries_typed.
+      rewrite big_sepM2_delete; eauto.
+      iDestruct "H" as "[H1 H2]". iFrame.
+      iAssert ([∗ map] buf;sbuf ∈ x;g, emp)%I with "[H1]" as "H".
+      iApply (big_sepM2_mono with "H1"). 2: { iClear "H". done. }
+      intros. simpl.
+      assert (y2 = []); first eauto. subst.
+      iIntros "H".
+      iDestruct (big_sepL2_nil_inv_r with "H") as %->.
+      iClear "H". done.
+    - unfold entries_typed.
+      destruct (bufs !! p) eqn:F.
+      + rewrite E F in Q.
+        destruct Q. destruct H; eauto. sdec.
+      + rewrite delete_notin //.
+        rewrite delete_notin //.
+  Qed.
 
   Lemma bufs_empty_buf_empty bufs p :
     bufs_empty bufs -> buf_empty bufs p.
@@ -917,9 +940,9 @@ Section bufs_typed.
     rewrite <-entries_typed_empty. done.
   Qed.
 
-  Lemma dom_valid_init n d :
+  Lemma dom_valid_init {A} n d :
     (∀ k, k ∈ d <-> k < n) ->
-    dom_valid (init_chans n) d.
+    dom_valid (init_chans n : bufsT participant participant A) d.
   Proof.
     intros Hd. unfold dom_valid. intros p. unfold init_chans.
     destruct (decide (p < n)).
@@ -935,8 +958,8 @@ Section bufs_typed.
       naive_solver lia.
   Qed.
 
-  Lemma bufs_empty_init_chans n :
-    bufs_empty (init_chans n).
+  Lemma bufs_empty_init_chans {A} n :
+    bufs_empty (init_chans n : bufsT participant participant A).
   Proof.
     intros ??.
     unfold pop.
@@ -960,19 +983,53 @@ Section bufs_typed.
   Proof.
     iIntros (Hcons) "_".
     unfold bufs_typed.
-    (* iExists (init_chans n). *)
-    (* Need sbufs version of that *)
-  Admitted.
-    (* iSplit; first by eauto using dom_valid_init, fin_gmap_dom.
-    destruct Hcons as [G [Hprosj Hocc]].
-    iExists (ContinueR G).
-    iSplit; eauto using bufs_empty_init_chans.
-    iPureIntro. intros. econstructor.
-    destruct (decide (p < n)).
-    + rewrite <-(fin_to_nat_to_fin _ _ l).
-      rewrite fin_gmap_lookup. simpl. eauto.
-    + rewrite fin_gmap_lookup_ne; eauto with lia.
-  Qed. *)
+    iExists (init_chans n).
+    iSplit. { iPureIntro.
+      destruct Hcons as [G [Hprojs1 Hprojs2]].
+      split; first by eauto using dom_valid_init, fin_gmap_dom.
+      exists (ContinueR G).
+      split.
+      - intros p.
+        destruct (decide (p < n)).
+        + rewrite -(fin_to_nat_to_fin _ _ l).
+          rewrite fin_gmap_lookup. simpl.
+          eauto using rproj.
+        + rewrite fin_gmap_lookup_ne; last lia.
+          simpl. eauto using rproj with lia.
+      - econstructor. eapply bufs_empty_init_chans.
+    }
+    iApply big_sepM2_intro.
+    - intros k.
+      unfold init_chans.
+      destruct (decide (k < n)).
+      + rewrite -!(fin_to_nat_to_fin _ _ l).
+        rewrite !fin_gmap_lookup. split; eauto.
+      + rewrite fin_gmap_lookup_ne; last lia.
+        rewrite fin_gmap_lookup_ne; last lia.
+        split; intros []; sdec.
+    - iModIntro. iIntros (k x1 x2 Hx1 Hx2).
+      destruct (decide (k < n)); last first.
+      { rewrite fin_gmap_lookup_ne in Hx1; last lia. sdec. }
+      rewrite -!(fin_to_nat_to_fin _ _ l) in Hx1.
+      rewrite -!(fin_to_nat_to_fin _ _ l) in Hx2.
+      rewrite fin_gmap_lookup in Hx1.
+      rewrite fin_gmap_lookup in Hx2. sdec.
+      iApply big_sepM2_intro.
+      + intros m.
+        destruct (decide (m < n)).
+        * rewrite -!(fin_to_nat_to_fin _ _ l0).
+          rewrite !fin_gmap_lookup. split; eauto.
+        * rewrite fin_gmap_lookup_ne; last lia.
+          rewrite fin_gmap_lookup_ne; last lia.
+          split; intros []; sdec.
+      + iModIntro. iIntros (m x1 x2 Hx1 Hx2).
+        destruct (decide (m < n)); last first.
+        { rewrite fin_gmap_lookup_ne in Hx1; last lia. sdec. }
+        rewrite -!(fin_to_nat_to_fin _ _ l0) in Hx1.
+        rewrite -!(fin_to_nat_to_fin _ _ l0) in Hx2.
+        rewrite fin_gmap_lookup in Hx1.
+        rewrite fin_gmap_lookup in Hx2. sdec.
+  Qed.
 
   Lemma dom_valid_same_dom {A} (m : bufsT participant participant A) d :
     dom_valid m d -> ∀ p, is_Some (m !! p) <-> p ∈ d.
