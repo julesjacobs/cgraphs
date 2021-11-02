@@ -456,6 +456,58 @@ Section bufs_typed.
     - rewrite H0 in Hpop. sdec.
   Qed.
 
+  Lemma popG_recv p q n i G G' t ts σs :
+    popG p q n i t G G' -> rproj q G (RecvT n p ts σs) -> rproj q G' (σs i).
+  Proof.
+    induction 1; intros Hproj; inv Hproj; eauto using rproj.
+  Qed.
+
+  Lemma popG_other p q r n i G G' σ t :
+    r ≠ q -> popG p q n i t G G' -> rproj r G σ -> rproj r G' σ.
+  Proof.
+    intros Hneq Hpush. revert σ; induction Hpush; intros σ Hproj;
+    inv Hproj; eauto using rproj.
+    econstructor; eauto.
+    intros j. destruct (decide (j = i')); sdec.
+    rewrite -H0; eauto.
+  Qed.
+
+  Lemma popG_sbufprojs p q n bufs bufs' t t' i G G' :
+    popG p q n i t G G' ->
+    pop p q bufs = Some (fin_to_nat i, t', bufs') ->
+    sbufprojs G bufs -> t = t' ∧ sbufprojs G' bufs'.
+  Proof.
+    intros HpopG. revert bufs bufs'. induction HpopG; simpl; intros bufs bufs' Hpop Hsb;
+    inv Hsb; eauto using sbufprojs.
+    - edestruct H1; eauto. clear H3. subst.
+      split; eauto.
+      econstructor. { admit. }
+      intros. edestruct H1; eauto.
+    - edestruct IHHpopG. 2: eauto. { admit. }
+      subst; split; eauto. econstructor; eauto.
+      admit.
+  Admitted.
+
+  Lemma sbufs_typed_pop (σs : gmap participant session_type)
+    (bufs bufs' : bufsT participant participant sentryT)
+    (n : nat) (p q : participant) t i ts ss :
+    σs !! q = Some (RecvT n p ts ss) ->
+    pop p q bufs = Some((i,t),bufs') ->
+    sbufs_typed bufs σs -> ∃ i', i = fin_to_nat i' ∧ t = ts i' ∧
+      sbufs_typed bufs' (<[ q := ss i' ]> σs).
+  Proof.
+    intros Hp Hpop [Hdv [G [Hprojs Hsb]]].
+    pose proof (Hprojs q) as Hproj. rewrite Hp in Hproj. simpl in *.
+    edestruct sbufprojs_popG as (G' & i' & Q & HpopG); eauto. subst.
+    eexists; split; eauto.
+    edestruct popG_sbufprojs; eauto. subst.
+    split; eauto.
+    split. { rewrite dom_insert_lookup_L; eauto. eapply dom_valid_pop; eauto. }
+    exists G'. split; eauto.
+    intros r. smap; eauto using popG_other, popG_recv.
+  Qed.
+
+
   (* Lemma bufs_typed_push' (bufss : bufsT participant participant entryT)
                         (σs : gmap participant session_type)
                         (n : nat) (i : fin n) (p q : participant) ts ss v :
@@ -485,73 +537,9 @@ Section bufs_typed.
 
 
 
-  Lemma bufprojs_popG (G : rglobal_type)
-    (bufs bufs' : bufsT participant participant entryT)
-    (n : nat) (p q : participant) v i ts ss :
-    rproj q G (RecvT n p ts ss) ->
-    pop p q bufs = Some((i,v),bufs') ->
-    bufprojs G bufs ⊢ ⌜ ∃ G' i', i = fin_to_nat i' ∧ popG p q n i' (ts i') G G' ⌝.
-  Proof.
-    iIntros (Hp Hpop) "H".
-    iInduction G as [] "IH" forall (bufs bufs' Hpop); first destruct o; simpl.
-    - iDestruct "H" as (v0 bufs'0 Hpop') "[Hv H]".
-      inv Hp.
-      + iExists _,_. iSplit; first done.
-        iPureIntro. eapply pop_here.
-      + assert (∃ bufs'', pop p q bufs'0 = Some (i, v, bufs'')) as []; eauto using pop_swap'.
-        iDestruct ("IH" with "[%] [%] H") as "H"; eauto.
-        iDestruct "H" as %(G' & i' & -> & HpopG).
-        iPureIntro.
-        eexists (MessageR _ _ _ _ _ (λ i, if decide (i = t0) then G' else r i)),_.
-        split; eauto. econstructor; eauto. sdec.
-        intros. sdec.
-    - iDestruct "H" as (Hpop') "H".
-      inv Hp.
-      iAssert ⌜ ∀ j, ∃ G' i', i = fin_to_nat i' ∧ popG p q n i' (ts i') (r j) G' ⌝%I with "[H]" as "%".
-      {
-        iIntros (j). iDestruct ("IH" with "[%] [%] [H]") as "H"; eauto.
-      }
-      apply fin_choice in H as [].
-      iPureIntro.
-      destruct (H 0%fin) as [j []]. subst.
-      eexists _,_. split; eauto. econstructor; eauto.
-      intros. edestruct H as [? []]. simplify_eq. eauto.
-    - iDestruct "H" as %Hemp.
-      rewrite Hemp in Hpop. sdec.
-  Qed.
 
-  Lemma popG_recv p q n i G G' t ts σs :
-    popG p q n i t G G' -> rproj q G (RecvT n p ts σs) -> rproj q G' (σs i).
-  Proof.
-    induction 1; intros Hproj; inv Hproj; eauto using rproj.
-  Qed.
 
-  Lemma popG_other p q r n i G G' σ t :
-    r ≠ q -> popG p q n i t G G' -> rproj r G σ -> rproj r G' σ.
-  Proof.
-    intros Hneq Hpush. revert σ; induction Hpush; intros σ Hproj;
-    inv Hproj; eauto using rproj.
-    econstructor; eauto.
-    intros j. destruct (decide (j = i')); sdec.
-    rewrite -H0; eauto.
-  Qed.
 
-  Lemma popG_bufprojs p q n bufs bufs' v i t G G' :
-    popG p q n i t G G' ->
-    pop p q bufs = Some (fin_to_nat i, v, bufs') ->
-    bufprojs G bufs ⊢ val_typed v t ∗ bufprojs G' bufs'.
-  Proof.
-    intros HpopG. revert bufs bufs'. induction HpopG; simpl; iIntros (bufs bufs' Hpop) "H".
-    - iDestruct "H" as (Hpop') "H". rewrite comm -assoc. iSplit. { admit. }
-      rewrite comm.
-      iAssert (∀ j, val_typed v t ∗ bufprojs (Gs' j) bufs')%I with "[H]" as "H".
-      { iIntros (j). iApply H1; eauto. }
-      admit.
-    - iDestruct "H" as (w bufs'' Hpop') "[Hv H]".
-      iDestruct (IHHpopG with "H") as "[Hv' H]"; eauto. admit.
-      iFrame. iExists _,_. iFrame. admit.
-    - admit.
-  Admitted.
 
 
   Lemma bufs_typed_pop' (σs : gmap participant session_type)
