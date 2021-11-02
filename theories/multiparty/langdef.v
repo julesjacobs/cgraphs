@@ -564,3 +564,22 @@ Inductive steps : list expr -> heap -> list expr -> heap -> Prop :=
     steps e1 s1 e3 s3
   | Empty_step : ∀ e1 s1,
     steps e1 s1 e1 s1.
+
+(*
+  Coq's default notion of equality is not good enough for coinductive types:
+   the default equality is syntactic equality and not extensional equality.
+   We add an axiom to make equality extensional.
+   See https://coq.inria.fr/refman/language/core/coinductive.html:
+   "More generally, as in the case of positive coinductive types,
+   it is consistent to further identify extensional equality of coinductive
+   types with propositional equality"
+   Such an axiom is similar to functional extensionality, but for coinductive types.
+*)
+Axiom session_type_equiv_eq : ∀ σ1 σ2 : session_type, σ1 ≡ σ2 -> σ1 = σ2.
+(*
+  To show that it is possible to manually work around this limitation of Coq,
+  we have proved manually that our run-time type system is (≡)-invariant
+  (see rtyped_proper_impl in rtypesystem.v).
+  However, as this pollutes our definitions and proofs and makes them less clear,
+  we have use this axiom in one place (rproj_Proper in invariant.v).
+*)

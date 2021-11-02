@@ -564,8 +564,18 @@ Section bufs_typed.
 
   Global Instance bufs_typed_params : Params bufs_typed 1 := {}.
 
+  Global Instance rproj_Proper p G : Proper ((≡) ==> (≡)) (rproj p G).
+  Proof.
+    intros ???. apply session_type_equiv_eq in H. subst. done.
+  Qed.
+
+  Global Instance sbufs_typed_Proper bufs : Proper ((≡) ==> (≡)) (sbufs_typed bufs).
+  Proof.
+    intros ???. unfold sbufs_typed. setoid_rewrite H. done.
+  Qed.
+
   Global Instance bufs_typed_Proper bufs : Proper ((≡) ==> (≡)) (bufs_typed bufs).
-  Proof. Admitted.
+  Proof. solve_proper. Qed.
 
   Lemma sbufs_Some_present σs p q n ts ss sbufs (i : fin n) :
     σs !! p = Some (SendT n q ts ss) ->
@@ -704,13 +714,17 @@ Section bufs_typed.
     ∀ bs, bufs !! p = Some bs ->
       ∀ q buf, bs !! q = Some buf -> buf = [].
 
-
   Lemma entries_typed_delete p bufs sbufs :
     buf_empty sbufs p ->
     entries_typed bufs sbufs ⊢ entries_typed (delete p bufs) (delete p sbufs).
   Proof.
     iIntros (Hbe) "H".
     unfold entries_typed.
+    iApply (big_sepM2_delete).
+    destruct (bufs !! p) eqn:E; last first.
+    rewrite delete_notin.
+    iApply (big_sepM2_impl with "H").
+    eapply bigSep_M2_impl.
     (* Need additional hypothesis to show that bufs !! p is empty *)
   Admitted.
 
@@ -731,8 +745,14 @@ Section bufs_typed.
     buf_empty bufs p.
   Proof.
     intros Hneq Hpop Hbe.
-    admit.
-  Admitted.
+    intros bf ? q' buf ?.
+    unfold buf_empty in *.
+    eapply Hbe; eauto.
+    unfold pop in *.
+    destruct (bufs !! q) eqn:E; smap.
+    destruct (g !! p') eqn:E'; smap.
+    destruct l eqn:E''; smap.
+  Qed.
 
   Lemma sbufs_typed_end_empty σs p bufs :
     σs !! p = Some EndT ->
