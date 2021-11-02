@@ -567,6 +567,23 @@ Section bufs_typed.
   Global Instance bufs_typed_Proper bufs : Proper ((≡) ==> (≡)) (bufs_typed bufs).
   Proof. Admitted.
 
+  Lemma sbufs_Some_present σs p q n ts ss sbufs :
+    σs !! p = Some (SendT n q ts ss) ->
+    sbufs_typed sbufs σs ->
+    is_present p q sbufs.
+  Proof.
+    intros Hp Hsbufs.
+  Admitted.
+
+  Lemma entries_typed_push  bufss sbufs p q i v t :
+    is_present p q sbufs ->
+    val_typed v t -∗
+    entries_typed bufss sbufs -∗
+    entries_typed (push p q (i, v) bufss) (push p q (i, t) sbufs).
+  Proof.
+    iIntros (Hpq) "Hv He".
+  Admitted.
+
   Lemma bufs_typed_push' (bufss : bufsT participant participant entryT)
                         (σs : gmap participant session_type)
                         (n : nat) (i : fin n) (p q : participant) ts ss v :
@@ -579,7 +596,21 @@ Section bufs_typed.
     iExists (push p q (fin_to_nat i, ts i) sbufs).
     iSplit.
     - iPureIntro. eapply sbufs_typed_push; eauto.
-    - admit.
+    - iApply (entries_typed_push with "Hv H"); eauto.
+      eapply sbufs_Some_present; done.
+  Qed.
+
+  Lemma entries_typed_can_pop p q bufs bufs' sbufs  i v :
+    pop p q bufs = Some ((i,v),bufs') ->
+    entries_typed bufs sbufs -∗
+    ⌜ ∃ t sbufs', pop p q sbufs = Some ((i,t),sbufs') ⌝.
+  Proof. Admitted.
+
+  Lemma entries_typed_pop p q i v t bufs bufs' sbufs sbufs' :
+    pop p q bufs = Some (i, v, bufs') ->
+    pop p q sbufs = Some (i, t, sbufs') ->
+    entries_typed bufs sbufs ⊢ val_typed v t ∗ entries_typed bufs' sbufs'.
+  Proof.
   Admitted.
 
   Lemma bufs_typed_pop' (σs : gmap participant session_type)
@@ -592,12 +623,15 @@ Section bufs_typed.
   Proof.
     iIntros (Hp Hpop) "H".
     iDestruct "H" as (sbufs Hsbufs) "H".
-    edestruct sbufs_typed_pop as [i' [? [? ?]]]; eauto. { admit. }
+    iDestruct (entries_typed_can_pop with "H") as %(t & sbufs' & Hspop); eauto.
+    edestruct sbufs_typed_pop as [i' [? [? ?]]]; eauto.
     iExists i'.
-    iSplit; first done.
+    iSplit; first done. subst.
+    edestruct sbufs_typed_pop as (i & Q1 & Q2 & Hsbufs'); eauto; sdec.
+    iDestruct (entries_typed_pop with "H") as "[Hv H]"; eauto. iFrame.
     unfold bufs_typed.
-    admit.
-  Admitted.
+    iExists _; eauto with iFrame.
+  Qed.
 
   Lemma bufs_typed_push (bufss : bufsT participant participant entryT)
     (σs : gmap participant session_type)
@@ -669,9 +703,8 @@ Section bufs_typed.
     iDestruct "H" as (sbufs Hsbufs) "H".
     iExists (delete p sbufs).
     iSplit. { eauto using sbufs_typed_dealloc. }
-    unfold sbufs_typed in *.
-    admit.
-  Admitted.
+    iApply entries_typed_delete; done.
+  Qed.
 
   Lemma sbufs_typed_empty : sbufs_typed ∅ ∅.
   Proof.
