@@ -765,18 +765,43 @@ Section bufs_typed.
     + rewrite fin_gmap_lookup_ne; eauto with lia.
   Qed. *)
 
-  Lemma bufs_typed_recv bufss σs p q n t σ :
-    σs !! p ≡ Some (RecvT n q t σ) ->
+  Lemma dom_valid_same_dom {A} (m : bufsT participant participant A) d :
+    dom_valid m d -> ∀ p, is_Some (m !! p) <-> p ∈ d.
+  Proof.
+    intros Hdv p.
+    specialize (Hdv p).
+    destruct (m !! p); split; try set_solver; eauto.
+    intros []. sdec.
+  Qed.
+
+  Lemma sbufs_typed_recv bufss σs p :
+    is_Some (σs !! p) ->
+    sbufs_typed bufss σs -> is_Some (bufss !! p).
+  Proof.
+    intros Hp [Hdv [G [Hprojs Hsbufs]]].
+    eapply dom_valid_same_dom; eauto.
+    apply elem_of_dom. done.
+  Qed.
+
+  Lemma entries_typed_same_dom bufs sbufs :
+    entries_typed bufs sbufs ⊢ ⌜ dom (gset _) bufs = dom (gset _) sbufs ⌝.
+  Proof.
+    iIntros "H". unfold entries_typed.
+    iApply big_sepM2_dom; eauto.
+  Qed.
+
+  Lemma bufs_typed_recv bufss σs p :
+    is_Some (σs !! p) ->
     bufs_typed bufss σs ⊢ ⌜ is_Some (bufss !! p) ⌝.
   Proof.
-  Admitted.
-    (* iIntros (Q) "[% H]".
+    iIntros (Hp) "H".
+    iDestruct "H" as (sbufs Hsbufs) "H".
+    assert (is_Some (sbufs !! p)) by eauto using sbufs_typed_recv.
+    iDestruct (entries_typed_same_dom with "H") as %Hdom.
     iPureIntro.
-    unfold dom_valid in *.
-    specialize (H p).
-    destruct (bufss !! p); eauto.
-    exfalso. apply H. apply elem_of_dom. inv Q. rewrite -H0. eauto.
-  Qed. *)
+    apply elem_of_dom. rewrite Hdom.
+    apply elem_of_dom. done.
+  Qed.
 
   Definition can_progress {A}
     (bufs : bufsT participant participant A)
@@ -786,15 +811,6 @@ Section bufs_typed.
       | RecvT n p _ _ => ∃ y bufs', pop p q bufs = Some(y,bufs')
       | _ => True
       end.
-
-  Lemma dom_valid_same_dom {A} (m : bufsT participant participant A) d :
-    dom_valid m d -> ∀ p, is_Some (m !! p) <-> p ∈ d.
-  Proof.
-    intros Hdv p.
-    specialize (Hdv p).
-    destruct (m !! p); split; try set_solver; eauto.
-    intros []. sdec.
-  Qed.
 
   Lemma sbufs_typed_progress bufss σs :
     sbufs_typed bufss σs -> bufss = ∅ ∨ can_progress bufss σs.
