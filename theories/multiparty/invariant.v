@@ -595,6 +595,70 @@ Section bufs_typed.
     rewrite E in Hprojs. done.
   Qed.
 
+  Definition same_structure (bufs : bufsT participant participant entryT) (sbufs : bufsT participant participant sentryT) :=
+    ∀ p, match bufs !! p, sbufs !! p with
+         | Some bfs, Some sbfs =>
+           ∀ q, match bfs !! q, sbfs !! q with
+                | Some buf, Some sbuf =>
+                  ∀ i, match buf !! i, sbuf !! i with
+                       | Some (i,v),Some(i',t) => i = i'
+                       | None,None => True
+                       | _,_ => False
+                       end
+                | None,None => True
+                | _,_ => False
+                end
+          | None,None => True
+          | _,_ => False
+          end.
+
+  Lemma entries_typed_same_structure bufs sbufs :
+    entries_typed bufs sbufs -∗ ⌜ same_structure bufs sbufs ⌝.
+  Proof.
+    iIntros "H".
+    unfold entries_typed.
+    iIntros (p).
+    iDestruct (big_sepM2_dom with "H") as %Q.
+    destruct (bufs !! p) eqn:E;
+    destruct (sbufs !! p) eqn:F; eauto.
+    - iDestruct (big_sepM2_lookup_acc with "H") as "[H _]"; eauto.
+      iIntros (q).
+      clear Q bufs sbufs E F.
+      iDestruct (big_sepM2_dom with "H") as %Q.
+      destruct (g !! q) eqn:E;
+      destruct (g0 !! q) eqn:F; eauto.
+      + iIntros (i).
+        iDestruct (big_sepM2_lookup_acc with "H") as "[H _]"; eauto.
+        clear Q E F g g0.
+        iDestruct (big_sepL2_length with "H") as %Q.
+        destruct (l !! i) eqn:E;
+        destruct (l0 !! i) eqn:F; eauto.
+        * iDestruct (big_sepL2_lookup_acc with "H") as "[[% _] _]"; eauto.
+          destruct p0,p1; sdec.
+        * exfalso.
+          apply lookup_lt_Some in E.
+          apply lookup_ge_None in F. lia.
+        * exfalso.
+          apply lookup_lt_Some in F.
+          apply lookup_ge_None in E. lia.
+      + exfalso.
+        assert (q ∈ dom (gset _) g). { apply elem_of_dom. rewrite E //. }
+        assert (q ∉ dom (gset _) g0). { apply not_elem_of_dom. done. }
+        rewrite Q in H. set_solver.
+      + exfalso.
+        assert (q ∈ dom (gset _) g0). { apply elem_of_dom. rewrite F //. }
+        assert (q ∉ dom (gset _) g). { apply not_elem_of_dom. done. }
+        rewrite -Q in H. set_solver.
+    - exfalso.
+      assert (p ∈ dom (gset _) bufs). { apply elem_of_dom. rewrite E //. }
+      assert (p ∉ dom (gset _) sbufs). { apply not_elem_of_dom. done. }
+      rewrite Q in H. set_solver.
+    - exfalso.
+      assert (p ∈ dom (gset _) sbufs). { apply elem_of_dom. rewrite F //. }
+      assert (p ∉ dom (gset _) bufs). { apply not_elem_of_dom. done. }
+      rewrite -Q in H. set_solver.
+  Qed.
+
   Lemma entries_typed_push  bufss sbufs p q i v t :
     is_present p q sbufs ->
     val_typed v t -∗
@@ -627,8 +691,22 @@ Section bufs_typed.
     entries_typed bufs sbufs -∗
     ⌜ ∃ t sbufs', pop p q sbufs = Some ((i,t),sbufs') ⌝.
   Proof.
-
-  Admitted.
+    iIntros (Hpop) "H".
+    iDestruct (entries_typed_same_structure with "H") as %Q.
+    iPureIntro.
+    unfold pop in *.
+    destruct (bufs !! q) eqn:E; smap.
+    destruct (g !! p) eqn:E'; smap.
+    destruct l eqn:E''; smap.
+    specialize (Q q).
+    rewrite E in Q.
+    destruct (sbufs !! q) eqn:F; smap.
+    specialize (Q p).
+    rewrite E' in Q.
+    destruct (g0 !! p) eqn:F'; smap.
+    specialize (Q 0). simpl in *.
+    destruct l eqn:F''; smap. destruct s. smap.
+  Qed.
 
   Lemma entries_typed_pop p q i v t bufs bufs' sbufs sbufs' :
     pop p q bufs = Some (i, v, bufs') ->
@@ -725,7 +803,6 @@ Section bufs_typed.
     rewrite delete_notin.
     iApply (big_sepM2_impl with "H").
     eapply bigSep_M2_impl.
-    (* Need additional hypothesis to show that bufs !! p is empty *)
   Admitted.
 
   Lemma bufs_empty_buf_empty bufs p :
@@ -973,13 +1050,26 @@ Section bufs_typed.
     entries_typed bufs sbufs ⊢ ⌜ can_progress bufs σs ⌝.
   Proof.
     iIntros (Hcp) "H".
-    destruct Hcp as (p & σ & H1 & H2).
+    unfold can_progress in *.
+    destruct Hcp as (q & σ & H1 & H2).
     destruct σ; unfold can_progress; eauto.
     destruct H2 as (y & bufs' & Hbufs').
-    iExists _,_.
-    iSplit; eauto. simpl.
-    admit.
-  Admitted.
+    iExists _,_. iSplit; eauto. simpl.
+    iDestruct (entries_typed_same_structure with "H") as %Q.
+    iPureIntro. clear H1 t s σs.
+    unfold pop in *.
+    destruct (sbufs !! q) eqn:E; smap.
+    destruct (g !! p) eqn:E'; smap.
+    destruct l eqn:E''; smap.
+    specialize (Q q).
+    rewrite E in Q.
+    destruct (bufs !! q) eqn:F; smap.
+    specialize (Q p).
+    rewrite E' in Q.
+    destruct (g0 !! p) eqn:F'; smap.
+    specialize (Q 0). simpl in *.
+    destruct l eqn:F''; smap.
+  Qed.
 
   Lemma bufs_typed_progress bufss σs :
     bufs_typed bufss σs ⊢ ⌜ bufss = ∅ ∨ can_progress bufss σs ⌝.
