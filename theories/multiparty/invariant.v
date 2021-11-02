@@ -787,6 +787,15 @@ Section bufs_typed.
       | _ => True
       end.
 
+  Lemma dom_valid_same_dom {A} (m : bufsT participant participant A) d :
+    dom_valid m d -> ∀ p, is_Some (m !! p) <-> p ∈ d.
+  Proof.
+    intros Hdv p.
+    specialize (Hdv p).
+    destruct (m !! p); split; try set_solver; eauto.
+    intros []. sdec.
+  Qed.
+
   Lemma sbufs_typed_progress bufss σs :
     sbufs_typed bufss σs -> bufss = ∅ ∨ can_progress bufss σs.
   Proof.
@@ -827,18 +836,25 @@ Section bufs_typed.
       destruct (σs !! p) eqn:E; last first.
       { apply not_elem_of_dom in E.
         exfalso. apply E.
-        apply elem_of_dom. admit. }
+        eapply dom_valid_same_dom; eauto. }
       eexists. split; first done.
       destruct s; eauto.
       simpl in *.
       inversion Hprojs; simplify_eq.
       inversion H1; simplify_eq.
-  Admitted.
+  Qed.
 
   Lemma entries_typed_can_progress bufs sbufs σs :
     can_progress sbufs σs ->
     entries_typed bufs sbufs ⊢ ⌜ can_progress bufs σs ⌝.
   Proof.
+    iIntros (Hcp) "H".
+    destruct Hcp as (p & σ & H1 & H2).
+    destruct σ; unfold can_progress; eauto.
+    destruct H2 as (y & bufs' & Hbufs').
+    iExists _,_.
+    iSplit; eauto. simpl.
+    admit.
   Admitted.
 
   Lemma bufs_typed_progress bufss σs :
