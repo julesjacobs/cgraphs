@@ -233,7 +233,33 @@ Section pushpop.
     destruct l eqn:G'; smap.
   Qed.
 
-End pushpop.
+  Lemma pop_commute `{Countable A, Countable B} {V} (p p' : A) (q q' : B) (x y : V) bufs bufs1 bufs2 bufs12 :
+    pop p q bufs = Some (x, bufs1) ->
+    pop p' q' bufs = Some (y, bufs2) ->
+    pop p q bufs2 = Some (x, bufs12) ->
+    pop p' q' bufs1 = Some (y, bufs12).
+  Proof.
+    intros H1 H2 H3.
+    unfold pop in *.
+    destruct (bufs !! q) eqn:E; smap.
+    destruct (bufs !! q') eqn:F; smap.
+    destruct (bufs2 !! q) eqn:G; smap.
+    destruct (g !! p) eqn:E'; smap.
+    destruct (g0 !! p') eqn:F'; smap.
+    destruct (g1 !! p) eqn:G'; smap.
+    destruct l eqn:E'';
+    destruct l0 eqn:F'';
+    destruct l1 eqn:G''; smap.
+    - revert G; smap. intros; smap. revert G'; smap. intros; smap.
+    - revert G; smap. intros; smap. revert G'; smap.
+      intros. destruct (g !! p'); smap.
+      do 2 f_equal. apply map_eq. intros. smap.
+      f_equal. apply map_eq; intros; smap.
+    - revert G; smap. intros.
+      destruct (bufs !! q'); smap.
+      destruct (g0 !! p'); smap.
+      do 2 f_equal. apply map_eq. intros. smap.
+  Qed.
 
 Section bufs_typed.
 
@@ -498,12 +524,14 @@ Section bufs_typed.
     inv Hsb; eauto using sbufprojs.
     - edestruct H1; eauto. clear H3. subst.
       split; eauto.
-      econstructor. { Search pop None. admit. }
+      econstructor; eauto using pop_pop_None.
       intros. edestruct H1; eauto.
-    - edestruct IHHpopG. 2: eauto. { admit. }
-      subst; split; eauto. econstructor; eauto.
-      admit.
-  Admitted.
+    - assert (∃ bufs'' : sbufsT, pop p q bufs'0 = Some (fin_to_nat i,t', bufs'')) as []
+        by eauto using pop_swap'.
+      edestruct IHHpopG; [|eauto|]; eauto. subst.
+      split; eauto. econstructor; eauto using pop_commute.
+      Unshelve. exact 0%fin.
+  Qed.
 
   Lemma sbufs_typed_pop (σs : gmap participant session_type)
     (bufs bufs' : bufsT participant participant sentryT)
@@ -524,8 +552,17 @@ Section bufs_typed.
     intros r. smap; eauto using popG_other, popG_recv.
   Qed.
 
+  Definition entries_typed (bufs : bufsT participant participant entryT)
+                           (sbufs : bufsT participant participant sentryT) : rProp :=
+    [∗ map] p ↦ bfs;sbfs ∈ bufs;sbufs,
+      [∗ map] q ↦ buf;sbuf ∈ bfs;sbfs,
+        [∗ list] e;se ∈ buf;sbuf, ⌜⌜ e.1 = se.1 ⌝⌝ ∗ val_typed e.2 se.2.
 
-  (* Lemma bufs_typed_push' (bufss : bufsT participant participant entryT)
+  Definition bufs_typed (bufs : bufsT participant participant entryT)
+                        (σs : gmap participant session_type) : rProp :=
+    ∃ sbufs, ⌜⌜ sbufs_typed sbufs σs ⌝⌝ ∗ entries_typed bufs sbufs.
+
+  Lemma bufs_typed_push' (bufss : bufsT participant participant entryT)
                         (σs : gmap participant session_type)
                         (n : nat) (i : fin n) (p q : participant) ts ss v :
     σs !! p = Some (SendT n q ts ss) ->
