@@ -649,6 +649,14 @@ Section bufs_typed.
     eauto using sbufprojs,pop_delete_None,pop_delete_Some,bufs_empty_delete.
   Qed.
 
+  Lemma entries_typed_delete p bufs sbufs :
+    entries_typed bufs sbufs ⊢ entries_typed (delete p bufs) (delete p sbufs).
+  Proof.
+    iIntros "H".
+    unfold entries_typed.
+    (* Need additional hypothesis to show that bufs !! p is empty *)
+  Admitted.
+
   Lemma bufs_typed_dealloc bufss σs p :
     σs !! p ≡ Some EndT ->
     bufs_typed bufss σs ⊢
@@ -661,40 +669,58 @@ Section bufs_typed.
     iDestruct "H" as (sbufs Hsbufs) "H".
     iExists (delete p sbufs).
     iSplit. { eauto using sbufs_typed_dealloc. }
+    unfold sbufs_typed in *.
     admit.
   Admitted.
+
+  Lemma sbufs_typed_empty : sbufs_typed ∅ ∅.
+  Proof.
+    split. { rewrite dom_empty_L. apply dom_valid_empty. }
+    exists (ContinueR EndG). split.
+    - intros p. rewrite lookup_empty /=.
+      constructor. constructor. intros H. inversion H.
+    - econstructor. intros ??. unfold pop. rewrite lookup_empty //.
+  Qed.
+
+  Lemma entries_typed_empty : emp ⊣⊢ entries_typed ∅ ∅.
+  Proof.
+    unfold entries_typed.
+    rewrite big_sepM2_empty //.
+  Qed.
 
   Lemma bufs_typed_empty :
     emp ⊢ bufs_typed ∅ ∅.
   Proof.
     iIntros "_".
-    iSplit. { iPureIntro. rewrite dom_empty_L. apply dom_valid_empty. }
-    iExists (ContinueR EndG).
-    iSplit.
-    - iPureIntro. intros.
-      rewrite lookup_empty /=.
-      constructor. constructor. intros H.
-      inversion H.
-    - simpl. iPureIntro.
-      intros ??. unfold pop. rewrite lookup_empty //.
+    iExists ∅.
+    iSplit; eauto using sbufs_typed_empty.
+    iApply entries_typed_empty. done.
+  Qed.
+
+  Lemma entries_typed_empty_inv sbufs :
+    entries_typed ∅ sbufs ⊢ ⌜⌜ sbufs = ∅ ⌝⌝.
+  Proof.
+    iIntros "H".
+    iDestruct (big_sepM2_empty_r with "H") as %->.
+    rewrite <-entries_typed_empty. done.
+  Qed.
+
+  Lemma sbufs_typed_empty_inv σs :
+    sbufs_typed ∅ σs -> σs = ∅.
+  Proof.
+    intros [Hdv [G [Hprojs Hsbufs]]].
+    apply dom_valid_empty_inv in Hdv.
+    apply dom_empty_iff_L in Hdv. done.
   Qed.
 
   Lemma bufs_typed_empty_inv σs :
     bufs_typed ∅ σs ⊢ ⌜⌜ σs = ∅ ⌝⌝.
   Proof.
-    iIntros "[% H]".
-    iDestruct "H" as (G Hprojs) "H".
-    apply dom_valid_empty_inv in H.
-    apply dom_empty_iff_L in H. subst.
-    setoid_rewrite lookup_empty in Hprojs. simpl in *.
-    assert (G = ContinueR EndG) as ->.
-    { destruct G.
-      - specialize (Hprojs p0); inversion Hprojs; simplify_eq.
-      - destruct g; eauto.
-        specialize (Hprojs p0); inversion Hprojs; simplify_eq.
-        inversion H0; simplify_eq.
-        exfalso. apply H. eauto using occurs_in. }
-    simpl. eauto.
+    iIntros "H".
+    iDestruct "H" as (sbufs Hsbufs) "H".
+    iDestruct (entries_typed_empty_inv with "H") as %->.
+    apply sbufs_typed_empty_inv in Hsbufs as ->.
+    rewrite <-entries_typed_empty. done.
   Qed.
 
   Lemma dom_valid_init n d :
