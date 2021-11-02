@@ -562,6 +562,11 @@ Section bufs_typed.
                         (σs : gmap participant session_type) : rProp :=
     ∃ sbufs, ⌜⌜ sbufs_typed sbufs σs ⌝⌝ ∗ entries_typed bufs sbufs.
 
+  Global Instance bufs_typed_params : Params bufs_typed 1 := {}.
+
+  Global Instance bufs_typed_Proper bufs : Proper ((≡) ==> (≡)) (bufs_typed bufs).
+  Proof. Admitted.
+
   Lemma bufs_typed_push' (bufss : bufsT participant participant entryT)
                         (σs : gmap participant session_type)
                         (n : nat) (i : fin n) (p q : participant) ts ss v :
@@ -570,31 +575,12 @@ Section bufs_typed.
         bufs_typed (push p q (fin_to_nat i,v) bufss) (<[p:=ss i]> σs).
   Proof.
     iIntros (Hp) "[Hv H]".
-    iDestruct "H" as (Hdom G Hprojs) "H".
-    iSplit. { iPureIntro. rewrite dom_insert_lookup_L; eauto.
-     apply dom_valid_push; eauto. apply elem_of_dom; eauto. }
-    pose proof (Hprojs p) as Hproj. rewrite Hp in Hproj. simpl in *.
-    edestruct send_pushG as [G' H]; first done.
-    iExists G'.
+    iDestruct "H" as (sbufs Hsbufs) "H".
+    iExists (push p q (fin_to_nat i, ts i) sbufs).
     iSplit.
-    - iPureIntro. intros r. rewrite lookup_insert_spec.
-      case_decide; subst; simpl; last eauto using pushG_other.
-      eapply pushG_send; eauto.
-    - iApply pushG_bufs; eauto with iFrame.
-      eapply dom_valid_is_present; eauto; apply elem_of_dom.
-      + rewrite ?Hp; eauto.
-      + specialize (Hprojs q).
-        destruct (σs !! q); eauto.
-        simpl in *. exfalso. eapply proj_consistent; eauto.
-  Qed. *)
-
-
-
-
-
-
-
-
+    - iPureIntro. eapply sbufs_typed_push; eauto.
+    - admit.
+  Admitted.
 
   Lemma bufs_typed_pop' (σs : gmap participant session_type)
     (bufs bufs' : bufsT participant participant entryT)
@@ -605,17 +591,13 @@ Section bufs_typed.
       val_typed v (ts i') ∗ bufs_typed bufs' (<[ q := ss i' ]> σs).
   Proof.
     iIntros (Hp Hpop) "H".
-    iDestruct "H" as (Hdom G Hprojs) "H".
-    pose proof (Hprojs q) as Hproj. rewrite Hp in Hproj. simpl in *.
-    iDestruct (bufprojs_popG with "H") as %(G' & i' & Q & HpopG); eauto.
-    iExists i'. iSplit; first done.
-    unfold bufs_typed. rewrite comm -assoc. subst.
-    iSplit. { iPureIntro. rewrite dom_insert_lookup_L; eauto.
-      eapply dom_valid_pop; eauto. }
-    iDestruct (popG_bufprojs with "H") as "[Hv H]"; eauto. iFrame.
-    iExists G'. iFrame. iPureIntro.
-    intros r. smap; eauto using popG_other, popG_recv.
-  Qed.
+    iDestruct "H" as (sbufs Hsbufs) "H".
+    edestruct sbufs_typed_pop as [i' [? [? ?]]]; eauto. { admit. }
+    iExists i'.
+    iSplit; first done.
+    unfold bufs_typed.
+    admit.
+  Admitted.
 
   Lemma bufs_typed_push (bufss : bufsT participant participant entryT)
     (σs : gmap participant session_type)
@@ -651,6 +633,21 @@ Section bufs_typed.
     rewrite -(H1 j) -(H3 j) //. iFrame.
   Qed.
 
+  Lemma sbufs_typed_dealloc sbufs σs p :
+    σs !! p = Some EndT ->
+    sbufs_typed sbufs σs ->
+    sbufs_typed (delete p sbufs) (delete p σs).
+  Proof.
+    intros Hp [Hdv [G [Hprojs Hsbufs]]].
+    split. { rewrite dom_delete_L. eapply dom_valid_delete; done. }
+    exists G.
+    assert (rproj p G EndT) as Hprojp.
+    { specialize (Hprojs p). rewrite Hp in Hprojs. done. }
+    split. {intros p'. rewrite lookup_delete_spec. case_decide; subst; eauto. }
+    clear Hp Hdv Hprojs σs.
+    revert sbufs Hsbufs. induction G; intros; inv Hprojp; inv Hsbufs;
+    eauto using sbufprojs,pop_delete_None,pop_delete_Some,bufs_empty_delete.
+  Qed.
 
   Lemma bufs_typed_dealloc bufss σs p :
     σs !! p ≡ Some EndT ->
@@ -661,26 +658,11 @@ Section bufs_typed.
     assert (σs !! p = Some EndT) as Hp.
     { inversion Hpp. inversion H1. simplify_eq. rewrite H //. }
     clear Hpp.
-    iDestruct "H" as (Hdom) "H".
-    iSplit. { iPureIntro. rewrite dom_delete_L. eapply dom_valid_delete; done. }
-    iDestruct "H" as (G Hprojs) "H".
-    assert (rproj p G EndT) as Hprojp.
-    { specialize (Hprojs p). rewrite Hp in Hprojs. done. }
-    iExists G. iSplit.
-    { iPureIntro. intros p'. rewrite lookup_delete_spec.
-      case_decide; subst; eauto. }
-    clear Hp Hdom Hprojs.
-    iInduction G as [] "IH" forall (bufss); inv Hprojp; simpl.
-    - iDestruct "H" as (Hpop) "H".
-      iSplit; first eauto using pop_delete_None.
-      iIntros (i). iApply ("IH" with "[%] [H]"); eauto.
-    - iDestruct "H" as (v bufs' Hpop) "[Hv H]".
-      iExists _,_.
-      iSplit; first eauto using pop_delete_Some. iFrame.
-      iApply ("IH" with "[%] H"). eauto.
-    - iDestruct "H" as "%". eauto using bufs_empty_delete.
-  Qed.
-
+    iDestruct "H" as (sbufs Hsbufs) "H".
+    iExists (delete p sbufs).
+    iSplit. { eauto using sbufs_typed_dealloc. }
+    admit.
+  Admitted.
 
   Lemma bufs_typed_empty :
     emp ⊢ bufs_typed ∅ ∅.
@@ -696,8 +678,6 @@ Section bufs_typed.
     - simpl. iPureIntro.
       intros ??. unfold pop. rewrite lookup_empty //.
   Qed.
-
-
 
   Lemma bufs_typed_empty_inv σs :
     bufs_typed ∅ σs ⊢ ⌜⌜ σs = ∅ ⌝⌝.
