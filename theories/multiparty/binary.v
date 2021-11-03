@@ -168,10 +168,17 @@ Proof.
     econstructor. inversion 1.
 Qed.
 
+Lemma not_occurs_in_toG p σ : p >= 2 -> ¬ occurs_in p (toG σ).
+Proof.
+  intros Hp Hoc. remember (toG σ).
+  revert σ Heqg. induction Hoc; intros [];
+  rewrite <-(global_type_id_id (toG _)); simpl; intros; simplify_eq; try lia; eauto.
+Qed.
+
 Lemma projGM_other σ p : p >= 2 -> proj p (toG σ) EndT.
 Proof.
-Admitted.
-
+  intros Hp. constructor. by apply not_occurs_in_toG.
+Qed.
 
 Lemma σsB_consistent σ : consistent 2 (σsB σ).
 Proof.
