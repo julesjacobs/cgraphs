@@ -157,6 +157,69 @@ Section seplogic.
     apply map_Excl_valid.
   Qed.
 
+  Fixpoint unexcl (l : list (V * exclR L)) : list (V * L) :=
+    match l with
+    | [] => []
+    | (v,Excl x)::r => (v,x)::unexcl r
+    | _::r => unexcl r
+    end.
+
+  Lemma elem_of_unexcl (l : list (V * exclR L)) (x : V * L) :
+    x ∈ unexcl l <-> (x.1, Excl x.2) ∈ l.
+  Proof.
+    induction l; simpl.
+    - rewrite !elem_of_nil. done.
+    - destruct a. destruct c;
+      rewrite !elem_of_cons !IHl; last set_solver.
+      split; intros []; simplify_eq; simpl; eauto.
+      destruct x; eauto.
+  Qed.
+
+  Lemma map_eq' : ∀ (m1 m2 : gmap V (exclR L)), (∀ i, m1 !! i = m2 !! i) -> m1 = m2.
+  Proof. apply map_eq. Qed.
+
+  Lemma valid_map_Excl_inv (x : heapT_UR V L) : ✓ x -> ∃ Σ, x = map_Excl Σ.
+  Proof.
+    unfold heapT_UR in *.
+    unfold valid. unfold cmra_valid. simpl.
+    unfold ucmra_valid.
+    unfold gmap_valid_instance. unfold valid.
+    unfold cmra_valid. simpl.
+    unfold option_valid_instance. unfold valid.
+    unfold cmra_valid. simpl.
+    unfold excl_valid_instance.
+    intros HH.
+    exists (list_to_map (unexcl (map_to_list x))).
+    apply map_eq'. intros i.
+    rewrite lookup_fmap.
+    specialize (HH i).
+    destruct (list_to_map (unexcl (map_to_list x)) !! i) eqn:E.
+    - apply elem_of_list_to_map_2 in E. simpl.
+      apply elem_of_unexcl in E. simpl in *.
+      revert E.
+      rewrite elem_of_map_to_list'. intros. simpl in *. done.
+    - apply not_elem_of_list_to_map_2 in E. simpl.
+      rewrite ->elem_of_list_fmap in E.
+      setoid_rewrite elem_of_unexcl in E.
+      destruct (x !! i) eqn:F; eauto.
+      rewrite F in HH.
+      destruct c eqn:G; try done.
+      exfalso.
+      apply E. eexists (i,o). simpl.
+      split; eauto.
+      rewrite elem_of_map_to_list'. simpl. done.
+  Qed.
+
+  Lemma entails_holds P Q :
+    (∀ Σ, holds P Σ -> holds Q Σ) -> P ⊢ Q.
+  Proof.
+    intros HH.
+    eapply Build_uPred_entails.
+    intros.
+    apply valid_map_Excl_inv in H0 as [Σ ->].
+    unfold holds in *. eauto.
+  Qed.
+
   Lemma false_holds (Σ : gmap V L) :
     holds (False%I) Σ -> False.
   Proof. apply uPred_false_holds. Qed.

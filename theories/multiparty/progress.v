@@ -403,11 +403,6 @@ Ltac model := repeat
   || setoid_rewrite own_holds || setoid_rewrite val_typed_val_typed'
   || setoid_rewrite sep_holds).
 
-Lemma entails_holds `{Countable V} {L} (P Q : hProp V L) :
-  (∀ Σ, holds P Σ -> holds Q Σ) -> P ⊢ Q.
-Proof.
-Admitted.
-
 Lemma own_dom_all {A} (f : A -> gset object) :
   (∀ i, own_dom (f i)) ⊢ ⌜ ∀ i j, f i = f j ⌝.
 Proof.
