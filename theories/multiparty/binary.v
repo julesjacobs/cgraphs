@@ -57,7 +57,11 @@ Proof.
   constructor. apply session_type_equiv_alt. simpl. done.
 Qed.
 
-Definition σsB σ := λ i : fin 2, match i with 0%fin => toM 1 σ | _ => toM 0 (dual σ) end.
+Definition σsB σ := λ i : fin 2,
+  match i with
+  | 0%fin => toM 1 σ
+  | _ => toM 0 (dual σ)
+  end.
 
 CoFixpoint toG σ :=
   match σ with
