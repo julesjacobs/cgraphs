@@ -1,8 +1,8 @@
 From diris.multiparty Require Import langdef.
 
-Definition SendB e1 i e2 := Send 0 e1 i e2.
-Definition RecvB e := Recv 0 e.
-Definition ForkB e := Spawn 1 (const e).
+Definition SendB e1 i e2 := Send 1 e1 i e2.
+Definition RecvB e := Recv 1 e.
+Definition ForkB e := Relabel (const 0) (Spawn 1 (const e)).
 Definition CloseB e := Close e.
 
 CoInductive session_typeB :=
@@ -19,8 +19,8 @@ CoFixpoint dual (σ : session_typeB) : session_typeB :=
 
 CoFixpoint toM (σ : session_typeB) : session_type :=
   match σ with
-  | SendTB n ts σs => SendT n 0 ts (toM ∘ σs)
-  | RecvTB n ts σs => RecvT n 0 ts (toM ∘ σs)
+  | SendTB n ts σs => SendT n 1 ts (toM ∘ σs)
+  | RecvTB n ts σs => RecvT n 1 ts (toM ∘ σs)
   | EndBT => EndT
   end.
 
@@ -79,6 +79,6 @@ Lemma ForkB_typed Γ ct e :
   typed Γ (ForkB e) (ChanTB ct).
 Proof.
   unfold ChanTB, ForkB. intros.
-  About Spawn_typed.
   econstructor.
+
 Admitted.
