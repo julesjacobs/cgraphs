@@ -203,7 +203,7 @@ Proof.
   Unshelve. exact 0%fin.
 Qed.
 
-Lemma toM_relabel_1 p q σ : toM p σ ≡ relabelT (const p) (toM q σ).
+Lemma toM_relabel p q σ : toM p σ ≡ relabelT (const p) (toM q σ).
 Proof.
   revert σ. cofix IH. intros [];
   apply session_type_equiv_alt; simpl; constructor; try done; intro; apply IH.
@@ -218,5 +218,5 @@ Proof.
   { eapply (Spawn_typed _ _ (const Γ) _ (σsB σ));
     eauto using disj_union_1, σsB_consistent. }
   constructor.
-  apply toM_relabel_1.
+  apply toM_relabel.
 Qed.
