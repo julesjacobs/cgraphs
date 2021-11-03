@@ -259,8 +259,8 @@ Qed.
 
 Definition thread_waiting (es : list expr) (h : heap) (i c : nat) :=
   ∃ p q k, ctx k ∧
-    es !! i = Some (k (Recv q (Val (ChanV (c,p))))) ∧
-    pop (c,p) q h = None.
+    es !! i = Some (k (Recv p (Val (ChanV (c,q))))) ∧
+    pop p (c,q) h = None.
 
 Definition waiting es h (x y : object) (l : clabel) : Prop :=
   ∃ i j, x = Thread i ∧ y = Chan j ∧ thread_waiting es h i j.
@@ -479,6 +479,12 @@ Qed.
 Lemma bufs_typed_refs bufss σs :
   bufs_typed bufss σs ⊢ own_dom (bufs_refs bufss).
 Proof.
+  iIntros "H".
+  unfold bufs_typed.
+  iDestruct "H" as (sbufs Hsbufs) "H".
+  unfold entries_typed.
+  unfold bufs_refs.
+  Search map_union.
   iIntros "[_ H]".
   iDestruct "H" as (G _) "H".
   iInduction G as [] "IH" forall (bufss); simpl.

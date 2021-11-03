@@ -4,7 +4,7 @@ Require Export diris.multiparty.rtypesystem.
 Require Export diris.multiparty.mutil.
 
 Ltac sdec := repeat case_decide; simplify_eq; simpl in *; eauto; try done.
-Ltac smap := repeat (rewrite lookup_alter_spec || rewrite lookup_insert_spec || sdec).
+Ltac smap := repeat (rewrite lookup_alter_spec || rewrite lookup_insert_spec || rewrite lookup_delete_spec || sdec).
 
 Section pushpop.
 
@@ -260,6 +260,8 @@ Section pushpop.
       destruct (g0 !! p'); smap.
       do 2 f_equal. apply map_eq. intros. smap.
   Qed.
+
+End pushpop.
 
 Section bufs_typed.
 
@@ -658,25 +660,83 @@ Section bufs_typed.
       assert (p ∉ dom (gset _) bufs). { apply not_elem_of_dom. done. }
       rewrite -Q in H. set_solver.
   Qed.
+(*
+  Definition only_changes {A} p q (bufs bufs' : bufsT participant participant A) :=
+    ∀ r, match bufs !! r, bufs' !! r with
+         | Some bfs,Some bfs' =>
+           ∀ s, match bfs !! s, bfs' !! s with
+                | Some buf, Some buf' => p ≠ s -> q ≠ r -> buf = buf'
+                | None, None => True
+                | _,_ => False
+                end
+         | None,None => True
+         | _,_ => False
+         end.
 
-  Lemma entries_typed_push  bufss sbufs p q i v t :
+  Lemma only_changes_entries_typed p q bufs bufs' sbufs sbufs' :
+    only_changes p q bufs bufs' ->
+    only_changes p q sbufs sbufs' ->
+    entries_typed bufs sbufs -∗
+    entries_typed sbufs sbufs' *)
+
+  Lemma push_is_Some `{Countable A, Countable B} {V} p q r x (bufs : bufsT A B V) :
+    is_Some (bufs !! r) -> is_Some (push p q x bufs !! r).
+  Proof.
+    intros [].
+    unfold push.
+    smap. rewrite H1. smap.
+  Qed.
+
+  Lemma delete_push `{Countable A, Countable B} {V} p q x (bufs : bufsT A B V) :
+    delete q (push p q x bufs) = delete q bufs.
+  Proof.
+    apply map_eq. intros i. smap.
+  Qed.
+
+  Lemma delete_alter `{Countable A} {V} (i : A) (m : gmap A V) f :
+    delete i (alter f i m) = delete i m.
+  Proof.
+    apply map_eq. intro. smap.
+  Qed.
+
+  Lemma entries_typed_push  bufs sbufs p q i v t :
     is_present p q sbufs ->
     val_typed v t -∗
-    entries_typed bufss sbufs -∗
-    entries_typed (push p q (i, v) bufss) (push p q (i, t) sbufs).
+    entries_typed bufs sbufs -∗
+    entries_typed (push p q (i, v) bufs) (push p q (i, t) sbufs).
   Proof.
     iIntros (Hpres) "Hv He".
-    unfold entries_typed.
     iDestruct (big_sepM2_lookup_iff with "He") as %Q.
+    assert (is_Some (sbufs !! q)) as [x1 Hx1].
+    { unfold is_present in *. destruct (sbufs !! q); smap. }
+    assert (is_Some (bufs !! q)) as [x2 Hx2] by rewrite Q //.
+    assert (is_Some (push p q (i, v) bufs !! q)) as [] by eauto using push_is_Some.
+    assert (is_Some (push p q (i, t) sbufs !! q)) as [] by eauto using push_is_Some.
+    unfold entries_typed.
+    rewrite big_sepM2_delete; eauto.
+    iApply big_sepM2_delete; eauto.
+    rewrite !delete_push.
+    iDestruct "He" as "[H He2]". iFrame.
     unfold is_present in *.
-    destruct (sbufs !! q) eqn:E; smap.
-    destruct (g !! p) eqn:E'; smap.
-    assert (is_Some (bufss !! q)) as [g' H]. { rewrite Q E //. }
-    iDestruct (big_sepM2_lookup_acc with "He") as "[He1 He2]"; eauto.
-    iDestruct (big_sepM2_lookup_iff with "He1") as %Q'.
-    assert (is_Some (g' !! p)) as [l' H']. { rewrite Q' E' //. }
-    iDestruct (big_sepM2_lookup_acc with "He1") as "[He11 He12]"; eauto.
-  Admitted.
+    rewrite Hx1 in Hpres.
+    destruct (x1 !! p) eqn:G; sdec. clear Hpres Q.
+    iDestruct (big_sepM2_lookup_iff with "H") as %Q.
+    assert (is_Some (x2 !! p)) as [l' G'] by rewrite Q //.
+    rewrite big_sepM2_delete; eauto.
+    iDestruct "H" as "[H1 H2]".
+    unfold push in *.
+    revert H H0.
+    smap. rewrite Hx1 Hx2. simpl. intros. smap.
+    assert (is_Some (alter (λ buf : list (nat * val), buf ++ [(i, v)]) p x2 !! p)) as [].
+    { smap. rewrite G' //. }
+    assert (is_Some (alter (λ buf : list (nat * type), buf ++ [(i, t)]) p x1 !! p)) as [].
+    { smap. rewrite G //. }
+    iApply big_sepM2_delete; eauto.
+    rewrite !delete_alter. iFrame.
+    revert H H0. smap. rewrite G G'.
+    intros. smap.
+    rewrite big_sepL2_snoc. iFrame. simpl. done.
+  Qed.
 
   Lemma bufs_typed_push' (bufss : bufsT participant participant entryT)
                         (σs : gmap participant session_type)
@@ -722,9 +782,23 @@ Section bufs_typed.
     entries_typed bufs sbufs ⊢ val_typed v t ∗ entries_typed bufs' sbufs'.
   Proof.
     iIntros (Hpop Hspop) "H".
-
-
-  Admitted.
+    unfold pop in *.
+    destruct (bufs !! q) eqn:E; smap.
+    destruct (g !! p) eqn:E'; smap.
+    destruct l eqn:E''; smap.
+    destruct (sbufs !! q) eqn:F; smap.
+    destruct (g0 !! p) eqn:F'; smap.
+    destruct l eqn:F''; smap.
+    unfold entries_typed.
+    rewrite !big_sepM2_insert_delete.
+    rewrite big_sepM2_delete; eauto.
+    iDestruct "H" as "[H H2]". iFrame.
+    rewrite big_sepM2_delete; eauto.
+    iDestruct "H" as "[H H2]". iFrame.
+    rewrite big_sepL2_cons.
+    iDestruct "H" as "[H H2]". iFrame.
+    iDestruct "H" as "[H H2]". iFrame.
+  Qed.
 
   Lemma bufs_typed_pop' (σs : gmap participant session_type)
     (bufs bufs' : bufsT participant participant entryT)
