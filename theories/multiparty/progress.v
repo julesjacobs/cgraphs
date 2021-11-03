@@ -476,6 +476,25 @@ Proof.
     destruct e. by iApply own_dom_singleton.
 Qed.
 
+Lemma own_dom_map_union `{Countable A} {V V'} (ma : gmap A V) (mb : gmap A V') f :
+  ([∗ map] a;b ∈ ma;mb, own_dom (f a)) -∗
+  own_dom (map_union f ma).
+Proof.
+  revert mb; induction ma using map_ind; intros; iIntros "H".
+  - iDestruct (big_sepM2_empty_r with "H") as %->.
+    iClear "H". unfold map_union. rewrite map_fold_empty own_dom_empty //.
+  - iDestruct (big_sepM2_lookup_iff with "H") as %Q.
+    assert (is_Some (mb !! i)) as []. { rewrite -Q; smap. }
+    assert (mb = <[ i := x0 ]> mb) as -> by (apply map_eq; intro; smap).
+    rewrite big_sepM2_insert_delete.
+    iDestruct "H" as "[H1 H2]".
+    rewrite delete_notin //.
+    iDestruct (IHma with "H2") as "H2".
+    unfold map_union. rewrite map_fold_insert; eauto.
+    { iApply own_dom_union. iFrame. }
+    intros ??????. smap; intros; smap; set_solver.
+Qed.
+
 Lemma bufs_typed_refs bufss σs :
   bufs_typed bufss σs ⊢ own_dom (bufs_refs bufss).
 Proof.
@@ -484,29 +503,25 @@ Proof.
   iDestruct "H" as (sbufs Hsbufs) "H".
   unfold entries_typed.
   unfold bufs_refs.
-  Search map_union.
-  iIntros "[_ H]".
-  iDestruct "H" as (G _) "H".
-  iInduction G as [] "IH" forall (bufss); simpl.
-  - iDestruct "H" as (?) "H".
-    iApply "IH". eauto.
-  - iDestruct "H" as (v bufs' Hpop) "[Hv H]".
-    iDestruct ("IH" with "H") as "H".
-    iDestruct (val_typed_refs with "Hv") as "Hv".
-    assert (bufs_refs bufss = bufs_refs bufs' ∪ val_refs v) as ->.
-    {
-      unfold pop in *.
-      destruct (bufss !! p0) eqn:E; simplify_eq.
-      destruct (g !! p) eqn:F; simplify_eq.
-      destruct l eqn:G; simplify_eq.
-      unfold bufs_refs.
-      admit.
-    }
-    iApply own_dom_union. iFrame.
-  - iDestruct "H" as %H.
-    assert (bufs_refs bufss = ∅) as ->; last by iApply own_dom_empty.
-    admit.
-Admitted.
+  iApply own_dom_map_union.
+  iApply (big_sepM2_impl with "H"). iModIntro.
+  iIntros (k x1 x2 H1 H2) "H".
+  iApply own_dom_map_union.
+  iApply (big_sepM2_impl with "H"). iModIntro.
+  iIntros (k' l1 l2 H1' H2') "H".
+  unfold buf_refs. clear.
+  iInduction l1 as [] "IH" forall (l2); simpl.
+  - iDestruct (big_sepL2_nil_inv_l with "H") as %->.
+    rewrite own_dom_empty //.
+  - destruct a.
+    destruct l2.
+    { iDestruct (big_sepL2_nil_inv_r with "H") as %Q. smap. }
+    simpl. iDestruct "H" as "[[% H1] H2]".
+    iApply own_dom_union.
+    iSplitL "H1".
+    + iApply val_typed_refs. eauto.
+    + iApply "IH". iFrame.
+Qed.
 
 Lemma obj_refs_state_inv' es h x Δ :
   state_inv es h x Δ ⊢ own_dom (obj_refs es h x).
@@ -538,14 +553,14 @@ Proof.
 Qed.
 
 Lemma gmap_slice_pop_fmap `{Countable A,Countable B,Countable C} {V}
-  (c : A) (p : B) (q : C) (m : bufsT (A*B) C V) :
-  pop p q (gmap_slice m c) = (λ '(x,m'), (x,gmap_slice m' c)) <$> pop (c,p) q m.
+  (c : A) (p : B) (q : C) (m : bufsT B (A*C) V) :
+  pop p q (gmap_slice m c) = (λ '(x,m'), (x,gmap_slice m' c)) <$> pop p (c,q) m.
 Proof.
   unfold pop. rewrite gmap_slice_lookup.
-  destruct (m !! (c, p)); eauto.
-  destruct (g !! q); eauto.
+  destruct (m !! (c, q)); eauto.
+  destruct (g !! p); eauto.
   destruct l; eauto. simpl.
-  rewrite gmap_slice_insert. case_decide; simplify_eq. done.
+  rewrite gmap_slice_insert. smap.
 Qed.
 
 Lemma strong_progress es h x :
@@ -611,7 +626,7 @@ Proof.
       (* iIntros "H". *)
       (* iDestruct (bufs_typed_recv with "H") as %(bufs & buf & Hbufs & Hbuf); first done. *)
       (* iPureIntro. *)
-      destruct (pop (c, b) p h) as [[[]]|] eqn:E.
+      destruct (pop p (c,b) h) as [[[]]|] eqn:E.
       {
         eapply Thread_step_reachable.
         unfold can_stepi.
@@ -630,6 +645,7 @@ Proof.
       rewrite -gmap_slice_lookup.
       eapply prim_simple_adequacy; first exact Hc.
       eapply bufs_typed_recv; eauto.
+      inversion Heq. rewrite -H0. eauto.
     * (* Send *)
       destruct H as (v1 & v2 & p & i' & ->).
       revert Het. model.
@@ -681,7 +697,7 @@ Proof.
       unfold thread_waiting in Hw.
       destruct Hw as (p' & q' & k & Hctx & Hi & Hpop).
       specialize (Hvs (Thread i)).
-      eapply (holds_entails _ (∃ n t s, own_out (Chan c') (p', RecvT n q' t s) ∗ True)%I) in Hvs. 2:
+      eapply (holds_entails _ (∃ n t s, own_out (Chan c') (q', RecvT n p' t s) ∗ True)%I) in Hvs. 2:
       {
         simpl. iIntros "[_ H]". rewrite Hi.
         rewrite rtyped0_ctx //.
@@ -695,7 +711,7 @@ Proof.
       apply exists_holds in Hvs as [n Hvs].
       apply exists_holds in Hvs as [tt Hvs].
       apply exists_holds in Hvs as [ss Hvs].
-      assert (out_edges g (Thread i) !! Chan c' ≡ Some (p', RecvT n q' tt ss)) as Hoc'.
+      assert (out_edges g (Thread i) !! Chan c' ≡ Some (q', RecvT n p' tt ss)) as Hoc'.
       {
         eapply sep_holds in Hvs as (Σ1 & Σ2 & H1 & HD & [HH _]).
         rewrite H1.
