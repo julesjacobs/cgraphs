@@ -590,7 +590,7 @@ Inductive steps : list expr -> heap -> list expr -> heap -> Prop :=
    types with propositional equality"
    Such an axiom is similar to functional extensionality, but for coinductive types.
 *)
-Axiom session_type_equiv_eq : ∀ σ1 σ2 : session_type, σ1 ≡ σ2 -> σ1 = σ2.
+Axiom session_type_extensionality : ∀ σ1 σ2 : session_type, σ1 ≡ σ2 -> σ1 = σ2.
 (*
   To show that it is possible to manually work around this limitation of Coq,
   we have proved manually that our run-time type system is (≡)-invariant

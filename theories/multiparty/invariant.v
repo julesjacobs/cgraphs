@@ -568,7 +568,7 @@ Section bufs_typed.
 
   Global Instance rproj_Proper p G : Proper ((≡) ==> (≡)) (rproj p G).
   Proof.
-    intros ???. apply session_type_equiv_eq in H. subst. done.
+    intros ???. apply session_type_extensionality in H. subst. done.
   Qed.
 
   Global Instance sbufs_typed_Proper bufs : Proper ((≡) ==> (≡)) (sbufs_typed bufs).

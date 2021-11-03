@@ -36,3 +36,4 @@ theories/multiparty/invariant.v
 theories/multiparty/progress.v
 theories/multiparty/safety.v
 theories/multiparty/ycombinator.v
+theories/multiparty/binary.v

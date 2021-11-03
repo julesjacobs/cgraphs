@@ -1,7 +1,7 @@
 From diris.multiparty Require Import langdef.
 
-Definition SendB e1 i e2 := Send 1 e1 i e2.
-Definition RecvB e := Recv 1 e.
+Definition SendB e1 i e2 := Send 0 e1 i e2.
+Definition RecvB e := Recv 0 e.
 Definition ForkB e := Relabel (const 1) (Spawn 1 (const e)).
 Definition CloseB e := Close e.
 
@@ -17,14 +17,14 @@ CoFixpoint dual (σ : session_typeB) : session_typeB :=
   | EndBT => EndTB
   end.
 
-CoFixpoint toM (σ : session_typeB) : session_type :=
+CoFixpoint toM (p : participant) (σ : session_typeB) : session_type :=
   match σ with
-  | SendTB n ts σs => SendT n 1 ts (toM ∘ σs)
-  | RecvTB n ts σs => RecvT n 1 ts (toM ∘ σs)
+  | SendTB n ts σs => SendT n p ts (toM p ∘ σs)
+  | RecvTB n ts σs => RecvT n p ts (toM p ∘ σs)
   | EndBT => EndT
   end.
 
-Definition ChanTB σ := ChanT (toM σ).
+Definition ChanTB σ := ChanT (toM 0 σ).
 
 Lemma SendB_typed Γ1 Γ2 e1 e2 n ts σs i :
   disj Γ1 Γ2 ->
@@ -33,7 +33,7 @@ Lemma SendB_typed Γ1 Γ2 e1 e2 n ts σs i :
   typed (Γ1 ∪ Γ2) (SendB e1 i e2) (ChanTB (σs i)).
 Proof.
   unfold ChanTB. intros.
-  eapply (Send_typed _ _ _ _ _ _ (toM ∘ σs)); eauto.
+  eapply (Send_typed _ _ _ _ _ _ (toM 0 ∘ σs)); eauto.
   econstructor; last done.
   constructor. apply session_type_equiv_alt. simpl. done.
 Qed.
@@ -43,7 +43,7 @@ Lemma RecvB_typed Γ e n ts σs :
   typed Γ (RecvB e) (SumNT n (λ i, PairT (ChanTB (σs i)) (ts i))).
 Proof.
   unfold ChanTB. intros.
-  eapply (Recv_typed _ _ _ _ (toM ∘ σs)); eauto.
+  eapply (Recv_typed _ _ _ _ (toM 0 ∘ σs)); eauto.
   econstructor; last done.
   constructor. apply session_type_equiv_alt. simpl. done.
 Qed.
@@ -57,23 +57,116 @@ Proof.
   constructor. apply session_type_equiv_alt. simpl. done.
 Qed.
 
-Definition σsB σ := λ i : fin 2, match i with 0%fin => toM σ | _ => toM (dual σ) end.
-
-Print global_type.
+Definition σsB σ := λ i : fin 2, match i with 0%fin => toM 1 σ | _ => toM 0 (dual σ) end.
 
 CoFixpoint toG σ :=
   match σ with
   | SendTB n ts σs => Message n 0 1 ts (toG ∘ σs)
-  | EndBT => EndG
+  | RecvTB n ts σs => Message n 1 0 ts (toG ∘ σs)
+  | EndTB => EndG
   end.
 
-Lemma projGM_0 σ : proj 0 (toG σ) (toM σ).
-Proof.
-Admitted.
+CoInductive global_type_equiv : Equiv global_type :=
+  | gte_Message n p q ts1 ts2 Gs1 Gs2 :
+    ts1 ≡ ts2 -> Gs1 ≡ Gs2 ->
+    Message n p q ts1 Gs1 ≡ Message n p q ts2 Gs2
+  | gte_EndG : EndG ≡ EndG.
+Existing Instance global_type_equiv.
 
-Lemma projGM_1 σ : proj 1 (toG σ) (toM (dual σ)).
+Axiom global_type_extensionality : ∀ G1 G2 : global_type, G1 ≡ G2 -> G1 = G2.
+
+Definition global_type_id (G : global_type) : global_type :=
+  match G with
+  | Message n p q ts Gs => Message n p q ts Gs
+  | EndG => EndG
+  end.
+
+Lemma global_type_id_id (G : global_type) :
+  global_type_id G = G.
 Proof.
-Admitted.
+  by destruct G.
+Qed.
+
+Lemma global_type_equiv_alt (G1 G2 : global_type) :
+  global_type_id G1 ≡ global_type_id G2 -> G1 ≡ G2.
+Proof.
+  intros.
+  rewrite -(global_type_id_id G1).
+  rewrite -(global_type_id_id G2).
+  done.
+Defined.
+
+Lemma global_type_reflexive : Reflexive (≡@{global_type}).
+Proof.
+  cofix IH. intros []; constructor; done.
+Defined.
+
+Lemma global_type_symmetric : Symmetric (≡@{global_type}).
+Proof.
+  cofix IH. intros [] []; intros; try solve [constructor || inversion H].
+  inversion H; simplify_eq. constructor; eauto.
+Defined.
+
+Lemma global_type_transitive : Transitive (≡@{global_type}).
+Proof.
+  cofix IH. intros ???[].
+  - remember (Message n p q ts2 Gs2).
+    inversion 1; simplify_eq.
+    constructor; etrans; eauto.
+  - inversion 1. constructor.
+Defined.
+
+Global Instance global_type_equivalence : Equivalence (≡@{global_type}).
+Proof.
+  split.
+  - apply global_type_reflexive.
+  - apply global_type_symmetric.
+  - apply global_type_transitive.
+Qed.
+
+Lemma projGM_0 σ : proj 0 (toG σ) (toM 1 σ).
+Proof.
+  revert σ. cofix IH; intros [].
+  - assert (toM 1 (SendTB n t s) = SendT n 1 t (toM 1 ∘ s)) as ->.
+    { apply session_type_extensionality. apply session_type_equiv_alt; simpl. done. }
+    assert (toG (SendTB n t s) = Message n 0 1 t (toG ∘ s)) as ->.
+    { apply global_type_extensionality. apply global_type_equiv_alt; simpl. done. }
+    econstructor; first lia. simpl.
+    intro. apply IH.
+  - assert (toM 1 (RecvTB n t s) = RecvT n 1 t (toM 1 ∘ s)) as ->.
+    { apply session_type_extensionality. apply session_type_equiv_alt; simpl. done. }
+    assert (toG (RecvTB n t s) = Message n 1 0 t (toG ∘ s)) as ->.
+    { apply global_type_extensionality. apply global_type_equiv_alt; simpl. done. }
+    econstructor; first lia. simpl.
+    intro. apply IH.
+  - assert (toM 1 EndTB = EndT) as ->.
+    { apply session_type_extensionality. apply session_type_equiv_alt; simpl. done. }
+    assert (toG EndTB = EndG) as ->.
+    { apply global_type_extensionality. apply global_type_equiv_alt; simpl. done. }
+    econstructor. inversion 1.
+Qed.
+
+Lemma projGM_1 σ : proj 1 (toG σ) (toM 0 (dual σ)).
+Proof.
+  revert σ. cofix IH; intros [].
+  - assert (toM 0 (dual (SendTB n t s)) = RecvT n 0 t (toM 0 ∘ dual ∘ s)) as ->.
+    { apply session_type_extensionality. apply session_type_equiv_alt; simpl. done. }
+    assert (toG (SendTB n t s) = Message n 0 1 t (toG ∘ s)) as ->.
+    { apply global_type_extensionality. apply global_type_equiv_alt; simpl. done. }
+    econstructor; first lia. simpl.
+    intro. apply IH.
+  - assert (toM 0 (dual (RecvTB n t s)) = SendT n 0 t (toM 0 ∘ dual ∘ s)) as ->.
+    { apply session_type_extensionality. apply session_type_equiv_alt; simpl. done. }
+    assert (toG (RecvTB n t s) = Message n 1 0 t (toG ∘ s)) as ->.
+    { apply global_type_extensionality. apply global_type_equiv_alt; simpl. done. }
+    econstructor; first lia. simpl.
+    intro. apply IH.
+  - assert (toM 0 (dual EndTB) = EndT) as ->.
+    { apply session_type_extensionality. apply session_type_equiv_alt; simpl. done. }
+    assert (toG EndTB = EndG) as ->.
+    { apply global_type_extensionality. apply global_type_equiv_alt; simpl. done. }
+    econstructor. inversion 1.
+Qed.
 
 Lemma projGM_other σ p : p >= 2 -> proj p (toG σ) EndT.
 Proof.
@@ -85,7 +178,7 @@ Proof.
   exists (toG σ). split.
   - intros. unfold σsB. dependent inversion i; simpl.
     + subst. apply projGM_0.
-    + subst. inv_fin t; last (intros j; inversion j). apply projGM_1.
+    + subst. inv_fin t; last (intros j; inversion j). simpl. apply projGM_1.
   - intros i Hi. apply projGM_other. done.
 Qed.
 
@@ -99,11 +192,11 @@ Proof.
   Unshelve. exact 0%fin.
 Qed.
 
-Lemma toM_relabel_1 σ : toM σ ≡ relabelT (const 1) (toM σ).
+Lemma toM_relabel_1 p q σ : toM p σ ≡ relabelT (const p) (toM q σ).
 Proof.
   revert σ. cofix IH. intros [];
   apply session_type_equiv_alt; simpl; constructor; try done; intro; apply IH.
-Qe.
+Qed.
 
 Lemma ForkB_typed Γ σ e :
   typed Γ e (FunT (ChanTB (dual σ)) UnitT) ->
@@ -111,6 +204,8 @@ Lemma ForkB_typed Γ σ e :
 Proof.
   unfold ChanTB, ForkB. intros.
   do 2 econstructor; last first.
-  { eapply (Spawn_typed _ _ (const Γ) _ (σsB σ)); eauto using disj_union_1, σsB_consistent. }
-  constructor. apply toM_relabel_1.
+  { eapply (Spawn_typed _ _ (const Γ) _ (σsB σ));
+    eauto using disj_union_1, σsB_consistent. }
+  constructor.
+  apply toM_relabel_1.
 Qed.
