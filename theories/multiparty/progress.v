@@ -255,12 +255,25 @@ Proof.
     + eexists (λ x, x),_. split_and!; [constructor|eauto 10..].
     + eexists (λ x, Close (k x)),_. split_and!; eauto.
       constructor; eauto. constructor.
+  - iDestruct "H" as (σ ->) "H".
+    iDestruct ("IH" with "H") as "%". iClear "IH".
+    iRight.
+    destruct H as [[v ->]|(k & e0 & Hk & -> & H)].
+    + simpl. rewrite val_typed_val_typed'. simpl.
+      iDestruct "H" as (c π ->) "H".
+      iPureIntro.
+      eexists (λ x, x),_.
+      split_and!; eauto using ctx.
+      destruct c. eauto using pure_step.
+    + iPureIntro.
+      eexists (λ x, Relabel p (k x)),_. split_and!; eauto.
+      constructor; eauto. constructor.
 Qed.
 
 Definition thread_waiting (es : list expr) (h : heap) (i c : nat) :=
-  ∃ p q k, ctx k ∧
-    es !! i = Some (k (Recv p (Val (ChanV (c,q))))) ∧
-    pop p (c,q) h = None.
+  ∃ p q k π, ctx k ∧
+    es !! i = Some (k (Recv p (Val (ChanV (c,q) π)))) ∧
+    pop (π p) (c,q) h = None.
 
 Definition waiting es h (x y : object) (l : clabel) : Prop :=
   ∃ i j, x = Thread i ∧ y = Chan j ∧ thread_waiting es h i j.
@@ -317,6 +330,7 @@ Fixpoint expr_refs (e : expr) : gset object :=
   | If e1 e2 e3 => expr_refs e1 ∪ expr_refs e2
   | Spawn n f => fin_union n (expr_refs ∘ f)
   | Close e1 => expr_refs e1
+  | Relabel π e1 => expr_refs e1
   end
 with val_refs (v : val) : gset object :=
 match v with
@@ -327,7 +341,7 @@ match v with
 | InjNV i v1 => val_refs v1
 | FunV s e1 => expr_refs e1
 | UFunV s e1 => expr_refs e1
-| ChanV (c,b) => {[ Chan c ]}
+| ChanV (c,b) _ => {[ Chan c ]}
 end.
 
 Definition map_union `{Countable K, Countable A} {V} (f : V -> gset A) (m : gmap K V) :=
@@ -601,12 +615,14 @@ Proof.
       destruct H as (v & p & ->).
       revert Het.
       model.
-      intros (n & t' & r & Q & [c b] & -> & Het). simpl in *.
+      intros (n & t' & r & Q & [c q] & π & -> & Het). simpl in *.
 
-      assert (out_edges g (Thread i) !! Chan c ≡ Some (b, RecvT n p t' r)) as HH.
+      assert (out_edges g (Thread i) !! Chan c ≡ Some (q, RecvT n (π p) t' (relabelT π ∘ r))) as HH.
       {
-        rewrite Hout -Het. erewrite lookup_union_Some_l; first done.
-        rewrite lookup_singleton. done.
+        rewrite Hout -Het.
+        erewrite lookup_union_Some_l; last first.
+        - rewrite lookup_singleton. done.
+        - do 2 f_equiv. apply session_type_equiv_alt. done.
       }
 
       pose proof (out_edges_in_labels _ _ _ _ HH) as [x Hin].
@@ -621,7 +637,7 @@ Proof.
       (* iIntros "H". *)
       (* iDestruct (bufs_typed_recv with "H") as %(bufs & buf & Hbufs & Hbuf); first done. *)
       (* iPureIntro. *)
-      destruct (pop p (c,b) h) as [[[]]|] eqn:E.
+      destruct (pop (π p) (c,q) h) as [[[]]|] eqn:E.
       {
         eapply Thread_step_reachable.
         unfold can_stepi.
@@ -636,7 +652,7 @@ Proof.
       eapply Hind_out. { unfold waiting; eauto. }
       eexists _,_; eauto.
       unfold active.
-      exists b.
+      exists q.
       rewrite -gmap_slice_lookup.
       eapply prim_simple_adequacy; first exact Hc.
       eapply bufs_typed_recv; eauto.
@@ -644,7 +660,7 @@ Proof.
     * (* Send *)
       destruct H as (v1 & v2 & p & i' & ->).
       revert Het. model.
-      intros (j & r & t' & j' & [-> ->] & Σ3 & Σ4 & Σeq & Hdisj' & ([c b] & -> & Het1) & Het2).
+      intros (j & r & t' & j' & [-> ->] & Σ3 & Σ4 & Σeq & Hdisj' & ([c b] & π & -> & Het1) & Het2).
       eapply Thread_step_reachable. eexists _,_.
       econstructor; last done.
       eauto using head_step, ctx_step.
@@ -657,7 +673,7 @@ Proof.
     * (* Close *)
       destruct H as (v & ->).
       revert Het. model.
-      intros (-> & ([c b] & -> & Het)).
+      intros (-> & ([c b] & π & -> & Het)).
       eapply Thread_step_reachable. eexists _,_.
       econstructor; last done.
       eauto using head_step, ctx_step.
@@ -690,9 +706,9 @@ Proof.
     eapply Hind_in; eauto.
     + intros (i & c' & -> & ? & Hw). simplify_eq.
       unfold thread_waiting in Hw.
-      destruct Hw as (p' & q' & k & Hctx & Hi & Hpop).
+      destruct Hw as (p' & q' & k & π & Hctx & Hi & Hpop).
       specialize (Hvs (Thread i)).
-      eapply (holds_entails _ (∃ n t s, own_out (Chan c') (q', RecvT n p' t s) ∗ True)%I) in Hvs. 2:
+      eapply (holds_entails _ (∃ n t s, own_out (Chan c') (q', RecvT n (π p') t (relabelT π ∘ s)) ∗ True)%I) in Hvs. 2:
       {
         simpl. iIntros "[_ H]". rewrite Hi.
         rewrite rtyped0_ctx //.
@@ -701,12 +717,13 @@ Proof.
         remember (SumNT n (λ i : fin n, PairT (ChanT (r i)) (t' i))).
         inversion H; simplify_eq.
         iDestruct "H1" as (HH) "H". simplify_eq.
-        iExists _,_,_. iFrame.
+        iExists _,_,_. unfold own_ep. simpl.
+        rewrite -(session_type_id_id (relabelT π (RecvT n p' t' r))) /=. iFrame.
       }
       apply exists_holds in Hvs as [n Hvs].
       apply exists_holds in Hvs as [tt Hvs].
       apply exists_holds in Hvs as [ss Hvs].
-      assert (out_edges g (Thread i) !! Chan c' ≡ Some (q', RecvT n p' tt ss)) as Hoc'.
+      assert (out_edges g (Thread i) !! Chan c' ≡ Some (q', RecvT n (π p') tt (relabelT π ∘ ss))) as Hoc'.
       {
         eapply sep_holds in Hvs as (Σ1 & Σ2 & H1 & HD & [HH _]).
         rewrite H1.

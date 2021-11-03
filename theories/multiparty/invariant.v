@@ -1292,6 +1292,13 @@ Proof.
   rewrite gmap_slice_insert. smap.
 Qed.
 
+Lemma relabelT_id : ∀ σ, relabelT id σ ≡ σ.
+Proof.
+  cofix IH. intro.
+  apply session_type_equiv_alt.
+  destruct σ; simpl; constructor; try done; intro; apply IH.
+Qed.
+
 Lemma preservation (threads threads' : list expr) (chans chans' : heap) :
   step threads chans threads' chans' ->
   invariant threads chans ->
@@ -1324,18 +1331,20 @@ Proof.
       iExists _. iFrame.
       iIntros (x) "H". simpl in *.
       iDestruct "H" as (σs Hσs) "H".
-      iExists (p,r i').
+      iExists (p, relabelT π (r i')).
       rewrite list_lookup_insert; last by eapply lookup_lt_Some.
       iSplitL "H2".
       * iIntros "H1".
         iSplit; eauto.
         iApply "H2". simpl. eauto.
-      * iExists (<[ p := r i' ]> σs).
+      * iExists (<[ p := relabelT π (r i') ]> σs).
         iSplit.
         -- iPureIntro. eapply map_to_multiset_update. done.
         -- rewrite gmap_slice_push.
            eapply map_to_multiset_lookup in Hσs.
-           iApply bufs_typed_push; eauto with iFrame.
+           iApply (bufs_typed_push _ _ _ _ _ _ _ (relabelT π ∘ r)); eauto with iFrame.
+           rewrite Hσs. econstructor.
+           apply session_type_equiv_alt. done.
   - (* Receive *)
     eapply (inv_exchange (Thread i) (Chan c)); last done; try apply _.
     + intros v x []. iIntros "H".
@@ -1354,8 +1363,9 @@ Proof.
       eapply map_to_multiset_lookup in Hσs as Hp.
       apply gmap_slice_pop in H1.
       iDestruct (bufs_typed_pop with "H") as (i' ?) "[Hv H]"; eauto.
+      { rewrite Hp. econstructor. apply session_type_equiv_alt. simpl. done. }
       subst. rewrite list_lookup_insert; last by eapply lookup_lt_Some.
-      iExists (q, r i').
+      iExists (q, relabelT π (r i')).
       iSplitL "H2 Hv".
       * iIntros "H1".
         iSplit; eauto.
@@ -1369,7 +1379,7 @@ Proof.
         rewrite -H7. iFrame.
         inversion H6. simplify_eq.
         iExists _. iSplit; first done. unfold own_ep. simpl. rewrite H8 //.
-      * iExists (<[ q := r i' ]> σs). iFrame. iPureIntro.
+      * iExists (<[ q := relabelT π (r i') ]> σs). iFrame. iPureIntro.
         by eapply map_to_multiset_update.
   - (* Close *)
     eapply (inv_dealloc (Thread i) (Chan c)); last done; try apply _.
@@ -1393,7 +1403,9 @@ Proof.
         -- iPureIntro. by eapply map_to_multiset_delete.
         -- rewrite gmap_slice_delete. case_decide; simplify_eq.
            apply map_to_multiset_lookup in Hσs.
-           by iApply bufs_typed_dealloc.
+           iApply bufs_typed_dealloc; last done.
+           rewrite Hσs. constructor.
+           apply session_type_equiv_alt. simpl. done.
   - (* Fork *)
     eapply (inv_alloc_lrs (Thread i) (Chan c)
               n (λ i, Thread (length es + fin_to_nat i))); last done;
@@ -1449,7 +1461,8 @@ Proof.
         remember (ChanT (σs 0%fin)).
         inversion Hteq; simplify_eq.
         iExists _. iSplit; first done.
-        rewrite -H3 //.
+        rewrite -H3. unfold own_ep.
+        rewrite relabelT_id. done.
       }
       iSplitR.
       {
@@ -1474,6 +1487,7 @@ Proof.
       simpl.
       remember (ChanT (σs 0%fin)).
       inversion Hteq; simplify_eq.
+      unfold own_ep. setoid_rewrite relabelT_id.
       eauto with iFrame.
 Qed.
 

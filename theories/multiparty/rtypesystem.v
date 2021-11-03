@@ -91,6 +91,8 @@ Fixpoint rtyped (Γ : envT) (e : expr) (t : type) : rProp :=
       [∗ set] p ∈ all_fin n, rtyped (fΓ p) (f p) (FunT (ChanT (σs (FS p))) UnitT)
   | Close e =>
       ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped Γ e (ChanT EndT)
+  | Relabel π e =>
+      ∃ σ, ⌜⌜ t = ChanT σ ⌝⌝ ∗ rtyped Γ e (ChanT (relabelT π σ))
   end
 with val_typed (v : val) (t : type) : rProp :=
   match v with
@@ -101,7 +103,7 @@ with val_typed (v : val) (t : type) : rProp :=
   | InjNV i a => ∃ n f i', ⌜⌜ t = SumNT n f ∧ i = fin_to_nat i' ⌝⌝ ∗ val_typed a (f i')
   | FunV x e => ∃ t1 t2, ⌜⌜ t = FunT t1 t2 ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
   | UFunV x e => ∃ t1 t2, ⌜⌜ t = UFunT t1 t2 ⌝⌝ ∗ □ rtyped {[ x := t1 ]} e t2
-  | ChanV c => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own_ep c r
+  | ChanV c π => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own_ep c (relabelT π r)
   end.
 
 Instance unrestricted_proper : Proper ((≡) ==> iff) unrestricted.
@@ -143,6 +145,15 @@ Proof.
   intros ??????. split; eauto.
   symmetry in H0. symmetry in H1. eauto.
 Qed.
+
+Instance relabelT_proper π : Proper ((≡) ==> (≡)) (relabelT π).
+Proof.
+  cofix IH.
+  intros ???. apply session_type_equiv_alt.
+  destruct H; simpl; constructor; try done; intro; apply IH; done.
+Qed.
+
+Instance relabelT_params : Params relabelT 1 := {}.
 
 Lemma rtyped_proper_impl Γ1 Γ2 t1 t2 e :
   Γ1 ≡ Γ2 -> t1 ≡ t2 -> rtyped Γ1 e t1 ⊢ rtyped Γ2 e t2
@@ -327,6 +338,13 @@ Proof.
       inversion H2. subst.
       iSplit; first done.
       iApply rtyped_proper_impl; last done; eauto.
+    + iIntros "H".
+      iDestruct "H" as (σ ->) "H".
+      inversion H2; subst.
+      iExists _. iSplit; first done.
+      iApply rtyped_proper_impl; first done.
+      { constructor. rewrite -H0. done. }
+      done.
   - intros H1. destruct v; simpl.
     + iIntros "%". subst. inversion H1. done.
     + iIntros "%". subst. inversion H1. done.
@@ -532,6 +550,9 @@ Proof.
   - iDestruct "Ht" as "[_ Ht]".
     iDestruct ("IH" with "[%] Ht") as %?; eauto.
     by rewrite H.
+  - iDestruct "Ht" as (σ ->) "Ht".
+    iDestruct ("IH" with "[%] Ht") as %?; eauto.
+    by rewrite H.
 Qed.
 
 Lemma lookup_union_Some_S (Γ1 Γ2 : envT) x t :
@@ -607,7 +628,7 @@ Definition val_typed' (v : val) (t : type) : rProp :=
   | SumNT n f => ∃ i a, ⌜⌜ v = InjNV (fin_to_nat i) a ⌝⌝ ∗ val_typed a (f i)
   | FunT t1 t2 => ∃ x e, ⌜⌜ v = FunV x e ⌝⌝ ∗ rtyped {[ x := t1 ]} e t2
   | UFunT t1 t2 => ∃ x e, ⌜⌜ v = UFunV x e ⌝⌝ ∗ □ rtyped {[ x := t1 ]} e t2
-  | ChanT r => ∃ c, ⌜⌜ v = ChanV c ⌝⌝ ∗ own_ep c r
+  | ChanT r => ∃ c π, ⌜⌜ v = ChanV c π ⌝⌝ ∗ own_ep c (relabelT π r)
   end.
 
 Lemma val_typed_val_typed' v t :
@@ -1126,6 +1147,9 @@ Proof.
   - iDestruct "He" as "[% He]".
     iSplit; first done.
     iApply ("IH" with "[%] Hv He"). done.
+  - iDestruct "He" as (σ ->) "He".
+    iExists _. iSplit; first done.
+    iApply ("IH" with "[%] Hv He"). done.
 Qed.
 
 (* rtyped with empty environment *)
@@ -1152,6 +1176,7 @@ Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
   | If e1 e2 e3 => rtyped0 e1 NatT ∗ (rtyped0 e2 t ∧ rtyped0 e3 t)
   | Spawn n f => ∃ σs, ⌜⌜ t ≡ ChanT (σs 0%fin) ∧ consistent (S n) σs ⌝⌝ ∗ [∗ set] p ∈ all_fin n, rtyped0 (f p) (FunT (ChanT (σs (FS p))) UnitT)
   | Close e => ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped0 e (ChanT EndT)
+  | Relabel π e => ∃ σ, ⌜⌜ t = ChanT σ ⌝⌝ ∗ rtyped0 e (ChanT (relabelT π σ))
  end%I.
 Instance : Params (@rtyped0) 1 := {}.
 
@@ -1328,6 +1353,14 @@ Proof.
   iApply (subst_rtyped with "Hv Hr"). rewrite lookup_singleton //.
 Qed.
 
+Lemma relabelT_comp π1 π2 σ :
+  relabelT π1 (relabelT π2 σ) ≡ relabelT (π1 ∘ π2) σ.
+Proof.
+  revert σ. cofix IH. intro.
+  apply session_type_equiv_alt; destruct σ; simpl; constructor;
+  try done; intro; apply IH.
+Qed.
+
 Lemma pure_step_rtyped0 e e' t :
   pure_step e e' -> rtyped0 e t -∗ rtyped0 e' t.
 Proof.
@@ -1351,4 +1384,8 @@ Proof.
     iApply (subst_rtyped with "Hv1 [HH Hv2]"); simplify_eq.
     + rewrite delete_union delete_singleton right_id delete_singleton_ne // lookup_singleton //.
     + iApply (subst_rtyped with "Hv2 HH"). rewrite lookup_union lookup_singleton lookup_singleton_ne //.
+  - iDestruct "Ht" as %->.
+    iDestruct "Ht2" as (r Q) "H". simplify_eq.
+    iExists _. iSplit; first done.
+    unfold own_ep. rewrite relabelT_comp //.
 Qed.

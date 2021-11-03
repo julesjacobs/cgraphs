@@ -14,7 +14,7 @@ Inductive val :=
   | InjNV : nat -> val -> val
   | FunV : string -> expr -> val
   | UFunV : string -> expr -> val
-  | ChanV : endpoint -> val
+  | ChanV : endpoint -> (participant -> participant) -> val
 
 with expr :=
   | Val : val -> expr
@@ -36,7 +36,8 @@ with expr :=
   | MatchSumN n : expr -> (fin n -> expr) -> expr
   | If : expr -> expr -> expr -> expr
   | Spawn n : (fin n -> expr) -> expr
-  | Close : expr -> expr.
+  | Close : expr -> expr
+  | Relabel : (participant -> participant) -> expr -> expr.
 
 Canonical Structure valO := leibnizO val.
 Canonical Structure exprO := leibnizO expr.
@@ -210,6 +211,13 @@ Canonical Structure typeO := discreteO type.
 Notation session_type := (session_type' type).
 Notation session_typeO := (session_type'O typeO).
 
+CoFixpoint relabelT (π : participant -> participant) (σ : session_type) :=
+  match σ with
+  | SendT n p ts σs => SendT n (π p) ts (relabelT π ∘ σs)
+  | RecvT n p ts σs => RecvT n (π p) ts (relabelT π ∘ σs)
+  | EndT => EndT
+  end.
+
 Notation envT := (gmap string type).
 
 CoInductive unrestricted : type -> Prop :=
@@ -382,6 +390,9 @@ Inductive typed : envT -> expr -> type -> Prop :=
   | Close_typed : ∀ Γ e,
     typed Γ e (ChanT EndT) ->
     typed Γ (Close e) UnitT
+  | Relabel_typed : ∀ Γ π e σ,
+    typed Γ e (ChanT (relabelT π σ)) ->
+    typed Γ (Relabel π e) (ChanT σ)
   | Iso_typed : ∀ Γ t t' e,
     t ≡ t' -> (* The ≡-relation is unfolding of recursive types *)
     typed Γ e t ->
@@ -413,6 +424,7 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   | If e1 e2 e3 => If (subst x a e1) (subst x a e2) (subst x a e3)
   | Spawn ps f => Spawn ps (λ p, subst x a (f p))
   | Close e1 => Close (subst x a e1)
+  | Relabel π e1 => Relabel π (subst x a e1)
   end.
 
 Inductive pure_step : expr -> expr -> Prop :=
@@ -445,7 +457,9 @@ Inductive pure_step : expr -> expr -> Prop :=
   | LetUnit_step : ∀ e,
     pure_step (LetUnit (Val UnitV) e) e
   | LetProd_step : ∀ x1 x2 v1 v2 e,
-    pure_step (LetProd x1 x2 (Val (PairV v1 v2)) e) (subst x1 v1 $ subst x2 v2 e).
+    pure_step (LetProd x1 x2 (Val (PairV v1 v2)) e) (subst x1 v1 $ subst x2 v2 e)
+  | Relabel_step : ∀ π1 π2 c p,
+    pure_step (Relabel π1 (Val (ChanV (c,p) π2))) (Val (ChanV (c,p) (π2 ∘ π1))).
 
 Notation bufsT A B V := (gmap B (gmap A (list V))).
 Definition entryT := (nat * val)%type.
@@ -471,16 +485,16 @@ Definition init_chans {A} n : bufsT participant participant A :=
   fin_gmap n (λ i, fin_gmap n (λ j, [])).
 
 Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr :=
-  fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, S (fin_to_nat i))))).
+  fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, S (fin_to_nat i)) id))).
 
 Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
   | Pure_step : ∀ e e' h,
     pure_step e e' -> head_step e h e' h []
-  | Send_step : ∀ h c p q y i, (* p is us, q is the one we send to *)
+  | Send_step : ∀ h c p q y i π, (* p is us, q is the one we send to *)
                  (* send puts the value in the bufs of the other *)
                  (* since we are participant p, we put it in that buffer *)
-    head_step (Send q (Val (ChanV (c,p))) i (Val y)) h
-          (Val (ChanV (c,p))) (push p (c,q) (i,y) h) []
+    head_step (Send q (Val (ChanV (c,p) π)) i (Val y)) h
+          (Val (ChanV (c,p) π)) (push p (c,π q) (i,y) h) []
     (* head_step (Send q (Val (ChanV (c,p))) i (Val y)) h *)
           (* (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [(i,y)]) p) (c,q) h) [] *)
     (* We could instead to the following:
@@ -491,27 +505,27 @@ Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
     head_step (Send q (Val (ChanV (c,p))) (Val y)) h
           (Val (ChanV (c,p))) (<[ (c,q) := <[ p := buf ++ [y] ]> bufs ]> h) []
     *)
-  | Recv_step : ∀ h c p q i y h', (* p is us, q is the one we recv from *)
-    pop p (c,q) h = Some ((i,y), h') ->
+  | Recv_step : ∀ h c p q i y h' π, (* p is us, q is the one we recv from *)
+    pop (π p) (c,q) h = Some ((i,y), h') ->
     (*
     h !! (c,p) = Some bufs -> (* recv takes the value out of its own bufs *)
     bufs !! q = Some ((i,y)::buf) -> (* since the recv is from p, we take it out of that buffer *)
     *)
-    head_step (Recv p (Val (ChanV (c,q)))) h
-          (Val (InjNV i (PairV (ChanV (c,q)) y))) h' []
-  | Close_step : ∀ c p h,
+    head_step (Recv p (Val (ChanV (c,q) π))) h
+          (Val (InjNV i (PairV (ChanV (c,q) π) y))) h' []
+  | Close_step : ∀ c p h π,
     (* We can add these conditions: that would move some of the work from the
        preservation proof to the progress proof. *)
     (* h !! (c,p) = Some bufs -> *)
     (* (∀ q, bufs !! q = Some []) -> *)
-    head_step (Close (Val (ChanV (c,p)))) h
+    head_step (Close (Val (ChanV (c,p) π))) h
           (Val UnitV) (delete (c,p) h) []
   | Spawn_step : ∀ (h : heap) c n f fv,
     (∀ p, h !! (c,p) = None) ->
     (∀ p, f p = Val (fv p)) ->
     head_step
       (Spawn n f) h
-      (Val (ChanV (c, 0)))
+      (Val (ChanV (c, 0) id))
       (gmap_unslice (init_chans (S n)) c ∪ h)
       (init_threads c n fv).
 
@@ -536,7 +550,8 @@ Inductive ctx1 : (expr -> expr) -> Prop :=
   | Ctx_If e1 e2 : ctx1 (λ x, If x e1 e2)
   | Ctx_Spawn n (f : fin n -> expr) (p : fin n) :
     ctx1 (λ x, Spawn n (λ q, if decide (p = q) then x else f q))
-  | Ctx_Close : ctx1 (λ x, Close x).
+  | Ctx_Close : ctx1 (λ x, Close x)
+  | Ctx_Relabel π : ctx1 (λ x, Relabel π x).
 
 Inductive ctx : (expr -> expr) -> Prop :=
   | Ctx_nil : ctx (λ x, x)
