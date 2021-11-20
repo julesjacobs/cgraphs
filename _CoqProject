@@ -22,12 +22,12 @@ theories/cgraphs/seplogic.v
 theories/cgraphs/cgraph.v
 theories/cgraphs/genericinv.v
 
-# theories/sessiontypes/langdef.v
-# theories/sessiontypes/rtypesystem.v
-# theories/sessiontypes/invariant.v
-# theories/sessiontypes/progress.v
-# theories/sessiontypes/safety.v
-# theories/sessiontypes/ycombinator.v
+theories/sessiontypes/langdef.v
+theories/sessiontypes/rtypesystem.v
+theories/sessiontypes/invariant.v
+theories/sessiontypes/progress.v
+theories/sessiontypes/safety.v
+theories/sessiontypes/ycombinator.v
 
 theories/multiparty/mutil.v
 theories/multiparty/langdef.v

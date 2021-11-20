@@ -750,7 +750,7 @@ Proof.
       eauto using reachable.
   - intros. intros [].
     eapply set_choose_L in dl_nonempty0 as [x Hx].
-    assert (reachable es h x) as Q by eauto using strong_progress.
+    assert (reachable es h x) as Q by eauto.
     induction Q; naive_solver.
 Qed.
 

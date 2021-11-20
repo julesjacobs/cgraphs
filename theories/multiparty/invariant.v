@@ -17,7 +17,7 @@ Section pushpop.
     intros Hne Hpop.
     unfold pop,push in *.
     smap; destruct (bufs !! q'); smap;
-    destruct (g !! p'); smap;
+    destruct (g !! p'); smap; 
     destruct l; smap; destruct Hne; smap.
   Qed.
 

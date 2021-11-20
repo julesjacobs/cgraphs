@@ -273,6 +273,7 @@ Qed.
 Definition thread_waiting (es : list expr) (h : heap) (i c : nat) :=
   ∃ p q k π, ctx k ∧
     es !! i = Some (k (Recv p (Val (ChanV (c,q) π)))) ∧
+    is_Some (h !! (c,q)) ∧
     pop (π p) (c,q) h = None.
 
 Definition waiting es h (x y : object) (l : clabel) : Prop :=
@@ -647,7 +648,17 @@ Proof.
         eapply Recv_step; eauto.
       }
       assert (thread_waiting es h i c).
-      { unfold thread_waiting. eauto 10. }
+      { unfold thread_waiting.
+        assert (is_Some (h !! (c,q))); last eauto 10.
+        eapply prim_simple_adequacy; first exact Hc.
+        iIntros "H".
+        iDestruct (bufs_typed_recv with "H") as %QQ.
+        {
+          inversion Heq. simplify_eq.
+          eexists. eauto.
+        }
+        iPureIntro. rewrite gmap_slice_lookup in QQ.
+        done. }
       eapply Thread_waiting_reachable; eauto.
       eapply Hind_out. { unfold waiting; eauto. }
       eexists _,_; eauto.
@@ -706,7 +717,7 @@ Proof.
     eapply Hind_in; eauto.
     + intros (i & c' & -> & ? & Hw). simplify_eq.
       unfold thread_waiting in Hw.
-      destruct Hw as (p' & q' & k & π & Hctx & Hi & Hpop).
+      destruct Hw as (p' & q' & k & π & Hctx & Hi & Hpres & Hpop).
       specialize (Hvs (Thread i)).
       eapply (holds_entails _ (∃ n t s, own_out (Chan c') (q', RecvT n (π p') t (relabelT π ∘ s)) ∗ True)%I) in Hvs. 2:
       {
@@ -794,8 +805,8 @@ Proof.
 Qed.
 
 (*
-  A subset of the threads & channels is in a deadlock (/ memory leak) if:
-  - All of the threads in the subset are blocked on channels in the subset.
+  A subset of the threads & channels is in a partial deadlock (/ memory leak) if:
+  - All of the threads in the subset are blocked on one of the channels in the subset.
   - All of the endpoints of the channels in the subset are held by one of the threads or channels in the subset.
 *)
 Record deadlock (es : list expr) (h : heap) (s : gset object) := {
@@ -806,11 +817,68 @@ Record deadlock (es : list expr) (h : heap) (s : gset object) := {
   dl_chan c x : Chan c ∈ s -> Chan c ∈ obj_refs es h x -> x ∈ s
 }.
 
-Lemma deadlock_freedom es h s :
-  invariant es h -> ¬ deadlock es h s.
+Lemma activeset_exists es h :
+  ∃ s : gset object, ∀ x, active x es h -> x ∈ s.
 Proof.
-  intros Hinv [].
-  eapply set_choose_L in dl_nonempty0 as [x Hx].
-  assert (reachable es h x) as H by eauto using strong_progress.
-  induction H; naive_solver.
+  exists (list_to_set (Thread <$> seq 0 (length es)) ∪
+          set_map (Chan ∘ fst) (dom (gset endpoint) h)).
+  intros. rewrite elem_of_union.
+  rewrite elem_of_list_to_set elem_of_list_fmap elem_of_map.
+  setoid_rewrite elem_of_seq.
+  setoid_rewrite elem_of_dom. simpl.
+  unfold active in *.
+  destruct x;[left|right].
+  - destruct H as (?&?&?). eapply lookup_lt_Some in H. eauto with lia.
+  - destruct H as (?&?). eexists (_,_). eauto.
+Qed.
+
+Lemma obj_refs_active es h x y :
+  y ∈ obj_refs es h x -> active x es h.
+Proof.
+  destruct x; simpl.
+  - destruct (es !! n); simpl; last set_solver.
+    destruct (classic (e = Val UnitV)); eauto.
+    subst. simpl. set_solver.
+  - destruct (decide (gmap_slice h s = ∅)) as [->|]; first set_solver.
+    apply map_choose in n as (?&?&?).
+    rewrite gmap_slice_lookup in H. eauto.
+Qed.
+
+Lemma reachability_deadlock_freedom es h :
+  (∀ s, ¬ deadlock es h s) <-> (∀ x, active x es h -> reachable es h x).
+Proof.
+  split.
+  - intros. destruct (classic (reachable es h x)); eauto.
+    assert (∃ s : gset object, ∀ x, x ∈ s <-> active x es h ∧ ¬ reachable es h x) as [s Hs].
+    { edestruct activeset_exists. eapply subset_exists. naive_solver. }
+    exfalso. eapply (H s).
+    split; eauto.
+    + set_solver.
+    + naive_solver.
+    + intros ???. assert (¬ reachable es h (Thread i)) by naive_solver.
+      eauto using reachable.
+    + intros ????.
+      destruct (classic (Chan c ∈ s)); eauto. exfalso.
+      eapply Hs in H2 as [].
+      destruct (classic (reachable es h (Chan c))); eauto using reachable.
+      assert (active (Chan c) es h).
+      { destruct H3 as (?&?&?&?&?&?&?&?). eexists. eauto. }
+      naive_solver.
+    + intros. apply Hs in H2 as [].
+      rewrite Hs.
+      split. { by eapply obj_refs_active. }
+      intro. eapply H4.
+      eauto using reachable.
+  - intros. intros [].
+    eapply set_choose_L in dl_nonempty0 as [x Hx].
+    assert (reachable es h x) as Q by eauto.
+    induction Q; naive_solver.
+Qed.
+
+Lemma deadlock_freedom es h :
+  invariant es h -> ∀ s, ¬ deadlock es h s.
+Proof.
+  intros Hinv.
+  eapply reachability_deadlock_freedom.
+  eauto using strong_progress.
 Qed.
