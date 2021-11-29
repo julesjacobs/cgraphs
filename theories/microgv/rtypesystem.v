@@ -1,13 +1,14 @@
 From diris.microgv Require Export langdef.
 
-Inductive vertex := Thread (_:nat) | Barrier (_:nat).
+Inductive vertex := VThread (_:nat) | VBarrier (_:nat).
 Definition label : Type := type * type.
 
 (* ----------- *)
 (* Boilerplate *)
 
 (* Canonical Structure vertexO := leibnizO vertex. *)
-Definition labelO := leibnizO label.
+Canonical Structure typeO := leibnizO type.
+Canonical Structure labelO := prodO typeO typeO.
 
 Instance vertex_eqdecision : EqDecision vertex.
 Proof.
@@ -17,11 +18,11 @@ Qed.
 Instance vertex_countable : Countable vertex.
 Proof.
   refine (inj_countable' (λ l, match l with
-  | Thread n => inl n
-  | Barrier n => inr n
+  | VThread n => inl n
+  | VBarrier n => inr n
   end) (λ l, match l with
-  | inl n => Thread n
-  | inr n => Barrier n
+  | inl n => VThread n
+  | inr n => VBarrier n
   end) _); by intros [].
 Qed.
 
@@ -38,7 +39,7 @@ Definition linbox l (P : rProp) : rProp :=
 
 Fixpoint rtyped (Γ : env) e t : rProp :=
   match e with
-  | Val v => vtyped v t
+  | Val v => ⌜⌜ env_unr Γ ⌝⌝ ∗ vtyped v t
   | Var x => ∃ Γ', ⌜⌜ env_insert Γ x t Γ' ∧ env_unr Γ' ⌝⌝
   | Fun x e =>
       ∃ l t1 t2, ⌜⌜ t = FunT l t1 t2 ⌝⌝  ∗
@@ -84,7 +85,7 @@ with vtyped v t :=
       vtyped v (ts i')
   | BarrierV k =>
       ∃ t1 t2, ⌜⌜ t = FunT Lin t1 t2 ⌝⌝ ∗
-      own_out (Barrier k) ((t1,t2) : labelO)
+      own_out (VBarrier k) ((t1,t2) : labelO)
   end.
 
 Lemma typed_rtyped Γ e t :
@@ -129,7 +130,8 @@ Ltac simp :=
   (**i solve the goal using the user supplied tactic *)
   end.
 
-Ltac iDestr H := repeat iDestruct H as (?) H; try iDestruct H as %?.
+Ltac iDestr H := repeat (iDestruct "H" as %? || iDestruct H as (?) H).
+Ltac iSpl := repeat (iExists _ || iSplit || iIntros (?)).
 
 Lemma unrestricted_box v t :
   unr t -> vtyped v t -∗ □ vtyped v t.
@@ -148,11 +150,81 @@ Proof.
     iDestruct "H" as "#H". iModIntro. eauto.
 Qed.
 
-Lemma substitution Γ x v tV e t :
-  Γ !! x = Some tV ->
-  vtyped v tV ∗ rtyped Γ e t -∗
+Definition substR (Γ : env) x v := from_option (vtyped v) emp%I (Γ !! x).
+
+Lemma env_unr_substR Γ x v :
+  env_unr Γ -> substR Γ x v ⊢ □ substR Γ x v.
+Proof.
+Admitted.
+
+Lemma env_split_substR Γ Γ1 Γ2 x v :
+  env_split Γ Γ1 Γ2 -> substR Γ x v ⊢ substR Γ1 x v ∗ substR Γ2 x v.
+Proof.
+Admitted.
+
+Lemma env_unr_delete Γ x :
+  env_unr Γ -> env_unr (delete x Γ).
+Proof.
+Admitted.
+
+Lemma env_split_delete Γ Γ1 Γ2 x :
+  env_split Γ Γ1 Γ2 -> env_split (delete x Γ) (delete x Γ1) (delete x Γ2).
+Proof.
+Admitted.
+
+Lemma env_insert_delete x y t Γ Γ' :
+  x ≠ y ->
+  env_insert Γ x t Γ' ->
+  env_insert (delete y Γ) x t (delete y Γ').
+Proof.
+Admitted.
+
+Lemma env_insert_substR Γ Γ' x y v t :
+  env_insert Γ y t Γ' ->
+  substR Γ x v ⊣⊢ if decide (x = y) then vtyped v t else substR Γ' x v.
+Admitted.
+
+Lemma substitution Γ x v e t :
+  substR Γ x v ∗
+  rtyped Γ e t -∗
   rtyped (delete x Γ) (subst x v e) t.
 Proof.
+  iIntros "RH".
+  iInduction e as [] "IH" forall (Γ t); simpl;
+  iDestruct "RH" as "[R H]"; iDestr "H"; try iDestruct "H" as "[H Q]"; simp.
+  - rewrite env_unr_substR //. iSpl; eauto using env_unr_delete.
+  - rewrite env_insert_substR //. admit.
+  - iSpl. eauto using env_insert_delete, env_unr_delete.
+    + iPureIntro. split; eauto using env_insert_delete, env_unr_delete.
+      admit.
+    + case_decide; simp.
+      * admit.
+      * destruct l; simp.
+        { iApply "IH". iFrame. admit. }
+        { rewrite env_unr_substR; eauto.
+          iDestruct "R" as "#R". iDestruct "H" as "#H". iModIntro.
+          iApply "IH". iSplitL; eauto. admit. }
+  - rewrite env_split_substR //.
+    iDestruct "R" as "[R1 R2]".
+    iSpl; eauto using env_split_delete.
+    iSplitL "H R1"; (iApply "IH" || iApply "IH1"); eauto with iFrame.
+  - rewrite env_unr_substR //.
+    iDestruct "R" as "#R".
+    eauto using env_unr_delete.
+  - rewrite env_split_substR //.
+    iDestruct "R" as "[R1 R2]".
+    iSpl; eauto using env_split_delete.
+    iSplitL "H R1"; (iApply "IH" || iApply "IH1"); eauto with iFrame.
+  - rewrite env_split_substR //.
+    iDestruct "R" as "[R1 R2]".
+    iSpl; eauto using env_split_delete.
+    iSplitL "H R1"; (iApply "IH" || iApply "IH1"); eauto with iFrame.
+  - iSpl; eauto. iApply "IH". iFrame.
+  - rewrite env_split_substR //.
+    iDestruct "R" as "[R1 R2]".
+    iSpl; first iPureIntro; eauto using env_split_delete, env_unr_delete.
+    iSplitL "H R1"; iSpl; (iApply "IH" || iApply "IH1"); eauto with iFrame.
+  - iSpl; eauto. (iApply "IH" || iApply "IH1"); eauto with iFrame.
 Admitted.
 
 Fixpoint rtyped0 e t : rProp :=
@@ -227,10 +299,9 @@ Lemma substitution0 v t1 t2 x e :
 Proof.
   rewrite -rtyped_rtyped0.
   iIntros "[H Q]".
-  assert (∅ = (delete x {[ x := t1 ]} : env)) as ->.
-  { rewrite delete_singleton //. }
-  iApply substitution; last iFrame.
-  rewrite lookup_singleton //.
+  iDestruct (substitution _ x v e t2 with "[H Q]") as "H"; iFrame.
+  - rewrite /substR lookup_singleton //.
+  - rewrite delete_singleton //.
 Qed.
 
 Lemma pure_preservation e e' t :

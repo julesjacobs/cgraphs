@@ -94,6 +94,13 @@ Inductive typed : env -> expr -> type -> Prop :=
   | Fork_typed Γ e t1 t2 :
     typed Γ e (FunT Lin (FunT Lin t2 t1) UnitT) ->
     typed Γ (Fork e) (FunT Lin t1 t2).
+  (* fork(e) : ((τ₁ -> τ₂) -> 1) -> (τ₂ -> τ₁) *)
+  (* fork(e) : K[τ₁ -> τ₂] -> (τ₂ -> τ₁)
+
+       Γ,x:τ₁->τ₂ ⊢ e:1
+    ------------------------
+     Γ ⊢ fork(λx.e):τ₂->τ₁
+  *)
 
 
 (* Operational semantics *)
@@ -103,7 +110,7 @@ Definition subst (x:string) (a:val) := fix rec e :=
   match e with
   | Val _ => e
   | Var x' => if decide (x = x') then Val a else e
-  | Fun x' e => if decide (x = x') then e else Fun x' (rec e)
+  | Fun x' e => Fun x' (if decide (x = x') then e else rec e)
   | App e1 e2 => App (rec e1) (rec e2)
   | Unit => Unit
   | Pair e1 e2 => Pair (rec e1) (rec e2)
@@ -152,12 +159,12 @@ Inductive local_step : nat -> cfg -> cfg -> Prop :=
     local_step i {[ i := Thread (k e) ]} {[ i := Thread (k e') ]}
   | Exit_step i v :
     local_step i {[ i := Thread (Val v) ]} ∅
-  | Fork_step i j n k v : i ≠ j -> i ≠ n ->
+  | Fork_step i j n k v : i ≠ j -> i ≠ n -> j ≠ n -> ctx k ->
     local_step i {[ i := Thread (k (Fork (Val v))) ]}
                  {[ i := Thread (k (Val $ BarrierV n));
                     j := Thread (App (Val v) (Val $ BarrierV n));
                     n := Barrier ]}
-  | Sync_step i j n k1 k2 v1 v2 : i ≠ j ->
+  | Sync_step i j n k1 k2 v1 v2 : i ≠ j -> ctx k1 -> ctx k2 ->
     local_step n {[ i := Thread (k1 (App (Val $ BarrierV n) (Val v1)));
                     j := Thread (k2 (App (Val $ BarrierV n) (Val v2)));
                     n := Barrier ]}
@@ -168,7 +175,6 @@ Inductive step : nat -> cfg -> cfg -> Prop :=
   | Frame_step ρ ρ' ρf i :
     ρ ##ₘ ρf -> ρ' ##ₘ ρf ->
     local_step i ρ ρ' -> step i (ρ ∪ ρf) (ρ' ∪ ρf).
-
 
 (* Theorem statements *)
 (* ------------------ *)
@@ -250,10 +256,14 @@ Record deadlock (ρ : cfg) (s : nat -> Prop) := {
   dl_waiting i j : waiting ρ i j -> s i -> s j;
 }.
 
-Definition type_safety (ρ : cfg) := ∀ i, inactive ρ i ∨ can_step ρ i ∨ ∃ j, waiting ρ i j.
-Definition global_progress (ρ : cfg) := (∀ i, inactive ρ i) ∨ (∃ i, can_step ρ i).
-Definition fully_reachable (ρ : cfg) := ∀ i, inactive ρ i ∨ reachable ρ i.
-Definition deadlock_free (ρ : cfg) := ∀ s, deadlock ρ s -> ∀ i, s i -> inactive ρ i.
+Definition type_safety (ρ : cfg) :=
+  ∀ i, inactive ρ i ∨ can_step ρ i ∨ ∃ j, waiting ρ i j.
+Definition global_progress (ρ : cfg) :=
+  (∀ i, inactive ρ i) ∨ (∃ i, can_step ρ i).
+Definition fully_reachable (ρ : cfg) :=
+  ∀ i, inactive ρ i ∨ reachable ρ i.
+Definition deadlock_free (ρ : cfg) :=
+  ∀ s, deadlock ρ s -> ∀ i, s i -> inactive ρ i.
 
 Lemma fully_reachable_type_safety ρ :
   fully_reachable ρ -> type_safety ρ.
