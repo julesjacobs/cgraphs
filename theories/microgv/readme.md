@@ -17,3 +17,19 @@
 
 - Use substitution resource to avoid case splitting
 
+
+# TODO
+
+- Implement runtime type system
+- Prove lemmas about runtime type system:
+  + Substitution
+  + Replacement
+  + Pure preservation
+  + Pure progress
+- Define invariant
+- Prove preservation
+- Prove reachability
+- Encode session types
+  + Types
+  + Operations
+  + Admissibility of more efficient rules

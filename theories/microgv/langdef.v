@@ -1,37 +1,43 @@
 From diris.microgv Require Export langtools.
 
+(* Expressions and values *)
+(* ---------------------- *)
+
 Inductive expr :=
   | Val : val -> expr
   | Var : string -> expr
   | Fun : string -> expr -> expr
   | App : expr -> expr -> expr
-  | Prod n : (fin n -> expr) -> expr
-  | MatchProd : expr -> expr -> expr
+  | Unit : expr
+  | Pair : expr -> expr -> expr
+  | LetPair : expr -> expr -> expr
   | Sum : nat -> expr -> expr
   | MatchSum n : expr -> (fin n -> expr) -> expr
   | Fork : expr -> expr
 with val :=
   | FunV : string -> expr -> val
-  | ProdV n : (fin n -> val) -> val
+  | UnitV : val
+  | PairV : val -> val -> val
   | SumV : nat -> val -> val
   | BarrierV : nat -> val.
 
+
+(* Type system *)
+(* ----------- *)
 
 Inductive linearity := Lin | Unr.
 
 CoInductive type :=
   | FunT : linearity -> type -> type -> type
-  | ProdT n : (fin n -> type) -> type
+  | UnitT : type
+  | PairT : type -> type -> type
   | SumT n : (fin n -> type) -> type.
-
-Definition finvec0 {A} : fin 0 -> A. Proof. intros x. inv_fin x. Defined.
-Definition UnitT := ProdT 0 finvec0.
-Definition EmptyT := SumT 0 finvec0.
 
 CoInductive unr : type -> Prop :=
   | Fun_unr t1 t2 : unr (FunT Unr t1 t2)
-  | Prod_unr n ts : (∀ i, unr (ts i)) -> unr (ProdT n ts)
-  | SumT_unr n ts : (∀ i, unr (ts i)) -> unr (SumT n ts).
+  | Unit_unr : unr UnitT
+  | Pair_unr t1 t2 : unr t1 -> unr t2 -> unr (PairT t1 t2)
+  | Sum_unr n ts : (∀ i, unr (ts i)) -> unr (SumT n ts).
 
 (* We want to use generic tools here.
    Input: predicate that describes copyable and droppable types.
@@ -41,48 +47,57 @@ CoInductive unr : type -> Prop :=
    Then we can lift such a separation algebra to contexts.
    Can we incorporate subtyping too? *)
 Definition env := gmap string type.
-Definition env_split (Γ : env) (Γs : list env) : Prop. Admitted.
-Definition env_splitn n Γ Γs := env_split Γ (fin_list n Γs).
-Definition fin_fold {A} n (f : fin n -> A -> A) (z : A) : A. Admitted.
-Definition finvec_foldr {A B} n (f : B -> A -> A) (z : A) (v : fin n -> B) : A. Admitted.
-Definition finvec_foldl {A B} n (f : A -> B -> A) (z : A) (v : fin n -> B) : A. Admitted.
 
+Definition env_unr (Γ : env) : Prop. Admitted.
+(* Γ = Γ1 ∪ Γ2 *)
+Definition env_split (Γ : env) (Γ1 : env) (Γ2 : env) : Prop. Admitted.
+(* Γ = {[ x := t ]} ∪ Γ' *)
+Definition env_insert (Γ : env) (x : string) (t : type) (Γ' : env) : Prop. Admitted.
 
 Inductive typed : env -> expr -> type -> Prop :=
-  | Var_typed Γ x t :
-    env_split Γ [{[ x := t ]}] ->
+  | Var_typed Γ Γ' x t :
+    env_insert Γ x t Γ' ->
+    env_unr Γ' ->
     typed Γ (Var x) t
-  | Fun_typed Γ Γ1 x e t1 t2 l :
-    env_split Γ [Γ1; {[ x := t1 ]}] ->
-    (l = Unr -> env_split Γ1 []) ->
-    typed Γ e t2 ->
-    typed Γ1 (Fun x e) (FunT l t1 t2)
+  | Fun_typed Γ Γ' x e t1 t2 l :
+    env_insert Γ' x t1 Γ ->
+    (l = Unr -> env_unr Γ) ->
+    typed Γ' e t2 ->
+    typed Γ (Fun x e) (FunT l t1 t2)
   | App_typed Γ Γ1 Γ2 e1 e2 t1 t2 l :
-    env_split Γ [Γ1; Γ2] ->
+    env_split Γ Γ1 Γ2 ->
     typed Γ1 e1 (FunT l t1 t2) ->
     typed Γ2 e2 t1 ->
     typed Γ (App e1 e2) t2
-  | Prod_typed n Γ Γs es ts :
-    env_splitn n Γ Γs ->
-    (∀ i, typed (Γs i) (es i) (ts i)) ->
-    typed Γ (Prod n es) (ProdT n ts)
-  | MatchProd_typed Γ Γ1 Γ2 e1 e2 n ts t2 :
-    env_split Γ [Γ1; Γ2] ->
-    typed Γ1 e1 (ProdT n ts) ->
-    typed Γ2 e2 (finvec_foldr n (FunT Lin) t2 ts) ->
-    typed Γ (MatchProd e1 e2) t2
-  | Sum_typed Γ n f i e :
-    typed Γ e (f i) ->
-    typed Γ (Sum i e) (SumT n f)
-  | MatchSumN_typed n Γ Γ1 Γ2 t (f : fin n -> type) fc e :
-    env_split Γ [Γ1; Γ2] ->
-    (n = 0 -> env_split Γ2 []) ->
-    typed Γ1 e (SumT n f) ->
-    (∀ i, typed Γ2 (fc i) (FunT Lin (f i) t)) ->
-    typed Γ (MatchSum n e fc) t
+  | Unit_typed Γ :
+    env_unr Γ ->
+    typed Γ Unit UnitT
+  | Pair_typed Γ Γ1 Γ2 e1 e2 t1 t2 :
+    env_split Γ Γ1 Γ2 ->
+    typed Γ1 e1 t1 ->
+    typed Γ2 e2 t2 ->
+    typed Γ (Pair e1 e2) (PairT t1 t2)
+  | LetPair_typed Γ Γ1 Γ2 e1 e2 t1 t2 t :
+    env_split Γ Γ1 Γ2 ->
+    typed Γ1 e1 (PairT t1 t2) ->
+    typed Γ2 e2 (FunT Lin t1 (FunT Lin t2 t)) ->
+    typed Γ (LetPair e1 e2) t
+  | Sum_typed Γ n (ts : fin n -> type) i e :
+    typed Γ e (ts i) ->
+    typed Γ (Sum i e) (SumT n ts)
+  | MatchSumN_typed n Γ Γ1 Γ2 t (ts : fin n -> type) es e :
+    env_split Γ Γ1 Γ2 ->
+    (n = 0 -> env_unr Γ2) ->
+    typed Γ1 e (SumT n ts) ->
+    (∀ i, typed Γ2 (es i) (FunT Lin (ts i) t)) ->
+    typed Γ (MatchSum n e es) t
   | Fork_typed Γ e t1 t2 :
     typed Γ e (FunT Lin (FunT Lin t2 t1) UnitT) ->
     typed Γ (Fork e) (FunT Lin t1 t2).
+
+
+(* Operational semantics *)
+(* --------------------- *)
 
 Definition subst (x:string) (a:val) := fix rec e :=
   match e with
@@ -90,38 +105,36 @@ Definition subst (x:string) (a:val) := fix rec e :=
   | Var x' => if decide (x = x') then Val a else e
   | Fun x' e => if decide (x = x') then e else Fun x' (rec e)
   | App e1 e2 => App (rec e1) (rec e2)
-  | Prod n es => Prod n (rec ∘ es)
-  | MatchProd e1 e2 => MatchProd (rec e1) (rec e2)
+  | Unit => Unit
+  | Pair e1 e2 => Pair (rec e1) (rec e2)
+  | LetPair e1 e2 => LetPair (rec e1) (rec e2)
   | Sum n e => Sum n (rec e)
   | MatchSum n e1 e2 => MatchSum n (rec e1) (rec ∘ e2)
   | Fork e => Fork (rec e)
   end.
-
-  (* FunTL (ts 0) (FunTL (ts 1) (FunTL (ts 2) t2)) *)
-  (* App (App (App (vs 0) e) (vs 1)) (vs 2) *)
 
 Inductive pure_step : expr -> expr -> Prop :=
   | Fun_step x e :
     pure_step (Fun x e) (Val $ FunV x e)
   | App_step x e a :
     pure_step (App (Val $ FunV x e) (Val a)) (subst x a e)
-  | Prod_step n vs :
-    pure_step (Prod n (Val ∘ vs)) (Val $ ProdV n vs)
-  | MatchProd_step n vs e :
-    pure_step (MatchProd (Val (ProdV n vs)) e) (finvec_foldl n App e (Val ∘ vs))
+  | Unit_step :
+    pure_step Unit (Val $ UnitV)
+  | Pair_step v1 v2 :
+    pure_step (Pair (Val v1) (Val v2)) (Val $ PairV v1 v2)
+  | LetPair_step v1 v2 e:
+    pure_step (LetPair (Val $ PairV v1 v2) e) (App (App e (Val v1)) (Val v2))
   | Sum_step n v :
     pure_step (Sum n (Val v)) (Val $ SumV n v)
   | MatchSum_step n (i : fin n) v es :
     pure_step (MatchSum n (Val $ SumV i v) es) (App (es i) (Val v)).
 
-Definition modify {A} n i x (f : fin n -> A) :=
-  λ j, if decide (i = j) then x else f j.
-
 Inductive ctx1 : (expr -> expr) -> Prop :=
   | Ctx_App_l e : ctx1 (λ x, App x e)
   | Ctx_App_r e : ctx1 (λ x, App e x)
-  | Ctx_Prod n es i : ctx1 (λ x, Prod n (modify n i x es))
-  | Ctx_MatchProd e : ctx1 (λ x, MatchProd x e)
+  | Ctx_Pair_l e : ctx1 (λ x, Pair x e)
+  | Ctx_Pair_r e : ctx1 (λ x, Pair e x)
+  | Ctx_LetPair e : ctx1 (λ x, LetPair x e)
   | Ctx_Sum i : ctx1 (λ x, Sum i x)
   | Ctx_MatchSum n es : ctx1 (λ x, MatchSum n x es)
   | Ctx_Fork : ctx1 (λ x, Fork x).
@@ -156,6 +169,10 @@ Inductive step : nat -> cfg -> cfg -> Prop :=
     ρ ##ₘ ρf -> ρ' ##ₘ ρf ->
     local_step i ρ ρ' -> step i (ρ ∪ ρf) (ρ' ∪ ρf).
 
+
+(* Theorem statements *)
+(* ------------------ *)
+
 (*
   We have freedom in defining the waiting and can_step predicates.
   One option:
@@ -171,8 +188,9 @@ Fixpoint expr_refs e :=
   | Var x => ∅
   | Fun x e => expr_refs e
   | App e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | Prod n es => fin_union n (expr_refs ∘ es)
-  | MatchProd e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | Unit => ∅
+  | Pair e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | LetPair e1 e2 => expr_refs e1 ∪ expr_refs e2
   | Sum i e => expr_refs e
   | MatchSum n e es => expr_refs e ∪ fin_union n (expr_refs ∘ es)
   | Fork e => expr_refs e
@@ -180,7 +198,8 @@ Fixpoint expr_refs e :=
 with val_refs v :=
   match v with
   | FunV x e => expr_refs e
-  | ProdV n vs => fin_union n (val_refs ∘ vs)
+  | UnitV => ∅
+  | PairV v1 v2 => val_refs v1 ∪ val_refs v2
   | SumV i v => val_refs v
   | BarrierV i => {[ i ]}
   end.
@@ -203,6 +222,24 @@ Inductive reachable (ρ : cfg) : nat -> Prop :=
       can_step ρ i -> reachable ρ i
   | Waiting_reachable i j:
       waiting ρ i j -> reachable ρ j -> reachable ρ i.
+
+(* Inductive strongly_reachable (ρ : cfg) : nat -> Prop :=
+  | Strongly_reachable i :
+      (can_step ρ i ∨ ∃ j, waiting ρ i j) ->
+      (∀ j, waiting ρ i j -> strongly_reachable ρ j) ->
+      strongly_reachable ρ i. *)
+
+(* wf (waiting ρ) ∧ type_safety ρ *)
+(* Barrier can wait for two objects at the same time.
+   Thread can also do that, but it means something different.
+   For a barrier, it means that its needs both to do something in order to step.
+   For a thread, it means that it needs any one of those in order to step.
+   (Or maybe a thread can even step when it is still waiting!)
+   For a thread, should we say for all contexts?
+   Or say minimum?
+   What about reachability? Even for a thread, we can still say that everything
+   it's waiting for is already reachable, right?
+   So maybe it does not matter? *)
 
 (* Give coinductive characterization of not reachable:
    Not reachable if can't step, and all the things it's waiting for are not reachable either. *)
