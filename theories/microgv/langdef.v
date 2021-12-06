@@ -164,7 +164,7 @@ Inductive local_step : nat -> cfg -> cfg -> Prop :=
                  {[ i := Thread (k (Val $ BarrierV n));
                     j := Thread (App (Val v) (Val $ BarrierV n));
                     n := Barrier ]}
-  | Sync_step i j n k1 k2 v1 v2 : i ≠ j -> ctx k1 -> ctx k2 ->
+  | Sync_step i j n k1 k2 v1 v2 : i ≠ j -> i ≠ n -> j ≠ n -> ctx k1 -> ctx k2 ->
     local_step n {[ i := Thread (k1 (App (Val $ BarrierV n) (Val v1)));
                     j := Thread (k2 (App (Val $ BarrierV n) (Val v2)));
                     n := Barrier ]}

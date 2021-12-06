@@ -17,18 +17,15 @@
 
 - Use substitution resource to avoid case splitting
 
-
 # TODO
 
-- Implement runtime type system
-- Prove lemmas about runtime type system:
-  + Substitution
-  + Replacement
-  + Pure preservation
-  + Pure progress
-- Define invariant
+- Generalize env_*** notions to generalize over different type systems (co-contextual, normal, no shadowing, etc.)
 - Prove preservation
+  + Add generic lemma for delete
+  + Prove sync case
 - Prove reachability
+  + Define the reachability predicate
+  + Think about partial partial deadlock freedom
 - Encode session types
   + Types
   + Operations

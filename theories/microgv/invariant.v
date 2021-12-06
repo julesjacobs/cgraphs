@@ -15,6 +15,9 @@ Definition linv (ρ : cfg) (v : vertex) (in_l : multiset label) : rProp :=
       end ⌝⌝
   end%I.
 
+Instance lin_Proper ρ v : Proper ((≡) ==> (≡)) (linv ρ v).
+Proof. solve_proper. Qed.
+
 Definition ginv ρ := inv (linv ρ).
 
 Lemma lookup_union_spec `{Countable K} {V} (m1 m2 : gmap K V) (x : K) :
@@ -47,7 +50,8 @@ Proof.
     iIntros ([n|n] x) "H"; smap; iDestr "H";
     assert (ρf !! n = None) as -> by solve_map_disjoint; eauto.
     destruct v; simpl; iDestr "H"; simp. done.
-  - eapply (inv_alloc_lr (VThread i0) (VBarrier n) (VThread j)); last done; first admit; first admit.
+  - eapply (inv_alloc_lr (VThread i0) (VBarrier n) (VThread j));
+    last done; first apply _; first apply _.
     + naive_solver.
     + iIntros (? ? ?) "H". simp.
       destruct v0; simpl; smap;
@@ -63,9 +67,8 @@ Proof.
       iExists (t1,t2), (t2,t1).
       iSplitL "Q".
       * smap. iIntros "H". iSplit; first done.
-        iApply "Q". simpl. iSpl; eauto.
+        iApply "Q". simpl. eauto.
       * smap. iSplit; eauto.
-        iIntros "Q". iSplit; eauto.
-        iSpl. iFrame. iSpl; eauto.
+        iIntros "Q". iSplit; eauto 10 with iFrame.
   - admit.
 Admitted.
