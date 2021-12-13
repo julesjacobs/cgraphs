@@ -95,11 +95,29 @@ Inductive typed : env -> expr -> type -> Prop :=
     typed Γ e (FunT Lin (FunT Lin t2 t1) UnitT) ->
     typed Γ (Fork e) (FunT Lin t1 t2).
   (* fork(e) : ((τ₁ -> τ₂) -> 1) -> (τ₂ -> τ₁) *)
-  (* fork(e) : K[τ₁ -> τ₂] -> (τ₂ -> τ₁)
+  (* fork(e) : K[τ₁ -> τ₂] -> (τ₂ -> τ₁)      where K[t] = t -> 1
 
        Γ,x:τ₁->τ₂ ⊢ e:1
     ------------------------
      Γ ⊢ fork(λx.e):τ₂->τ₁
+
+    let g = fork(λf, ... f 3 ...) in
+    ... g "hello" ...
+
+    ?t = 1 -> t
+    !t = t -> 1
+
+    t = t -> t | t + t | t x t | ...
+    r = End | !t.r | ?t.r | r & r | r (+) r
+
+    [?t.r] = ?(t x [r])
+    [!t.r] = !(t x [r'])
+    [End] = 1
+
+    [r1 & r2] = ?([r1] + [r2])
+    [r1 (+) r2] = !([r1] + [r2])
+
+
   *)
 
 
