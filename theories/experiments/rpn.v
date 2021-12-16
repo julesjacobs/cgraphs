@@ -12,14 +12,14 @@ Fixpoint eval v e :=
 
 Inductive op := VarR (n : nat) | LitR (n : nat) | OpR (f : nat -> nat -> nat).
 
-Definition o_eval v (s : option (list nat)) (o : op) :=
+Definition rpn_eval1 v (s : option (list nat)) (o : op) :=
   match o,s with
   | VarR n,Some s => Some (v n::s)
   | LitR n,Some s => Some (n::s)
   | OpR f, Some (n::m::s) => Some (f m n::s)
   | _,_ => None
   end.
-Definition rpn_eval v s := foldl (o_eval v) (Some s).
+Definition rpn_eval v s := foldl (rpn_eval1 v) (Some s).
 
 Fixpoint to_rpn (e : exp) :=
   match e with
