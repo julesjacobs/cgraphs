@@ -10,12 +10,12 @@ Definition label : Type := type * type.
 Canonical Structure typeO := leibnizO type.
 Canonical Structure labelO := prodO typeO typeO.
 
-Instance vertex_eqdecision : EqDecision vertex.
+Global Instance vertex_eqdecision : EqDecision vertex.
 Proof.
   intros [n|n] [m|m]; unfold Decision; destruct (decide (n = m));
   subst; eauto; right; intro; simplify_eq.
 Qed.
-Instance vertex_countable : Countable vertex.
+Global Instance vertex_countable : Countable vertex.
 Proof.
   refine (inj_countable' (λ l, match l with
   | VThread n => inl n

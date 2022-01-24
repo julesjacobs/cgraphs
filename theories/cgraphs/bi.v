@@ -53,7 +53,7 @@ Proof.
   - exact: persistently_mono.
   - exact: persistently_idemp_2.
   - exact: persistently_emp_2.
-  - exact: @persistently_forall_2.
+  - exact: persistently_and_2.
   - exact: @persistently_exist_1.
   - exact: persistently_absorbing.
   - exact: persistently_and_sep_elim.

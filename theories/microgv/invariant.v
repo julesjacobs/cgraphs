@@ -15,7 +15,7 @@ Definition linv (ρ : cfg) (v : vertex) (in_l : multiset label) : rProp :=
       end ⌝⌝
   end%I.
 
-Instance lin_Proper ρ v : Proper ((≡) ==> (≡)) (linv ρ v).
+Global Instance lin_Proper ρ v : Proper ((≡) ==> (≡)) (linv ρ v).
 Proof. solve_proper. Qed.
 
 Definition ginv ρ := inv (linv ρ).

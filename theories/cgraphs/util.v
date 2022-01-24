@@ -115,8 +115,8 @@ Qed.
 
 Lemma lookup_app_plus {A} (l1 l2 : list A) (i : nat) :
   (l1 ++ l2) !! (length l1 + i) = l2 !! i.
+Proof.
   by induction l1.
-  Proof.
 Qed.
 
 Lemma pigeon `{Countable A} (s : gset A) (xs : list A) :
@@ -137,10 +137,10 @@ Proof.
     assert (∀ i x, xs !! i = Some x -> x ∈ s).
     { intros i x' Hi. specialize (Hxs (S i)). naive_solver.  }
     destruct (IH (s ∖ {[x]})) as (i & j & a & ?).
-    * intros i x' Hi.
-      apply elem_of_difference. split;[naive_solver|].
+    { intros. apply elem_of_difference.
+      split;[naive_solver|].
       apply not_elem_of_singleton_2. apply not_symmetry.
-      apply H2. eapply elem_of_list_lookup_2. done.
+      apply H2. eapply elem_of_list_lookup_2. done. }
     * assert (size s = 1 + size (s ∖ {[x]})); try lia.
       replace 1 with (size ((singleton x) : gset A)); try apply size_singleton.
       replace (size s) with (size ({[x]} ∪ s)); try apply size_union_alt.
@@ -873,7 +873,8 @@ Proof.
     rewrite !elem_of_big_union.
     set_solver.
   - unfold big_union.
-    assert (a ∪ set_fold union ∅ b = set_fold union (set_fold union ∅ b) ({[ a ]} : gset (gset A))) as ->.
+    assert (a ∪ set_fold union ∅ b =
+        set_fold union (set_fold union ∅ b) ({[ a ]} : gset (gset A))) as ->.
     { rewrite set_fold_singleton //. }
     rewrite -set_fold_disj_union; last set_solver.
     rewrite comm_L //.
@@ -883,7 +884,7 @@ Lemma big_union_union `{Countable A} (a b : gset (gset A)) :
   big_union (a ∪ b) = big_union a ∪ big_union b.
 Proof.
   revert b. induction a using set_ind_L; intros.
-  - rewrite !left_id_L //.
+  - rewrite big_union_empty !left_id_L //.
   - rewrite -assoc_L !big_union_singleton_union IHa assoc_L //.
 Qed.
 

@@ -9,8 +9,8 @@ Record uPred (M : ucmra) : Type := UPred {
 Bind Scope bi_scope with uPred.
 Arguments uPred_holds {_} _%I _ : simpl never.
 Add Printing Constructor uPred.
-Instance: Params (@uPred_holds) 2 := {}.
-Existing Instance uPred_proper.
+Global Instance: Params (@uPred_holds) 2 := {}.
+Global Existing Instance uPred_proper.
 
 Section ofe.
   Context {M : ucmra}.
@@ -411,6 +411,10 @@ Proof. unseal; split=> x ?? //. Qed.
 
 Lemma persistently_emp_2 : emp ⊢ <pers> emp.
 Proof. unseal; by split => n x ? /=. Qed.
+
+Lemma persistently_and_2 (P Q : uPred M) : (<pers> P ∧ <pers> Q) ⊢ (<pers> (P ∧ Q)).
+Proof. by unseal. Qed.
+
 
 Lemma persistently_forall_2 {A} (Ψ : A → uPred M) : (∀ a, <pers> Ψ a) ⊢ (<pers> ∀ a, Ψ a).
 Proof. by unseal. Qed.

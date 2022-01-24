@@ -3,7 +3,7 @@ From iris.algebra Require Import excl gmap.
 Definition map_Excl `{Countable K} {V} (m : gmap K V) : gmap K (excl V) :=
   Excl <$> m.
 
-Instance : Params (@map_Excl) 4 := {}.
+Global Instance : Params (@map_Excl) 4 := {}.
 
 Section map_Excl.
   Context `{Countable K} {V : ofe}.

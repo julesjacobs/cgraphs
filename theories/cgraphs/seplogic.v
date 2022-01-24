@@ -14,16 +14,16 @@ Notation hPropI V L := (uPredI (heapT_UR V L)).
 Definition own `{Countable V} {L:ofe} (Σ : gmap V L) : hProp V L :=
   uPred_ownM (map_Excl Σ).
 
-Instance : Params (@own) 4 := {}.
+Global Instance : Params (@own) 4 := {}.
 
 Definition own_out `{Countable V} {L:ofe} (v : V) (l : L) := own {[ v := l ]}.
 
-Instance : Params (@own) 5 := {}.
+Global Instance : Params (@own) 5 := {}.
 
 Definition holds `{Countable V} {L:ofe} (P : hProp V L) (Σ : gmap V L) :=
   uPred_holds P (map_Excl Σ).
 
-Instance : Params (@holds) 4 := {}.
+Global Instance : Params (@holds) 4 := {}.
 
 Section seplogic.
   Context `{Countable V}.

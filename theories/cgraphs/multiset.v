@@ -316,7 +316,7 @@ Lemma list_to_multiset_cons {A:ofe} (l : list A) (x : A) :
   list_to_multiset (x :: l) ≡ {[ x ]} ⋅ list_to_multiset l.
 Proof. done. Qed.
 
-Instance list_to_multiset_proper {A:ofe} : Proper ((≡ₚ) ==> (≡)) (list_to_multiset (A:=A)).
+Global Instance list_to_multiset_proper {A:ofe} : Proper ((≡ₚ) ==> (≡)) (list_to_multiset (A:=A)).
 Proof.
   intros ???.
   induction H; eauto.
@@ -457,5 +457,5 @@ Section map_to_multiset.
   Qed.
 End map_to_multiset.
 
-Instance multiset_fmap : FMap multiset :=
+Global Instance multiset_fmap : FMap multiset :=
   λ A B f m, list_to_multiset (f <$> multiset_car m).
