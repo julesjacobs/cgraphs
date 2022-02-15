@@ -50,8 +50,8 @@ CoInductive session_type' (T : Type) :=
 Arguments SendT {_} _ _ _.
 Arguments RecvT {_} _ _ _.
 Arguments EndT {_}.
-Instance sendt_params : Params (@SendT) 1 := {}.
-Instance recvt_params : Params (@RecvT) 1 := {}.
+Global Instance sendt_params : Params (@SendT) 1 := {}.
+Global Instance recvt_params : Params (@RecvT) 1 := {}.
 
 Global Instance finvec_equiv `{Equiv T} n : Equiv (fin n -> T) := λ f g, ∀ i, f i ≡ g i.
 
@@ -83,7 +83,7 @@ CoInductive session_type_equiv `{Equiv T} : Equiv (session_type' T) :=
   | cteq_EndT : EndT ≡ EndT
   | cteq_SendT n t1 t2 f1 f2 p : t1 ≡ t2 -> f1 ≡ f2 -> SendT n p t1 f1 ≡ SendT n p t2 f2
   | cteq_RecvT n t1 t2 f1 f2 p : t1 ≡ t2 -> f1 ≡ f2 -> RecvT n p t1 f1 ≡ RecvT n p t2 f2.
-Existing Instance session_type_equiv.
+Global Existing Instance session_type_equiv.
 
 Lemma session_type_reflexive `{Equiv T} :
   Reflexive (≡@{T}) -> Reflexive (≡@{session_type' T}).
@@ -193,7 +193,7 @@ CoInductive type_equiv : Equiv type :=
   | teq_FunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> FunT t1 t1' ≡ FunT t2 t2'
   | teq_UFunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> UFunT t1 t1' ≡ UFunT t2 t2'
   | teq_ChanT s1 s2 : s1 ≡ s2 -> ChanT s1 ≡ ChanT s2.
-Existing Instance type_equiv.
+Global Existing Instance type_equiv.
 
 Global Instance type_equivalence : Equivalence (≡@{type}).
 Proof.
@@ -287,7 +287,7 @@ Proof.
   intros H []. split; eauto; setoid_rewrite <-H; eauto.
 Qed.
 
-Instance disj_union_Proper n : Proper ((≡) ==> (=) ==> (≡)) (disj_union n).
+Global Instance disj_union_Proper n : Proper ((≡) ==> (=) ==> (≡)) (disj_union n).
 Proof.
   intros ??????.
   split; subst; eauto using disj_union_Proper_impl.

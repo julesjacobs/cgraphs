@@ -1,6 +1,6 @@
 From diris.microgv Require Export langdef.
 
-Inductive vertex := VThread (_:nat) | VBarrier (_:nat).
+Notation vertex := nat.
 Definition label : Type := type * type.
 
 (* ----------- *)
@@ -9,7 +9,7 @@ Definition label : Type := type * type.
 (* Canonical Structure vertexO := leibnizO vertex. *)
 Canonical Structure typeO := leibnizO type.
 Canonical Structure labelO := prodO typeO typeO.
-
+(*
 Global Instance vertex_eqdecision : EqDecision vertex.
 Proof.
   intros [n|n] [m|m]; unfold Decision; destruct (decide (n = m));
@@ -24,7 +24,7 @@ Proof.
   | inl n => VThread n
   | inr n => VBarrier n
   end) _); by intros [].
-Qed.
+Qed. *)
 
 (* End boilerplate *)
 (* --------------- *)
@@ -40,10 +40,10 @@ Definition linbox l (P : rProp) : rProp :=
 Fixpoint rtyped (Γ : env) e t : rProp :=
   match e with
   | Val v => ⌜⌜ env_unr Γ ⌝⌝ ∗ vtyped v t
-  | Var x => ∃ Γ', ⌜⌜ env_insert Γ x t Γ' ∧ env_unr Γ' ⌝⌝
+  | Var x => ⌜⌜ env_var Γ x t ⌝⌝
   | Fun x e =>
       ∃ l t1 t2, ⌜⌜ t = FunT l t1 t2 ⌝⌝  ∗
-      ∃ Γ', ⌜⌜ env_insert Γ' x t1 Γ ∧ (l = Unr -> env_unr Γ) ⌝⌝ ∗
+      ∃ Γ', ⌜⌜ env_bind Γ' x t1 Γ ∧ (l = Unr -> env_unr Γ) ⌝⌝ ∗
       linbox l (rtyped Γ' e t2)
   | App e1 e2 =>
       ∃ Γ1 Γ2, ⌜⌜ env_split Γ Γ1 Γ2 ⌝⌝ ∗
@@ -85,7 +85,7 @@ with vtyped v t :=
       vtyped v (ts i')
   | BarrierV k =>
       ∃ t1 t2, ⌜⌜ t = FunT Lin t1 t2 ⌝⌝ ∗
-      own_out (VBarrier k) ((t1,t2) : labelO)
+      own_out k ((t1,t2) : labelO)
   end.
 
 Lemma typed_rtyped Γ e t :
@@ -93,8 +93,9 @@ Lemma typed_rtyped Γ e t :
 Proof.
   iIntros (H).
   iInduction e as [] "IH" forall (t Γ H);
-  inv H; simpl; eauto; repeat (iExists _ || iSplitL ""); eauto;
-  try (destruct l; iModIntro); repeat iIntros (?);
+  inv H; simpl; eauto; repeat iExists _; iSplitL; eauto;
+  repeat iExists _; try iSplitL; eauto; try iSplitL;
+  try destruct l; repeat iIntros (?);
   try iApply ("IH" with "[%]") || iApply ("IH1" with "[%]"); eauto.
 Qed.
 
@@ -150,39 +151,138 @@ Proof.
     iDestruct "H" as "#H". iModIntro. eauto.
 Qed.
 
+
 Definition substR (Γ : env) x v := from_option (vtyped v) emp%I (Γ !! x).
 
+Ltac sdec := repeat case_decide; simplify_eq; simpl in *; eauto; try done.
+Ltac smap := repeat (rewrite lookup_alter_spec || rewrite lookup_union || rewrite lookup_insert_spec || rewrite lookup_delete_spec || sdec).
+
 Lemma env_unr_substR Γ x v :
-  env_unr Γ -> substR Γ x v ⊢ □ substR Γ x v.
+  env_unr Γ -> substR Γ x v ⊢ emp.
 Proof.
-Admitted.
+  rewrite /env_unr /substR.
+  destruct (Γ !! x) eqn:E; simp.
+  rewrite unrestricted_box; eauto.
+Qed.
 
 Lemma env_split_substR Γ Γ1 Γ2 x v :
   env_split Γ Γ1 Γ2 -> substR Γ x v ⊢ substR Γ1 x v ∗ substR Γ2 x v.
 Proof.
-Admitted.
+  rewrite /env_split /substR. simp.
+  rewrite lookup_union.
+  destruct (Γ1 !! x) eqn:E;
+  destruct (Γ2 !! x) eqn:F; rewrite ?E ?F; simpl; eauto.
+  edestruct (H1 x); eauto. simp.
+  iIntros "H".
+  iDestruct (unrestricted_box with "H") as "H"; eauto.
+  iDestruct "H" as "#H". iSplitL; eauto.
+Qed.
+
+Lemma env_var_substR Γ x y v t :
+  env_var Γ y t ->
+  substR Γ x v ⊢ if decide (x = y) then vtyped v t else emp.
+Proof.
+  rewrite /env_var /substR. simp. smap.
+  destruct (_!!_) eqn:E; simp.
+  rewrite unrestricted_box; eauto.
+Qed.
+
+Lemma env_bind_substR Γ Γ' l x y v t :
+  (l = Unr -> env_unr Γ) -> env_bind Γ' y t Γ ->
+  substR Γ x v ⊢ if decide (x = y) then emp else linbox l (substR Γ' x v).
+Proof.
+  rewrite /env_bind /substR. simp. smap.
+  - destruct (Γ !! y) eqn:E; simpl; eauto.
+    rewrite unrestricted_box; eauto.
+  - destruct (Γ !! x) eqn:E; rewrite ?E; destruct l; eauto; simpl.
+    rewrite {1}unrestricted_box; eauto.
+    eapply H; eauto.
+Qed.
+
 
 Lemma env_unr_delete Γ x :
   env_unr Γ -> env_unr (delete x Γ).
 Proof.
-Admitted.
+  rewrite /env_unr. intros ???. smap.
+Qed.
 
 Lemma env_split_delete Γ Γ1 Γ2 x :
   env_split Γ Γ1 Γ2 -> env_split (delete x Γ) (delete x Γ1) (delete x Γ2).
 Proof.
-Admitted.
+  rewrite /env_split /disj. simp.
+  split; [apply delete_union|].
+  intros ???. smap.
+Qed.
 
-Lemma env_insert_delete x y t Γ Γ' :
-  x ≠ y ->
-  env_insert Γ x t Γ' ->
-  env_insert (delete y Γ) x t (delete y Γ').
+Lemma env_var_delete y x Γ t :
+  env_var Γ x t -> if decide (y = x) then env_unr (delete y Γ) else env_var (delete y Γ) x t.
 Proof.
-Admitted.
+  rewrite /env_var /env_unr. simp. smap.
+  - simp. revert H. smap.
+  - exists (delete y H0). split.
+    + apply map_eq. intro. smap.
+    + intros ??. smap.
+Qed.
 
-Lemma env_insert_substR Γ Γ' x y v t :
-  env_insert Γ y t Γ' ->
-  substR Γ x v ⊣⊢ if decide (x = y) then vtyped v t else substR Γ' x v.
-Admitted.
+Lemma env_bind_delete x y t Γ Γ' :
+  env_bind Γ' x t Γ ->
+  env_bind (if decide (y = x) then Γ' else delete y Γ') x t (delete y Γ).
+Proof.
+  rewrite /env_bind. simp.
+  split.
+  - apply map_eq. intro. smap.
+  - intro. smap.
+Qed.
+
+
+Lemma env_unr_empty :
+  env_unr ∅.
+Proof.
+  rewrite /env_unr. intros ??. smap.
+Qed.
+
+Lemma env_split_empty Γ1 Γ2 :
+  env_split ∅ Γ1 Γ2 <-> Γ1 = ∅ ∧ Γ2 = ∅.
+Proof.
+  rewrite /env_split.
+  split. simp.
+  - symmetry in H0.
+    pose proof (map_positive_l _ _ H0). subst.
+    rewrite left_id in H0. subst. eauto.
+  - simp. rewrite left_id. split; eauto.
+    rewrite /disj. intros ??. smap.
+Qed.
+
+Lemma env_var_empty x t :
+  env_var ∅ x t <-> False.
+Proof.
+  rewrite /env_var. split; simp.
+  rewrite map_eq_iff in H. specialize (H x). revert H. smap.
+Qed.
+
+Lemma env_bind_empty Γ x t1 :
+  env_bind Γ x t1 ∅ <-> Γ = {[ x := t1 ]}.
+Proof.
+  rewrite /env_bind. repeat split; simp.
+Qed.
+
+
+Lemma linbox_mono P Q l :
+  □ (P -∗ Q) -∗ linbox l P -∗ linbox l Q.
+Proof.
+  iIntros "#H P".
+  destruct l; simpl; [|iDestruct "P" as "#P"; iModIntro];
+  iApply "H"; done.
+Qed.
+
+Lemma linbox_sep P Q l :
+  linbox l P ∗ linbox l Q ⊢ linbox l (P ∗ Q).
+Proof.
+  destruct l; simpl; eauto.
+  iIntros "[#H #R]". iModIntro.
+  iSplitL; eauto.
+Qed.
+
 
 Lemma substitution Γ x v e t :
   substR Γ x v ∗
@@ -193,39 +293,32 @@ Proof.
   iInduction e as [] "IH" forall (Γ t); simpl;
   iDestruct "RH" as "[R H]"; iDestr "H"; try iDestruct "H" as "[H Q]"; simp.
   - rewrite env_unr_substR //. iSpl; eauto using env_unr_delete.
-  - rewrite env_insert_substR //. admit.
-  - iSpl. eauto using env_insert_delete, env_unr_delete.
-    + iPureIntro. split; eauto using env_insert_delete, env_unr_delete.
-      admit.
-    + case_decide; simp.
-      * admit.
-      * destruct l; simp.
-        { iApply "IH". iFrame. admit. }
-        { rewrite env_unr_substR; eauto.
-          iDestruct "R" as "#R". iDestruct "H" as "#H". iModIntro.
-          iApply "IH". iSplitL; eauto. admit. }
-  - rewrite env_split_substR //.
-    iDestruct "R" as "[R1 R2]".
+  - rewrite env_var_substR //.
+    eapply (env_var_delete x) in H.
+    case_decide; subst; simpl; iFrame; iPureIntro; eauto.
+  - iExists _,_,_. iSplit; first done.
+    iExists _. iSplit; eauto 6 using env_bind_delete, env_unr_delete.
+    rewrite env_bind_substR; eauto.
+    case_decide; subst; iFrame.
+    iApply linbox_mono; eauto.
+    iApply linbox_sep. iFrame.
+  - iDestruct (env_split_substR with "R") as "[R1 R2]"; eauto.
     iSpl; eauto using env_split_delete.
     iSplitL "H R1"; (iApply "IH" || iApply "IH1"); eauto with iFrame.
   - rewrite env_unr_substR //.
-    iDestruct "R" as "#R".
     eauto using env_unr_delete.
-  - rewrite env_split_substR //.
-    iDestruct "R" as "[R1 R2]".
+  - iDestruct (env_split_substR with "R") as "[R1 R2]"; eauto.
     iSpl; eauto using env_split_delete.
     iSplitL "H R1"; (iApply "IH" || iApply "IH1"); eauto with iFrame.
-  - rewrite env_split_substR //.
-    iDestruct "R" as "[R1 R2]".
+  - iDestruct (env_split_substR with "R") as "[R1 R2]"; eauto.
     iSpl; eauto using env_split_delete.
     iSplitL "H R1"; (iApply "IH" || iApply "IH1"); eauto with iFrame.
   - iSpl; eauto. iApply "IH". iFrame.
-  - rewrite env_split_substR //.
-    iDestruct "R" as "[R1 R2]".
+  - iDestruct (env_split_substR with "R") as "[R1 R2]"; eauto.
     iSpl; first iPureIntro; eauto using env_split_delete, env_unr_delete.
     iSplitL "H R1"; iSpl; (iApply "IH" || iApply "IH1"); eauto with iFrame.
   - iSpl; eauto. (iApply "IH" || iApply "IH1"); eauto with iFrame.
-Admitted.
+Qed.
 
 Fixpoint rtyped0 e t : rProp :=
   match e with
@@ -233,7 +326,7 @@ Fixpoint rtyped0 e t : rProp :=
   | Var x => False
   | Fun x e =>
       ∃ l t1 t2, ⌜⌜ t = FunT l t1 t2 ⌝⌝ ∗
-      ∃ Γ, ⌜⌜ env_insert Γ x t1 ∅ ⌝⌝ ∗
+      ∃ Γ, ⌜⌜ env_bind Γ x t1 ∅ ⌝⌝ ∗
       linbox l (rtyped Γ e t2)
   | App e1 e2 =>
       ∃ t1 l,
@@ -259,25 +352,6 @@ Fixpoint rtyped0 e t : rProp :=
       rtyped0 e (FunT Lin (FunT Lin t2 t1) UnitT)
   end.
 
-Lemma env_split_empty Γ1 Γ2 :
-  env_split ∅ Γ1 Γ2 <-> Γ1 = ∅ ∧ Γ2 = ∅.
-Proof.
-Admitted.
-
-Lemma env_unr_empty :
-  env_unr ∅.
-Proof.
-Admitted.
-
-Lemma env_insert_empty x t Γ :
-  env_insert ∅ x t Γ <-> False.
-Proof.
-Admitted.
-
-Lemma env_insert_empty' Γ x t1 :
-  env_insert Γ x t1 ∅ <-> Γ = {[ x := t1]}.
-Proof.
-Admitted.
 
 Lemma rtyped_rtyped0 e t :
   rtyped ∅ e t ⊣⊢ rtyped0 e t.
@@ -285,7 +359,9 @@ Proof.
   revert t. induction e; intros; simpl;
   iSplit; iIntros "H";
   try setoid_rewrite env_split_empty;
-  try setoid_rewrite env_insert_empty; iDestr "H"; simp;
+  try setoid_rewrite env_var_empty;
+  try setoid_rewrite env_bind_empty;
+  iDestr "H"; simp; eauto using env_unr_empty;
   try iDestruct "H" as "[H Q]";
   repeat (iExists _ || iSplit); eauto using env_unr_empty;
   rewrite ?H ?IHe ?IHe1 ?IHe2; iFrame;
@@ -310,7 +386,7 @@ Lemma pure_preservation e e' t :
 Proof.
   intros []; simpl;
   iIntros "H";
-  try setoid_rewrite env_insert_empty';
+  try setoid_rewrite env_bind_empty;
   repeat (iDestr "H" || iDestruct "H" as "[H ?]"); simp;
   repeat (iExists _ || iSplit); eauto with iFrame.
   iApply substitution0. iFrame.

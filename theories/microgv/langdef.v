@@ -48,19 +48,28 @@ CoInductive unr : type -> Prop :=
    Can we incorporate subtyping too? *)
 Definition env := gmap string type.
 
-Definition env_unr (Γ : env) : Prop. Admitted.
-(* Γ = Γ1 ∪ Γ2 *)
-Definition env_split (Γ : env) (Γ1 : env) (Γ2 : env) : Prop. Admitted.
-(* Γ = {[ x := t ]} ∪ Γ' *)
-Definition env_insert (Γ : env) (x : string) (t : type) (Γ' : env) : Prop. Admitted.
+Definition env_unr (Γ : env) :=
+  ∀ x t, Γ !! x = Some t -> unr t.
+
+Definition disj (Γ1 Γ2 : env) :=
+  ∀ i t1 t2, Γ1 !! i = Some t1 -> Γ2 !! i = Some t2 -> t1 = t2 ∧ unr t1.
+
+Definition env_split (Γ : env) (Γ1 : env) (Γ2 : env) :=
+  Γ = Γ1 ∪ Γ2 ∧ disj Γ1 Γ2.
+
+Definition env_bind (Γ' : env) (x : string) (t : type) (Γ : env) :=
+  Γ' = <[ x := t ]> Γ ∧ ∀ t', Γ !! x = Some t' -> unr t'.
+
+Definition env_var (Γ : env) (x : string) (t : type) :=
+  ∃ Γ', Γ = <[ x := t ]> Γ' ∧ env_unr Γ'.
+
 
 Inductive typed : env -> expr -> type -> Prop :=
-  | Var_typed Γ Γ' x t :
-    env_insert Γ x t Γ' ->
-    env_unr Γ' ->
+  | Var_typed Γ x t :
+    env_var Γ x t ->
     typed Γ (Var x) t
   | Fun_typed Γ Γ' x e t1 t2 l :
-    env_insert Γ' x t1 Γ ->
+    env_bind Γ' x t1 Γ ->
     (l = Unr -> env_unr Γ) ->
     typed Γ' e t2 ->
     typed Γ (Fun x e) (FunT l t1 t2)
@@ -177,17 +186,19 @@ Inductive local_step : nat -> cfg -> cfg -> Prop :=
     local_step i {[ i := Thread (k e) ]} {[ i := Thread (k e') ]}
   | Exit_step i v :
     local_step i {[ i := Thread (Val v) ]} ∅
-  | Fork_step i j n k v : i ≠ j -> i ≠ n -> j ≠ n -> ctx k ->
+  | Fork_step i j n k v :
+    i ≠ j -> i ≠ n -> j ≠ n -> ctx k ->
     local_step i {[ i := Thread (k (Fork (Val v))) ]}
                  {[ i := Thread (k (Val $ BarrierV n));
                     j := Thread (App (Val v) (Val $ BarrierV n));
                     n := Barrier ]}
-  | Sync_step i j n k1 k2 v1 v2 : i ≠ j -> i ≠ n -> j ≠ n -> ctx k1 -> ctx k2 ->
+  | Sync_step i j n k1 k2 v1 v2 :
+    i ≠ j -> i ≠ n -> j ≠ n -> ctx k1 -> ctx k2 ->
     local_step n {[ i := Thread (k1 (App (Val $ BarrierV n) (Val v1)));
                     j := Thread (k2 (App (Val $ BarrierV n) (Val v2)));
                     n := Barrier ]}
                  {[ i := Thread (k1 $ Val v2);
-                    j := Thread (k2 $ Val v1)]}.
+                    j := Thread (k2 $ Val v1) ]}.
 
 Inductive step : nat -> cfg -> cfg -> Prop :=
   | Frame_step ρ ρ' ρf i :
@@ -237,6 +248,16 @@ Definition waiting (ρ : cfg) (i j : nat) :=
   | _,_ => False
   end.
 
+Lemma waiting_asym ρ i j :
+  ¬ (waiting ρ i j ∧ waiting ρ j i).
+Proof.
+  intros [].
+  unfold waiting in *.
+  repeat match goal with
+  | [ H : context[ match ?x with _ => _ end ] |- _] => destruct x
+  end; naive_solver.
+Qed.
+
 Definition can_step (ρ : cfg) (i : nat) := ∃ ρ', step i ρ ρ'.
 
 Definition inactive (ρ : cfg) (i : nat) := ρ !! i = None.
@@ -244,7 +265,7 @@ Definition inactive (ρ : cfg) (i : nat) := ρ !! i = None.
 Inductive reachable (ρ : cfg) : nat -> Prop :=
   | Can_step_reachable i :
       can_step ρ i -> reachable ρ i
-  | Waiting_reachable i j:
+  | Waiting_reachable i j :
       waiting ρ i j -> reachable ρ j -> reachable ρ i.
 
 (* Inductive strongly_reachable (ρ : cfg) : nat -> Prop :=

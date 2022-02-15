@@ -7,12 +7,12 @@ Inductive object := Thread (_:nat) | Chan (_:session).
 
 Canonical Structure objectO := leibnizO object.
 
-Instance object_eqdecision : EqDecision object.
+Global Instance object_eqdecision : EqDecision object.
 Proof.
   intros [n|n] [m|m]; unfold Decision; destruct (decide (n = m));
   subst; eauto; right; intro; simplify_eq.
 Qed.
-Instance object_countable : Countable object.
+Global Instance object_countable : Countable object.
 Proof.
   refine (inj_countable' (λ l, match l with
   | Thread n => inl n
@@ -106,7 +106,7 @@ with val_typed (v : val) (t : type) : rProp :=
   | ChanV c π => ∃ r, ⌜⌜ t = ChanT r ⌝⌝ ∗ own_ep c (relabelT π r)
   end.
 
-Instance unrestricted_proper : Proper ((≡) ==> iff) unrestricted.
+Global Instance unrestricted_proper : Proper ((≡) ==> iff) unrestricted.
 Proof.
   assert (∀ x y : type, x ≡ y → unrestricted x -> unrestricted y).
   { cofix IH. intros x y H Hunr.
@@ -115,7 +115,7 @@ Proof.
   split; eauto. symmetry in H0; eauto.
 Qed.
 
-Instance Γunrestricted_proper : Proper ((≡) ==> iff) Γunrestricted.
+Global Instance Γunrestricted_proper : Proper ((≡) ==> iff) Γunrestricted.
 Proof. intros ???. unfold Γunrestricted.
   split; intros.
   - specialize (H x0).
@@ -126,7 +126,7 @@ Proof. intros ???. unfold Γunrestricted.
     rewrite H4; eauto.
 Qed.
 
-Instance disj_proper : Proper ((≡) ==> (≡) ==> iff) disj.
+Global Instance disj_proper : Proper ((≡) ==> (≡) ==> iff) disj.
 Proof.
   assert (∀ x x' y y',
     x ≡ x' -> y ≡ y' -> disj x y -> disj x' y').
@@ -146,14 +146,14 @@ Proof.
   symmetry in H0. symmetry in H1. eauto.
 Qed.
 
-Instance relabelT_proper π : Proper ((≡) ==> (≡)) (relabelT π).
+Global Instance relabelT_proper π : Proper ((≡) ==> (≡)) (relabelT π).
 Proof.
   cofix IH.
   intros ???. apply session_type_equiv_alt.
   destruct H; simpl; constructor; try done; intro; apply IH; done.
 Qed.
 
-Instance relabelT_params : Params relabelT 1 := {}.
+Global Instance relabelT_params : Params relabelT 1 := {}.
 
 Lemma rtyped_proper_impl Γ1 Γ2 t1 t2 e :
   Γ1 ≡ Γ2 -> t1 ≡ t2 -> rtyped Γ1 e t1 ⊢ rtyped Γ2 e t2
@@ -388,13 +388,13 @@ Proof.
       unfold own_ep. destruct e; simpl. rewrite H0. done.
 Qed.
 
-Instance : Params (@val_typed) 1 := {}.
-Instance rtyped_proper : Proper ((≡) ==> (=) ==> (≡) ==> (≡)) rtyped.
+Global Instance : Params (@val_typed) 1 := {}.
+Global Instance rtyped_proper : Proper ((≡) ==> (=) ==> (≡) ==> (≡)) rtyped.
 Proof.
   intros ?????????. subst. iSplit;
   iIntros "H"; iApply rtyped_proper_impl; last first; eauto.
 Qed.
-Instance val_typed_proper v : Proper ((≡) ==> (≡)) (val_typed v).
+Global Instance val_typed_proper v : Proper ((≡) ==> (≡)) (val_typed v).
 Proof.
   intros ???. iSplit;
   iIntros "H"; iApply val_typed_proper_impl; last first; eauto.
@@ -1178,7 +1178,7 @@ Fixpoint rtyped0 (e : expr) (t : type) : rProp :=
   | Close e => ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped0 e (ChanT EndT)
   | Relabel π e => ∃ σ, ⌜⌜ t = ChanT σ ⌝⌝ ∗ rtyped0 e (ChanT (relabelT π σ))
  end%I.
-Instance : Params (@rtyped0) 1 := {}.
+Global Instance : Params (@rtyped0) 1 := {}.
 
 Lemma both_emp (A B : envT) : ∅ = A ∪ B -> A = ∅ ∧ B = ∅.
 Proof.
