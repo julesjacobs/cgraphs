@@ -85,18 +85,143 @@ Lemma linv_out_Some i j Σ l ρ x :
   Σ !! i ≡ Some l ->
   ∃ e, ρ !! j = Some (Thread e).
 Proof.
-Admitted.
+  unfold linv.
+  destruct (ρ !! j) as [[]|]; eauto.
+  - rewrite affinely_pure_holds.
+    intros [H ?] Q.
+    specialize (H i). rewrite H lookup_empty in Q. simplify_eq.
+  - rewrite affinely_pure_holds.
+    intros [H ?] Q.
+    specialize (H i). rewrite H lookup_empty in Q. simplify_eq.
+Qed.
+
+Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom (gset vertex) Σ ⌝⌝ ∗ own Σ.
+
+Lemma own_dom_empty : own_dom ∅ ⊣⊢ emp.
+Proof.
+  iSplit; unfold own_dom; iIntros "H".
+  - iDestruct "H" as (? H) "H".
+    symmetry in H. apply dom_empty_iff_L in H as ->.
+    by iApply own_empty.
+  - iExists ∅. rewrite own_empty dom_empty_L //.
+Qed.
+
+Lemma own_dom_singleton k v : own {[ k := v ]} ⊢ own_dom {[ k ]}.
+Proof.
+  iIntros "H". iExists {[ k := v ]}.
+  rewrite dom_singleton_L. iFrame. done.
+Qed.
+
+Lemma own_dom_union A B : own_dom A ∗ own_dom B ⊢ own_dom (A ∪ B).
+Proof.
+  iIntros "[H1 H2]".
+  iDestruct "H1" as (Σ1 H1) "H1".
+  iDestruct "H2" as (Σ2 H2) "H2". subst.
+  iExists (Σ1 ∪ Σ2). rewrite dom_union_L. iSplit; eauto.
+  iApply own_union. iFrame.
+Qed.
+
+Lemma own_dom_fin_gset `{Countable A} n (g : fin n -> A) (f : A -> gset vertex) :
+  ([∗ set] p ∈ fin_gset n g, own_dom (f p)) -∗ own_dom (big_union (fin_gset n (f ∘ g))).
+Proof.
+  induction n.
+  - rewrite !fin_gset_0 big_union_empty big_sepS_empty own_dom_empty //.
+  - rewrite !fin_gset_S big_union_singleton_union.
+    destruct (decide (g 0%fin ∈ fin_gset n (λ i : fin n, g (FS i)))).
+    + rewrite subseteq_union_1_L; last rewrite singleton_subseteq_l //.
+      rewrite subseteq_union_1_L; first apply IHn.
+      eapply elem_of_fin_gset in e.
+      intros ??.
+      eapply elem_of_big_union.
+      destruct e. simpl in *.
+      rewrite -H1 in H0.
+      eexists. split; last done.
+      eapply elem_of_fin_gset. eauto.
+    + rewrite big_sepS_insert //.
+      iIntros "[H1 H2]".
+      iDestruct (IHn with "H2") as "H2".
+      iApply own_dom_union. iFrame.
+Qed.
+
+Lemma own_dom_fin_union n f :
+  ([∗ set] p ∈ all_fin n, own_dom (f p)) ⊢ own_dom (fin_union n f).
+Proof.
+  iApply own_dom_fin_gset.
+Qed.
+
+Lemma own_dom_all {A} (f : A -> gset vertex) :
+  (∀ i, own_dom (f i)) ⊢ ⌜ ∀ i j, f i = f j ⌝.
+Proof.
+  apply entails_holds.
+  intros Σ H.
+  rewrite pure_holds. intros.
+  rewrite ->forall_holds in H.
+  assert (∀ i, f i = dom (gset _) Σ).
+  { intros k. specialize (H k).
+    eapply exists_holds in H as [].
+    eapply pure_sep_holds in H as [].
+    eapply own_holds in H0.
+    rewrite -H0 H //. }
+  rewrite !H0 //.
+Qed.
+
+Lemma own_dom_and A B :
+  own_dom A ∧ own_dom B ⊢ ⌜ A = B ⌝.
+Proof.
+  iIntros "H".
+  iAssert (∀ c:bool, own_dom (if c then A else B))%I with "[H]" as "H".
+  { iIntros ([]).
+    - by iDestruct "H" as "[H _]".
+    - by iDestruct "H" as "[_ H]". }
+  iDestruct (own_dom_all with "H") as %Q.
+  specialize (Q true false). simpl in *. eauto.
+Qed.
+
+Lemma fin_union_same `{Countable A} n (s : gset A) :
+  fin_union (S n) (λ i, s) = s.
+Proof.
+  induction n.
+  - rewrite fin_union_S fin_union_0 right_id_L //.
+  - rewrite fin_union_S IHn union_idemp_L //.
+Qed.
+
+Lemma rtyped_refs Γ e t :
+  rtyped Γ e t ⊢ own_dom (expr_refs e)
+with val_typed_refs v t :
+  vtyped v t ⊢ own_dom (val_refs v).
+Proof.
+  - iIntros "H". destruct e; simpl; repeat (iDestruct "H" as (?) "H"); try destruct l;
+    rewrite ?val_typed_refs ?rtyped_refs ?own_dom_empty ?own_dom_union; eauto.
+    iDestruct "H" as "[H1 H]". iApply own_dom_union; iFrame.
+    case_decide; subst. { rewrite fin_union_0 own_dom_empty //. }
+    setoid_rewrite rtyped_refs.
+    iDestruct (own_dom_all with "H") as %Q.
+    destruct n; simplify_eq.
+    assert (expr_refs ∘ e0 = λ i, expr_refs (e0 0%fin)) as ->.
+    { apply functional_extensionality. intros. eapply Q. }
+    rewrite fin_union_same. iApply "H".
+  - iIntros "H". destruct v; simpl; rewrite ?own_dom_empty; eauto;
+    repeat (iDestruct "H" as (?) "H"); try destruct l;
+    rewrite ?val_typed_refs ?rtyped_refs ?own_dom_union; eauto.
+    by iApply own_dom_singleton.
+Qed.
 
 Lemma expr_refs_linv ρ j e x Σ :
   ρ !! j = Some (Thread e) ->
   holds (linv ρ j x) Σ ->
   expr_refs e = dom (gset vertex) Σ.
 Proof.
-Admitted.
-
-Ltac model := (setoid_rewrite pure_sep_holds || setoid_rewrite exists_holds
-  || setoid_rewrite own_holds
-  || setoid_rewrite sep_holds).
+  intros H1 H2.
+  unfold linv in *.
+  rewrite H1 in H2.
+  eapply pure_sep_holds in H2 as [_ H2].
+  rewrite -rtyped_rtyped0 in H2.
+  eapply holds_entails in H2; last eapply rtyped_refs.
+  unfold own_dom in *.
+  eapply exists_holds in H2 as [Σ' H2].
+  eapply pure_sep_holds in H2 as [-> H2].
+  eapply own_holds in H2. rewrite H2 //.
+Qed.
 
 Lemma full_reachability ρ :
   ginv ρ -> fully_reachable ρ.

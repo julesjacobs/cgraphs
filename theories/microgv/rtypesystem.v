@@ -67,7 +67,7 @@ Fixpoint rtyped (Γ : env) e t : rProp :=
       ∃ Γ1 Γ2, ⌜⌜ env_split Γ Γ1 Γ2 ∧ (n = 0 -> env_unr Γ2)⌝⌝ ∗
       ∃ ts,
       rtyped Γ1 e (SumT n ts) ∗
-      (∀ i, rtyped Γ2 (es i) (FunT Lin (ts i) t))
+      if decide (n=0) then ⌜⌜ env_unr Γ2 ⌝⌝ else (∀ i, rtyped Γ2 (es i) (FunT Lin (ts i) t))
   | Fork e =>
       ∃ t1 t2, ⌜⌜ t = FunT Lin t1 t2 ⌝⌝ ∗
       rtyped Γ e (FunT Lin (FunT Lin t2 t1) UnitT)
@@ -95,7 +95,7 @@ Proof.
   iInduction e as [] "IH" forall (t Γ H);
   inv H; simpl; eauto; repeat iExists _; iSplitL; eauto;
   repeat iExists _; try iSplitL; eauto; try iSplitL;
-  try destruct l; repeat iIntros (?);
+  try destruct l; try case_decide; repeat iIntros (?);
   try iApply ("IH" with "[%]") || iApply ("IH1" with "[%]"); eauto.
 Qed.
 
@@ -316,6 +316,10 @@ Proof.
   - iSpl; eauto. iApply "IH". iFrame.
   - iDestruct (env_split_substR with "R") as "[R1 R2]"; eauto.
     iSpl; first iPureIntro; eauto using env_split_delete, env_unr_delete.
+    case_decide; subst.
+    { iDestruct "Q" as "%". iSplit; eauto using env_unr_delete.
+      eapply env_unr_substR in H. rewrite H.
+      iApply "IH1". iFrame. }
     iSplitL "H R1"; iSpl; (iApply "IH" || iApply "IH1"); eauto with iFrame.
   - iSpl; eauto. (iApply "IH" || iApply "IH1"); eauto with iFrame.
 Qed.
@@ -346,7 +350,7 @@ Fixpoint rtyped0 e t : rProp :=
   | MatchSum n e es =>
       ∃ ts,
       rtyped0 e (SumT n ts) ∗
-      (∀ i, rtyped0 (es i) (FunT Lin (ts i) t))
+      if decide (n=0) then emp else (∀ i, rtyped0 (es i) (FunT Lin (ts i) t))
   | Fork e =>
       ∃ t1 t2, ⌜⌜ t = FunT Lin t1 t2 ⌝⌝ ∗
       rtyped0 e (FunT Lin (FunT Lin t2 t1) UnitT)
@@ -364,7 +368,7 @@ Proof.
   iDestr "H"; simp; eauto using env_unr_empty;
   try iDestruct "H" as "[H Q]";
   repeat (iExists _ || iSplit); eauto using env_unr_empty;
-  rewrite ?H ?IHe ?IHe1 ?IHe2; iFrame;
+  rewrite ?H ?IHe ?IHe1 ?IHe2; try case_decide; iFrame; eauto using env_unr_empty;
   iIntros (?); setoid_rewrite H; eauto.
 Qed.
 
@@ -388,9 +392,9 @@ Proof.
   iIntros "H";
   try setoid_rewrite env_bind_empty;
   repeat (iDestr "H" || iDestruct "H" as "[H ?]"); simp;
-  repeat (iExists _ || iSplit); eauto with iFrame.
-  iApply substitution0. iFrame.
-  by destruct l0.
+  repeat (iExists _ || iSplit || case_decide); eauto with iFrame.
+  - iApply substitution0. iFrame. by destruct l0.
+  - subst. inv_fin i'.
 Qed.
 
 Lemma replacement1 k e B :
