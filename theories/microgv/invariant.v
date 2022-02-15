@@ -94,6 +94,9 @@ Lemma expr_refs_linv ρ j e x Σ :
 Proof.
 Admitted.
 
+Ltac model := (setoid_rewrite pure_sep_holds || setoid_rewrite exists_holds
+  || setoid_rewrite own_holds
+  || setoid_rewrite sep_holds).
 
 Lemma full_reachability ρ :
   ginv ρ -> fully_reachable ρ.
@@ -131,15 +134,52 @@ Proof.
       * (* Thread is now trying to sync with a barrier *)
         (* It is therefore waiting and reachable *)
         rewrite -HH.
+        assert (∃ l, out_edges g i !! j ≡ Some l) as [l Hl].
+        {
+          (* rewrite replacement in Q2'; last done. *)
+          (* simpl in Q2'. *)
+          assert (holds ((∃ l, own_out j l) ∗ True) (out_edges g i)) as QQ.
+          {
+            eapply holds_entails; first exact Q2'.
+            iIntros "H".
+            rewrite replacement; last done.
+            iDestruct "H" as (t) "[H1 H2]".
+            simpl.
+            iDestruct "H1" as (t2 l) "[H11 H12]".
+            iDestruct "H11" as (t1 t0 ?) "H11". simplify_eq.
+            iSplitL "H11"; eauto.
+          }
+          eapply sep_holds in QQ as (Σ1 & Σ2 & H12 & Hdisj & Hout & HP).
+          eapply exists_holds in Hout as [l Hout].
+          unfold own_out in Hout.
+          eapply own_holds in Hout.
+          exists l. rewrite H12.
+          rewrite -Hout.
+          smap.
+        }
         assert (ρ !! j = Some Barrier) as F.
-        { admit. }
+        {
+          eapply out_edges_in_labels in Hl as [x Hx].
+          specialize (Hinv j).
+          rewrite Hx in Hinv.
+          eapply pure_holds.
+          eapply holds_entails; first exact Hinv.
+          iIntros "H".
+          unfold linv.
+          destruct (ρ !! j) as [[]|]; eauto.
+          - iDestruct "H" as (?) "H".
+            exfalso. eapply multiset_empty_neq_singleton.
+            eapply multiset_empty_mult in H as []; eauto.
+          - iDestruct "H" as "%".
+            exfalso. eapply multiset_empty_neq_singleton.
+            eapply multiset_empty_mult in H as []; eauto.
+        }
         assert (waiting ρ i j). {
           unfold waiting. rewrite E F.
           unfold expr_waiting; eauto.
         }
         assert (reachable ρ j). {
           edestruct (IH1 j); eauto.
-          { admit. }
           unfold inactive in *. simplify_eq.
         }
         eauto using reachable.
@@ -189,4 +229,4 @@ Proof.
     { intro x. smap. destruct (_!!x); done. }
     { intro x. smap. destruct (_!!x); done. }
     constructor; eauto; intros ->; simplify_eq.
-Admitted.
+Qed.
