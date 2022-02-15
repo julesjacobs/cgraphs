@@ -200,6 +200,14 @@ Section cgraph.
           rewrite ->(comm (⋅) y). done.
     Qed.
 
+    Lemma in_labels_out_edges2 g v l1 l2 :
+      in_labels g v ≡ {[ l1 ]} ⋅ {[ l2 ]} ->
+      ∃ v1 v2, v1 ≠ v2 ∧
+        out_edges g v1 !! v ≡ Some l1 ∧
+        out_edges g v2 !! v ≡ Some l2.
+    Proof.
+    Admitted.
+
     Lemma not_rtsc `{R : A -> A -> Prop} x :
       (∀ y, ¬ R x y ∧ ¬ R y x) ->
       (∀ y, rtsc R x y -> x = y).

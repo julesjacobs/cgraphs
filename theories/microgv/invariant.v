@@ -1,27 +1,12 @@
 From diris.microgv Require Export rtypesystem.
 
 (* Can we just do vertex = nat here? *)
-Definition linv (ρ : cfg) (v : nat) (in_l : multiset label) : rProp :=
+Definition linv (ρ : cfg) (v : nat) (in_l : multiset labelO) : rProp :=
   match ρ !! v with
   | Some (Thread e) => ⌜⌜ in_l ≡ ε ⌝⌝ ∗ rtyped0 e UnitT
   | Some Barrier => ⌜⌜ ∃ t1 t2, in_l ≡ {[ (t1,t2) ]} ⋅ {[ (t2,t1) ]} ⌝⌝
   | None => ⌜⌜ in_l ≡ ε ⌝⌝
   end.
-
-(* Definition linv (ρ : cfg) (v : vertex) (in_l : multiset label) : rProp :=
-  match v with
-  | VThread k =>
-    ⌜⌜ in_l ≡ ε ⌝⌝ ∗
-    match ρ !! k with
-    | Some (Thread e) => rtyped0 e UnitT
-    | _ => emp
-    end
-  | VBarrier k =>
-    ⌜⌜ match ρ !! k with
-      | Some Barrier => ∃ t1 t2, in_l ≡ {[ (t1,t2) ]} ⋅ {[ (t2,t1) ]}
-      | _ => in_l ≡ ε
-      end ⌝⌝
-  end%I. *)
 
 Global Instance lin_Proper ρ v : Proper ((≡) ==> (≡)) (linv ρ v).
 Proof. solve_proper. Qed.
@@ -95,13 +80,28 @@ Proof.
   apply not_elem_of_dom; done.
 Qed.
 
+Lemma linv_out_Some i j Σ l ρ x :
+  holds (linv ρ j x) Σ ->
+  Σ !! i ≡ Some l ->
+  ∃ e, ρ !! j = Some (Thread e).
+Proof.
+Admitted.
+
+Lemma expr_refs_linv ρ j e x Σ :
+  ρ !! j = Some (Thread e) ->
+  holds (linv ρ j x) Σ ->
+  expr_refs e = dom (gset vertex) Σ.
+Proof.
+Admitted.
+
+
 Lemma full_reachability ρ :
   ginv ρ -> fully_reachable ρ.
 Proof.
   unfold fully_reachable.
   intros Hinv.
   destruct Hinv as [g [Hwf Hinv]].
-  eapply (cgraph_ind' (λ a b l, waiting ρ a b)); [solve_proper|eauto|].
+  eapply (cgraph_ind' (λ a b l, waiting ρ a b)); eauto; first solve_proper.
   intros i IH1 IH2.
   classical_right.
   rewrite /inactive in H.
@@ -128,20 +128,65 @@ Proof.
                    n := Barrier ]} ∪ delete i ρ).
         constructor; [intro x; smap; by destruct (_!!x)..|].
         constructor; eauto; intros ->; simplify_eq.
-      * eapply (Waiting_reachable _ _ j).
-        -- unfold waiting. smap.
-          ++ admit.
-          ++ destruct (ρ !! j) as [[]|] eqn:F; rewrite ?F.
-            ** admit.
-            ** unfold expr_waiting. eauto.
-            ** admit.
-        -- assert (∃ l, out_edges g i !! j = Some l) as [l Hl].
-           { admit. }
-           destruct (IH1 j l).
-           ++ rewrite Hl //.
-           ++ unfold waiting. rewrite E.
-              admit.
-           ++ unfold inactive in H. admit.
-           ++ rewrite -HH //.
+      * (* Thread is now trying to sync with a barrier *)
+        (* It is therefore waiting and reachable *)
+        rewrite -HH.
+        assert (ρ !! j = Some Barrier) as F.
+        { admit. }
+        assert (waiting ρ i j). {
+          unfold waiting. rewrite E F.
+          unfold expr_waiting; eauto.
+        }
+        assert (reachable ρ j). {
+          edestruct (IH1 j); eauto.
+          { admit. }
+          unfold inactive in *. simplify_eq.
+        }
+        eauto using reachable.
   - eapply affinely_pure_holds in Q as [Q1 [t1 [t2 Q2]]].
+    (* Need to check whether both threads are trying to sync. *)
+    (* If so, then can_step *)
+    (* Otherwise, use IH *)
+    apply in_labels_out_edges2 in Q2 as (j1 & j2 & Hj12 & Hj1 & Hj2).
+
+    edestruct (linv_out_Some i j1) as [e1 He1]; eauto.
+    edestruct (linv_out_Some i j2) as [e2 He2]; eauto.
+
+    destruct (classic (waiting ρ j1 i)) as [W1|W1]; last first.
+    {
+      edestruct IH2; [|done|..]; eauto.
+      - unfold inactive in H. simplify_eq.
+      - assert (waiting ρ i j1); eauto using reachable.
+        unfold waiting in *.
+        rewrite He1 E in W1.
+        rewrite E He1. split; eauto.
+        erewrite expr_refs_linv; eauto.
+        apply elem_of_dom. rewrite Hj1. done.
+    }
+    destruct (classic (waiting ρ j2 i)) as [W2|W2]; last first.
+    {
+      edestruct IH2; [|done|..]; eauto.
+      - unfold inactive in H. simplify_eq.
+      - assert (waiting ρ i j2); eauto using reachable.
+        unfold waiting in *.
+        rewrite He2 E in W2.
+        rewrite E He2. split; eauto.
+        erewrite expr_refs_linv; eauto.
+        apply elem_of_dom. rewrite Hj2. done.
+    }
+    constructor.
+    unfold waiting in W1,W2.
+    rewrite He1 E in W1.
+    rewrite He2 E in W2.
+    assert (ρ = {[ j1 := Thread e1; j2 := Thread e2; i := Barrier ]} ∪ (delete j2 $ delete j1 $ delete i ρ)) as HH.
+    { apply map_eq. intro. smap. }
+    destruct W2 as (k2 & v2 & Hk2 & ->).
+    destruct W1 as (k1 & v1 & Hk1 & ->).
+    unfold can_step.
+    exists ({[ j1 := Thread (k1 $ Val v2); j2 := Thread (k2 $ Val v1) ]} ∪ (delete j2 $ delete j1 $ delete i ρ)).
+    rewrite {1}HH.
+    constructor.
+    { intro x. smap. destruct (_!!x); done. }
+    { intro x. smap. destruct (_!!x); done. }
+    constructor; eauto; intros ->; simplify_eq.
 Admitted.
