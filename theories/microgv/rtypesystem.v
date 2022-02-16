@@ -1,14 +1,14 @@
 From diris.microgv Require Export langdef.
 
 Notation vertex := nat.
-Definition label : Type := type * type.
+Definition label : Type := bool * type * type.
 
 (* ----------- *)
 (* Boilerplate *)
 
 (* Canonical Structure vertexO := leibnizO vertex. *)
 Canonical Structure typeO := leibnizO type.
-Canonical Structure labelO := prodO typeO typeO.
+Canonical Structure labelO := prodO boolO (prodO typeO typeO).
 (*
 Global Instance vertex_eqdecision : EqDecision vertex.
 Proof.
@@ -85,7 +85,7 @@ with vtyped v t :=
       vtyped v (ts i')
   | BarrierV k =>
       ∃ t1 t2, ⌜⌜ t = FunT Lin t1 t2 ⌝⌝ ∗
-      own_out k ((t1,t2) : labelO)
+      own_out k ((false,(t1,t2)) : labelO)
   end.
 
 Lemma typed_rtyped Γ e t :

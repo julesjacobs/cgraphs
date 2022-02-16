@@ -4,7 +4,7 @@ From diris.microgv Require Export rtypesystem.
 Definition linv (ρ : cfg) (v : nat) (in_l : multiset labelO) : rProp :=
   match ρ !! v with
   | Some (Thread e) => ⌜⌜ in_l ≡ ε ⌝⌝ ∗ rtyped0 e UnitT
-  | Some Barrier => ⌜⌜ ∃ t1 t2, in_l ≡ {[ (t1,t2) ]} ⋅ {[ (t2,t1) ]} ⌝⌝
+  | Some Barrier => ⌜⌜ ∃ t1 t2, in_l ≡ {[ (false,(t1,t2)) ]} ⋅ {[ (false,(t2,t1)) ]} ⌝⌝
   | None => ⌜⌜ in_l ≡ ε ⌝⌝
   end.
 
@@ -27,6 +27,21 @@ Ltac smap := repeat (
   rewrite lookup_insert_spec ||
   rewrite lookup_delete_spec ||
   rewrite lookup_empty || sdec).
+
+Lemma multiset_singleton_mult' {A : ofe} a1 a2 (x : multiset A) :
+  {[ a1 ]} ⋅ x ≡ {[ a2 ]} ->
+  a1 = a2 ∧ x = ε.
+Proof.
+Admitted.
+
+Lemma multiset_xsplit_singleton {A : ofe} a1 a2 a3 (x : multiset A) :
+  {[ a1 ]} ⋅ x ≡ {[ a2 ]} ⋅ {[ a3 ]} ->
+  a1 = a2 ∧ x = {[ a3 ]} ∨ a1 = a3 ∧ x = {[ a2 ]}.
+Proof.
+  intros H.
+  eapply mset_xsplit in H as (?&?&?&?&?&?&?&?).
+  eapply multiset_singleton_mult in H as [[]|[]].
+Admitted.
 
 Lemma preservation i ρ ρ' :
   step i ρ ρ' -> ginv ρ -> ginv ρ'.
@@ -54,14 +69,81 @@ Proof.
     + iIntros (?) "H". unfold linv. smap. iDestr "H".
       iDestruct (replacement with "H") as (t) "[H Q]"; first done. simpl.
       iDestr "H". simp.
-      iExists (t1,t2), (t2,t1).
+      iExists (false,(t1,t2)), (false,(t2,t1)).
       iSplitL "Q".
       * iIntros "H". iSplit; first done.
         iApply "Q". simpl. eauto.
       * iSplit; eauto.
         iIntros "Q". iSplit; eauto 10 with iFrame.
-  - admit.
-Admitted.
+  - assert (inv (λ k x,
+      if decide (k = i0) then
+        ⌜⌜ x ≡ ε ⌝⌝ ∗ ∃ t1 t2, own_out n (true,(t1,t2)) ∗ ∀ e' : expr, rtyped0 e' t2 -∗ rtyped0 (k1 e') UnitT
+      else if decide (k = n) then
+        ∃ t1 t2, ⌜⌜ x ≡ {[ (true,(t1,t2)) ]} ⋅ {[ (false,(t2,t1)) ]} ⌝⌝ ∗
+        vtyped v1 t1
+      else if decide (k = j) then
+        ⌜⌜ x ≡ ε ⌝⌝ ∗ rtyped0 (k2 (App (Val (BarrierV n)) (Val v2))) UnitT
+      else linv ρf k x
+        )%I) as Hinv'.
+    {
+      eapply (inv_exchange i0 n); last done; [solve_proper|solve_proper|..].
+      - simp. smap; unfold linv; smap.
+      - simp. smap. unfold linv. smap.
+        iIntros "[% H]".
+        rewrite replacement; last done.
+        iDestruct "H" as (t1) "[H1 H2]". simpl.
+        iDestruct "H1" as (t2 l) "[H1 H3]".
+        iDestruct "H1" as (t1' t2' ?) "H1". simplify_eq.
+        iExists _. iFrame. iIntros (x [t1 [t2 ?]]) "".
+        eapply multiset_xsplit_singleton in H8 as [[]|[]]; simplify_eq.
+        + iExists _. iSplitL "H2".
+          * iIntros "H". iSplit; eauto. iExists _,_. iFrame.
+          * iExists _,_. iFrame. eauto.
+        + iExists _. iSplitL "H2".
+          * iIntros "H". iSplit; eauto. iExists _,_. iFrame.
+          * iExists _,_. iFrame. eauto.
+    } clear Hinv.
+
+    assert (inv (λ k x,
+      if decide (k = i0) then
+        ⌜⌜ x ≡ ε ⌝⌝ ∗ ∃ t1 t2, own_out n (true,(t1,t2)) ∗ ∀ e' : expr, rtyped0 e' t2 -∗ rtyped0 (k1 e') UnitT
+      else if decide (k = n) then
+        ∃ t1 t2, ⌜⌜ x ≡ {[ (true,(t1,t2)) ]} ⌝⌝ ∗
+        vtyped v2 t2
+      else if decide (k = j) then
+        ⌜⌜ x ≡ ε ⌝⌝ ∗ rtyped0 (k2 (Val v1)) UnitT
+      else linv ρf k x
+        )%I) as Hinv''.
+    {
+      eapply (inv_dealloc j n); last done; [solve_proper|solve_proper|..].
+      - simp. smap.
+      - simp. smap.
+        iIntros "[% H]".
+        rewrite replacement; last done.
+        iDestruct "H" as (t1) "[H1 H2]". simpl.
+        iDestruct "H1" as (t2 l) "[H3 H4]".
+        iDestruct "H3" as (t1' t2' ?) "H". simplify_eq.
+        iExists _. iFrame. iIntros (?) "H".
+        iDestruct "H" as (t1 t2 ?) "H".
+        eapply multiset_xsplit_singleton in H8 as [[]|[]]; simplify_eq.
+        iSplitL "H H2".
+        + iSplit; eauto. iApply "H2". done.
+        + iExists _,_. iFrame. eauto.
+    } clear Hinv'.
+
+    eapply (inv_dealloc i0 n); last done; [solve_proper|solve_proper|..].
+    + simp. smap; unfold linv; smap.
+    + simp. smap.
+      iIntros "[% H]".
+      iDestruct "H" as (t1 t2) "[H1 H2]".
+      iExists _. iFrame. iIntros (?) "H".
+      iDestruct "H" as (t1' t2' ?) "H".
+      eapply multiset_singleton_mult' in H6 as []. simplify_eq.
+      unfold linv. smap.
+      assert (ρf !! n = None) as -> by solve_map_disjoint.
+      iSplit; eauto. iSplit; eauto.
+      iApply "H2". simpl. done.
+Qed.
 
 Lemma fresh2 (s : gset nat) :
   ∃ x y, x ∉ s ∧ y ∉ s ∧ x ≠ y.

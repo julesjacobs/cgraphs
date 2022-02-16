@@ -1,4 +1,3 @@
 TODO:
-* graph lemma
-* preservation proof
-* encode session types
+* multiset lemmas
+* toL lemma
