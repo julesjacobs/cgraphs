@@ -1,6 +1,5 @@
 From diris.microgv Require Export rtypesystem.
 
-(* Can we just do vertex = nat here? *)
 Definition linv (ρ : cfg) (v : nat) (in_l : multiset labelO) : rProp :=
   match ρ !! v with
   | Some (Thread e) => ⌜⌜ in_l ≡ ε ⌝⌝ ∗ rtyped0 e UnitT
@@ -27,7 +26,6 @@ Ltac smap := repeat (
   rewrite lookup_insert_spec ||
   rewrite lookup_delete_spec ||
   rewrite lookup_empty || sdec).
-
 
 
 Lemma preservation i ρ ρ' :
