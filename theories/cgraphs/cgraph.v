@@ -200,13 +200,72 @@ Section cgraph.
           rewrite ->(comm (⋅) y). done.
     Qed.
 
+    Lemma in_labels_out_edges1 g v2 l :
+      in_labels g v2 ≡ {[ l ]} ->
+      ∃ v1, out_edges g v1 !! v2 ≡ Some l.
+    Proof.
+      assert ({[ l ]} ≡ {[ l ]} ⋅ (ε : multiset L)) as H1.
+      { rewrite right_id //. }
+      rewrite H1.
+      eapply in_labels_out_edges.
+    Qed.
+
     Lemma in_labels_out_edges2 g v l1 l2 :
       in_labels g v ≡ {[ l1 ]} ⋅ {[ l2 ]} ->
       ∃ v1 v2, v1 ≠ v2 ∧
         out_edges g v1 !! v ≡ Some l1 ∧
         out_edges g v2 !! v ≡ Some l2.
     Proof.
-    Admitted.
+      unfold in_labels.
+      induction g using map_ind.
+      { rewrite map_fold_empty.
+        intros HH.
+        symmetry in HH.
+        eapply multiset_empty_mult in HH as []. subst.
+        eapply multiset_empty_neq_singleton in H0 as []. }
+      rewrite /ms_insert.
+      erewrite map_fold_insert with (R := (≡)); [|apply _|solve_proper|..|done].
+      2: {
+        intros.
+        rewrite /ms_insert (comm (⋅) (from_option singleton ε (z1 !! v))) -assoc (comm (⋅) y) //.
+      }
+      destruct (x !! v) eqn:E; simpl; intros HH.
+      - eapply multiset_xsplit_singleton in HH as [[? HH]|[? HH]]; setoid_subst.
+        + edestruct in_labels_out_edges1 as [v' Hv']; first exact HH.
+          exists i,v'.
+          assert (i ≠ v').
+          { intros ->.
+            unfold out_edges in Hv'.
+            rewrite H0 lookup_empty in Hv'.
+            inversion Hv'. }
+          split; eauto.
+          rewrite !out_edges_insert; split; case_decide; simplify_eq; eauto.
+          rewrite E //.
+        + edestruct in_labels_out_edges1 as [v' Hv']; first exact HH.
+          exists v',i.
+          assert (i ≠ v').
+          { intros ->.
+            unfold out_edges in Hv'.
+            rewrite H0 lookup_empty in Hv'.
+            inversion Hv'. }
+          split; eauto.
+          rewrite !out_edges_insert; split; case_decide; simplify_eq; eauto.
+          rewrite E //.
+      - rewrite left_id in HH.
+        eapply IHg in HH as (v1&v2&Hvneq&Hout1&Hout2).
+        exists v1,v2.
+        split; first done.
+        rewrite !out_edges_insert.
+        split.
+        + case_decide; last done. subst.
+          unfold out_edges in Hout1,Hout2.
+          rewrite H0 lookup_empty in Hout1.
+          inversion Hout1.
+        + case_decide; last done. subst.
+          unfold out_edges in Hout1,Hout2.
+          rewrite H0 lookup_empty in Hout2.
+          inversion Hout2.
+    Qed.
 
     Lemma not_rtsc `{R : A -> A -> Prop} x :
       (∀ y, ¬ R x y ∧ ¬ R y x) ->

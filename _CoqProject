@@ -28,7 +28,7 @@ theories/cgraphs/genericinv.v
 # theories/sessiontypes/progress.v
 # theories/sessiontypes/safety.v
 # theories/sessiontypes/ycombinator.v
-#
+
 # theories/multiparty/mutil.v
 # theories/multiparty/langdef.v
 # theories/multiparty/rtypesystem.v

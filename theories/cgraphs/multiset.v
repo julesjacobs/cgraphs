@@ -224,6 +224,31 @@ Proof.
   apply multiset_op_singleton in H. eauto.
 Qed.
 
+Lemma multiset_singleton_mult' {A : ofe} a1 a2 (x : multiset A) :
+  {[ a1 ]} ⋅ x ≡ {[ a2 ]} ->
+  a1 ≡ a2 ∧ x = ε.
+Proof.
+  intros H.
+  apply multiset_op_singleton in H as [[]|[]].
+  - eapply multiset_singleton_not_unit in H as [].
+  - apply (inj _) in H. apply multiset_unit_equiv_eq in H0. done.
+Qed.
+
+Lemma multiset_xsplit_singleton {A : ofe} a1 a2 a3 (x : multiset A) :
+  {[ a1 ]} ⋅ x ≡ {[ a2 ]} ⋅ {[ a3 ]} ->
+  a1 ≡ a2 ∧ x ≡ {[ a3 ]} ∨ a1 ≡ a3 ∧ x ≡ {[ a2 ]}.
+Proof.
+  intros H.
+  eapply mset_xsplit in H as (?&?&?&?&?&?&?&?).
+  eapply multiset_singleton_mult in H as [[]|[]].
+  - setoid_subst. rewrite left_id in H1. setoid_subst.
+    symmetry in H2. eapply multiset_singleton_mult' in H2 as [].
+    subst. setoid_subst. eauto.
+  - setoid_subst. symmetry in H1.
+    eapply multiset_singleton_mult' in H1 as [].
+    rewrite left_id in H2. setoid_subst. eauto.
+Qed.
+
 
 Definition map_kmap `{∀ A, Insert K2 A (M2 A), ∀ A, Empty (M2 A),
     ∀ A, FinMapToList K1 A (M1 A)} {A} (f : K1 → K2) (m : M1 A) : M2 A :=

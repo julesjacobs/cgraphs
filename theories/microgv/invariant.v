@@ -28,20 +28,7 @@ Ltac smap := repeat (
   rewrite lookup_delete_spec ||
   rewrite lookup_empty || sdec).
 
-Lemma multiset_singleton_mult' {A : ofe} a1 a2 (x : multiset A) :
-  {[ a1 ]} ⋅ x ≡ {[ a2 ]} ->
-  a1 = a2 ∧ x = ε.
-Proof.
-Admitted.
 
-Lemma multiset_xsplit_singleton {A : ofe} a1 a2 a3 (x : multiset A) :
-  {[ a1 ]} ⋅ x ≡ {[ a2 ]} ⋅ {[ a3 ]} ->
-  a1 = a2 ∧ x = {[ a3 ]} ∨ a1 = a3 ∧ x = {[ a2 ]}.
-Proof.
-  intros H.
-  eapply mset_xsplit in H as (?&?&?&?&?&?&?&?).
-  eapply multiset_singleton_mult in H as [[]|[]].
-Admitted.
 
 Lemma preservation i ρ ρ' :
   step i ρ ρ' -> ginv ρ -> ginv ρ'.
@@ -98,10 +85,10 @@ Proof.
         eapply multiset_xsplit_singleton in H8 as [[]|[]]; simplify_eq.
         + iExists _. iSplitL "H2".
           * iIntros "H". iSplit; eauto. iExists _,_. iFrame.
-          * iExists _,_. iFrame. eauto.
+          * iExists _,_. iFrame. setoid_subst. eauto.
         + iExists _. iSplitL "H2".
           * iIntros "H". iSplit; eauto. iExists _,_. iFrame.
-          * iExists _,_. iFrame. eauto.
+          * iExists _,_. iFrame. setoid_subst. eauto.
     } clear Hinv.
 
     assert (inv (λ k x,

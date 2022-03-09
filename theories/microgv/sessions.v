@@ -47,6 +47,18 @@ CoFixpoint toL (σ : session_type) : type :=
   | EndBT => FunT Lin UnitT UnitT
   end.
 
+(* Session type operations in terms of binary barriers *)
+
+Definition SendB e1 i e2 :=
+    LetPair (Pair e1 e2) (Fun "x" (Fun "y"
+      (Fork (Fun "z" (App (Var "x") (Sum i (Pair (Var "z") (Var "y")))))))).
+Definition RecvB e := App e Unit.
+Definition ForkB e := Fork e.
+Definition CloseB (e : expr) := App e Unit.
+
+
+(* Helper definitions and lemmas *)
+
 Definition session_type_id (σ : session_type) : session_type :=
   match σ with
   | SendTB n ts σs => SendTB n ts σs
@@ -79,15 +91,6 @@ Lemma type_id_id (t : type) :
 Proof.
   by destruct t.
 Qed.
-
-(* Session type operations in terms of binary barriers *)
-
-Definition SendB e1 i e2 :=
-    LetPair (Pair e1 e2) (Fun "x" (Fun "y"
-      (Fork (Fun "z" (App (Var "x") (Sum i (Pair (Var "z") (Var "y")))))))).
-Definition RecvB e := App e Unit.
-Definition ForkB e := Fork e.
-Definition CloseB (e : expr) := App e Unit.
 
 Lemma env_split_left Γ :
   env_split Γ Γ ∅.
@@ -137,19 +140,7 @@ Proof.
   rewrite toL_toL1 dual_dual //.
 Qed.
 
-(* Prove typing rule for ForkB admissible *)
 
-Lemma ForkB_typed Γ σ e :
-  typed Γ e (FunT Lin (toL (dual σ)) UnitT) ->
-  typed Γ (ForkB e) (toL σ).
-Proof.
-  intros H. rewrite /ForkB.
-  destruct (toL_toL_dual_split σ) as [t1 [t2 [H1 H2]]].
-  rewrite H1.
-  eapply Fork_typed.
-  rewrite -H2.
-  exact H.
-Qed.
 
 Lemma env_bind_notin x Γ t :
   Γ !! x = None ->
@@ -180,6 +171,22 @@ Lemma env_var_singleton_eq x t1 t2 :
   t1 = t2 -> env_var {[ x := t1 ]} x t2.
 Proof.
   intros ->. apply env_var_singleton.
+Qed.
+
+(* Admissibility of typing rules *)
+
+(* Prove typing rule for ForkB admissible *)
+
+Lemma ForkB_typed Γ σ e :
+  typed Γ e (FunT Lin (toL (dual σ)) UnitT) ->
+  typed Γ (ForkB e) (toL σ).
+Proof.
+  intros H. rewrite /ForkB.
+  destruct (toL_toL_dual_split σ) as [t1 [t2 [H1 H2]]].
+  rewrite H1.
+  eapply Fork_typed.
+  rewrite -H2.
+  exact H.
 Qed.
 
 (* Prove typing rule for SendB admissible *)
