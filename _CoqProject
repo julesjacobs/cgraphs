@@ -40,5 +40,7 @@ theories/cgraphs/genericinv.v
 
 theories/microgv/langtools.v
 theories/microgv/langdef.v
+theories/microgv/definitions.v
 theories/microgv/rtypesystem.v
 theories/microgv/invariant.v
+theories/microgv/theorems.v

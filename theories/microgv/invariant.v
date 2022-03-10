@@ -1,4 +1,5 @@
 From diris.microgv Require Export rtypesystem.
+From diris.microgv Require Export definitions.
 
 Definition linv (ρ : cfg) (v : nat) (in_l : multiset labelO) : rProp :=
   match ρ !! v with
@@ -421,4 +422,17 @@ Proof.
     { intro x. smap. destruct (_!!x); done. }
     { intro x. smap. destruct (_!!x); done. }
     constructor; eauto; intros ->; simplify_eq.
+Qed.
+
+Lemma initialization e :
+  typed ∅ e UnitT -> ginv {[ 0 := Thread e ]}.
+Proof.
+  intros H.
+  unfold ginv, linv.
+  eapply inv_impl; last eauto using inv_init.
+  intros. simpl.
+  iIntros "[% _]".
+  smap. iSplit; eauto.
+  rewrite -rtyped_rtyped0.
+  iApply typed_rtyped. eauto.
 Qed.

@@ -39,13 +39,9 @@ CoInductive unr : type -> Prop :=
   | Pair_unr t1 t2 : unr t1 -> unr t2 -> unr (PairT t1 t2)
   | Sum_unr n ts : (∀ i, unr (ts i)) -> unr (SumT n ts).
 
-(* We want to use generic tools here.
-   Input: predicate that describes copyable and droppable types.
-          (we use unr for both)
-   Output: the predicates below.
-   In general, we may want to allow more interesting splitting within types.
-   Then we can lift such a separation algebra to contexts.
-   Can we incorporate subtyping too? *)
+(* We define linear environment splitting here.
+   On paper this is implicit in Γ1,Γ2 ⊢ e : A.
+   In Coq we have to explicitly say env_split Γ Γ1 Γ2, and typed Γ e A. *)
 Definition env := gmap string type.
 
 Definition env_unr (Γ : env) :=
@@ -103,31 +99,6 @@ Inductive typed : env -> expr -> type -> Prop :=
   | Fork_typed Γ e t1 t2 :
     typed Γ e (FunT Lin (FunT Lin t2 t1) UnitT) ->
     typed Γ (Fork e) (FunT Lin t1 t2).
-  (* fork(e) : ((τ₁ -> τ₂) -> 1) -> (τ₂ -> τ₁) *)
-  (* fork(e) : K[τ₁ -> τ₂] -> (τ₂ -> τ₁)      where K[t] = t -> 1
-
-       Γ,x:τ₁->τ₂ ⊢ e:1
-    ------------------------
-     Γ ⊢ fork(λx.e):τ₂->τ₁
-
-    let g = fork(λf, ... f 3 ...) in
-    ... g "hello" ...
-
-    ?t = 1 -> t
-    !t = t -> 1
-
-    t = t -> t | t + t | t x t | ...
-    r = End | !t.r | ?t.r | r & r | r (+) r
-
-    [?t.r] = ?(t x [r])
-    [!t.r] = !(t x [r'])
-    [End] = 1
-
-    [r1 & r2] = ?([r1] + [r2])
-    [r1 (+) r2] = !([r1] + [r2])
-
-
-  *)
 
 
 (* Operational semantics *)
@@ -205,129 +176,6 @@ Inductive step : nat -> cfg -> cfg -> Prop :=
     ρ ##ₘ ρf -> ρ' ##ₘ ρf ->
     local_step i ρ ρ' -> step i (ρ ∪ ρf) (ρ' ∪ ρf).
 
-(* Theorem statements *)
-(* ------------------ *)
+Definition step' ρ ρ' := ∃ i, step i ρ ρ'.
+Definition steps := rtc step'.
 
-(*
-  We have freedom in defining the waiting and can_step predicates.
-  One option:
-    Thread is waiting for barrier if it's K[App (BarrierV n) v].
-    Barrier is waiting for thread if thread holds its endpoint but is not that.
-    Thread can step if it can do a pure step.
-    Barrier can step if it can do a sync step.
-*)
-
-Fixpoint expr_refs e :=
-  match e with
-  | Val v => val_refs v
-  | Var x => ∅
-  | Fun x e => expr_refs e
-  | App e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | Unit => ∅
-  | Pair e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | LetPair e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | Sum i e => expr_refs e
-  | MatchSum n e es => expr_refs e ∪ fin_union n (expr_refs ∘ es)
-  | Fork e => expr_refs e
-  end
-with val_refs v :=
-  match v with
-  | FunV x e => expr_refs e
-  | UnitV => ∅
-  | PairV v1 v2 => val_refs v1 ∪ val_refs v2
-  | SumV i v => val_refs v
-  | BarrierV i => {[ i ]}
-  end.
-
-Definition expr_waiting e j := ∃ k v, ctx k ∧ e = k (App (Val $ BarrierV j) (Val v)).
-
-Definition waiting (ρ : cfg) (i j : nat) :=
-  match ρ !! i, ρ !! j with
-  | Some (Thread e), Some Barrier => expr_waiting e j
-  | Some Barrier, Some (Thread e) => i ∈ expr_refs e ∧ ¬ expr_waiting e i
-  | _,_ => False
-  end.
-
-Lemma waiting_asym ρ i j :
-  ¬ (waiting ρ i j ∧ waiting ρ j i).
-Proof.
-  intros [].
-  unfold waiting in *.
-  repeat match goal with
-  | [ H : context[ match ?x with _ => _ end ] |- _] => destruct x
-  end; naive_solver.
-Qed.
-
-Definition can_step (ρ : cfg) (i : nat) := ∃ ρ', step i ρ ρ'.
-
-Definition inactive (ρ : cfg) (i : nat) := ρ !! i = None.
-
-Inductive reachable (ρ : cfg) : nat -> Prop :=
-  | Can_step_reachable i :
-      can_step ρ i -> reachable ρ i
-  | Waiting_reachable i j :
-      waiting ρ i j -> reachable ρ j -> reachable ρ i.
-
-(* Inductive strongly_reachable (ρ : cfg) : nat -> Prop :=
-  | Strongly_reachable i :
-      (can_step ρ i ∨ ∃ j, waiting ρ i j) ->
-      (∀ j, waiting ρ i j -> strongly_reachable ρ j) ->
-      strongly_reachable ρ i. *)
-
-(* wf (waiting ρ) ∧ type_safety ρ *)
-(* Barrier can wait for two objects at the same time.
-   Thread can also do that, but it means something different.
-   For a barrier, it means that its needs both to do something in order to step.
-   For a thread, it means that it needs any one of those in order to step.
-   (Or maybe a thread can even step when it is still waiting!)
-   For a thread, should we say for all contexts?
-   Or say minimum?
-   What about reachability? Even for a thread, we can still say that everything
-   it's waiting for is already reachable, right?
-   So maybe it does not matter? *)
-
-(* Give coinductive characterization of not reachable:
-   Not reachable if can't step, and all the things it's waiting for are not reachable either. *)
-(* Give set characterization of reachable? *)
-
-Record deadlock (ρ : cfg) (s : nat -> Prop) := {
-  dl_nostep i : s i -> ¬ can_step ρ i;
-  dl_waiting i j : waiting ρ i j -> s i -> s j;
-}.
-
-Definition type_safety (ρ : cfg) :=
-  ∀ i, inactive ρ i ∨ can_step ρ i ∨ ∃ j, waiting ρ i j.
-Definition global_progress (ρ : cfg) :=
-  (∀ i, inactive ρ i) ∨ (∃ i, can_step ρ i).
-Definition fully_reachable (ρ : cfg) :=
-  ∀ i, inactive ρ i ∨ reachable ρ i.
-Definition deadlock_free (ρ : cfg) :=
-  ∀ s, deadlock ρ s -> ∀ i, s i -> inactive ρ i.
-
-Lemma fully_reachable_type_safety ρ :
-  fully_reachable ρ -> type_safety ρ.
-Proof.
-  intros Hfr i. destruct (Hfr i) as [|[]]; eauto.
-Qed.
-
-Lemma fully_reachable_global_progress ρ :
-  fully_reachable ρ -> global_progress ρ.
-Proof.
-  intros Hfr.
-  destruct (classic (∃ i, ¬ inactive ρ i)).
-  - destruct H as [i Hi]. destruct (Hfr i); first naive_solver.
-    clear Hi. right. induction H; eauto.
-  - left. intros i. apply NNPP. eauto.
-Qed.
-
-Lemma fully_reachable_iff_deadlock_free ρ :
-  fully_reachable ρ <-> deadlock_free ρ.
-Proof.
-  split.
-  - intros Hfr s [] i si.
-    destruct (Hfr i); eauto.
-    exfalso. induction H; naive_solver.
-  - intros Hdf i. classical_left.
-    eapply (Hdf (λ i, ¬ reachable ρ i));
-    first constructor; eauto using reachable.
-Qed.
