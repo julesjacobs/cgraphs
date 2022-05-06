@@ -29,18 +29,18 @@ theories/cgraphs/genericinv.v
 # theories/sessiontypes/safety.v
 # theories/sessiontypes/ycombinator.v
 
-# theories/multiparty/mutil.v
-# theories/multiparty/langdef.v
-# theories/multiparty/rtypesystem.v
-# theories/multiparty/invariant.v
-# theories/multiparty/progress.v
-# theories/multiparty/safety.v
-# theories/multiparty/ycombinator.v
+theories/multiparty/mutil.v
+theories/multiparty/langdef.v
+theories/multiparty/rtypesystem.v
+theories/multiparty/invariant.v
+theories/multiparty/progress.v
+theories/multiparty/safety.v
+theories/multiparty/ycombinator.v
 # theories/multiparty/binary.v
 
-theories/microgv/langtools.v
-theories/microgv/langdef.v
-theories/microgv/definitions.v
-theories/microgv/rtypesystem.v
-theories/microgv/invariant.v
-theories/microgv/theorems.v
+# theories/microgv/langtools.v
+# theories/microgv/langdef.v
+# theories/microgv/definitions.v
+# theories/microgv/rtypesystem.v
+# theories/microgv/invariant.v
+# theories/microgv/theorems.v

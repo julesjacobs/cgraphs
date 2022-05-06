@@ -39,6 +39,197 @@ with expr :=
   | Close : expr -> expr
   | Relabel : (participant -> participant) -> expr -> expr.
 
+(* ===================== *)
+(* OPERATIONAL SEMANTICS *)
+(* ===================== *)
+
+Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
+  match e with
+  | Val _ => e
+  | Var x' => if decide (x = x') then Val a else e
+  | App e1 e2 => App (subst x a e1) (subst x a e2)
+  | Inj b e1 => Inj b (subst x a e1)
+  | Pair e1 e2 => Pair (subst x a e1) (subst x a e2)
+  | UApp e1 e2 => UApp (subst x a e1) (subst x a e2)
+  | Lam x' e1 => if decide (x = x') then e else Lam x' (subst x a e1)
+  | ULam x' e1 => if decide (x = x') then e else ULam x' (subst x a e1)
+  | Send p e1 i e2 => Send p (subst x a e1) i (subst x a e2)
+  | Recv p e1 => Recv p (subst x a e1)
+  | Let x' e1 e2 => Let x' (subst x a e1) (if decide (x = x') then e2 else subst x a e2)
+  | LetUnit e1 e2 => LetUnit (subst x a e1) (subst x a e2)
+  | LetProd x' y' e1 e2 =>
+    LetProd x' y' (subst x a e1) (if decide (x = x' ∨ x = y') then e2 else subst x a e2)
+  | MatchVoid e1 => MatchVoid (subst x a e1)
+  | MatchSum e1 x' eL eR =>
+    MatchSum (subst x a e1) x'
+    (if decide (x = x') then eL else subst x a eL)
+    (if decide (x = x') then eR else subst x a eR)
+  | InjN n e => InjN n (subst x a e)
+  | MatchSumN n e f => MatchSumN n (subst x a e) (λ i, subst x a (f i))
+  | If e1 e2 e3 => If (subst x a e1) (subst x a e2) (subst x a e3)
+  | Spawn ps f => Spawn ps (λ p, subst x a (f p))
+  | Close e1 => Close (subst x a e1)
+  | Relabel π e1 => Relabel π (subst x a e1)
+  end.
+
+
+Inductive pure_step : expr -> expr -> Prop :=
+  | Pair_step : ∀ v1 v2,
+    pure_step (Pair (Val v1) (Val v2)) (Val (PairV v1 v2))
+  | Inj_step : ∀ v1 b,
+    pure_step (Inj b (Val v1)) (Val (InjV b v1))
+  | App_step : ∀ x e a,
+    pure_step (App (Val (FunV x e)) (Val a)) (subst x a e)
+  | UApp_step : ∀ x e a,
+    pure_step (UApp (Val (UFunV x e)) (Val a)) (subst x a e)
+  | Lam_step : ∀ x e,
+    pure_step (Lam x e) (Val (FunV x e))
+  | ULam_step : ∀ x e,
+    pure_step (ULam x e) (Val (UFunV x e))
+  | If_step1 : ∀ n e1 e2,
+    n ≠ 0 ->
+    pure_step (If (Val (NatV n)) e1 e2) e1
+  | If_step2 : ∀ e1 e2,
+    pure_step (If (Val (NatV 0)) e1 e2) e2
+  | MatchSum_step : ∀ x v eL eR b,
+    pure_step (MatchSum (Val (InjV b v)) x eL eR)
+      (if b then subst x v eL else subst x v eR)
+  | InjN_step : ∀ n v,
+    pure_step (InjN n (Val v)) (Val (InjNV n v))
+  | MatchSumN_step : ∀ n i v f,
+    pure_step (MatchSumN n (Val (InjNV (fin_to_nat i) v)) f) (App (f i) (Val v))
+  | Let_step : ∀ x v e,
+    pure_step (Let x (Val v) e) (subst x v e)
+  | LetUnit_step : ∀ e,
+    pure_step (LetUnit (Val UnitV) e) e
+  | LetProd_step : ∀ x1 x2 v1 v2 e,
+    pure_step (LetProd x1 x2 (Val (PairV v1 v2)) e) (subst x1 v1 $ subst x2 v2 e)
+  | Relabel_step : ∀ π1 π2 c p,
+    pure_step (Relabel π1 (Val (ChanV (c,p) π2))) (Val (ChanV (c,p) (π2 ∘ π1))).
+
+Definition entryT := (nat * val)%type.
+Notation bufsT A B V := (gmap B (gmap A (list V))).
+Definition heap := bufsT participant endpoint entryT.
+
+(* Definition init_chan n : gmap participant bufT :=
+  fin_gmap n (λ i, []). *)
+
+Definition push `{Countable A, Countable B} {V} (p : A) (q : B) (x : V) (bufss : bufsT A B V) : bufsT A B V :=
+  alter (alter (λ buf, buf ++ [x]) p) q bufss.
+
+Definition pop `{Countable A, Countable B} {V} (p : A) (q : B) (bufss : bufsT A B V) : option (V * bufsT A B V) :=
+  match bufss !! q with
+  | Some bufs =>
+    match bufs !! p with
+    | Some (v :: buf) => Some (v, <[ q := <[ p := buf ]> bufs ]> bufss)
+    | _ => None
+    end
+  | None => None
+  end.
+
+Definition init_chans {A} n : bufsT participant participant A :=
+  fin_gmap n (λ i, fin_gmap n (λ j, [])).
+
+Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr :=
+  fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, S (fin_to_nat i)) id))).
+
+Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
+  | Pure_step : ∀ e e' h,
+    pure_step e e' -> head_step e h e' h []
+  | Send_step : ∀ h c p q y i π, (* p is us, q is the one we send to *)
+                 (* send puts the value in the bufs of the other *)
+                 (* since we are participant p, we put it in that buffer *)
+    head_step (Send q (Val (ChanV (c,p) π)) i (Val y)) h
+          (Val (ChanV (c,p) π)) (push p (c,π q) (i,y) h) []
+    (* head_step (Send q (Val (ChanV (c,p))) i (Val y)) h *)
+          (* (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [(i,y)]) p) (c,q) h) [] *)
+    (* We could instead to the following:
+       (that would move some of the work from the preservation proof to the progress proof.) *)
+    (*
+    h !! (c,q) = Some bufs ->
+    bufs !! p = Some buf ->
+    head_step (Send q (Val (ChanV (c,p))) (Val y)) h
+          (Val (ChanV (c,p))) (<[ (c,q) := <[ p := buf ++ [y] ]> bufs ]> h) []
+    *)
+  | Recv_step : ∀ h c p q i y h' π, (* p is us, q is the one we recv from *)
+    pop (π p) (c,q) h = Some ((i,y), h') ->
+    (*
+    h !! (c,p) = Some bufs -> (* recv takes the value out of its own bufs *)
+    bufs !! q = Some ((i,y)::buf) -> (* since the recv is from p, we take it out of that buffer *)
+    *)
+    head_step (Recv p (Val (ChanV (c,q) π))) h
+          (Val (InjNV i (PairV (ChanV (c,q) π) y))) h' []
+  | Close_step : ∀ c p h π,
+    (* We can add these conditions: that would move some of the work from the
+       preservation proof to the progress proof. *)
+    (* h !! (c,p) = Some bufs -> *)
+    (* (∀ q, bufs !! q = Some []) -> *)
+    head_step (Close (Val (ChanV (c,p) π))) h
+          (Val UnitV) (delete (c,p) h) []
+  | Spawn_step : ∀ (h : heap) c n f fv,
+    (∀ p, h !! (c,p) = None) ->
+    (∀ p, f p = Val (fv p)) ->
+    head_step
+      (Spawn n f) h
+      (Val (ChanV (c, 0) id))
+      (gmap_unslice (init_chans (S n)) c ∪ h)
+      (init_threads c n fv).
+
+Inductive ctx1 : (expr -> expr) -> Prop :=
+  | Ctx_App_l e : ctx1 (λ x, App x e)
+  | Ctx_App_r v : ctx1 (λ x, App (Val v) x)
+  | Ctx_Pair_l e : ctx1 (λ x, Pair x e)
+  | Ctx_Pair_r v : ctx1 (λ x, Pair (Val v) x)
+  | Ctx_Inj b : ctx1 (λ x, Inj b x)
+  | Ctx_UApp_l e : ctx1 (λ x, UApp x e)
+  | Ctx_UApp_r v : ctx1 (λ x, UApp (Val v) x)
+  | Ctx_Send_l p e i : ctx1 (λ x, Send p x i e)
+  | Ctx_Send_r p v i : ctx1 (λ x, Send p (Val v) i x)
+  | Ctx_Recv p : ctx1 (λ x, Recv p x)
+  | Ctx_Let s e : ctx1 (λ x, Let s x e)
+  | Ctx_LetUnit e : ctx1 (λ x, LetUnit x e)
+  | Ctx_LetProd s1 s2 e : ctx1 (λ x, LetProd s1 s2 x e)
+  | Ctx_MatchVoid : ctx1 (λ x, MatchVoid x)
+  | Ctx_MatchSum s e1 e2 : ctx1 (λ x, MatchSum x s e1 e2)
+  | Ctx_InjN i : ctx1 (λ x, InjN i x)
+  | Ctx_MatchSumN n f : ctx1 (λ x, MatchSumN n x f)
+  | Ctx_If e1 e2 : ctx1 (λ x, If x e1 e2)
+  | Ctx_Spawn n (f : fin n -> expr) (p : fin n) :
+    ctx1 (λ x, Spawn n (λ q, if decide (p = q) then x else f q))
+  | Ctx_Close : ctx1 (λ x, Close x)
+  | Ctx_Relabel π : ctx1 (λ x, Relabel π x).
+
+Inductive ctx : (expr -> expr) -> Prop :=
+  | Ctx_nil : ctx (λ x, x)
+  | Ctx_cons : ∀ k1 k2, ctx1 k1 -> ctx k2 -> ctx (λ x, (k1 (k2 x))).
+
+Inductive ctx_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
+  | Ctx_step : ∀ k e h e' h' ts,
+    ctx k -> head_step e h e' h' ts -> ctx_step (k e) h (k e') h' ts.
+
+Inductive stepi : nat -> list expr -> heap -> list expr -> heap -> Prop :=
+  | Head_step : ∀ e e' h h' i ts es,
+    ctx_step e h e' h' ts ->
+    es !! i = Some e ->
+    stepi i es h (<[i := e']> es ++ ts) h'.
+
+Definition step es h es' h' := ∃ i, stepi i es h es' h'.
+
+Definition can_stepi i es h := ∃ es' h', stepi i es h es' h'.
+
+(* Closure of the step relation; this is used in the theorem statement. *)
+Inductive steps : list expr -> heap -> list expr -> heap -> Prop :=
+  | Trans_step : ∀ e1 e2 e3 s1 s2 s3,
+    step e1 s1 e2 s2 ->
+    steps e2 s2 e3 s3 ->
+    steps e1 s1 e3 s3
+  | Empty_step : ∀ e1 s1,
+    steps e1 s1 e1 s1.
+
+(* =========== *)
+(* TYPE SYSTEM *)
+(* =========== *)
+
 Canonical Structure valO := leibnizO val.
 Canonical Structure exprO := leibnizO expr.
 
@@ -270,10 +461,10 @@ CoInductive proj (r : participant) : global_type -> session_type -> Prop :=
   | proj_end G :
       ¬ occurs_in r G -> proj r G EndT.
 
-Definition consistent n (σs : fin n -> session_type) :=
+(* Definition consistent n (σs : fin n -> session_type) :=
   ∃ G : global_type,
     (∀ i, proj (fin_to_nat i) G (σs i)) ∧
-    (∀ j, j >= n -> proj j G EndT).
+    (∀ j, j >= n -> proj j G EndT). *)
 
 Record disj_union n (Γ : envT) (fΓ : fin n -> envT) : Prop := {
   du_disj p q : p ≠ q -> disj (fΓ p) (fΓ q);
@@ -293,6 +484,70 @@ Proof.
   split; subst; eauto using disj_union_Proper_impl.
   symmetry in H. eauto using disj_union_Proper_impl.
 Qed.
+
+Definition sentryT := (nat * type)%type.
+Definition sbufsT := bufsT participant participant sentryT.
+
+Definition can_progress {A}
+  (bufs : bufsT participant participant A)
+  (σs : gmap participant session_type) := ∃ q σ,
+    σs !! q = Some σ ∧
+    match σ with
+    | RecvT n p _ _ => ∃ y bufs', pop p q bufs = Some(y,bufs')
+    | _ => True
+    end.
+
+Definition buf_empty (bufs : bufsT participant participant sentryT) (p : participant ):=
+  ∀ bs, bufs !! p = Some bs ->
+    ∀ q buf, bs !! q = Some buf -> buf = [].
+
+Definition is_present `{Countable A, Countable B} {V}
+    p q (bufss : bufsT A B V) :=
+  match bufss !! q with
+  | Some bufs => match bufs !! p with Some _ => True | None => False end
+  | None => False
+  end.
+
+(* Definition sbufs_typed (bufs : bufsT participant participant sentryT) *)
+                      (* (σs : gmap participant session_type) : Prop. Admitted. *)
+                       (* :=
+  dom_valid bufs (dom (gset _) σs) ∧
+  ∃ G : rglobal_type,
+      (∀ p, rproj p G (default EndT (σs !! p))) ∧
+      sbufprojs G bufs. *)
+CoInductive sbufs_typed
+  (bufs : bufsT participant participant sentryT)
+  (σs : gmap participant session_type) : Prop := {
+  sbufs_typed_push
+      (n : nat) (i : fin n) (p q : participant) ts ss :
+    σs !! p = Some (SendT n q ts ss) ->
+    sbufs_typed (push p q (fin_to_nat i,ts i) bufs) (<[p:=ss i]> σs);
+  sbufs_typed_pop
+      (bufs' : bufsT participant participant sentryT)
+      (n : nat) (p q : participant) t i ts ss :
+    σs !! q = Some (RecvT n p ts ss) ->
+    pop p q bufs = Some((i,t),bufs') ->
+    ∃ i', i = fin_to_nat i' ∧ t = ts i' ∧
+      sbufs_typed bufs' (<[ q := ss i' ]> σs);
+  sbufs_Some_present p q n ts ss (i : fin n) :
+      σs !! p = Some (SendT n q ts ss) ->
+      is_present p q bufs;
+  sbufs_typed_dealloc p :
+    σs !! p = Some EndT ->
+    sbufs_typed (delete p bufs) (delete p σs);
+  sbufs_typed_progress :
+    bufs = ∅ ∨ can_progress bufs σs;
+  sbufs_typed_recv p :
+    is_Some (σs !! p) -> is_Some (bufs !! p);
+  sbufs_typed_end_empty p :
+    σs !! p = Some EndT ->
+    buf_empty bufs p;
+  sbufs_typed_empty_inv :
+    bufs = ∅ -> σs = ∅
+}.
+
+Definition consistent n (σs : fin n -> session_type) :=
+  sbufs_typed (init_chans n) (fin_gmap n σs).
 
 Inductive typed : envT -> expr -> type -> Prop :=
   | Unit_typed Γ :
@@ -398,187 +653,6 @@ Inductive typed : envT -> expr -> type -> Prop :=
     typed Γ e t ->
     typed Γ e t'.
 
-Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
-  match e with
-  | Val _ => e
-  | Var x' => if decide (x = x') then Val a else e
-  | App e1 e2 => App (subst x a e1) (subst x a e2)
-  | Inj b e1 => Inj b (subst x a e1)
-  | Pair e1 e2 => Pair (subst x a e1) (subst x a e2)
-  | UApp e1 e2 => UApp (subst x a e1) (subst x a e2)
-  | Lam x' e1 => if decide (x = x') then e else Lam x' (subst x a e1)
-  | ULam x' e1 => if decide (x = x') then e else ULam x' (subst x a e1)
-  | Send p e1 i e2 => Send p (subst x a e1) i (subst x a e2)
-  | Recv p e1 => Recv p (subst x a e1)
-  | Let x' e1 e2 => Let x' (subst x a e1) (if decide (x = x') then e2 else subst x a e2)
-  | LetUnit e1 e2 => LetUnit (subst x a e1) (subst x a e2)
-  | LetProd x' y' e1 e2 =>
-    LetProd x' y' (subst x a e1) (if decide (x = x' ∨ x = y') then e2 else subst x a e2)
-  | MatchVoid e1 => MatchVoid (subst x a e1)
-  | MatchSum e1 x' eL eR =>
-    MatchSum (subst x a e1) x'
-    (if decide (x = x') then eL else subst x a eL)
-    (if decide (x = x') then eR else subst x a eR)
-  | InjN n e => InjN n (subst x a e)
-  | MatchSumN n e f => MatchSumN n (subst x a e) (λ i, subst x a (f i))
-  | If e1 e2 e3 => If (subst x a e1) (subst x a e2) (subst x a e3)
-  | Spawn ps f => Spawn ps (λ p, subst x a (f p))
-  | Close e1 => Close (subst x a e1)
-  | Relabel π e1 => Relabel π (subst x a e1)
-  end.
-
-Inductive pure_step : expr -> expr -> Prop :=
-  | Pair_step : ∀ v1 v2,
-    pure_step (Pair (Val v1) (Val v2)) (Val (PairV v1 v2))
-  | Inj_step : ∀ v1 b,
-    pure_step (Inj b (Val v1)) (Val (InjV b v1))
-  | App_step : ∀ x e a,
-    pure_step (App (Val (FunV x e)) (Val a)) (subst x a e)
-  | UApp_step : ∀ x e a,
-    pure_step (UApp (Val (UFunV x e)) (Val a)) (subst x a e)
-  | Lam_step : ∀ x e,
-    pure_step (Lam x e) (Val (FunV x e))
-  | ULam_step : ∀ x e,
-    pure_step (ULam x e) (Val (UFunV x e))
-  | If_step1 : ∀ n e1 e2,
-    n ≠ 0 ->
-    pure_step (If (Val (NatV n)) e1 e2) e1
-  | If_step2 : ∀ e1 e2,
-    pure_step (If (Val (NatV 0)) e1 e2) e2
-  | MatchSum_step : ∀ x v eL eR b,
-    pure_step (MatchSum (Val (InjV b v)) x eL eR)
-      (if b then subst x v eL else subst x v eR)
-  | InjN_step : ∀ n v,
-    pure_step (InjN n (Val v)) (Val (InjNV n v))
-  | MatchSumN_step : ∀ n i v f,
-    pure_step (MatchSumN n (Val (InjNV (fin_to_nat i) v)) f) (App (f i) (Val v))
-  | Let_step : ∀ x v e,
-    pure_step (Let x (Val v) e) (subst x v e)
-  | LetUnit_step : ∀ e,
-    pure_step (LetUnit (Val UnitV) e) e
-  | LetProd_step : ∀ x1 x2 v1 v2 e,
-    pure_step (LetProd x1 x2 (Val (PairV v1 v2)) e) (subst x1 v1 $ subst x2 v2 e)
-  | Relabel_step : ∀ π1 π2 c p,
-    pure_step (Relabel π1 (Val (ChanV (c,p) π2))) (Val (ChanV (c,p) (π2 ∘ π1))).
-
-Notation bufsT A B V := (gmap B (gmap A (list V))).
-Definition entryT := (nat * val)%type.
-Definition heap := bufsT participant endpoint entryT.
-
-(* Definition init_chan n : gmap participant bufT :=
-  fin_gmap n (λ i, []). *)
-
-Definition push `{Countable A, Countable B} {V} (p : A) (q : B) (x : V) (bufss : bufsT A B V) : bufsT A B V :=
-  alter (alter (λ buf, buf ++ [x]) p) q bufss.
-
-Definition pop `{Countable A, Countable B} {V} (p : A) (q : B) (bufss : bufsT A B V) : option (V * bufsT A B V) :=
-  match bufss !! q with
-  | Some bufs =>
-    match bufs !! p with
-    | Some (v :: buf) => Some (v, <[ q := <[ p := buf ]> bufs ]> bufss)
-    | _ => None
-    end
-  | None => None
-  end.
-
-Definition init_chans {A} n : bufsT participant participant A :=
-  fin_gmap n (λ i, fin_gmap n (λ j, [])).
-
-Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr :=
-  fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, S (fin_to_nat i)) id))).
-
-Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
-  | Pure_step : ∀ e e' h,
-    pure_step e e' -> head_step e h e' h []
-  | Send_step : ∀ h c p q y i π, (* p is us, q is the one we send to *)
-                 (* send puts the value in the bufs of the other *)
-                 (* since we are participant p, we put it in that buffer *)
-    head_step (Send q (Val (ChanV (c,p) π)) i (Val y)) h
-          (Val (ChanV (c,p) π)) (push p (c,π q) (i,y) h) []
-    (* head_step (Send q (Val (ChanV (c,p))) i (Val y)) h *)
-          (* (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [(i,y)]) p) (c,q) h) [] *)
-    (* We could instead to the following:
-       (that would move some of the work from the preservation proof to the progress proof.) *)
-    (*
-    h !! (c,q) = Some bufs ->
-    bufs !! p = Some buf ->
-    head_step (Send q (Val (ChanV (c,p))) (Val y)) h
-          (Val (ChanV (c,p))) (<[ (c,q) := <[ p := buf ++ [y] ]> bufs ]> h) []
-    *)
-  | Recv_step : ∀ h c p q i y h' π, (* p is us, q is the one we recv from *)
-    pop (π p) (c,q) h = Some ((i,y), h') ->
-    (*
-    h !! (c,p) = Some bufs -> (* recv takes the value out of its own bufs *)
-    bufs !! q = Some ((i,y)::buf) -> (* since the recv is from p, we take it out of that buffer *)
-    *)
-    head_step (Recv p (Val (ChanV (c,q) π))) h
-          (Val (InjNV i (PairV (ChanV (c,q) π) y))) h' []
-  | Close_step : ∀ c p h π,
-    (* We can add these conditions: that would move some of the work from the
-       preservation proof to the progress proof. *)
-    (* h !! (c,p) = Some bufs -> *)
-    (* (∀ q, bufs !! q = Some []) -> *)
-    head_step (Close (Val (ChanV (c,p) π))) h
-          (Val UnitV) (delete (c,p) h) []
-  | Spawn_step : ∀ (h : heap) c n f fv,
-    (∀ p, h !! (c,p) = None) ->
-    (∀ p, f p = Val (fv p)) ->
-    head_step
-      (Spawn n f) h
-      (Val (ChanV (c, 0) id))
-      (gmap_unslice (init_chans (S n)) c ∪ h)
-      (init_threads c n fv).
-
-Inductive ctx1 : (expr -> expr) -> Prop :=
-  | Ctx_App_l e : ctx1 (λ x, App x e)
-  | Ctx_App_r v : ctx1 (λ x, App (Val v) x)
-  | Ctx_Pair_l e : ctx1 (λ x, Pair x e)
-  | Ctx_Pair_r v : ctx1 (λ x, Pair (Val v) x)
-  | Ctx_Inj b : ctx1 (λ x, Inj b x)
-  | Ctx_UApp_l e : ctx1 (λ x, UApp x e)
-  | Ctx_UApp_r v : ctx1 (λ x, UApp (Val v) x)
-  | Ctx_Send_l p e i : ctx1 (λ x, Send p x i e)
-  | Ctx_Send_r p v i : ctx1 (λ x, Send p (Val v) i x)
-  | Ctx_Recv p : ctx1 (λ x, Recv p x)
-  | Ctx_Let s e : ctx1 (λ x, Let s x e)
-  | Ctx_LetUnit e : ctx1 (λ x, LetUnit x e)
-  | Ctx_LetProd s1 s2 e : ctx1 (λ x, LetProd s1 s2 x e)
-  | Ctx_MatchVoid : ctx1 (λ x, MatchVoid x)
-  | Ctx_MatchSum s e1 e2 : ctx1 (λ x, MatchSum x s e1 e2)
-  | Ctx_InjN i : ctx1 (λ x, InjN i x)
-  | Ctx_MatchSumN n f : ctx1 (λ x, MatchSumN n x f)
-  | Ctx_If e1 e2 : ctx1 (λ x, If x e1 e2)
-  | Ctx_Spawn n (f : fin n -> expr) (p : fin n) :
-    ctx1 (λ x, Spawn n (λ q, if decide (p = q) then x else f q))
-  | Ctx_Close : ctx1 (λ x, Close x)
-  | Ctx_Relabel π : ctx1 (λ x, Relabel π x).
-
-Inductive ctx : (expr -> expr) -> Prop :=
-  | Ctx_nil : ctx (λ x, x)
-  | Ctx_cons : ∀ k1 k2, ctx1 k1 -> ctx k2 -> ctx (λ x, (k1 (k2 x))).
-
-Inductive ctx_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
-  | Ctx_step : ∀ k e h e' h' ts,
-    ctx k -> head_step e h e' h' ts -> ctx_step (k e) h (k e') h' ts.
-
-Inductive stepi : nat -> list expr -> heap -> list expr -> heap -> Prop :=
-  | Head_step : ∀ e e' h h' i ts es,
-    ctx_step e h e' h' ts ->
-    es !! i = Some e ->
-    stepi i es h (<[i := e']> es ++ ts) h'.
-
-Definition step es h es' h' := ∃ i, stepi i es h es' h'.
-
-Definition can_stepi i es h := ∃ es' h', stepi i es h es' h'.
-
-(* Closure of the step relation; this is used in the theorem statement. *)
-Inductive steps : list expr -> heap -> list expr -> heap -> Prop :=
-  | Trans_step : ∀ e1 e2 e3 s1 s2 s3,
-    step e1 s1 e2 s2 ->
-    steps e2 s2 e3 s3 ->
-    steps e1 s1 e3 s3
-  | Empty_step : ∀ e1 s1,
-    steps e1 s1 e1 s1.
 
 (*
   Coq's default notion of equality is not good enough for coinductive types:

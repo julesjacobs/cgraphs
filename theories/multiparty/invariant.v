@@ -35,12 +35,7 @@ Section pushpop.
     f_equal; apply map_eq; intro; smap.
   Qed.
 
-  Definition is_present `{Countable A, Countable B} {V}
-      p q (bufss : bufsT A B V) :=
-    match bufss !! q with
-    | Some bufs => match bufs !! p with Some _ => True | None => False end
-    | None => False
-    end.
+
 
   Lemma pop_push_single `{Countable A, Countable B} {V}
       (p : A) (q : B) (x : V) (bufs : bufsT A B V) :
@@ -287,8 +282,6 @@ Section bufs_typed.
         proj r G σ -> rproj r (ContinueR G) σ.
 
 
-  Definition sentryT := (nat * type)%type.
-  Definition sbufsT := bufsT participant participant sentryT.
 
   Inductive sbufprojs : rglobal_type -> sbufsT -> Prop :=
     | bp_skip n p q ts Gs bufs :
@@ -300,27 +293,25 @@ Section bufs_typed.
         sbufprojs (MessageR n (Some i) p q ts Gs) bufs
     | bp_end G' bufs : bufs_empty bufs -> sbufprojs (ContinueR G') bufs.
 
-  (* Fixpoint bufprojs (G : rglobal_type) (bufs : sbufsT) : rProp :=
-    match G with
-    | MessageR n o p q ts Gs =>
-      match o with
-      | None =>
-        ⌜⌜ pop p q bufs = None ⌝⌝ ∗ ∀ i, bufprojs (Gs i) bufs
-      | Some i =>
-        ∃ v bufs', ⌜⌜ pop p q bufs = Some ((fin_to_nat i,v), bufs') ⌝⌝ ∗
-          val_typed v (ts i) ∗ bufprojs (Gs i) bufs'
-      end
-    | ContinueR G' => ⌜⌜ bufs_empty bufs ⌝⌝
-    end. *)
 
 
-  Definition sbufs_typed (bufs : bufsT participant participant sentryT)
-                        (σs : gmap participant session_type) : Prop :=
-    dom_valid bufs (dom (gset _) σs) ∧
-    ∃ G : rglobal_type,
-        (∀ p, rproj p G (default EndT (σs !! p))) ∧
-        sbufprojs G bufs.
+  Lemma sbufs_typed_pop' (σs : gmap participant session_type)
+    (bufs bufs' : bufsT participant participant sentryT)
+    (n : nat) (p q : participant) t i ts ss :
+    σs !! q = Some (RecvT n p ts ss) ->
+    pop p q bufs = Some((i,t),bufs') ->
+    sbufs_typed bufs σs -> ∃ i', i = fin_to_nat i' ∧ t = ts i' ∧
+      sbufs_typed bufs' (<[ q := ss i' ]> σs).
+  Proof.
+    intros.
+    eapply sbufs_typed_pop; first done; eauto.
+  Qed.
 
+  Lemma sbufs_typed_empty :
+    sbufs_typed ∅ ∅.
+  Proof.
+    constructor; sdec. intros ?[]. smap.
+  Qed.
 
   Inductive pushUG (p q : participant) (n : nat) (i : fin n) : type -> global_type -> rglobal_type -> Prop :=
     | pushU_skip n' p' q' t ts Gs Gs' :
@@ -441,14 +432,15 @@ Section bufs_typed.
     eauto using sbufprojs, pushUG_bufs, pop_push_single, pop_is_present, pop_push_Some, pop_push_None.
   Qed.
 
-  Lemma sbufs_typed_push (bufss : bufsT participant participant sentryT)
+  (* Lemma sbufs_typed_push (bufss : bufsT participant participant sentryT)
                         (σs : gmap participant session_type)
                         (n : nat) (i : fin n) (p q : participant) ts ss :
     σs !! p = Some (SendT n q ts ss) ->
     sbufs_typed bufss σs ->
     sbufs_typed (push p q (fin_to_nat i,ts i) bufss) (<[p:=ss i]> σs).
   Proof.
-    intros Hp [Hdb [G [Hprojs Hsb]]].
+  Admitted. *)
+    (* intros Hp [Hdb [G [Hprojs Hsb]]].
     split. { rewrite dom_insert_lookup_L; eauto.
              apply dom_valid_push; eauto. apply elem_of_dom; eauto. }
     pose proof (Hprojs p) as Hproj. rewrite Hp in Hproj. simpl in *.
@@ -463,7 +455,7 @@ Section bufs_typed.
       + specialize (Hprojs q).
         destruct (σs !! q); eauto.
         simpl in *. exfalso. eapply proj_consistent; eauto.
-  Qed.
+  Qed. *)
 
   Inductive popG (p q : participant) (n : nat) (i : fin n) : type -> rglobal_type -> rglobal_type -> Prop :=
     | pop_skipN n' p' q' ts Gs Gs' t :
@@ -535,7 +527,7 @@ Section bufs_typed.
       Unshelve. exact 0%fin.
   Qed.
 
-  Lemma sbufs_typed_pop (σs : gmap participant session_type)
+  (* Lemma sbufs_typed_pop (σs : gmap participant session_type)
     (bufs bufs' : bufsT participant participant sentryT)
     (n : nat) (p q : participant) t i ts ss :
     σs !! q = Some (RecvT n p ts ss) ->
@@ -543,7 +535,8 @@ Section bufs_typed.
     sbufs_typed bufs σs -> ∃ i', i = fin_to_nat i' ∧ t = ts i' ∧
       sbufs_typed bufs' (<[ q := ss i' ]> σs).
   Proof.
-    intros Hp Hpop [Hdv [G [Hprojs Hsb]]].
+  Admitted. *)
+    (* intros Hp Hpop [Hdv [G [Hprojs Hsb]]].
     pose proof (Hprojs q) as Hproj. rewrite Hp in Hproj. simpl in *.
     edestruct sbufprojs_popG as (G' & i' & Q & HpopG); eauto. subst.
     eexists; split; eauto.
@@ -552,7 +545,7 @@ Section bufs_typed.
     split. { rewrite dom_insert_lookup_L; eauto. eapply dom_valid_pop; eauto. }
     exists G'. split; eauto.
     intros r. smap; eauto using popG_other, popG_recv.
-  Qed.
+  Qed. *)
 
   Definition entries_typed (bufs : bufsT participant participant entryT)
                            (sbufs : bufsT participant participant sentryT) : rProp :=
@@ -571,20 +564,26 @@ Section bufs_typed.
     intros ???. apply session_type_extensionality in H. subst. done.
   Qed.
 
+  Global Instance session_typed_leibniz : LeibnizEquiv session_type.
+  Proof.
+    intros ???. apply session_type_extensionality. done.
+  Qed.
+
   Global Instance sbufs_typed_Proper bufs : Proper ((≡) ==> (≡)) (sbufs_typed bufs).
   Proof.
-    intros ???. unfold sbufs_typed. setoid_rewrite H. done.
+    intros ???. apply leibniz_equiv in H. subst. reflexivity.
   Qed.
 
   Global Instance bufs_typed_Proper bufs : Proper ((≡) ==> (≡)) (bufs_typed bufs).
   Proof. solve_proper. Qed.
 
-  Lemma sbufs_Some_present σs p q n ts ss sbufs (i : fin n) :
+  (* Lemma sbufs_Some_present σs p q n ts ss sbufs (i : fin n) :
     σs !! p = Some (SendT n q ts ss) ->
     sbufs_typed sbufs σs ->
     is_present p q sbufs.
   Proof.
-    intros Hp [Hdv [G [Hprojs bufs]]].
+  Admitted. *)
+    (* intros Hp [Hdv [G [Hprojs bufs]]].
     pose proof (Hprojs p) as Hproj.
     rewrite Hp in Hproj. simpl in *.
     eapply send_pushG in Hproj as [G' HpushG]. Unshelve. 2: eauto.
@@ -595,7 +594,7 @@ Section bufs_typed.
     }
     specialize (Hprojs q).
     rewrite E in Hprojs. done.
-  Qed.
+  Qed. *)
 
   Definition same_structure (bufs : bufsT participant participant entryT) (sbufs : bufsT participant participant sentryT) :=
     ∀ p, match bufs !! p, sbufs !! p with
@@ -811,10 +810,10 @@ Section bufs_typed.
     iIntros (Hp Hpop) "H".
     iDestruct "H" as (sbufs Hsbufs) "H".
     iDestruct (entries_typed_can_pop with "H") as %(t & sbufs' & Hspop); eauto.
-    edestruct sbufs_typed_pop as [i' [? [? ?]]]; eauto.
+    edestruct sbufs_typed_pop' as [i' [? [? ?]]]; eauto.
     iExists i'.
     iSplit; first done. subst.
-    edestruct sbufs_typed_pop as (i & Q1 & Q2 & Hsbufs'); eauto; sdec.
+    edestruct sbufs_typed_pop' as (i & Q1 & Q2 & Hsbufs'); eauto; sdec.
     iDestruct (entries_typed_pop with "H") as "[Hv H]"; eauto. iFrame.
     unfold bufs_typed.
     iExists _; eauto with iFrame.
@@ -830,9 +829,9 @@ Section bufs_typed.
     iIntros (H) "[H1 H2]".
     inversion H. remember (SendT n q ts ss).
     inversion H2; simplify_eq.
-    rewrite -(H4 i).
+    (* rewrite -(H4 i). *)
     iApply bufs_typed_push'; first done. iFrame.
-    rewrite (H3 i) //.
+    (* rewrite (H3 i) //. *)
   Qed.
 
   Lemma bufs_typed_pop (σs : gmap participant session_type)
@@ -843,23 +842,23 @@ Section bufs_typed.
     bufs_typed bufs σs ⊢ ∃ i', ⌜⌜ i = fin_to_nat i' ⌝⌝ ∗
       val_typed v (ts i') ∗ bufs_typed bufs' (<[ q := ss i' ]> σs).
   Proof.
-    intros H. inversion H. simplify_eq.
-    remember (RecvT n p ts ss).
-    inversion H2; simplify_eq. symmetry in H0.
-    intros.
-    eapply bufs_typed_pop' in H0; last done.
+    intros H. inversion H. simplify_eq. intros.
+    (* remember (RecvT n p ts ss). *)
+    (* inversion H2; simplify_eq. symmetry in H0. *)
+    (* intros. *)
+    eapply bufs_typed_pop' in H1; last done.
     iIntros "H".
-    iDestruct (H0 with "H") as (j ->) "[Hv H]".
-    iExists _. iSplit; first done.
-    rewrite -(H1 j) -(H3 j) //. iFrame.
+    iDestruct (H1 with "H") as (j ->) "[Hv H]".
+    iExists _. iSplit; first done. iFrame.
   Qed.
 
-  Lemma sbufs_typed_dealloc sbufs σs p :
+  (* Lemma sbufs_typed_dealloc sbufs σs p :
     σs !! p = Some EndT ->
     sbufs_typed sbufs σs ->
     sbufs_typed (delete p sbufs) (delete p σs).
   Proof.
-    intros Hp [Hdv [G [Hprojs Hsbufs]]].
+  Admitted. *)
+    (* intros Hp [Hdv [G [Hprojs Hsbufs]]].
     split. { rewrite dom_delete_L. eapply dom_valid_delete; done. }
     exists G.
     assert (rproj p G EndT) as Hprojp.
@@ -868,11 +867,8 @@ Section bufs_typed.
     clear Hp Hdv Hprojs σs.
     revert sbufs Hsbufs. induction G; intros; inv Hprojp; inv Hsbufs;
     eauto using sbufprojs,pop_delete_None,pop_delete_Some,bufs_empty_delete.
-  Qed.
+  Qed. *)
 
-  Definition buf_empty (bufs : bufsT participant participant sentryT) (p : participant ):=
-    ∀ bs, bufs !! p = Some bs ->
-      ∀ q buf, bs !! q = Some buf -> buf = [].
 
   Lemma entries_typed_delete p bufs sbufs :
     buf_empty sbufs p ->
@@ -928,18 +924,19 @@ Section bufs_typed.
     destruct l eqn:E''; smap.
   Qed.
 
-  Lemma sbufs_typed_end_empty σs p bufs :
+  (* Lemma sbufs_typed_end_empty σs p bufs :
     σs !! p = Some EndT ->
     sbufs_typed bufs σs ->
     buf_empty bufs p.
   Proof.
-    intros Hp [Hdv [G [Hprojs Hsb]]].
+  Admitted. *)
+    (* intros Hp [Hdv [G [Hprojs Hsb]]].
     specialize (Hprojs p).
     rewrite Hp in Hprojs. simpl in *.
     clear Hdv.
     induction Hsb; inv Hprojs; eauto using bufs_empty_buf_empty,buf_empty_pop.
     Unshelve. exact 0%fin.
-  Qed.
+  Qed. *)
 
   Lemma bufs_typed_dealloc bufss σs p :
     σs !! p ≡ Some EndT ->
@@ -952,18 +949,19 @@ Section bufs_typed.
     clear Hpp.
     iDestruct "H" as (sbufs Hsbufs) "H".
     iExists (delete p sbufs).
-    iSplit. { eauto using sbufs_typed_dealloc. }
+    iSplit. { iPureIntro. apply sbufs_typed_dealloc; done. }
     iApply entries_typed_delete; eauto using sbufs_typed_end_empty.
   Qed.
 
-  Lemma sbufs_typed_empty : sbufs_typed ∅ ∅.
+  (* Lemma sbufs_typed_empty : sbufs_typed ∅ ∅.
   Proof.
-    split. { rewrite dom_empty_L. apply dom_valid_empty. }
+  Admitted. *)
+    (* split. { rewrite dom_empty_L. apply dom_valid_empty. }
     exists (ContinueR EndG). split.
     - intros p. rewrite lookup_empty /=.
       constructor. constructor. intros H. inversion H.
     - econstructor. intros ??. unfold pop. rewrite lookup_empty //.
-  Qed.
+  Qed. *)
 
   Lemma entries_typed_empty : emp ⊣⊢ entries_typed ∅ ∅.
   Proof.
@@ -996,13 +994,14 @@ Section bufs_typed.
     rewrite <-entries_typed_empty. done.
   Qed.
 
-  Lemma sbufs_typed_empty_inv σs :
+  (* Lemma sbufs_typed_empty_inv σs :
     sbufs_typed ∅ σs -> σs = ∅.
   Proof.
-    intros [Hdv [G [Hprojs Hsbufs]]].
+  Admitted. *)
+    (* intros [Hdv [G [Hprojs Hsbufs]]].
     apply dom_valid_empty_inv in Hdv.
     apply dom_empty_iff_L in Hdv. done.
-  Qed.
+  Qed. *)
 
   Lemma bufs_typed_empty_inv σs :
     bufs_typed ∅ σs ⊢ ⌜⌜ σs = ∅ ⌝⌝.
@@ -1010,8 +1009,8 @@ Section bufs_typed.
     iIntros "H".
     iDestruct "H" as (sbufs Hsbufs) "H".
     iDestruct (entries_typed_empty_inv with "H") as %->.
-    apply sbufs_typed_empty_inv in Hsbufs as ->.
-    rewrite <-entries_typed_empty. done.
+    apply sbufs_typed_empty_inv in Hsbufs as ->; try done.
+    (* rewrite <-entries_typed_empty; done. done. *)
   Qed.
 
   Lemma dom_valid_init {A} n d :
@@ -1051,15 +1050,11 @@ Section bufs_typed.
     - rewrite fin_gmap_lookup_ne in E; sdec. lia.
   Qed.
 
-  Lemma bufs_typed_init n σs :
+  Lemma sbufs_typed_init n σs :
     consistent n σs ->
-    emp ⊢ bufs_typed (init_chans n) (fin_gmap n σs).
-  Proof.
-    iIntros (Hcons) "_".
-    unfold bufs_typed.
-    iExists (init_chans n).
-    iSplit. { iPureIntro.
-      destruct Hcons as [G [Hprojs1 Hprojs2]].
+    sbufs_typed (init_chans n) (fin_gmap n σs).
+  Proof. done. Qed.
+  (* destruct Hcons as [G [Hprojs1 Hprojs2]].
       split; first by eauto using dom_valid_init, fin_gmap_dom.
       exists (ContinueR G).
       split.
@@ -1070,8 +1065,16 @@ Section bufs_typed.
           eauto using rproj.
         + rewrite fin_gmap_lookup_ne; last lia.
           simpl. eauto using rproj with lia.
-      - econstructor. eapply bufs_empty_init_chans.
-    }
+      - econstructor. eapply bufs_empty_init_chans. *)
+
+  Lemma bufs_typed_init n σs :
+    consistent n σs ->
+    emp ⊢ bufs_typed (init_chans n) (fin_gmap n σs).
+  Proof.
+    iIntros (Hcons) "_".
+    unfold bufs_typed.
+    iExists (init_chans n).
+    iSplit. { iPureIntro. apply sbufs_typed_init. done. }
     iApply big_sepM2_intro.
     - intros k.
       unfold init_chans.
@@ -1114,14 +1117,15 @@ Section bufs_typed.
     intros []. sdec.
   Qed.
 
-  Lemma sbufs_typed_recv bufss σs p :
+  (* Lemma sbufs_typed_recv bufss σs p :
     is_Some (σs !! p) ->
     sbufs_typed bufss σs -> is_Some (bufss !! p).
   Proof.
-    intros Hp [Hdv [G [Hprojs Hsbufs]]].
+  Admitted. *)
+    (* intros Hp [Hdv [G [Hprojs Hsbufs]]].
     eapply dom_valid_same_dom; eauto.
     apply elem_of_dom. done.
-  Qed.
+  Qed. *)
 
   Lemma entries_typed_same_dom bufs sbufs :
     entries_typed bufs sbufs ⊢ ⌜ dom (gset _) bufs = dom (gset _) sbufs ⌝.
@@ -1143,19 +1147,12 @@ Section bufs_typed.
     apply elem_of_dom. done.
   Qed.
 
-  Definition can_progress {A}
-    (bufs : bufsT participant participant A)
-    (σs : gmap participant session_type) := ∃ q σ,
-      σs !! q = Some σ ∧
-      match σ with
-      | RecvT n p _ _ => ∃ y bufs', pop p q bufs = Some(y,bufs')
-      | _ => True
-      end.
 
-  Lemma sbufs_typed_progress bufss σs :
+  (* Lemma sbufs_typed_progress bufss σs :
     sbufs_typed bufss σs -> bufss = ∅ ∨ can_progress bufss σs.
   Proof.
-    intros [Hdv [G [Hprojs Hsbufs]]].
+  Admitted. *)
+    (* intros [Hdv [G [Hprojs Hsbufs]]].
     inv Hsbufs.
     - right.
       unfold can_progress.
@@ -1198,7 +1195,7 @@ Section bufs_typed.
       simpl in *.
       inversion Hprojs; simplify_eq.
       inversion H1; simplify_eq.
-  Qed.
+  Qed. *)
 
   Lemma entries_typed_can_progress bufs sbufs σs :
     can_progress sbufs σs ->
@@ -1378,7 +1375,8 @@ Proof.
         iExists _,_. iSplit; first done.
         rewrite -H7. iFrame.
         inversion H6. simplify_eq.
-        iExists _. iSplit; first done. unfold own_ep. simpl. rewrite H8 //.
+        iExists _. iSplit; first done. unfold own_ep. simpl. done.
+        (* rewrite H8 //. *)
       * iExists (<[ q := relabelT π (r i') ]> σs). iFrame. iPureIntro.
         by eapply map_to_multiset_update.
   - (* Close *)
@@ -1461,7 +1459,8 @@ Proof.
         remember (ChanT (σs 0%fin)).
         inversion Hteq; simplify_eq.
         iExists _. iSplit; first done.
-        rewrite -H3. unfold own_ep.
+        (* rewrite -H3. *)
+        unfold own_ep.
         rewrite relabelT_id. done.
       }
       iSplitR.

@@ -1,5 +1,5 @@
 From stdpp Require Import countable fin_sets functions.
-From iris Require Import proofmode tactics.
+From iris Require Import proofmode.proofmode proofmode.tactics.
 From diris Require Import util bi.
 
 

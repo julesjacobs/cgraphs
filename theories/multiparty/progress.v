@@ -743,8 +743,9 @@ Proof.
         destruct (Σ2 !! Chan c') eqn:E; rewrite E; simpl; done.
       }
       revert Hoc'. rewrite Hy. intros Hoc'.
-      inversion Hoc'. simplify_eq. inversion H1. simpl in *.
-      inversion H0; simplify_eq.
+      inversion Hoc'. simplify_eq.
+      (* inversion H1. simpl in *. *)
+      (* inversion H0; simplify_eq. *)
       destruct Hσ as (y & bufs' & Hσ).
       rewrite gmap_slice_pop_fmap Hpop in Hσ.
       simplify_eq.

@@ -135,7 +135,7 @@ Inductive pure_step : expr -> expr -> Prop :=
     pure_step (MatchSum n (Val $ SumV i v) es) (App (es i) (Val v)).
 
 Inductive ctx1 : (expr -> expr) -> Prop :=
-  | Ctx_App_l e : ctx1 (λ x, App x e)
+  | Ctx_App_l v : ctx1 (λ x, App x (Val v))
   | Ctx_App_r e : ctx1 (λ x, App e x)
   | Ctx_Pair_l e : ctx1 (λ x, Pair x e)
   | Ctx_Pair_r e : ctx1 (λ x, Pair e x)
