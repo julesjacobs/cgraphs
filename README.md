@@ -11,4 +11,6 @@ To build the code, install the following dependencies:
 
 You can then compile this project with `make`.
 
-See readme.pdf for more detailed information.
+The theories folder contains the code for each of the subcomponents and their documentation.
+
+See cgraphs.pdf for more detailed information.

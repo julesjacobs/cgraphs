@@ -1,4 +1,4 @@
-From diris.microgv Require Export langdef.
+From diris.lambdabar Require Export langdef.
 
 Notation vertex := nat.
 Definition label : Type := bool * type * type.

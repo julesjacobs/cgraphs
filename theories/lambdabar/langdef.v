@@ -1,4 +1,4 @@
-From diris.microgv Require Export langtools.
+From diris.lambdabar Require Export langtools.
 
 (* Expressions and values *)
 (* ---------------------- *)

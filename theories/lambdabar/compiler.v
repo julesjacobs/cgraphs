@@ -1,5 +1,5 @@
-From diris.microgv Require Export langtools.
-From diris.microgv Require Export langdef.
+From diris.lambdabar Require Export langtools.
+From diris.lambdabar Require Export langdef.
 
 Module GV.
 

@@ -1,5 +1,5 @@
-From diris.microgv Require Export rtypesystem.
-From diris.microgv Require Export definitions.
+From diris.lambdabar Require Export rtypesystem.
+From diris.lambdabar Require Export definitions.
 
 Definition linv (ρ : cfg) (v : nat) (in_l : multiset labelO) : rProp :=
   match ρ !! v with

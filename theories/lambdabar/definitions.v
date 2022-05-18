@@ -1,4 +1,4 @@
-From diris.microgv Require Export langdef.
+From diris.lambdabar Require Export langdef.
 
 (* The definition of the set of barrier references in an expression. *)
 Fixpoint expr_refs e :=

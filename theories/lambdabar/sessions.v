@@ -1,5 +1,5 @@
-From diris.microgv Require Export langdef.
-From diris.microgv Require Export rtypesystem.
+From diris.lambdabar Require Export langdef.
+From diris.lambdabar Require Export rtypesystem.
 
 
 (* Session types *)
