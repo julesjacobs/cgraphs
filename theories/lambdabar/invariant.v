@@ -143,7 +143,7 @@ Qed.
 Lemma cfg_fresh2 (ρ : cfg) :
   ∃ j1 j2, ρ !! j1 = None ∧ ρ !! j2 = None ∧ j1 ≠ j2.
 Proof.
-  destruct (fresh2 (dom (gset nat) ρ)) as (j1 & j2 & H1 & H2 & H3).
+  destruct (fresh2 (dom ρ)) as (j1 & j2 & H1 & H2 & H3).
   exists j1,j2. split_and!; last done;
   apply not_elem_of_dom; done.
 Qed.
@@ -163,7 +163,7 @@ Proof.
     specialize (H i). rewrite H lookup_empty in Q. simplify_eq.
 Qed.
 
-Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom (gset vertex) Σ ⌝⌝ ∗ own Σ.
+Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom Σ ⌝⌝ ∗ own Σ.
 
 Lemma own_dom_empty : own_dom ∅ ⊣⊢ emp.
 Proof.
@@ -224,7 +224,7 @@ Proof.
   intros Σ H.
   rewrite pure_holds. intros.
   rewrite ->forall_holds in H.
-  assert (∀ i, f i = dom (gset _) Σ).
+  assert (∀ i, f i = dom Σ).
   { intros k. specialize (H k).
     eapply exists_holds in H as [].
     eapply pure_sep_holds in H as [].
@@ -277,7 +277,7 @@ Qed.
 Lemma expr_refs_linv ρ j e x Σ :
   ρ !! j = Some (Thread e) ->
   holds (linv ρ j x) Σ ->
-  expr_refs e = dom (gset vertex) Σ.
+  expr_refs e = dom Σ.
 Proof.
   intros H1 H2.
   unfold linv in *.

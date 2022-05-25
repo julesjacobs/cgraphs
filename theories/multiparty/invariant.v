@@ -643,20 +643,20 @@ Section bufs_typed.
           apply lookup_lt_Some in F.
           apply lookup_ge_None in E. lia.
       + exfalso.
-        assert (q ∈ dom (gset _) g). { apply elem_of_dom. rewrite E //. }
-        assert (q ∉ dom (gset _) g0). { apply not_elem_of_dom. done. }
+        assert (q ∈ dom g). { apply elem_of_dom. rewrite E //. }
+        assert (q ∉ dom g0). { apply not_elem_of_dom. done. }
         rewrite Q in H. set_solver.
       + exfalso.
-        assert (q ∈ dom (gset _) g0). { apply elem_of_dom. rewrite F //. }
-        assert (q ∉ dom (gset _) g). { apply not_elem_of_dom. done. }
+        assert (q ∈ dom g0). { apply elem_of_dom. rewrite F //. }
+        assert (q ∉ dom g). { apply not_elem_of_dom. done. }
         rewrite -Q in H. set_solver.
     - exfalso.
-      assert (p ∈ dom (gset _) bufs). { apply elem_of_dom. rewrite E //. }
-      assert (p ∉ dom (gset _) sbufs). { apply not_elem_of_dom. done. }
+      assert (p ∈ dom bufs). { apply elem_of_dom. rewrite E //. }
+      assert (p ∉ dom sbufs). { apply not_elem_of_dom. done. }
       rewrite Q in H. set_solver.
     - exfalso.
-      assert (p ∈ dom (gset _) sbufs). { apply elem_of_dom. rewrite F //. }
-      assert (p ∉ dom (gset _) bufs). { apply not_elem_of_dom. done. }
+      assert (p ∈ dom sbufs). { apply elem_of_dom. rewrite F //. }
+      assert (p ∉ dom bufs). { apply not_elem_of_dom. done. }
       rewrite -Q in H. set_solver.
   Qed.
 (*
@@ -1128,7 +1128,7 @@ Section bufs_typed.
   Qed. *)
 
   Lemma entries_typed_same_dom bufs sbufs :
-    entries_typed bufs sbufs ⊢ ⌜ dom (gset _) bufs = dom (gset _) sbufs ⌝.
+    entries_typed bufs sbufs ⊢ ⌜ dom bufs = dom sbufs ⌝.
   Proof.
     iIntros "H". unfold entries_typed.
     iApply big_sepM2_dom; eauto.

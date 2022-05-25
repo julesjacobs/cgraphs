@@ -224,7 +224,7 @@ Section seplogic.
     holds (False%I) Σ -> False.
   Proof. apply uPred_false_holds. Qed.
 
-  Definition own_dom A : hProp V L := ∃ Σ, ⌜⌜ A = dom (gset V) Σ ⌝⌝ ∗ own Σ.
+  Definition own_dom A : hProp V L := ∃ Σ, ⌜⌜ A = dom Σ ⌝⌝ ∗ own Σ.
 
   Lemma own_dom_empty : own_dom ∅ ⊣⊢ emp.
   Proof.

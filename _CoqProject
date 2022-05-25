@@ -29,20 +29,20 @@ theories/cgraphs/genericinv.v
 # theories/sessiontypes/safety.v
 # theories/sessiontypes/ycombinator.v
 
-# theories/multiparty/mutil.v
-# theories/multiparty/langdef.v
-# theories/multiparty/rtypesystem.v
-# theories/multiparty/invariant.v
-# theories/multiparty/progress.v
-# theories/multiparty/safety.v
-# theories/multiparty/ycombinator.v
-# theories/multiparty/binary.v
+theories/multiparty/mutil.v
+theories/multiparty/langdef.v
+theories/multiparty/rtypesystem.v
+theories/multiparty/invariant.v
+theories/multiparty/progress.v
+theories/multiparty/safety.v
+theories/multiparty/ycombinator.v
+theories/multiparty/binary.v
 
-theories/lambdabar/langtools.v
-theories/lambdabar/langdef.v
-theories/lambdabar/definitions.v
-theories/lambdabar/rtypesystem.v
-theories/lambdabar/invariant.v
-theories/lambdabar/theorems.v
-theories/lambdabar/sessions.v
-theories/lambdabar/letmacro.v
+# theories/lambdabar/langtools.v
+# theories/lambdabar/langdef.v
+# theories/lambdabar/definitions.v
+# theories/lambdabar/rtypesystem.v
+# theories/lambdabar/invariant.v
+# theories/lambdabar/theorems.v
+# theories/lambdabar/sessions.v
+# theories/lambdabar/letmacro.v

@@ -288,8 +288,8 @@ Definition active (x : object) (es : list expr) (h : heap) :=
 Lemma heap_fresh (h : heap) :
   ∃ i, ∀ p, h !! (i,p) = None.
 Proof.
-  exists (fresh (dom (gset nat) (gmap_curry h))).
-  intro. pose proof (is_fresh (dom (gset nat) (gmap_curry h))).
+  exists (fresh (dom (gmap_curry h))).
+  intro. pose proof (is_fresh (dom (gmap_curry h))).
   rewrite ->not_elem_of_dom in H.
   rewrite -lookup_gmap_curry.
   rewrite H. done.
@@ -359,7 +359,7 @@ Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
   | Chan c => bufs_refs (gmap_slice h c)
   end.
 
-Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom (gset object) Σ ⌝⌝ ∗ own Σ.
+Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom Σ ⌝⌝ ∗ own Σ.
 
 Lemma own_dom_empty : own_dom ∅ ⊣⊢ emp.
 Proof.
@@ -425,7 +425,7 @@ Proof.
   intros Σ H.
   rewrite pure_holds. intros.
   rewrite ->forall_holds in H.
-  assert (∀ i, f i = dom (gset _) Σ).
+  assert (∀ i, f i = dom Σ).
   { intros k. specialize (H k).
     eapply exists_holds in H as [].
     eapply pure_sep_holds in H as [].
@@ -545,7 +545,7 @@ Proof.
 Qed.
 
 Lemma obj_refs_state_inv es h x Δ Σ :
-  holds (state_inv es h x Δ) Σ -> obj_refs es h x = dom (gset object) Σ.
+  holds (state_inv es h x Δ) Σ -> obj_refs es h x = dom Σ.
 Proof.
   intros HH. eapply holds_entails in HH; last apply obj_refs_state_inv'.
   revert HH. model. intros (Σ' & HH1 & HH2). rewrite HH1 HH2 //.
@@ -557,7 +557,7 @@ Inductive reachable (es : list expr) (h : heap) : object → Prop :=
   | Chan_ref_reachable c x : (Chan c) ∈ obj_refs es h x → reachable es h x → reachable es h (Chan c).
 
 Lemma dom_lookup_Some_equiv `{Countable A} `{Equiv B} (m : gmap A B) (x : A) (y : B) :
-  m !! x ≡ Some y -> x ∈ dom (gset A) m.
+  m !! x ≡ Some y -> x ∈ dom m.
 Proof.
   intros HH. inversion HH. subst. eapply elem_of_dom. rewrite -H1 //.
 Qed.
@@ -822,7 +822,7 @@ Lemma activeset_exists es h :
   ∃ s : gset object, ∀ x, active x es h -> x ∈ s.
 Proof.
   exists (list_to_set (Thread <$> seq 0 (length es)) ∪
-          set_map (Chan ∘ fst) (dom (gset endpoint) h)).
+          set_map (Chan ∘ fst) (dom h)).
   intros. rewrite elem_of_union.
   rewrite elem_of_list_to_set elem_of_list_fmap elem_of_map.
   setoid_rewrite elem_of_seq.

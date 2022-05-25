@@ -836,7 +836,7 @@ Lemma fin_gset_S `{Countable A} n (f : fin (S n) -> A) :
 Proof. done. Qed.
 
 Lemma fin_gmap_dom {A} n (f : fin n -> A) (k : nat) :
-  k ∈ dom (gset _) (fin_gmap n f) <-> k < n.
+  k ∈ dom (fin_gmap n f) <-> k < n.
 Proof.
   rewrite elem_of_dom.
   destruct (decide (k < n)) as [H|H].

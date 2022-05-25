@@ -53,9 +53,9 @@ Section invariant.
   Definition invariant (es : list expr) (h : heap) := inv (state_inv es h).
 End invariant.
 
-Instance state_inv_proper es h v : Proper ((≡) ==> (⊣⊢)) (state_inv es h v).
+Global Instance state_inv_proper es h v : Proper ((≡) ==> (⊣⊢)) (state_inv es h v).
 Proof. solve_proper_prepare. destruct v; [solve_proper|by setoid_rewrite H]. Qed.
-Instance state_inv_params : Params (@state_inv) 3. Defined.
+Global Instance state_inv_params : Params (@state_inv) 3. Defined.
 
 Lemma bufs_typed_sym' b1' b2' σ1' σ2' :
   bufs_typed b1' b2' σ1' σ2' ⊢

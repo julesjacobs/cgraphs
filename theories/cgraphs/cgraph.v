@@ -36,7 +36,7 @@ Section cgraph.
     g ∪ (set_map swap g).
 
   Definition dedges (g : cgraph V L) : gset (V*V) :=
-    dom (gset (V*V)) (gmap_uncurry g).
+    dom (gmap_uncurry g).
   Definition to_uforest (g : cgraph V L) : uforest V :=
     make_undirected $ dedges g.
 
