@@ -432,39 +432,7 @@ Definition Γunrestricted (Γ : envT) :=
   ∀ x t, Γ !! x = Some t -> unrestricted t.
 
 
-CoInductive global_type : Type :=
-  | Message n : participant -> participant ->
-                (fin n -> type) -> (fin n -> global_type) -> global_type
-  | EndG : global_type.
 
-Inductive occurs_in (r : participant) : global_type -> Prop :=
-  | oi_here_sender n q t g : occurs_in r (Message n r q t g)
-  | oi_here_receiver n p t g : occurs_in r (Message n p r t g)
-  | oi_later n p q t g i : occurs_in r (g i) -> occurs_in r (Message n p q t g).
-
-Inductive guarded (r : participant) : global_type -> Prop :=
-  | gu_here_sender n q t g : guarded r (Message n r q t g)
-  | gu_here_receiver n p t g : guarded r (Message n p r t g)
-  | gu_later n p q t g : (∀ i, guarded r (g i)) -> guarded r (Message n p q t g).
-
-
-CoInductive proj (r : participant) : global_type -> session_type -> Prop :=
-  | proj_send n q t G σ :
-      r ≠ q -> (∀ i, proj r (G i) (σ i)) ->
-        proj r (Message n r q t G) (SendT n q t σ)
-  | proj_recv n p t G σ :
-      r ≠ p -> (∀ i, proj r (G i) (σ i)) ->
-        proj r (Message n p r t G) (RecvT n p t σ)
-  | proj_skip n p q t G σ :
-      r ≠ p -> r ≠ q -> (∀ i, proj r (G i) σ) -> (∀ i, guarded r (G i)) ->
-        proj r (Message (S n) p q t G) σ
-  | proj_end G :
-      ¬ occurs_in r G -> proj r G EndT.
-
-(* Definition consistent n (σs : fin n -> session_type) :=
-  ∃ G : global_type,
-    (∀ i, proj (fin_to_nat i) G (σs i)) ∧
-    (∀ j, j >= n -> proj j G EndT). *)
 
 Record disj_union n (Γ : envT) (fΓ : fin n -> envT) : Prop := {
   du_disj p q : p ≠ q -> disj (fΓ p) (fΓ q);
@@ -497,9 +465,12 @@ Definition can_progress {A}
     | _ => True
     end.
 
-Definition buf_empty (bufs : bufsT participant participant sentryT) (p : participant ):=
+Definition buf_empty (bufs : bufsT participant participant sentryT) (p : participant) :=
   ∀ bs, bufs !! p = Some bs ->
     ∀ q buf, bs !! q = Some buf -> buf = [].
+
+Definition bufs_empty {A} (bufs : bufsT participant participant A) :=
+  ∀ p q, pop p q bufs = None.
 
 Definition is_present `{Countable A, Countable B} {V}
     p q (bufss : bufsT A B V) :=
@@ -508,13 +479,7 @@ Definition is_present `{Countable A, Countable B} {V}
   | None => False
   end.
 
-(* Definition sbufs_typed (bufs : bufsT participant participant sentryT) *)
-                      (* (σs : gmap participant session_type) : Prop. Admitted. *)
-                       (* :=
-  dom_valid bufs (dom (gset _) σs) ∧
-  ∃ G : rglobal_type,
-      (∀ p, rproj p G (default EndT (σs !! p))) ∧
-      sbufprojs G bufs. *)
+
 CoInductive sbufs_typed
   (bufs : bufsT participant participant sentryT)
   (σs : gmap participant session_type) : Prop := {
