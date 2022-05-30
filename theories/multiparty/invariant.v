@@ -35,8 +35,6 @@ Section pushpop.
     f_equal; apply map_eq; intro; smap.
   Qed.
 
-
-
   Lemma pop_push_single `{Countable A, Countable B} {V}
       (p : A) (q : B) (x : V) (bufs : bufsT A B V) :
     is_present p q bufs ->
@@ -257,6 +255,73 @@ End pushpop.
 
 Section bufs_typed.
 
+  Lemma sbufs_typed_push
+      (bufs : bufsT participant participant sentryT)
+      (σs : gmap participant session_type)
+      (n : nat) (i : fin n) (p q : participant) ts ss :
+    sbufs_typed bufs σs ->
+    σs !! p = Some (SendT n q ts ss) ->
+    sbufs_typed (push p q (fin_to_nat i,ts i) bufs) (<[p:=ss i]> σs).
+  Proof.
+    intros. edestruct sbufs_typed_send; eauto.
+  Qed.
+
+  Lemma sbufs_typed_pop
+      (bufs : bufsT participant participant sentryT)
+      (σs : gmap participant session_type)
+      (bufs' : bufsT participant participant sentryT)
+      (n : nat) (p q : participant) t i ts ss :
+    sbufs_typed bufs σs ->
+    σs !! q = Some (RecvT n p ts ss) ->
+    pop p q bufs = Some((i,t),bufs') ->
+      ∃ i', i = fin_to_nat i' ∧ t = ts i' ∧
+            sbufs_typed bufs' (<[ q := ss i' ]> σs).
+  Proof.
+    intros. eapply sbufs_typed_recv; eauto.
+  Qed.
+
+  Lemma sbufs_Some_present p q n ts ss (i : fin n)
+      (bufs : bufsT participant participant sentryT)
+      (σs : gmap participant session_type) :
+    sbufs_typed bufs σs ->
+    σs !! p = Some (SendT n q ts ss) ->
+    is_present p q bufs.
+  Proof.
+    intros. edestruct sbufs_typed_send; eauto. Unshelve. eauto.
+  Qed.
+
+  Lemma sbufs_typed_dealloc p
+      (bufs : bufsT participant participant sentryT)
+      (σs : gmap participant session_type) :
+    sbufs_typed bufs σs ->
+    σs !! p = Some EndT ->
+    sbufs_typed (delete p bufs) (delete p σs).
+  Proof.
+    intros. eapply sbufs_typed_end; eauto.
+  Qed.
+
+  Lemma sbufs_typed_end_empty p
+      (bufs : bufsT participant participant sentryT)
+      (σs : gmap participant session_type) :
+    sbufs_typed bufs σs ->
+    σs !! p = Some EndT ->
+    buf_empty bufs p.
+  Proof.
+    intros. edestruct sbufs_typed_end; eauto.
+  Qed.
+
+  Lemma sbufs_typed_empty_inv
+      (bufs : bufsT participant participant sentryT)
+      (σs : gmap participant session_type) :
+    sbufs_typed bufs σs ->
+    bufs = ∅ -> σs = ∅.
+  Proof.
+    intros.
+    eapply sbufs_typed_dom in H. subst.
+    rewrite dom_empty_L in H. symmetry in H.
+    rewrite dom_empty_iff_L in H. done.
+  Qed.
+
   Lemma sbufs_typed_pop' (σs : gmap participant session_type)
     (bufs bufs' : bufsT participant participant sentryT)
     (n : nat) (p q : participant) t i ts ss :
@@ -272,7 +337,7 @@ Section bufs_typed.
   Lemma sbufs_typed_empty :
     sbufs_typed ∅ ∅.
   Proof.
-    constructor; sdec. intros ?[]. smap.
+    constructor; sdec. rewrite !dom_empty_L //.
   Qed.
 
   Definition entries_typed (bufs : bufsT participant participant entryT)
@@ -755,10 +820,10 @@ Section bufs_typed.
   Proof.
     iIntros (Hp) "H".
     iDestruct "H" as (sbufs Hsbufs) "H".
-    assert (is_Some (sbufs !! p)) by eauto using sbufs_typed_recv.
+    eapply sbufs_typed_dom in Hsbufs.
     iDestruct (entries_typed_same_dom with "H") as %Hdom.
     iPureIntro.
-    apply elem_of_dom. rewrite Hdom.
+    apply elem_of_dom. rewrite Hdom Hsbufs.
     apply elem_of_dom. done.
   Qed.
 
@@ -941,7 +1006,6 @@ Proof.
         rewrite -H7. iFrame.
         inversion H6. simplify_eq.
         iExists _. iSplit; first done. unfold own_ep. simpl. done.
-        (* rewrite H8 //. *)
       * iExists (<[ q := relabelT π (r i') ]> σs). iFrame. iPureIntro.
         by eapply map_to_multiset_update.
   - (* Close *)
@@ -1024,7 +1088,6 @@ Proof.
         remember (ChanT (σs 0%fin)).
         inversion Hteq; simplify_eq.
         iExists _. iSplit; first done.
-        (* rewrite -H3. *)
         unfold own_ep.
         rewrite relabelT_id. done.
       }

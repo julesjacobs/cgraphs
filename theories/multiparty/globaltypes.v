@@ -433,6 +433,15 @@ Proof.
   apply elem_of_dom. done.
 Qed.
 
+Lemma sbufs_typed_gt_dom bufss σs :
+  sbufs_typed_gt bufss σs -> dom bufss = dom σs.
+Proof.
+  intros [Hdv [G [Hprojs Hsbufs]]].
+  eapply set_eq. intros.
+  eapply dom_valid_same_dom in Hdv. rewrite -Hdv.
+  rewrite elem_of_dom. done.
+Qed.
+
 Lemma sbufs_typed_gt_subufs_typed bufs σs :
   sbufs_typed_gt bufs σs -> sbufs_typed bufs σs.
 Proof.
@@ -440,14 +449,16 @@ Proof.
   cofix IH.
   intros bufs σs H.
   constructor.
-  - intros. eapply IH. eapply sbufs_typed_gt_push; eauto.
+  - intros. split.
+    + eapply sbufs_gt_Some_present; eauto.
+    + eapply IH. eapply sbufs_typed_gt_push; eauto.
   - intros. edestruct sbufs_typed_gt_pop as (?&?&?&?); eauto.
-  - intros. eapply sbufs_gt_Some_present; eauto.
-  - intros. eapply IH. eapply sbufs_typed_gt_dealloc; eauto.
+  (* - intros. eapply sbufs_gt_Some_present; eauto. *)
+  - intros. split.
+    + eapply sbufs_typed_gt_end_empty; eauto.
+    + eapply IH. eapply sbufs_typed_gt_dealloc; eauto.
   - eapply sbufs_typed_gt_progress; eauto.
-  - intros. eapply sbufs_typed_gt_recv; eauto.
-  - intros. eapply sbufs_typed_gt_end_empty; eauto.
-  - intros. eapply sbufs_typed_gt_empty_inv. subst. eauto.
+  - eapply sbufs_typed_gt_dom. done.
 Qed.
 
 Lemma sbufs_typed_gt_init n σs :

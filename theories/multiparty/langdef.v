@@ -6,6 +6,11 @@ Definition session := nat.
 Definition participant := nat.
 Definition endpoint := (session * participant)%type.
 
+
+(* ====================== *)
+(* VALUES AND EXPRESSIONS *)
+(* ====================== *)
+
 Inductive val :=
   | UnitV : val
   | NatV : nat -> val
@@ -39,10 +44,12 @@ with expr :=
   | Close : expr -> expr
   | Relabel : (participant -> participant) -> expr -> expr.
 
+
 (* ===================== *)
 (* OPERATIONAL SEMANTICS *)
 (* ===================== *)
 
+(* Our operational semantics uses substitution for variables *)
 Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   match e with
   | Val _ => e
@@ -72,7 +79,7 @@ Fixpoint subst (x:string) (a:val) (e:expr) : expr :=
   | Relabel π e1 => Relabel π (subst x a e1)
   end.
 
-
+(* The pure steps that do not affect the heap or spawn new threads *)
 Inductive pure_step : expr -> expr -> Prop :=
   | Pair_step : ∀ v1 v2,
     pure_step (Pair (Val v1) (Val v2)) (Val (PairV v1 v2))
@@ -107,13 +114,16 @@ Inductive pure_step : expr -> expr -> Prop :=
   | Relabel_step : ∀ π1 π2 c p,
     pure_step (Relabel π1 (Val (ChanV (c,p) π2))) (Val (ChanV (c,p) (π2 ∘ π1))).
 
+(* Each multiparty channel has NxN buffers if there are N participants *)
+(* We represent this as a nested finite map (gmap). *)
+(* Each entry of the buffer stores a natural number,
+  indicating the branch chosen in the protocol,
+  and a payload message of type val. *)
 Definition entryT := (nat * val)%type.
 Notation bufsT A B V := (gmap B (gmap A (list V))).
 Definition heap := bufsT participant endpoint entryT.
 
-(* Definition init_chan n : gmap participant bufT :=
-  fin_gmap n (λ i, []). *)
-
+(* Pushing and popping of the buffer (p,q) for communicating from p to q. *)
 Definition push `{Countable A, Countable B} {V} (p : A) (q : B) (x : V) (bufss : bufsT A B V) : bufsT A B V :=
   alter (alter (λ buf, buf ++ [x]) p) q bufss.
 
@@ -127,54 +137,48 @@ Definition pop `{Countable A, Countable B} {V} (p : A) (q : B) (bufss : bufsT A 
   | None => None
   end.
 
+(* We start with NxN empty buffers for N participants. *)
 Definition init_chans {A} n : bufsT participant participant A :=
   fin_gmap n (λ i, fin_gmap n (λ j, [])).
 
+(* Initialization of the threads spawned by an N-ary fork. *)
 Definition init_threads (c : session) (n : nat) (fv : fin n -> val) : list expr :=
   fin_list n (λ i, App (Val (fv i)) (Val (ChanV (c, S (fin_to_nat i)) id))).
 
+(* This is the step relation for top level expressions. We later close this under evaluation contexts. *)
+(* Head steps can affect the heap and spawn new threads (given by the list expr). *)
 Inductive head_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
   | Pure_step : ∀ e e' h,
-    pure_step e e' -> head_step e h e' h []
+    pure_step e e' -> head_step e h e' h [] (* Pure steps are head steps that don't change the heap and don't spawn new threads *)
   | Send_step : ∀ h c p q y i π, (* p is us, q is the one we send to *)
                  (* send puts the value in the bufs of the other *)
                  (* since we are participant p, we put it in that buffer *)
-    head_step (Send q (Val (ChanV (c,p) π)) i (Val y)) h
-          (Val (ChanV (c,p) π)) (push p (c,π q) (i,y) h) []
-    (* head_step (Send q (Val (ChanV (c,p))) i (Val y)) h *)
-          (* (Val (ChanV (c,p))) (alter (alter (λ buf, buf ++ [(i,y)]) p) (c,q) h) [] *)
-    (* We could instead to the following:
-       (that would move some of the work from the preservation proof to the progress proof.) *)
-    (*
-    h !! (c,q) = Some bufs ->
-    bufs !! p = Some buf ->
-    head_step (Send q (Val (ChanV (c,p))) (Val y)) h
-          (Val (ChanV (c,p))) (<[ (c,q) := <[ p := buf ++ [y] ]> bufs ]> h) []
-    *)
+    head_step (Send q (Val (ChanV (c,p) π)) i (Val y)) h (* If the current expression is trying to receive from a channel *)
+          (Val (ChanV (c,p) π)) (* Return the continuation channel *)
+          (push p (c,π q) (i,y) h) (* Push value onto the right buffer *)
+          [] (* no new threads spawned *)
   | Recv_step : ∀ h c p q i y h' π, (* p is us, q is the one we recv from *)
-    pop (π p) (c,q) h = Some ((i,y), h') ->
-    (*
-    h !! (c,p) = Some bufs -> (* recv takes the value out of its own bufs *)
-    bufs !! q = Some ((i,y)::buf) -> (* since the recv is from p, we take it out of that buffer *)
-    *)
-    head_step (Recv p (Val (ChanV (c,q) π))) h
-          (Val (InjNV i (PairV (ChanV (c,q) π) y))) h' []
+    pop (π p) (c,q) h = Some ((i,y), h') -> (* If there is a value in the buffer *)
+    head_step (Recv p (Val (ChanV (c,q) π))) h (* If the current expression is trying to receive from a channel *)
+          (Val (InjNV i (PairV (ChanV (c,q) π) y))) (* Return the message and continuation channel *)
+          h' (* Go to the new heap h' resulting from popping the message off the buffer *)
+          [] (* no new threads spawned *)
   | Close_step : ∀ c p h π,
-    (* We can add these conditions: that would move some of the work from the
-       preservation proof to the progress proof. *)
-    (* h !! (c,p) = Some bufs -> *)
-    (* (∀ q, bufs !! q = Some []) -> *)
-    head_step (Close (Val (ChanV (c,p) π))) h
-          (Val UnitV) (delete (c,p) h) []
+    head_step (Close (Val (ChanV (c,p) π))) h (* if the current expression is trying to close a channel *)
+          (Val UnitV) (* return value of the close call *)
+          (delete (c,p) h) (* delete the buffer from the heap *)
+          [] (* no new threads spawned *)
   | Spawn_step : ∀ (h : heap) c n f fv,
-    (∀ p, h !! (c,p) = None) ->
-    (∀ p, f p = Val (fv p)) ->
+    (∀ p, h !! (c,p) = None) -> (* We must select fresh locations for the buffers *)
+    (∀ p, f p = Val (fv p)) -> (* Only step if the subexpressions are values *)
     head_step
       (Spawn n f) h
-      (Val (ChanV (c, 0) id))
-      (gmap_unslice (init_chans (S n)) c ∪ h)
-      (init_threads c n fv).
+      (Val (ChanV (c, 0) id)) (* The return value of the spawn call *)
+      (gmap_unslice (init_chans (S n)) c ∪ h) (* Add new buffers to the heap *)
+      (init_threads c n fv). (* The newly spawned threads *)
 
+(* We close the head step relation under evaluation contexts to allow stepping
+   inside a nested expression. *)
 Inductive ctx1 : (expr -> expr) -> Prop :=
   | Ctx_App_l e : ctx1 (λ x, App x e)
   | Ctx_App_r v : ctx1 (λ x, App (Val v) x)
@@ -207,17 +211,22 @@ Inductive ctx_step : expr -> heap -> expr -> heap -> list expr -> Prop :=
   | Ctx_step : ∀ k e h e' h' ts,
     ctx k -> head_step e h e' h' ts -> ctx_step (k e) h (k e') h' ts.
 
+(* The final step relation. *)
+(* The judgement [step i es h es' h'] says that in thread pool [es] and heap [h],
+   the i-th thread can take a step, and this brings us to new thread pool [es'] and heap [h']. *)
 Inductive stepi : nat -> list expr -> heap -> list expr -> heap -> Prop :=
   | Head_step : ∀ e e' h h' i ts es,
     ctx_step e h e' h' ts ->
     es !! i = Some e ->
     stepi i es h (<[i := e']> es ++ ts) h'.
 
-Definition step es h es' h' := ∃ i, stepi i es h es' h'.
-
+(* Predicate saying that thread i can take a step in thread pool [es] and heap [h]. *)
 Definition can_stepi i es h := ∃ es' h', stepi i es h es' h'.
 
-(* Closure of the step relation; this is used in the theorem statement. *)
+(* Version of step that doesn't care about which thread does it. *)
+Definition step es h es' h' := ∃ i, stepi i es h es' h'.
+
+(* Closure of the step relation; this is used in the global progress theorem statement. *)
 Inductive steps : list expr -> heap -> list expr -> heap -> Prop :=
   | Trans_step : ∀ e1 e2 e3 s1 s2 s3,
     step e1 s1 e2 s2 ->
@@ -411,6 +420,7 @@ CoFixpoint relabelT (π : participant -> participant) (σ : session_type) :=
 
 Notation envT := (gmap string type).
 
+(* Define which types are unrestricted (can be copied and discarded). *)
 CoInductive unrestricted : type -> Prop :=
   | Nat_unrestricted : unrestricted NatT
   | Unit_unrestricted : unrestricted UnitT
@@ -425,15 +435,15 @@ CoInductive unrestricted : type -> Prop :=
   | SumN_unrestricted n f :
     (∀ i, unrestricted (f i)) -> unrestricted (SumNT n f).
 
+(* Disjointness of variable contexts (up to unrestricted types). *)
 Definition disj (Γ1 Γ2 : envT) : Prop :=
   ∀ i t1 t2, Γ1 !! i = Some t1 -> Γ2 !! i = Some t2 -> t1 ≡ t2 ∧ unrestricted t1.
 
+(* Entire context is unrestricted *)
 Definition Γunrestricted (Γ : envT) :=
   ∀ x t, Γ !! x = Some t -> unrestricted t.
 
-
-
-
+(* Disjoint union of N contexts *)
 Record disj_union n (Γ : envT) (fΓ : fin n -> envT) : Prop := {
   du_disj p q : p ≠ q -> disj (fΓ p) (fΓ q);
   du_left p x t : (fΓ p) !! x ≡ Some t -> Γ !! x ≡ Some t;
@@ -456,6 +466,8 @@ Qed.
 Definition sentryT := (nat * type)%type.
 Definition sbufsT := bufsT participant participant sentryT.
 
+(* Says that if all participants are allowed to receive by their type,
+   then one of them has a value available in its buffer. *)
 Definition can_progress {A}
   (bufs : bufsT participant participant A)
   (σs : gmap participant session_type) := ∃ q σ,
@@ -479,37 +491,47 @@ Definition is_present `{Countable A, Countable B} {V}
   | None => False
   end.
 
-
 CoInductive sbufs_typed
   (bufs : bufsT participant participant sentryT)
   (σs : gmap participant session_type) : Prop := {
-  sbufs_typed_push
-      (n : nat) (i : fin n) (p q : participant) ts ss :
+
+  (* If a participant's local type is SendT, then the buffer we're supposed to put
+     the message in must be present, and the new local types and buffers must be well-
+     typed after putting the message in. *)
+  sbufs_typed_send
+      (n : nat) (p q : participant) ts ss (i : fin n) :
     σs !! p = Some (SendT n q ts ss) ->
-    sbufs_typed (push p q (fin_to_nat i,ts i) bufs) (<[p:=ss i]> σs);
-  sbufs_typed_pop
+      is_present p q bufs ∧
+      sbufs_typed (push p q (fin_to_nat i,ts i) bufs) (<[p:=ss i]> σs);
+
+  (* If a participant's local type is RecvT, and if we're able to pop a message off
+     the buffer, then the new local types and buffers must be well-typed after
+     taking the message out of the buffer. *)
+  sbufs_typed_recv
       (bufs' : bufsT participant participant sentryT)
       (n : nat) (p q : participant) t i ts ss :
     σs !! q = Some (RecvT n p ts ss) ->
     pop p q bufs = Some((i,t),bufs') ->
     ∃ i', i = fin_to_nat i' ∧ t = ts i' ∧
       sbufs_typed bufs' (<[ q := ss i' ]> σs);
-  sbufs_Some_present p q n ts ss (i : fin n) :
-      σs !! p = Some (SendT n q ts ss) ->
-      is_present p q bufs;
-  sbufs_typed_dealloc p :
+
+  (* If a participant's local type is EndT, then the buffers of that participant must
+     be empty and the situation must still be well-typed after removing that participant's
+     type and buffers. *)
+  sbufs_typed_end p :
     σs !! p = Some EndT ->
-    sbufs_typed (delete p bufs) (delete p σs);
+      buf_empty bufs p ∧
+      sbufs_typed (delete p bufs) (delete p σs);
+
+  (* If there are still buffers, there must be a participant that can make progress. *)
   sbufs_typed_progress :
     bufs = ∅ ∨ can_progress bufs σs;
-  sbufs_typed_recv p :
-    is_Some (σs !! p) -> is_Some (bufs !! p);
-  sbufs_typed_end_empty p :
-    σs !! p = Some EndT ->
-    buf_empty bufs p;
-  sbufs_typed_empty_inv :
-    bufs = ∅ -> σs = ∅
+
+  (* The participants that have buffers must have local types and vice versa. *)
+  sbufs_typed_dom :
+    dom bufs = dom σs
 }.
+
 
 Definition consistent n (σs : fin n -> session_type) :=
   sbufs_typed (init_chans n) (fin_gmap n σs).

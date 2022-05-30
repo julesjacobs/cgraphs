@@ -1,5 +1,6 @@
 From diris.multiparty Require Import langdef.
 From diris.multiparty Require Import ycombinator.
+From diris.multiparty Require Import globaltypes.
 
 Definition SendB e1 i e2 := Send 0 e1 i e2.
 Definition RecvB e := Recv 0 e.
@@ -76,8 +77,18 @@ CoInductive global_type_equiv : Equiv global_type :=
     ts1 ≡ ts2 -> Gs1 ≡ Gs2 ->
     Message n p q ts1 Gs1 ≡ Message n p q ts2 Gs2
   | gte_EndG : EndG ≡ EndG.
-Existing Instance global_type_equiv.
+Global Existing Instance global_type_equiv.
 
+(*
+  Coq's default notion of equality is not good enough for coinductive types:
+   the default equality is syntactic equality and not extensional equality.
+   We add an axiom to make equality extensional.
+   See https://coq.inria.fr/refman/language/core/coinductive.html:
+   "More generally, as in the case of positive coinductive types,
+   it is consistent to further identify extensional equality of coinductive
+   types with propositional equality"
+   Such an axiom is similar to functional extensionality, but for coinductive types.
+*)
 Axiom global_type_extensionality : ∀ G1 G2 : global_type, G1 ≡ G2 -> G1 = G2.
 
 Definition global_type_id (G : global_type) : global_type :=
@@ -186,14 +197,13 @@ Proof.
 Qed.
 
 Lemma σsB_consistent σ : consistent 2 (σsB σ).
-Proof.
-Admitted.
-  (* exists (toG σ). split.
+  apply consistent_gt_consistent.
+  exists (toG σ). split.
   - intros. unfold σsB. dependent inversion i; simpl.
     + subst. apply projGM_0.
     + subst. inv_fin t; last (intros j; inversion j). simpl. apply projGM_1.
   - intros i Hi. apply projGM_other. done.
-Qed. *)
+Qed.
 
 Lemma disj_union_1 Γ : disj_union 1 Γ (const Γ).
 Proof.
