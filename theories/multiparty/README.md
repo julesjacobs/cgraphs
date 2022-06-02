@@ -51,6 +51,7 @@ This was done as follows for the VM:
     opam init
     eval $(opam env)
     opam repo add coq-released https://coq.inria.fr/opam/released
+    opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
     sudo apt-get libgmp-dev
     opam install coq-iris
 
