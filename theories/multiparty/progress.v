@@ -1,6 +1,10 @@
 From diris.multiparty Require Import invariant langdef.
 Require Import Coq.Logic.Classical.
 
+
+Definition blocked es h (x y : object) (l : clabel) : Prop :=
+  ∃ i j, x = Thread i ∧ y = Chan j ∧ thread_blocked es h i j.
+
 Lemma rtyped_inner e t :
   rtyped0 e t -∗ ⌜ (∃ v, e = Val v)  ∨
   ∃ k e0, ctx k ∧ e = k e0 ∧
@@ -270,21 +274,6 @@ Proof.
       constructor; eauto. constructor.
 Qed.
 
-Definition thread_waiting (es : list expr) (h : heap) (i c : nat) :=
-  ∃ p q k π, ctx k ∧
-    es !! i = Some (k (Recv p (Val (ChanV (c,q) π)))) ∧
-    is_Some (h !! (c,q)) ∧
-    pop (π p) (c,q) h = None.
-
-Definition waiting es h (x y : object) (l : clabel) : Prop :=
-  ∃ i j, x = Thread i ∧ y = Chan j ∧ thread_waiting es h i j.
-
-Definition active (x : object) (es : list expr) (h : heap) :=
-  match x with
-  | Thread i => ∃ e, es !! i = Some e ∧ e ≠ Val UnitV
-  | Chan i => ∃ p, is_Some (h !! (i,p))
-  end.
-
 Lemma heap_fresh (h : heap) :
   ∃ i, ∀ p, h !! (i,p) = None.
 Proof.
@@ -309,55 +298,7 @@ Proof.
     by apply NNPP.
 Qed.
 
-Fixpoint expr_refs (e : expr) : gset object :=
-  match e with
-  | Val v => val_refs v
-  | Var x => ∅
-  | Pair e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | Inj b e1 => expr_refs e1
-  | App e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | UApp e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | Lam s e1 => expr_refs e1
-  | ULam s e1 => expr_refs e1
-  | Send p e1 i e2 => expr_refs e1 ∪ expr_refs e2
-  | Recv p e1 => expr_refs e1
-  | Let s e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | LetUnit e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | LetProd s1 s2 e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | MatchVoid e1 => expr_refs e1
-  | MatchSum e1 s e2 e3 => expr_refs e1 ∪ expr_refs e2 ∪ expr_refs e3
-  | InjN i e => expr_refs e
-  | MatchSumN n e f => expr_refs e ∪ fin_union n (expr_refs ∘ f)
-  | If e1 e2 e3 => expr_refs e1 ∪ expr_refs e2
-  | Spawn n f => fin_union n (expr_refs ∘ f)
-  | Close e1 => expr_refs e1
-  | Relabel π e1 => expr_refs e1
-  end
-with val_refs (v : val) : gset object :=
-match v with
-| UnitV => ∅
-| NatV n => ∅
-| PairV v1 v2 => val_refs v1 ∪ val_refs v2
-| InjV b v1 => val_refs v1
-| InjNV i v1 => val_refs v1
-| FunV s e1 => expr_refs e1
-| UFunV s e1 => expr_refs e1
-| ChanV (c,b) _ => {[ Chan c ]}
-end.
 
-Definition map_union `{Countable K, Countable A} {V} (f : V -> gset A) (m : gmap K V) :=
-  map_fold (λ k v s, f v ∪ s) ∅ m.
-
-Definition buf_refs (buf : list entryT) := foldr (λ '(i,v) s, val_refs v ∪ s) ∅ buf.
-
-Definition bufs_refs (bufss : bufsT participant participant entryT) : gset object :=
-  map_union (map_union buf_refs) bufss.
-
-Definition obj_refs (es : list expr) (h : heap) (x : object) : gset object :=
-  match x with
-  | Thread n => from_option expr_refs ∅ (es !! n)
-  | Chan c => bufs_refs (gmap_slice h c)
-  end.
 
 Definition own_dom A : rProp := ∃ Σ, ⌜⌜ A = dom Σ ⌝⌝ ∗ own Σ.
 
@@ -551,10 +492,6 @@ Proof.
   revert HH. model. intros (Σ' & HH1 & HH2). rewrite HH1 HH2 //.
 Qed.
 
-Inductive reachable (es : list expr) (h : heap) : object → Prop :=
-  | Thread_step_reachable i : can_stepi i es h → reachable es h (Thread i)
-  | Thread_waiting_reachable i c : reachable es h (Chan c) → thread_waiting es h i c → reachable es h (Thread i)
-  | Chan_ref_reachable c x : (Chan c) ∈ obj_refs es h x → reachable es h x → reachable es h (Chan c).
 
 Lemma dom_lookup_Some_equiv `{Countable A} `{Equiv B} (m : gmap A B) (x : A) (y : B) :
   m !! x ≡ Some y -> x ∈ dom m.
@@ -574,13 +511,13 @@ Proof.
 Qed.
 
 Lemma strong_progress es h x :
-  invariant es h -> active x es h -> reachable es h x.
+  invariant es h -> active es h x -> reachable es h x.
 Proof.
   intros Hinv. assert (invariant es h) as Hinv'; eauto.
   revert Hinv'.
   intros (g & Hwf & Hvs). revert x.
-  eapply (cgraph_ind' (waiting es h) g (λ x,
-    active x es h → reachable es h x));
+  eapply (cgraph_ind' (blocked es h) g (λ x,
+    active es h x → reachable es h x));
     [solve_proper|eauto|].
   intros x Hind_out Hind_in Hactive.
   (* Get the invariant for x *)
@@ -647,8 +584,8 @@ Proof.
         econstructor; first done.
         eapply Recv_step; eauto.
       }
-      assert (thread_waiting es h i c).
-      { unfold thread_waiting.
+      assert (thread_blocked es h i c).
+      { unfold thread_blocked.
         assert (is_Some (h !! (c,q))); last eauto 10.
         eapply prim_simple_adequacy; first exact Hc.
         iIntros "H".
@@ -659,8 +596,8 @@ Proof.
         }
         iPureIntro. rewrite gmap_slice_lookup in QQ.
         done. }
-      eapply Thread_waiting_reachable; eauto.
-      eapply Hind_out. { unfold waiting; eauto. }
+      eapply Thread_blocked_reachable; eauto.
+      eapply Hind_out. { unfold blocked; eauto. }
       eexists _,_; eauto.
       unfold active.
       exists q.
@@ -716,7 +653,7 @@ Proof.
 
     eapply Hind_in; eauto.
     + intros (i & c' & -> & ? & Hw). simplify_eq.
-      unfold thread_waiting in Hw.
+      unfold thread_blocked in Hw.
       destruct Hw as (p' & q' & k & π & Hctx & Hi & Hpres & Hpop).
       specialize (Hvs (Thread i)).
       eapply (holds_entails _ (∃ n t s, own_out (Chan c') (q', RecvT n (π p') t (relabelT π ∘ s)) ∗ True)%I) in Hvs. 2:
@@ -783,21 +720,21 @@ Proof.
 Qed.
 
 Lemma active_progress es h x :
-  invariant es h -> active x es h -> ∃ (es' : list expr) (h' : heap), step es h es' h'.
+  invariant es h -> active es h x -> ∃ (es' : list expr) (h' : heap), step es h es' h'.
 Proof.
   intros H1 H2.
   cut (reachable es h x); eauto using strong_progress. clear.
   induction 1; eauto. destruct H as (es'&h'&?). exists es', h'. econstructor; eauto.
 Qed.
 
-Lemma global_progress es h :
+Lemma inv_global_progress es h :
   invariant es h ->
   (h = ∅ ∧ ∀ e, e ∈ es -> e = Val UnitV) ∨
   (∃ es' h', step es h es' h').
 Proof.
   intros H.
   destruct (final_state_decision es h) as [Hdec|Hdec]; eauto; right.
-  assert (∃ x, active x es h) as [x Hactive].
+  assert (∃ x, active es h x) as [x Hactive].
   { destruct Hdec as [(x&?)|(x&?)].
     + destruct x as [c b]. exists (Chan c). simpl. eauto.
     + destruct H0. eapply elem_of_list_lookup in H0 as [].
@@ -805,21 +742,8 @@ Proof.
   eapply active_progress; eauto.
 Qed.
 
-(*
-  A subset of the threads & channels is in a partial deadlock (/ memory leak) if:
-  - All of the threads in the subset are blocked on one of the channels in the subset.
-  - All of the endpoints of the channels in the subset are held by one of the threads or channels in the subset.
-*)
-Record deadlock (es : list expr) (h : heap) (s : gset object) := {
-  dl_nonempty : s ≠ ∅;
-  dl_active x : x ∈ s -> active x es h;
-  dl_threadb i : Thread i ∈ s -> ¬ can_stepi i es h;
-  dl_threadw i c : Thread i ∈ s -> thread_waiting es h i c -> Chan c ∈ s;
-  dl_chan c x : Chan c ∈ s -> Chan c ∈ obj_refs es h x -> x ∈ s
-}.
-
 Lemma activeset_exists es h :
-  ∃ s : gset object, ∀ x, active x es h -> x ∈ s.
+  ∃ s : gset object, ∀ x, active es h x -> x ∈ s.
 Proof.
   exists (list_to_set (Thread <$> seq 0 (length es)) ∪
           set_map (Chan ∘ fst) (dom h)).
@@ -834,7 +758,7 @@ Proof.
 Qed.
 
 Lemma obj_refs_active es h x y :
-  y ∈ obj_refs es h x -> active x es h.
+  y ∈ obj_refs es h x -> active es h x.
 Proof.
   destruct x; simpl.
   - destruct (es !! n); simpl; last set_solver.
@@ -843,43 +767,4 @@ Proof.
   - destruct (decide (gmap_slice h s = ∅)) as [->|]; first set_solver.
     apply map_choose in n as (?&?&?).
     rewrite gmap_slice_lookup in H. eauto.
-Qed.
-
-Lemma reachability_deadlock_freedom es h :
-  (∀ s, ¬ deadlock es h s) <-> (∀ x, active x es h -> reachable es h x).
-Proof.
-  split.
-  - intros. destruct (classic (reachable es h x)); eauto.
-    assert (∃ s : gset object, ∀ x, x ∈ s <-> active x es h ∧ ¬ reachable es h x) as [s Hs].
-    { edestruct activeset_exists. eapply subset_exists. naive_solver. }
-    exfalso. eapply (H s).
-    split; eauto.
-    + set_solver.
-    + naive_solver.
-    + intros ???. assert (¬ reachable es h (Thread i)) by naive_solver.
-      eauto using reachable.
-    + intros ????.
-      destruct (classic (Chan c ∈ s)); eauto. exfalso.
-      eapply Hs in H2 as [].
-      destruct (classic (reachable es h (Chan c))); eauto using reachable.
-      assert (active (Chan c) es h).
-      { destruct H3 as (?&?&?&?&?&?&?&?). eexists. eauto. }
-      naive_solver.
-    + intros. apply Hs in H2 as [].
-      rewrite Hs.
-      split. { by eapply obj_refs_active. }
-      intro. eapply H4.
-      eauto using reachable.
-  - intros. intros [].
-    eapply set_choose_L in dl_nonempty0 as [x Hx].
-    assert (reachable es h x) as Q by eauto.
-    induction Q; naive_solver.
-Qed.
-
-Lemma deadlock_freedom es h :
-  invariant es h -> ∀ s, ¬ deadlock es h s.
-Proof.
-  intros Hinv.
-  eapply reachability_deadlock_freedom.
-  eauto using strong_progress.
 Qed.

@@ -239,6 +239,12 @@ Inductive steps : list expr -> heap -> list expr -> heap -> Prop :=
 (* TYPE SYSTEM *)
 (* =========== *)
 
+(* We first need to construct session types and ordinary lambda calculus types mutually coinductively. *)
+(* Unfortunately this requires some boilerplate. *)
+(* We first define [session_type' (T : Type)] where [T] is the type of eventual lambda calculus types. *)
+(* We then define [type], the type of lambda calculus types using [session_type']. *)
+(* We can then close the loop and define a non-parameterized [session_type := session_type' type]. *)
+
 Canonical Structure valO := leibnizO val.
 Canonical Structure exprO := leibnizO expr.
 
@@ -279,6 +285,7 @@ Proof.
   intros []. constructor; apply _.
 Defined.
 
+(* Coinductive bisimiliarity equivalence on session types. *)
 CoInductive session_type_equiv `{Equiv T} : Equiv (session_type' T) :=
   | cteq_EndT : EndT ≡ EndT
   | cteq_SendT n t1 t2 f1 f2 p : t1 ≡ t2 -> f1 ≡ f2 -> SendT n p t1 f1 ≡ SendT n p t2 f2
@@ -354,6 +361,7 @@ Qed.
 
 Canonical Structure session_type'O (T:ofe) := discreteO (session_type' T).
 
+(* The type of MPGV types. *)
 CoInductive type :=
   | UnitT : type
   | VoidT : type
@@ -383,6 +391,7 @@ Proof.
   by destruct t.
 Qed.
 
+(* Coinductive bisimilarity equivalence on types. *)
 CoInductive type_equiv : Equiv type :=
   | teq_UnitT : UnitT ≡ UnitT
   | teq_VoidT : VoidT ≡ VoidT
@@ -491,6 +500,10 @@ Definition is_present `{Countable A, Countable B} {V}
   | None => False
   end.
 
+
+(* We define a stronger consistency notion here. *)
+(* In globaltypes.v we prove that the existence of a global type implies this notion of consistency. *)
+
 CoInductive sbufs_typed
   (bufs : bufsT participant participant sentryT)
   (σs : gmap participant session_type) : Prop := {
@@ -532,9 +545,11 @@ CoInductive sbufs_typed
     dom bufs = dom σs
 }.
 
-
 Definition consistent n (σs : fin n -> session_type) :=
   sbufs_typed (init_chans n) (fin_gmap n σs).
+
+
+(* MPGV typing rules *)
 
 Inductive typed : envT -> expr -> type -> Prop :=
   | Unit_typed Γ :
@@ -650,12 +665,14 @@ Inductive typed : envT -> expr -> type -> Prop :=
    it is consistent to further identify extensional equality of coinductive
    types with propositional equality"
    Such an axiom is similar to functional extensionality, but for coinductive types.
+   For extra guarantees, we have proved various properties about (≡) above,
+   for instance that it is an equivalence relation.
 *)
 Axiom session_type_extensionality : ∀ σ1 σ2 : session_type, σ1 ≡ σ2 -> σ1 = σ2.
 (*
   To show that it is possible to manually work around this limitation of Coq,
   we have proved manually that our run-time type system is (≡)-invariant
   (see rtyped_proper_impl in rtypesystem.v).
-  However, as this pollutes our definitions and proofs and makes them less clear,
-  we have use this axiom in one place (rproj_Proper in invariant.v).
+  As you can see, this is very painful, and it also pollutes our definitions and proofs
+  and makes them less clear. So in certain cases we use this axiom.
 *)

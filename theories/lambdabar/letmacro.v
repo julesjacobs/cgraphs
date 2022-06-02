@@ -5,8 +5,8 @@ From diris.lambdabar Require Export langdef.
 
 Definition Let x e1 e2 := App (Fun x e2) e1.
 
-Check Let.
-Check Fun.
+(* Check Let. *)
+(* Check Fun. *)
 
 (* We can now prove a typing rule for Let *)
 
@@ -24,8 +24,8 @@ Proof.
   intros [=].
 Qed.
 
-Check Let_typed.
-Check Fun_typed.
+(* Check Let_typed. *)
+(* Check Fun_typed. *)
 
 (* We now have a lemma that lets us type check our Let construct using the
    usual typing rule for let. From the outside, this gives the same interface

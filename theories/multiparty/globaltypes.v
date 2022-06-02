@@ -1,5 +1,12 @@
 From diris.multiparty Require Export invariant.
 
+(* Global types *)
+(* ============ *)
+
+(* This file contains definitions and theorems to show consistency of multiparty session types using global types. *)
+(* In particular, we define the notion of global type consistency (the consistent_gt predicate), *)
+(* and show that it implies the consistency notion used in the typing rules (the consistent predicate). *)
+
 CoInductive global_type : Type :=
   | Message n : participant -> participant ->
                 (fin n -> type) -> (fin n -> global_type) -> global_type
@@ -35,6 +42,10 @@ Definition consistent_gt n (σs : fin n -> session_type) :=
     (∀ j, j >= n -> proj j G EndT).
 
 
+
+(* Proof that [consistent_gt n σs] implies [consistent n σs] *)
+(* ========================================================= *)
+
 Inductive rglobal_type : Type :=
   | MessageR n : option (fin n) -> participant -> participant ->
                 (fin n -> type) -> (fin n -> rglobal_type) -> rglobal_type
@@ -56,8 +67,6 @@ Inductive rproj (r : participant) : rglobal_type -> session_type -> Prop :=
   | rproj_continue G σ :
       proj r G σ -> rproj r (ContinueR G) σ.
 
-
-
 Inductive sbufprojs : rglobal_type -> sbufsT -> Prop :=
   | bp_skip n p q ts Gs bufs :
       pop p q bufs = None -> (∀ i, sbufprojs (Gs i) bufs) ->
@@ -75,7 +84,6 @@ Definition sbufs_typed_gt (bufs : bufsT participant participant sentryT)
   ∃ G : rglobal_type,
       (∀ p, rproj p G (default EndT (σs !! p))) ∧
       sbufprojs G bufs.
-
 
 Inductive pushUG (p q : participant) (n : nat) (i : fin n) : type -> global_type -> rglobal_type -> Prop :=
   | pushU_skip n' p' q' t ts Gs Gs' :

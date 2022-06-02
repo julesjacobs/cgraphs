@@ -47,15 +47,15 @@ CoInductive chan_type' (T : Type) :=
 Arguments SendT {_} _ _.
 Arguments RecvT {_} _ _.
 Arguments EndT {_}.
-Instance sendt_params : Params (@SendT) 1 := {}.
-Instance recvt_params : Params (@RecvT) 1 := {}.
+Global Instance sendt_params : Params (@SendT) 1 := {}.
+Global Instance recvt_params : Params (@RecvT) 1 := {}.
 
 
 CoInductive chan_type_equiv `{Equiv T} : Equiv (chan_type' T) :=
     | cteq_EndT : EndT ≡ EndT
     | cteq_SendT t1 t2 s1 s2 : t1 ≡ t2 -> s1 ≡ s2 -> SendT t1 s1 ≡ SendT t2 s2
     | cteq_RecvT t1 t2 s1 s2 : t1 ≡ t2 -> s1 ≡ s2 -> RecvT t1 s1 ≡ RecvT t2 s2.
-Existing Instance chan_type_equiv.
+Global Existing Instance chan_type_equiv.
 
 Lemma chan_type_reflexive `{Equiv T} :
     Reflexive (≡@{T}) -> Reflexive (≡@{chan_type' T}).
@@ -205,7 +205,7 @@ CoInductive type_equiv : Equiv type :=
     | teq_FunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> FunT t1 t1' ≡ FunT t2 t2'
     | teq_UFunT t1 t2 t1' t2' : t1 ≡ t2 -> t1' ≡ t2' -> UFunT t1 t1' ≡ UFunT t2 t2'
     | teq_ChanT s1 s2 : s1 ≡ s2 -> ChanT s1 ≡ ChanT s2.
-Existing Instance type_equiv.
+Global Existing Instance type_equiv.
 
 Global Instance type_equivalence : Equivalence (≡@{type}).
 Proof.

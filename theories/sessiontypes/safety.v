@@ -17,4 +17,4 @@ Qed.
   This indicates that our proof relies on classical logic.
   (we use classical logic for convenience.)
 *)
-Print Assumptions safety.
+(* Print Assumptions safety. *)

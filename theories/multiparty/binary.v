@@ -2,11 +2,18 @@ From diris.multiparty Require Import langdef.
 From diris.multiparty Require Import ycombinator.
 From diris.multiparty Require Import globaltypes.
 
+(* Encoding binary session types in MPGV *)
+(* ===================================== *)
+(* This is section 4 in the paper.  *)
+
+
+(* Definition of the binary session operations in terms of MPGV's multiparty operations. *)
 Definition SendB e1 i e2 := Send 0 e1 i e2.
 Definition RecvB e := Recv 0 e.
 Definition ForkB e := Relabel (const 1) (Spawn 1 (const e)).
 Definition CloseB e := Close e.
 
+(* Definition of binary session types. *)
 CoInductive session_typeB :=
   | SendTB n : (fin n -> type) -> (fin n -> session_typeB) -> session_typeB
   | RecvTB n : (fin n -> type) -> (fin n -> session_typeB) -> session_typeB
@@ -19,6 +26,7 @@ CoFixpoint dual (σ : session_typeB) : session_typeB :=
   | EndBT => EndTB
   end.
 
+(* Converting a binary session type to multiparty sesion type. *)
 CoFixpoint toM (p : participant) (σ : session_typeB) : session_type :=
   match σ with
   | SendTB n ts σs => SendT n p ts (toM p ∘ σs)
@@ -27,6 +35,11 @@ CoFixpoint toM (p : participant) (σ : session_typeB) : session_type :=
   end.
 
 Definition ChanTB σ := ChanT (toM 0 σ).
+
+
+(* We prove that the typing rules for binary session types are admissible. *)
+(* These proofs for Send, Recv, and Close are relatively easy. *)
+(* The main difficulty is proving the rule for Fork (see below). *)
 
 Lemma SendB_typed Γ1 Γ2 e1 e2 n ts σs i :
   disj Γ1 Γ2 ->
@@ -58,6 +71,9 @@ Proof.
   constructor. econstructor; last done.
   constructor. apply session_type_equiv_alt. simpl. done.
 Qed.
+
+(* Proof of the rule for Fork *)
+(* ========================== *)
 
 Definition σsB σ := λ i : fin 2,
   match i with
@@ -221,6 +237,7 @@ Proof.
   apply session_type_equiv_alt; simpl; constructor; try done; intro; apply IH.
 Qed.
 
+(* The Fork rule for binary session types is admissible in MPGV. *)
 Lemma ForkB_typed Γ σ e :
   typed Γ e (FunT (ChanTB (dual σ)) UnitT) ->
   typed Γ (ForkB e) (ChanTB σ).

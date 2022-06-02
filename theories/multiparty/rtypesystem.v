@@ -1,27 +1,7 @@
 From diris Require Export seplogic.
 From stdpp Require Export gmap.
-From diris.multiparty Require Export mutil langdef.
+From diris.multiparty Require Export mutil langdef definitions.
 From Coq.Logic Require Export FunctionalExtensionality Classical.
-
-Inductive object := Thread (_:nat) | Chan (_:session).
-
-Canonical Structure objectO := leibnizO object.
-
-Global Instance object_eqdecision : EqDecision object.
-Proof.
-  intros [n|n] [m|m]; unfold Decision; destruct (decide (n = m));
-  subst; eauto; right; intro; simplify_eq.
-Qed.
-Global Instance object_countable : Countable object.
-Proof.
-  refine (inj_countable' (λ l, match l with
-  | Thread n => inl n
-  | Chan n => inr n
-  end) (λ l, match l with
-  | inl n => Thread n
-  | inr n => Chan n
-  end) _); by intros [].
-Qed.
 
 Definition clabel : Type := session * session_type.
 
