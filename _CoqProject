@@ -22,29 +22,38 @@ theories/cgraphs/seplogic.v
 theories/cgraphs/cgraph.v
 theories/cgraphs/genericinv.v
 
-theories/sessiontypes/langdef.v
-theories/sessiontypes/rtypesystem.v
-theories/sessiontypes/invariant.v
-theories/sessiontypes/progress.v
-theories/sessiontypes/safety.v
-theories/sessiontypes/ycombinator.v
+# theories/sessiontypes/langdef.v
+# theories/sessiontypes/rtypesystem.v
+# theories/sessiontypes/invariant.v
+# theories/sessiontypes/progress.v
+# theories/sessiontypes/safety.v
+# theories/sessiontypes/ycombinator.v
+#
+# theories/multiparty/mutil.v
+# theories/multiparty/langdef.v
+# theories/multiparty/definitions.v
+# theories/multiparty/rtypesystem.v
+# theories/multiparty/invariant.v
+# theories/multiparty/progress.v
+# theories/multiparty/ycombinator.v
+# theories/multiparty/globaltypes.v
+# theories/multiparty/binary.v
+# theories/multiparty/theorems.v
+#
+# theories/lambdabar/langtools.v
+# theories/lambdabar/langdef.v
+# theories/lambdabar/definitions.v
+# theories/lambdabar/rtypesystem.v
+# theories/lambdabar/invariant.v
+# theories/lambdabar/theorems.v
+# theories/lambdabar/sessions.v
+# theories/lambdabar/letmacro.v
+# theories/lambdabar/compiler.v
 
-theories/multiparty/mutil.v
-theories/multiparty/langdef.v
-theories/multiparty/definitions.v
-theories/multiparty/rtypesystem.v
-theories/multiparty/invariant.v
-theories/multiparty/progress.v
-theories/multiparty/ycombinator.v
-theories/multiparty/globaltypes.v
-theories/multiparty/binary.v
-theories/multiparty/theorems.v
-
-theories/lambdabar/langtools.v
-theories/lambdabar/langdef.v
-theories/lambdabar/definitions.v
-theories/lambdabar/rtypesystem.v
-theories/lambdabar/invariant.v
-theories/lambdabar/theorems.v
-theories/lambdabar/sessions.v
-theories/lambdabar/letmacro.v
+theories/locks/langtools.v
+theories/locks/langdef.v
+theories/locks/definitions.v
+theories/locks/rtypesystem.v
+theories/locks/invariant.v
+theories/locks/theorems.v
+theories/locks/letmacro.v

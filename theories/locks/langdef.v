@@ -1,4 +1,4 @@
-From diris.lambdabar Require Export langtools.
+From diris.locks Require Export langtools.
 
 (* Expressions and values *)
 (* ---------------------- *)
@@ -13,25 +13,46 @@ Inductive expr :=
   | LetPair : expr -> expr -> expr
   | Sum : nat -> expr -> expr
   | MatchSum n : expr -> (fin n -> expr) -> expr
-  | Fork : expr -> expr
+  | ForkBarrier : expr -> expr
+  | NewLock : expr -> expr
+  | ForkLock : expr -> expr -> expr
+  | Acquire : expr -> expr
+  | Release : expr -> expr -> expr
+  | Wait : expr -> expr
+  | Drop : expr -> expr
 with val :=
   | FunV : string -> expr -> val
   | UnitV : val
   | PairV : val -> val -> val
   | SumV : nat -> val -> val
-  | BarrierV : nat -> val.
+  | BarrierV : nat -> val
+  | LockV : nat -> val.
 
 
 (* Type system *)
 (* ----------- *)
 
 Inductive linearity := Lin | Unr.
+Inductive lockstate := Opened | Closed.
+Inductive lockownership := Owner | Client.
+Definition lockcap : Type := lockownership * lockstate.
+Inductive lockownership_split : lockownership -> lockownership -> lockownership -> Prop :=
+  | lo_split_1 : lockownership_split Owner Client Owner
+  | lo_split_2 : lockownership_split Owner Owner Client
+  | lo_split_3 : lockownership_split Client Client Client.
+Inductive lockstate_split : lockstate -> lockstate -> lockstate -> Prop :=
+  | ls_split_1 : lockstate_split Opened Closed Opened
+  | ls_split_2 : lockstate_split Opened Opened Closed
+  | ls_split_3 : lockstate_split Closed Closed Closed.
+Definition lockcap_split l1 l2 l3 :=
+  lockownership_split l1.1 l2.1 l3.1 ∧ lockstate_split l1.2 l2.2 l3.2.
 
 CoInductive type :=
   | FunT : linearity -> type -> type -> type
   | UnitT : type
   | PairT : type -> type -> type
-  | SumT n : (fin n -> type) -> type.
+  | SumT n : (fin n -> type) -> type
+  | LockT : lockcap -> type -> type.
 
 CoInductive unr : type -> Prop :=
   | Fun_unr t1 t2 : unr (FunT Unr t1 t2)
@@ -61,6 +82,7 @@ Definition env_var (Γ : env) (x : string) (t : type) :=
 
 
 Inductive typed : env -> expr -> type -> Prop :=
+  (* Base language *)
   | Var_typed Γ x t :
     env_var Γ x t ->
     typed Γ (Var x) t
@@ -96,9 +118,34 @@ Inductive typed : env -> expr -> type -> Prop :=
     typed Γ1 e (SumT n ts) ->
     (∀ i, typed Γ2 (es i) (FunT Lin (ts i) t)) ->
     typed Γ (MatchSum n e es) t
+  (* Barriers *)
   | Fork_typed Γ e t1 t2 :
     typed Γ e (FunT Lin (FunT Lin t2 t1) UnitT) ->
-    typed Γ (Fork e) (FunT Lin t1 t2).
+    typed Γ (ForkBarrier e) (FunT Lin t1 t2)
+  (* Locks *)
+  | NewLock_typed Γ e t:
+    typed Γ e t ->
+    typed Γ (NewLock e) (LockT (Owner,Closed) t)
+  | ForkLock_typed Γ Γ1 Γ2 e1 e2 t l1 l2 l3 :
+    env_split Γ Γ1 Γ2 ->
+    lockcap_split l1 l2 l3 ->
+    typed Γ1 e1 (LockT l1 t) ->
+    typed Γ2 e2 (FunT Lin (LockT l2 t) UnitT) ->
+    typed Γ (ForkLock e1 e2) (LockT l3 t)
+  | Acquire_typed Γ e t lo :
+    typed Γ e (LockT (lo,Closed) t) ->
+    typed Γ (Acquire e) (PairT (LockT (lo,Opened) t) t)
+  | Release_typed Γ Γ1 Γ2 e1 e2 t lo :
+    env_split Γ Γ1 Γ2 ->
+    typed Γ1 e1 (LockT (lo,Opened) t) ->
+    typed Γ2 e2 t ->
+    typed Γ (Release e1 e2) (LockT (lo,Closed) t)
+  | Wait_typed Γ e t :
+    typed Γ e (LockT (Owner,Closed) t) ->
+    typed Γ (Wait e) t
+  | Drop_typed Γ e t :
+    typed Γ e (LockT (Client,Closed) t) ->
+    typed Γ (Drop e) UnitT.
 
 
 (* Operational semantics *)
@@ -115,7 +162,13 @@ Definition subst (x:string) (a:val) := fix rec e :=
   | LetPair e1 e2 => LetPair (rec e1) (rec e2)
   | Sum n e => Sum n (rec e)
   | MatchSum n e1 e2 => MatchSum n (rec e1) (rec ∘ e2)
-  | Fork e => Fork (rec e)
+  | ForkBarrier e => ForkBarrier (rec e)
+  | NewLock e => NewLock (rec e)
+  | ForkLock e1 e2 => ForkLock (rec e1) (rec e2)
+  | Acquire e => Acquire (rec e)
+  | Release e1 e2 => Release (rec e1) (rec e2)
+  | Wait e => Wait (rec e)
+  | Drop e => Drop (rec e)
   end.
 
 Inductive pure_step : expr -> expr -> Prop :=
@@ -135,31 +188,41 @@ Inductive pure_step : expr -> expr -> Prop :=
     pure_step (MatchSum n (Val $ SumV i v) es) (App (es i) (Val v)).
 
 Inductive ctx1 : (expr -> expr) -> Prop :=
-  | Ctx_App_l e : ctx1 (λ x, App e x)
-  | Ctx_App_r e : ctx1 (λ x, App x e)
+  | Ctx_App_l e : ctx1 (λ x, App x e)
+  | Ctx_App_r e : ctx1 (λ x, App e x)
   | Ctx_Pair_l e : ctx1 (λ x, Pair x e)
   | Ctx_Pair_r e : ctx1 (λ x, Pair e x)
   | Ctx_LetPair e : ctx1 (λ x, LetPair x e)
   | Ctx_Sum i : ctx1 (λ x, Sum i x)
   | Ctx_MatchSum n es : ctx1 (λ x, MatchSum n x es)
-  | Ctx_Fork : ctx1 (λ x, Fork x).
+  | Ctx_ForkBarrier : ctx1 (λ x, ForkBarrier x)
+  | Ctx_NewLock : ctx1 (λ x, NewLock x)
+  | Ctx_ForkLock_l e : ctx1 (λ x, ForkLock x e)
+  | Ctx_ForkLock_r e : ctx1 (λ x, ForkLock e x)
+  | Ctx_Acquire : ctx1 (λ x, Acquire x)
+  | Ctx_Release_l e : ctx1 (λ x, Release x e)
+  | Ctx_Release_r e : ctx1 (λ x, Release e x)
+  | Ctx_Wait : ctx1 (λ x, Wait x)
+  | Ctx_Drop : ctx1 (λ x, Drop x).
 
 Inductive ctx : (expr -> expr) -> Prop :=
   | Ctx_id : ctx id
   | Ctx_comp k1 k2 : ctx1 k1 -> ctx k2 -> ctx (k1 ∘ k2).
 
-Inductive obj := Thread (e : expr) | Barrier.
+Inductive obj := Thread (e : expr) | Barrier | Lock (refcnt : nat) (o : option val).
 Definition cfg := gmap nat obj.
 
 Inductive local_step : nat -> cfg -> cfg -> Prop :=
+  (* Base language *)
   | Pure_step i k e e' :
     ctx k -> pure_step e e' ->
     local_step i {[ i := Thread (k e) ]} {[ i := Thread (k e') ]}
   | Exit_step i v :
     local_step i {[ i := Thread (Val v) ]} ∅
+  (* Barriers *)
   | Fork_step i j n k v :
     i ≠ j -> i ≠ n -> j ≠ n -> ctx k ->
-    local_step i {[ i := Thread (k (Fork (Val v))) ]}
+    local_step i {[ i := Thread (k (ForkBarrier (Val v))) ]}
                  {[ i := Thread (k (Val $ BarrierV n));
                     j := Thread (App (Val v) (Val $ BarrierV n));
                     n := Barrier ]}
@@ -169,7 +232,43 @@ Inductive local_step : nat -> cfg -> cfg -> Prop :=
                     j := Thread (k2 (App (Val $ BarrierV n) (Val v2)));
                     n := Barrier ]}
                  {[ i := Thread (k1 $ Val v2);
-                    j := Thread (k2 $ Val v1) ]}.
+                    j := Thread (k2 $ Val v1) ]}
+  (* Locks *)
+  | NewLock_step v k n i:
+    i ≠ n -> ctx k ->
+    local_step i {[ i := Thread (k (NewLock (Val v))) ]}
+                 {[ i := Thread (k (Val $ LockV n));
+                    n := Lock 0 (Some v) ]}
+  | ForkLock_step v o k i j n refcnt :
+    i ≠ j -> i ≠ n -> j ≠ n -> ctx k ->
+    local_step i {[ i := Thread (k (ForkLock (Val $ LockV n) (Val v)));
+                    n := Lock refcnt o ]}
+                 {[ i := Thread (k (Val $ LockV n));
+                    j := Thread (App (Val v) (Val $ LockV n));
+                    n := Lock (S refcnt) o ]}
+  | Acquire_step v k i n refcnt :
+    i ≠ n -> ctx k ->
+    local_step i {[ i := Thread (k (Acquire (Val $ LockV n)));
+                    n := Lock refcnt (Some v) ]}
+                 {[ i := Thread (k (Val $ PairV (LockV n) v));
+                    n := Lock refcnt None ]}
+  | Release_step v k i n refcnt :
+    i ≠ n -> ctx k ->
+    local_step i {[ i := Thread (k (Release (Val $ LockV n) (Val v)));
+                    n := Lock refcnt None ]}
+                 {[ i := Thread (k (Val $ LockV n));
+                    n := Lock refcnt (Some v) ]}
+  | Wait_step v k i n :
+    i ≠ n -> ctx k ->
+    local_step i {[ i := Thread (k (Wait (Val $ LockV n)));
+                    n := Lock 0 (Some v) ]}
+                 {[ i := Thread (k (Val v)) ]}
+  | Drop_step o k i n refcnt :
+    i ≠ n -> ctx k ->
+    local_step i {[ i := Thread (k (Drop (Val $ LockV n)));
+                    n := Lock (S refcnt) o ]}
+                 {[ i := Thread (k (Val $ UnitV));
+                    n := Lock refcnt o ]}.
 
 Inductive step : nat -> cfg -> cfg -> Prop :=
   | Frame_step ρ ρ' ρf i :

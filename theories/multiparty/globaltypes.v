@@ -495,3 +495,18 @@ Proof.
   intros H. unfold consistent.
   by eapply sbufs_typed_gt_subufs_typed, sbufs_typed_gt_init.
 Qed.
+
+(*
+consistent_gt:
+l0: ![1]nat.?[1]string.End
+l1: ?[0]nat.![0]string.End
+
+with this global type:
+G: [1->0]nat.[0->1]string.End
+
+this is not consistent_gt, but it is consistent:
+l0: ![1]nat.?[1]string.End
+l1: ![0]string.?[0]nat.End
+
+Actris supports this.
+*)

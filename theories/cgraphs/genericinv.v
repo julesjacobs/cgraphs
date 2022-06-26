@@ -358,6 +358,72 @@ Section genericinv.
       eapply holds_entails; eauto.
   Qed.
 
+  (* Situation [v1 -[l1]-> v2, v3] to
+     situation [v1 -[l2]-> v2, v3 -[l']-> v2] *)
+  (* Need to transfer resources from v1 to v3,
+     for lexical scoping of fork. *)
+  Lemma inv_exchange_alloc (v1 v2 v3 : V) (f f' : V -> multiset L -> hProp V L) :
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (f v)) ->
+    (∀ v, Proper ((≡) ==> (⊣⊢)) (f' v)) ->
+    v1 ≠ v2 ∧ v1 ≠ v3 ∧ v2 ≠ v3 -> (* Some of these are unnecessary, implied by existence of edges *)
+    (∀ v x, v ≠ v1 ∧ v ≠ v2 ∧ v ≠ v3 -> f v x ⊢ f' v x) ->
+    (∀ x, f v3 x ⊢ ⌜⌜ x ≡ ε ⌝⌝) ->
+    (∀ y, f v1 y ⊢ ∃ l,
+      own_out v2 l ∗
+      (∀ x,
+        f v2 ({[ l ]} ⋅ x) -∗ ∃ l' l'',
+          (own_out v2 l' -∗ f' v1 y) ∗
+          f' v2 ({[ l' ]} ⋅ {[ l'' ]} ⋅ x) ∗
+          (own_out v2 l'' -∗ f' v3 ε))) ->
+    inv f -> inv f'.
+  Proof.
+    intros Hproper Hproper' [Hneq1 [Hneq2 Hneq3]] Hrest Hnew HH Hinv.
+    (*
+       We first transfer resources from v1 to v2 using the exchange rule.
+       Then v2 will transfer them to v3.
+       Because v3 is fresh there are no resources to be transfered
+       from v3 to v1 or v2 (unlike in the barriers case).
+       We also update the edge from v1 to v2 to its final state.
+       After this, the remaining work should be done by the alloc rule.
+       So after the first step, we should already have the final state at v1.
+    *)
+    set q := (λ v x,
+      if decide (v = v1) then f' v1 x
+      else if decide (v = v2) then
+        ∃ l', f' v2 ({[ l' ]} ⋅ x) ∗ (own_out v2 l' -∗ f' v3 ε)
+      else f v x)%I.
+    assert (inv q) as Hinvmid; subst q.
+    + eapply (inv_exchange v1 v2); last done; first apply _.
+      - solve_proper.
+      - intros. repeat case_decide; naive_solver.
+      - iIntros (y) "H".
+        iDestruct (HH with "H") as "H".
+        iDestruct "H" as (l) "[Hown H]".
+        iExists _. iFrame. iIntros (x) "H2".
+        iDestruct ("H" with "H2") as (l' l'') "[H1 [H2 H3]]".
+        iExists _.
+        repeat case_decide; simplify_eq. iFrame.
+        iExists l''. iFrame.
+        rewrite assoc.
+        assert ({[l']} ⋅ {[l'']} ≡@{multiset L} {[l'']} ⋅ {[l']}) as HC by rewrite comm //.
+        rewrite HC //.
+    + clear Hinv.
+      eapply (inv_alloc_r v2 v3); last done.
+      - solve_proper.
+      - solve_proper.
+      - done.
+      - iIntros (v x []) "H".
+        repeat case_decide; simplify_eq; eauto.
+        iApply Hrest; eauto.
+      - iIntros (x) "H".
+        repeat case_decide; simplify_eq.
+        by iApply Hnew.
+      - iIntros (x) "H".
+        repeat case_decide; simplify_eq.
+        iDestruct "H" as (l') "[H1 H2]".
+        iExists _. iFrame. rewrite comm //.
+  Qed.
+
   Lemma inv_alloc_lr (v1 v2 v3 : V) (f f' : V -> multiset L -> hProp V L) :
     (∀ v, Proper ((≡) ==> (⊣⊢)) (f v)) ->
     (∀ v, Proper ((≡) ==> (⊣⊢)) (f' v)) ->

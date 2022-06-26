@@ -83,7 +83,7 @@ Inductive pure_step : expr -> expr -> Prop :=
 
 Inductive ctx1 : (expr -> expr) -> Prop :=
   | Ctx_App_l e : ctx1 (λ x, App x e)
-  | Ctx_App_r e : ctx1 (λ x, App e x)
+  | Ctx_App_r v : ctx1 (λ x, App (Val v) x)
   | Ctx_Pair_l e : ctx1 (λ x, Pair x e)
   | Ctx_Pair_r e : ctx1 (λ x, Pair e x)
   | Ctx_LetPair e : ctx1 (λ x, LetPair x e)
