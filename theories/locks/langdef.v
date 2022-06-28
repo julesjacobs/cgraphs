@@ -13,7 +13,9 @@ Inductive expr :=
   | LetPair : expr -> expr -> expr
   | Sum : nat -> expr -> expr
   | MatchSum n : expr -> (fin n -> expr) -> expr
+  (* Barriers *)
   | ForkBarrier : expr -> expr
+  (* Locks *)
   | NewLock : expr -> expr
   | ForkLock : expr -> expr -> expr
   | Acquire : expr -> expr
@@ -33,6 +35,7 @@ with val :=
 (* ----------- *)
 
 Inductive linearity := Lin | Unr.
+
 Inductive lockstate := Opened | Closed.
 Inductive lockownership := Owner | Client.
 Definition lockcap : Type := lockownership * lockstate.
@@ -217,8 +220,8 @@ Inductive local_step : nat -> cfg -> cfg -> Prop :=
   | Pure_step i k e e' :
     ctx k -> pure_step e e' ->
     local_step i {[ i := Thread (k e) ]} {[ i := Thread (k e') ]}
-  | Exit_step i v :
-    local_step i {[ i := Thread (Val v) ]} ∅
+  | Exit_step i :
+    local_step i {[ i := Thread (Val UnitV) ]} ∅
   (* Barriers *)
   | Fork_step i j n k v :
     i ≠ j -> i ≠ n -> j ≠ n -> ctx k ->
@@ -241,31 +244,31 @@ Inductive local_step : nat -> cfg -> cfg -> Prop :=
                     n := Lock 0 (Some v) ]}
   | ForkLock_step v o k i j n refcnt :
     i ≠ j -> i ≠ n -> j ≠ n -> ctx k ->
-    local_step i {[ i := Thread (k (ForkLock (Val $ LockV n) (Val v)));
+    local_step n {[ i := Thread (k (ForkLock (Val $ LockV n) (Val v)));
                     n := Lock refcnt o ]}
                  {[ i := Thread (k (Val $ LockV n));
                     j := Thread (App (Val v) (Val $ LockV n));
                     n := Lock (S refcnt) o ]}
   | Acquire_step v k i n refcnt :
     i ≠ n -> ctx k ->
-    local_step i {[ i := Thread (k (Acquire (Val $ LockV n)));
+    local_step n {[ i := Thread (k (Acquire (Val $ LockV n)));
                     n := Lock refcnt (Some v) ]}
                  {[ i := Thread (k (Val $ PairV (LockV n) v));
                     n := Lock refcnt None ]}
   | Release_step v k i n refcnt :
     i ≠ n -> ctx k ->
-    local_step i {[ i := Thread (k (Release (Val $ LockV n) (Val v)));
+    local_step n {[ i := Thread (k (Release (Val $ LockV n) (Val v)));
                     n := Lock refcnt None ]}
                  {[ i := Thread (k (Val $ LockV n));
                     n := Lock refcnt (Some v) ]}
   | Wait_step v k i n :
     i ≠ n -> ctx k ->
-    local_step i {[ i := Thread (k (Wait (Val $ LockV n)));
+    local_step n {[ i := Thread (k (Wait (Val $ LockV n)));
                     n := Lock 0 (Some v) ]}
                  {[ i := Thread (k (Val v)) ]}
   | Drop_step o k i n refcnt :
     i ≠ n -> ctx k ->
-    local_step i {[ i := Thread (k (Drop (Val $ LockV n)));
+    local_step n {[ i := Thread (k (Drop (Val $ LockV n)));
                     n := Lock (S refcnt) o ]}
                  {[ i := Thread (k (Val $ UnitV));
                     n := Lock refcnt o ]}.

@@ -1,4 +1,4 @@
-From diris.locks Require Export langdef.
+From diris.locks Require Export langdef definitions.
 
 Notation vertex := nat.
 Inductive label : Type :=
@@ -460,14 +460,9 @@ Ltac solve_step := solve [iPureIntro; do 2 eexists; split; eauto using Ctx_id; s
 Ltac solve_pr := simp; solve [solve_ctx || solve_step].
 
 Inductive impure : expr -> Prop :=
-  | imp_ForkBarrier v : impure (ForkBarrier v)
-  | imp_AppBarrier v k : impure (App (Val $ BarrierV k) (Val v))
+  | imp_ForkBarrier v : impure (ForkBarrier (Val v))
   | imp_NewLock v : impure (NewLock (Val v))
-  | imp_ForkLock k v : impure (ForkLock (Val $ LockV k) (Val v))
-  | imp_Acquire k : impure (Acquire (Val $ LockV k))
-  | imp_Release k v : impure (Release (Val $ LockV k) (Val v))
-  | imp_Wait k : impure (Wait (Val $ LockV k))
-  | imp_Drop k : impure (Drop (Val $ LockV k)).
+  | imp_Waiting e i : expr_head_waiting e i -> impure e.
 
 Definition step_or_impure e := ∃ k e0,
   ctx k ∧ e = k e0 ∧ ((∃ e', pure_step e0 e') ∨ impure e0).
@@ -500,7 +495,7 @@ Ltac into_val H1 H2 :=
   iDestruct (H1 with H2) as %[[? ->]|?];
   last by eauto using step_or_impure_ctx1, ctx1.
 
-Ltac ppdone := simp; eauto using pure_step_or_impure, pure_step, impure_or_impure, impure.
+Ltac ppdone := simp; eauto using pure_step_or_impure, pure_step, impure_or_impure, impure, expr_head_waiting.
 
 Lemma pure_progress e t :
   rtyped0 e t -∗ ⌜ is_Val e ∨ step_or_impure e ⌝.

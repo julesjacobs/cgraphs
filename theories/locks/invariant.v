@@ -16,6 +16,46 @@ Lemma lock_relM_newlock v t :
 Proof.
 Admitted.
 
+Lemma lock_relM_same_type refcnt o t t' l x :
+  lock_relM refcnt o t ({[LockLabel l t']} ⋅ x) -> t' = t.
+Proof.
+Admitted.
+
+Lemma lock_relM_drop refcnt o t x :
+  lock_relM (S refcnt) o t ({[LockLabel (Client, Closed) t]} ⋅ x) ->
+  lock_relM refcnt o t x.
+Proof. Admitted.
+
+Lemma lock_relM_split l l2 l3 refcnt o t x :
+  lockcap_split l l2 l3 ->
+  lock_relM refcnt o t ({[LockLabel l t]} ⋅ x) ->
+  lock_relM (S refcnt) o t ({[LockLabel l3 t]} ⋅ {[LockLabel l2 t]} ⋅ x).
+Proof. Admitted.
+
+Lemma lock_relM_open_close refcnt v t lo x :
+  lock_relM refcnt (Some v) t ({[LockLabel (lo, Closed) t]} ⋅ x) <->
+  lock_relM refcnt None t ({[LockLabel (lo, Opened) t]} ⋅ x).
+Proof. Admitted.
+
+Lemma lock_relM_only_owner v t x :
+  lock_relM 0 (Some v) t ({[LockLabel (Owner, Closed) t]} ⋅ x) -> x = ε.
+Proof.
+Admitted.
+
+Lemma lock_relM_progress refcnt o t x :
+  lock_relM refcnt o t x -> ∃ l x',
+    x ≡ {[ LockLabel l t ]} ⋅ x' ∧
+    l = match o with
+    | None => (l.1,Opened)
+    | Some _ =>
+      match refcnt with
+      | 0 => (Owner,Closed)
+      | S _ => (Client,Closed)
+      end
+    end.
+Proof.
+Admitted.
+
 Definition linv (ρ : cfg) (v : nat) (in_l : multiset labelO) : rProp :=
   match ρ !! v with
   | Some (Thread e) => ⌜⌜ in_l ≡ ε ⌝⌝ ∗ rtyped0 e UnitT
@@ -69,7 +109,7 @@ Proof.
   - eapply inv_impl; last done.
     iIntros (n x) "H". unfold linv. smap; iDestr "H";
     assert (ρf !! n = None) as -> by solve_map_disjoint; eauto.
-    destruct v; simpl; iDestr "H"; simp. done.
+    destruct H. eauto.
   - eapply (inv_alloc_lr i0 n j);
     last done; first apply _; first apply _.
     + naive_solver.
@@ -179,7 +219,7 @@ Proof.
       iDestr "H". simp. iDestruct "H" as "[H1 H2]". iDestr "H1". simp.
       iExists _. iFrame.
       iIntros (?) "H". iDestr "H".
-      assert (t'0 = t) as -> by admit.
+      assert (t'0 = t) as -> by eauto using lock_relM_same_type.
       iExists (LockLabel l3 t),(LockLabel l2 t).
       iSplitL "Q".
       {
@@ -187,7 +227,8 @@ Proof.
         iExists _,_. iSplit; done.
       }
       iSplitL "H".
-      * iExists _. iFrame. iPureIntro. admit.
+      * iExists _. iFrame. iPureIntro.
+        by eapply lock_relM_split.
       * iIntros "H". eauto 10 with iFrame.
   - eapply (inv_exchange i0 n);
     last done; first apply _; first apply _.
@@ -196,14 +237,14 @@ Proof.
       iDestruct (replacement with "H") as (t) "[H Q]"; first done. simpl.
       iDestr "H". simp.
       iExists _. iFrame. iIntros (x) "H". iDestr "H".
-      assert (t'0 = t) as -> by admit.
+      assert (t'0 = t) as -> by eauto using lock_relM_same_type.
       iExists (LockLabel _ _).
       iSplitL "Q H".
       * iIntros "H'". iSplit; first done.
         iApply "Q". simpl. iExists _,_.
         iSplit; first done. iFrame. iExists _,_. eauto.
       * iExists t. iPureIntro. split; last done.
-        admit.
+        by eapply lock_relM_open_close.
   - eapply (inv_exchange i0 n);
     last done; first apply _; first apply _.
     + iIntros (? ? ?) "H". unfold linv. smap.
@@ -212,14 +253,14 @@ Proof.
       iDestr "H". simp. iDestruct "H" as "[H1 H2]".
       iDestr "H1". simp.
       iExists _. iFrame. iIntros (x) "H". iDestr "H".
-      assert (t'0 = t) as -> by admit.
+      assert (t'0 = t) as -> by eauto using lock_relM_same_type.
       iExists (LockLabel _ _).
       iSplitL "Q H".
       * iIntros "H'". iSplit; first done.
         iApply "Q". simpl. iExists _,_.
         iSplit; first done. iFrame.
       * iExists t. iFrame. iPureIntro.
-        admit.
+        by eapply lock_relM_open_close.
   - eapply (inv_dealloc i0 n);
     last done; first apply _; first apply _.
     + iIntros (? ? ?) "H". unfold linv. smap.
@@ -227,11 +268,12 @@ Proof.
       iDestruct (replacement with "H") as (t) "[H Q]"; first done. simpl.
       iDestr "H". simp.
       iExists _. iFrame. iIntros (x) "H". iDestr "H".
-      assert (t' = t) as -> by admit.
+      assert (t' = t) as -> by eauto using lock_relM_same_type.
       assert (ρf !! n = None) as -> by solve_map_disjoint.
       iSplit; first iSplit; first done.
       * iApply "Q". done.
-      * iPureIntro. admit.
+      * iPureIntro. eapply multiset_unit_equiv_eq.
+        by eapply lock_relM_only_owner.
   - eapply (inv_dealloc i0 n);
     last done; first apply _; first apply _.
     + iIntros (? ? ?) "H". unfold linv. smap.
@@ -239,12 +281,21 @@ Proof.
       iDestruct (replacement with "H") as (t) "[H Q]"; first done. simpl.
       iDestr "H". simp.
       iExists _. iFrame. iIntros (x) "H". iDestr "H".
-      assert (t'0 = t) as -> by admit.
+      assert (t'0 = t) as -> by eauto using lock_relM_same_type.
       iSplitL "Q".
       * iSplit; first done. iApply "Q". done.
       * iExists _. iSplit; last done.
-        iPureIntro. admit.
-Admitted.
+        iPureIntro. by eapply lock_relM_drop.
+Qed.
+
+
+Lemma cfg_fresh1 (ρ : cfg) :
+  ∃ j, ρ !! j = None.
+Proof.
+  exists (fresh (dom ρ)).
+  apply not_elem_of_dom.
+  apply is_fresh.
+Qed.
 
 Lemma fresh2 (s : gset nat) :
   ∃ x y, x ∉ s ∧ y ∉ s ∧ x ≠ y.
@@ -266,10 +317,10 @@ Qed.
 Lemma linv_out_Some i j Σ l ρ x :
   holds (linv ρ j x) Σ ->
   Σ !! i ≡ Some l ->
-  ∃ e, ρ !! j = Some e.
+  ∃ e, ρ !! j = Some e ∧ e ≠ Barrier.
 Proof.
   unfold linv.
-  destruct (ρ !! j) as [[]|]; eauto.
+  destruct (ρ !! j) as [[]|]; eauto;
   rewrite affinely_pure_holds;
   intros [H ?] Q; specialize (H i);
   rewrite H lookup_empty in Q; simplify_eq.
@@ -406,8 +457,7 @@ Qed.
 Lemma full_reachability ρ :
   ginv ρ -> fully_reachable ρ.
 Proof.
-Admitted.
-  (* unfold fully_reachable.
+  unfold fully_reachable.
   intros Hinv.
   destruct Hinv as [g [Hwf Hinv]].
   eapply (cgraph_ind' (λ a b l, waiting ρ a b)); eauto; first solve_proper.
@@ -424,90 +474,107 @@ Admitted.
     { apply map_eq. intro. smap. } rewrite HH.
     apply pure_holds in Q2 as [[v ->]|Q].
     + constructor. exists (∅ ∪ delete i ρ).
+      assert (v = UnitV) as ->.
+      { eapply pure_holds. eapply holds_entails; first done.
+        iIntros "H". destruct v; eauto; iDestr "H"; simp. }
       econstructor; last constructor; last solve_map_disjoint.
       intro x. smap. destruct (_!!x); done.
-    + destruct Q as (k & e0 & [Hk ->] & [[e0' Q] | [[v ->] | [v [j ->]]]]).
+    + destruct Q as (k & e0 & Hk & -> & [[e0' Hpstep]|Himpure]).
       * constructor. eexists ({[ i := Thread (k e0') ]} ∪ delete i ρ).
         constructor; [intro j; smap; by destruct (_!!j)..|].
         constructor; eauto.
-      * constructor.
-        destruct (cfg_fresh2 ρ) as (j & n & Hj & Hn & Hjn).
-        exists ({[ i := Thread (k $ Val $ BarrierV n);
-                   j := Thread (App (Val v) (Val $ BarrierV n));
-                   n := Barrier ]} ∪ delete i ρ).
-        constructor; [intro x; smap; by destruct (_!!x)..|].
-        constructor; eauto; intros ->; simplify_eq.
-      * (* Thread is now trying to sync with a barrier *)
-        (* It is therefore waiting and reachable *)
-        rewrite -HH.
-        assert (∃ l, out_edges g i !! j ≡ Some l) as [l Hl].
-        {
-          (* rewrite replacement in Q2'; last done. *)
-          (* simpl in Q2'. *)
-          assert (holds ((∃ l, own_out j l) ∗ True) (out_edges g i)) as QQ.
-          {
-            eapply holds_entails; first exact Q2'.
-            iIntros "H".
-            rewrite replacement; last done.
-            iDestruct "H" as (t) "[H1 H2]".
-            simpl.
-            iDestruct "H1" as (t2 l) "[H11 H12]".
-            iDestruct "H11" as (t1 t0 ?) "H11". simplify_eq.
-            iSplitL "H11"; eauto.
-          }
-          eapply sep_holds in QQ as (Σ1 & Σ2 & H12 & Hdisj & Hout & HP).
-          eapply exists_holds in Hout as [l Hout].
-          unfold own_out in Hout.
-          eapply own_holds in Hout.
-          exists l. rewrite H12.
-          rewrite -Hout.
-          smap.
-        }
-        assert (ρ !! j = Some Barrier) as F.
-        {
-          eapply out_edges_in_labels in Hl as [x Hx].
-          specialize (Hinv j).
-          rewrite Hx in Hinv.
-          eapply pure_holds.
-          eapply holds_entails; first exact Hinv.
-          iIntros "H".
-          unfold linv.
-          destruct (ρ !! j) as [[]|]; eauto.
-          - iDestruct "H" as (?) "H".
-            exfalso. eapply multiset_empty_neq_singleton.
-            eapply multiset_empty_mult in H as []; eauto.
-          - iDestruct "H" as "%".
-            exfalso. eapply multiset_empty_neq_singleton.
-            eapply multiset_empty_mult in H as []; eauto.
-        }
-        assert (waiting ρ i j). {
-          unfold waiting. rewrite E F.
-          unfold expr_waiting; eauto.
-        }
-        assert (reachable ρ j). {
-          edestruct (IH1 j); eauto.
-          unfold inactive in *. simplify_eq.
-        }
-        eauto using reachable.
-  - eapply affinely_pure_holds in Q as [Q1 [t1 [t2 Q2]]].
+      * destruct Himpure.
+        -- destruct (cfg_fresh2 ρ) as (j & n & Hj & Hn & Hjn).
+           constructor. eexists.
+           constructor; last eapply Fork_step; last done; last apply Hjn;
+           try intros ->; simplify_eq;
+           intro x; smap; by destruct (_!!x).
+        -- destruct (cfg_fresh1 ρ) as (j & Hj).
+           constructor. eexists.
+           assert (i ≠ j). { intros ->. smap. }
+           constructor; last eapply NewLock_step; try done;
+           intro x; smap; destruct (_!!x); try done.
+        -- rewrite -HH.
+           assert (∃ l, out_edges g i !! i0 ≡ Some l) as [l Hl].
+           {
+             assert (holds ((∃ l, own_out i0 l) ∗ True) (out_edges g i)) as QQ.
+             {
+               eapply holds_entails; first exact Q2'.
+               iIntros "H".
+               rewrite replacement; last done.
+               iDestruct "H" as (t) "[H1 H2]".
+               simpl.
+               destruct H; simpl; iDestr "H1";
+               try iDestruct "H1" as "[H1 H12]";
+               try iDestr "H1"; iSplitL "H1"; eauto with iFrame.
+             }
+             eapply sep_holds in QQ as (Σ1 & Σ2 & H12 & Hdisj & Hout & HP).
+             eapply exists_holds in Hout as [l Hout].
+             unfold own_out in Hout.
+             eapply own_holds in Hout.
+             exists l. rewrite H12.
+             rewrite -Hout.
+             smap.
+           }
+           assert (is_Some (ρ !! i0)) as [x F].
+           {
+             eapply out_edges_in_labels in Hl as [x Hx].
+             specialize (Hinv i0).
+             rewrite Hx in Hinv.
+             eapply pure_holds.
+             eapply holds_entails; first exact Hinv.
+             iIntros "H".
+             unfold linv.
+             destruct (ρ !! i0) as [[]|]; eauto.
+             iDestruct "H" as %HEF.
+             eapply multiset_empty_mult in HEF as [HEF HEF'].
+             exfalso. eapply multiset_empty_neq_singleton. done.
+           }
+           assert (waiting ρ i i0). {
+             unfold waiting. rewrite E F.
+             left. eexists. split; first done.
+             unfold expr_waiting; eauto.
+           }
+           assert (reachable ρ i0). {
+             edestruct (IH1 i0); eauto.
+             unfold inactive in *. simplify_eq.
+           }
+           eauto using reachable.
+  - clear IH1.
+    eapply affinely_pure_holds in Q as [Q1 [t1 [t2 Q2]]].
     (* Need to check whether both threads are trying to sync. *)
     (* If so, then can_step *)
     (* Otherwise, use IH *)
     apply in_labels_out_edges2 in Q2 as (j1 & j2 & Hj12 & Hj1 & Hj2).
 
-    edestruct (linv_out_Some i j1) as [e1 He1]; eauto.
-    edestruct (linv_out_Some i j2) as [e2 He2]; eauto.
+    edestruct (linv_out_Some i j1) as [e1 [He1 He1']]; eauto.
+    edestruct (linv_out_Some i j2) as [e2 [He2 He2']]; eauto.
 
     destruct (classic (waiting ρ j1 i)) as [W1|W1]; last first.
     {
       edestruct IH2; [|done|..]; eauto.
       - unfold inactive in H. simplify_eq.
-      - assert (waiting ρ i j1); eauto using reachable.
+      - eapply Waiting_reachable; last done.
+        unfold waiting. rewrite He1 E. right.
+        eexists. split; first done.
+        unfold waiting in W1.
+
+
+        (* assert (waiting ρ i j1); eauto using reachable.
         unfold waiting in *.
         rewrite He1 E in W1.
-        rewrite E He1. split; eauto.
+        rewrite E He1.
+        destruct e1; simplify_eq.
+        + split; eauto.
+          erewrite expr_refs_linv; eauto.
+          apply elem_of_dom. rewrite Hj1. done.
+        + *)
+        admit.
+        (*
+        split; eauto.
         erewrite expr_refs_linv; eauto.
         apply elem_of_dom. rewrite Hj1. done.
+        *)
     }
     destruct (classic (waiting ρ j2 i)) as [W2|W2]; last first.
     {
@@ -516,14 +583,71 @@ Admitted.
       - assert (waiting ρ i j2); eauto using reachable.
         unfold waiting in *.
         rewrite He2 E in W2.
-        rewrite E He2. split; eauto.
+        rewrite E He2.
+        admit.
+        (*
+        split; eauto.
         erewrite expr_refs_linv; eauto.
         apply elem_of_dom. rewrite Hj2. done.
+        *)
     }
     constructor.
     unfold waiting in W1,W2.
     rewrite He1 E in W1.
     rewrite He2 E in W2.
+    destruct W1; last by simp.
+    destruct W2; last by simp.
+    simp.
+    clear He1' He2'.
+    (* Need to prove that threads must be doing a barrier operation here. *)
+    assert (∀ e Σ i t1 t2,
+      holds (rtyped0 e UnitT) Σ ->
+      expr_waiting e i ->
+      Σ !! i = Some (BarrierLabel false t1 t2) ->
+      ∃ k v, ctx k ∧ e = k (App (Val $ BarrierV i) (Val v))) as LEM by admit.
+    eapply LEM in H5; last apply Hj1; last first.
+    { eapply holds_entails; eauto. unfold linv. rewrite He1.
+      iIntros "[_ H]". iFrame. }
+    eapply LEM in H3; last apply Hj2; last first.
+    { eapply holds_entails; eauto. unfold linv. rewrite He2.
+      iIntros "[_ H]". iFrame. }
+    clear LEM. simp.
+    assert (ρ = {[
+      j1 := Thread (H4 (App (Val (BarrierV i)) (Val H5)));
+      j2 := Thread (H (App (Val (BarrierV i)) (Val H3)));
+      i := Barrier
+     ]} ∪ (delete j1 $ delete j2 $ delete i ρ)).
+    { apply map_eq. smap. }
+    rewrite H1.
+    do 2 econstructor; last first.
+    { econstructor; eauto; try intros ->; simp. }
+    + intro. smap. destruct (ρ!!i0) eqn:EE; rewrite EE; eauto.
+    + intro. smap. destruct (ρ!!i0) eqn:EE; rewrite EE; eauto.
+  - eapply exists_holds in Q as [t Q].
+    eapply pure_sep_holds in Q as [Hrel Q].
+    eapply lock_relM_progress in Hrel.
+    destruct Hrel as (l & x' & Hinl & Hrel).
+    eapply in_labels_out_edges in Hinl as [v1 Hv1].
+
+
+    simp.
+    solve_map_disjoint.
+    cut (∃ ρ1, ρ = ρ1 ∧ can_step ρ1 i); first admit.
+    eexists. split; last first.
+    { eexists. econstructor; last first.
+      { eapply Sync_step; admit. }
+      admit. admit.
+    }
+    eapply map_eq.
+    exists ({[ j1 := Thread (H0 $ Val H3);
+               j2 := Thread (H $ Val H5) ]} ∪
+               (delete j2 $ delete j1 $ delete i ρ)).
+    econstructor.
+    unfold can_step.
+    simp.
+    { simp. }
+    admit.
+    (*
     assert (ρ = {[ j1 := Thread e1; j2 := Thread e2; i := Barrier ]} ∪ (delete j2 $ delete j1 $ delete i ρ)) as HH.
     { apply map_eq. intro. smap. }
     destruct W2 as (k2 & v2 & Hk2 & ->).
@@ -535,7 +659,9 @@ Admitted.
     { intro x. smap. destruct (_!!x); done. }
     { intro x. smap. destruct (_!!x); done. }
     constructor; eauto; intros ->; simplify_eq.
-Qed. *)
+    *)
+  - admit.
+Qed.
 
 Lemma initialization e :
   typed ∅ e UnitT -> ginv {[ 0 := Thread e ]}.

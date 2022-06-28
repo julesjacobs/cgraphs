@@ -30,6 +30,18 @@ with val_refs v :=
   | LockV i => {[ i ]}
   end.
 
+Definition obj_refs x :=
+  match x with
+  | Thread e => expr_refs e
+  | Barrier => ∅
+  | Lock refcnt o =>
+      match o with
+      | Some v => val_refs v
+      | None => ∅
+      end
+  end.
+
+
 Inductive expr_head_waiting : expr -> nat -> Prop :=
   | Barrier_waiting j v :
     expr_head_waiting (App (Val $ BarrierV j) (Val v)) j
@@ -49,12 +61,9 @@ Definition expr_waiting e j :=
   ∃ k e', ctx k ∧ e = k e' ∧ expr_head_waiting e' j.
 
 Definition waiting (ρ : cfg) (i j : nat) :=
-  match ρ !! i, ρ !! j with
-  | Some (Thread e), Some _ => expr_waiting e j
-  | Some _, Some (Thread e) => i ∈ expr_refs e ∧ ¬ expr_waiting e i
-  | _,_ => False
-  end.
-
+  (∃ e, ρ !! i = Some (Thread e) ∧ expr_waiting e j) ∨
+  (∃ y, ρ !! j = Some y ∧ i ∈ obj_refs y ∧ ∀ e, y = Thread e -> ¬ expr_waiting e i).
+  
 (* These definitions are not explicitly given in the paper, but we factor them out in Coq *)
 Definition can_step (ρ : cfg) (i : nat) := ∃ ρ', step i ρ ρ'.
 Definition inactive (ρ : cfg) (i : nat) := ρ !! i = None.
