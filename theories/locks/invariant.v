@@ -21,6 +21,9 @@ Qed.
 Lemma Mlen_unit : Mlen ε = 0.
 Proof. done. Qed.
 
+Lemma Mlen_singleton l : Mlen {[ l ]} = 1.
+Proof. done. Qed.
+
   Lemma Mpermute1 (a b c : multiset labelO) :
   a ⋅ b ⋅ c ≡ c ⋅ a ⋅ b.
 Proof.
@@ -142,18 +145,218 @@ Lemma lock_relM_drop refcnt o t x :
   lock_relM refcnt o t x.
 Proof.
   intros [].
-Admitted.
+  eapply mset_xsplit in lr_split. simp.
+  setoid_subst.
+  rewrite H7 in lr_refcount.
+  eapply multiset_singleton_mult in H3 as []; simp.
+  - setoid_subst. rewrite left_id in H5.
+    exfalso. destruct o; simp.
+    + eauto using multiset_unit_empty_mult.
+    + destruct lr_openedclosed; simp; eauto using multiset_unit_empty_mult.
+      rewrite H7 in H3. eapply multiset_singleton_mult' in H3 as []; simp.
+  - setoid_subst. rewrite left_id in H7. setoid_subst.
+    rewrite left_id in lr_refcount.
+    eapply mset_xsplit in H5. simp. setoid_subst.
+    eapply multiset_singleton_mult in H6 as []; simp; setoid_subst.
+    + rewrite left_id in H4. setoid_subst.
+      eexists _ _ _; first done; eauto.
+      intros. setoid_subst. eapply lr_closed. rewrite comm -assoc. done.
+    + symmetry in H4. eapply multiset_singleton_mult' in H4. simp.
+Qed.
+
+(* Version that assumes wlog that l2 <= l3 for some order. *)
+Lemma lock_relM_split' l l2 l3 refcnt o t x :
+  ((l2.1 = Owner -> l3.1 = Owner) ∧
+  (l2.1 = l3.1 -> l2.2 = Closed -> l3.2 = Closed)) ->
+  lockcap_split l l2 l3 ->
+  lock_relM refcnt o t ({[LockLabel l t]} ⋅ x) ->
+  lock_relM (S refcnt) o t ({[LockLabel l3 t]} ⋅ {[LockLabel l2 t]} ⋅ x).
+Proof.
+  intros [HQ1 HQ2] Hsplit [].
+  eapply mset_xsplit in lr_split; simp. setoid_subst.
+  eapply multiset_singleton_mult in H3 as []; simp; setoid_subst.
+  - rewrite left_id in H5. setoid_subst.
+    destruct o.
+    { simp. eapply multiset_unit_empty_mult in H7 as []. }
+    destruct lr_openedclosed.
+    { simp. eapply multiset_unit_empty_mult in H7 as []. }
+    simp. setoid_subst.
+    symmetry in H7.
+    eapply multiset_singleton_mult' in H7. simp.
+    rewrite right_id.
+    inv Hsplit. simpl in *.
+    destruct l2,l3.
+    inv H; simp.
+    inv H0; simp. { naive_solver. }
+    eexists _ _ _.
+    {
+      assert ({[LockLabel (Client, Closed) t]} ⋅
+              {[LockLabel (Client, Opened) t]} ⋅
+              ({[LockLabel (Owner, Closed) t]} ⋅ x_closed)
+              ≡
+              {[LockLabel (Owner, Closed) t]} ⋅
+              ({[LockLabel (Client, Closed) t]} ⋅ x_closed) ⋅
+              {[LockLabel (Client, Opened) t]}); eauto.
+      rewrite Mpermute1. f_equiv. rewrite -assoc. f_equiv. rewrite comm //.
+    }
+    + intros. eapply mset_xsplit in H. simp. setoid_subst.
+      eapply multiset_singleton_mult in H5 as []; simp; setoid_subst.
+      * rewrite left_id in H3. setoid_subst. eauto.
+      * symmetry in H3. eapply multiset_singleton_mult' in H3. simp.
+    + eauto.
+    + rewrite Mlen_mult !Mlen_singleton. lia.
+  - rewrite left_id in H7. setoid_subst.
+    destruct l2,l3. simpl in *.
+    eapply mset_xsplit in H5. simp.
+    setoid_subst.
+    eapply multiset_singleton_mult in H4 as []; simp; setoid_subst.
+    + rewrite left_id in H6. setoid_subst.
+      assert (LockLabel l t = LockLabel (Client, Closed) t) by eauto. simp.
+      destruct Hsplit as [R1 R2]. simpl in *.
+      inv R1. inv R2.
+      eexists _ _ _.
+      {
+        assert ({[LockLabel (Client, Closed) t]} ⋅
+                {[LockLabel (Client, Closed) t]} ⋅
+                ({[LockLabel (Owner, ls_owner) t]} ⋅ H3 ⋅ x_opened)
+                ≡
+                {[LockLabel (Owner, ls_owner) t]} ⋅
+                ({[LockLabel (Client, Closed) t]} ⋅ {[LockLabel (Client, Closed) t]} ⋅ H3) ⋅
+                x_opened); eauto.
+        rewrite Mpermute1. rewrite -!assoc. f_equiv.
+        rewrite !assoc. rewrite Mpermute1. rewrite -!assoc.
+        f_equiv. rewrite assoc Mpermute1 -assoc //.
+      }
+      ++ intros. eapply mset_xsplit in H. simp. setoid_subst.
+         eapply multiset_singleton_mult in H6 as []; simp; setoid_subst.
+         * rewrite left_id in H4. setoid_subst. eapply lr_closed.
+           rewrite assoc Mpermute1 Mpermute1 -assoc //.
+         * symmetry in H4. eapply multiset_xsplit_singleton in H4 as []; simp.
+      ++ eauto.
+      ++ rewrite !Mlen_mult !Mlen_singleton. unfold Mlen. lia.
+    + symmetry in H6. eapply multiset_singleton_mult' in H6. simp.
+      destruct Hsplit as [R1 R2]. simpl in *.
+      inv R1; simp; last naive_solver.
+      clear HQ1 HQ2.
+      assert (ε ⋅ H3 = H3) as HH.
+      { unfold op. unfold multiset_op_instance.
+        simpl. destruct H3. done. }
+      rewrite HH. rewrite HH in lr_closed.
+      rewrite assoc.
+      destruct l1.
+      {
+        inv R2.
+        destruct o; simp. destruct lr_openedclosed; simp.
+        rewrite Mlen_unit right_id.
+        rewrite Mpermute2 -assoc. rewrite comm.
+        eexists _ _ _; first done; eauto.
+        rewrite Mlen_singleton. lia.
+      }
+      {
+        assert (
+          {[LockLabel (Owner, l3) t]} ⋅ {[LockLabel (Client, Closed) t]} ⋅ H3 ⋅ x_opened ≡
+          {[LockLabel (Owner, l3) t]} ⋅ ({[LockLabel (Client, Closed) t]} ⋅ H3) ⋅ x_opened
+        ) as -> by rewrite assoc //.
+        eexists _ _ _; first done; eauto.
+        - intros. eapply mset_xsplit in H. simp. clear HH. setoid_subst.
+          eapply multiset_singleton_mult in H6 as []; simp; setoid_subst.
+          + rewrite left_id in H4. setoid_subst. eauto.
+          + symmetry in H4. eapply multiset_singleton_mult' in H4. simp.
+        - destruct o; simp; inv R2; eauto.
+      }
+Qed.
 
 Lemma lock_relM_split l l2 l3 refcnt o t x :
   lockcap_split l l2 l3 ->
   lock_relM refcnt o t ({[LockLabel l t]} ⋅ x) ->
   lock_relM (S refcnt) o t ({[LockLabel l3 t]} ⋅ {[LockLabel l2 t]} ⋅ x).
-Proof. Admitted.
+Proof.
+  intros [H1 H2] H.
+  destruct l,l2,l3. simpl in *.
+  inv H1; inv H2;
+  try solve [
+    eapply lock_relM_split'; last done; simpl;
+    [naive_solver | split; simpl; eauto using lockownership_split, lockstate_split]
+  ]; rewrite Mpermute2;
+  try solve [
+    eapply lock_relM_split'; last done; simpl;
+    [naive_solver | split; simpl; eauto using lockownership_split, lockstate_split]
+  ].
+Qed.
 
 Lemma lock_relM_open_close refcnt v t lo x :
   lock_relM refcnt (Some v) t ({[LockLabel (lo, Closed) t]} ⋅ x) <->
   lock_relM refcnt None t ({[LockLabel (lo, Opened) t]} ⋅ x).
-Proof. Admitted.
+Proof.
+  split; intros [].
+  {
+    simp.
+    rewrite right_id in lr_split.
+    rewrite Mlen_unit.
+    eapply mset_xsplit in lr_split. simp. setoid_subst.
+    eapply multiset_singleton_mult in H3 as []; simp; setoid_subst.
+    - rewrite left_id in H5. setoid_subst.
+      assert (LockLabel (lo, Closed) t = LockLabel (Client, Closed) t) by eauto. simp.
+      assert (
+        {[LockLabel (Client, Opened) t]} ⋅ ({[LockLabel (Owner, Closed) t]} ⋅ H2) ≡
+        {[LockLabel (Owner, Closed) t]} ⋅ H2 ⋅ {[LockLabel (Client, Opened) t]}
+      ) as ->.
+      {
+        rewrite assoc Mpermute1 Mpermute1 //.
+      }
+      econstructor; first done; eauto.
+      + intros. setoid_subst. eapply lr_closed.
+        rewrite assoc Mpermute1 Mpermute1 -assoc. done.
+      + rewrite Mlen_singleton. destruct H2; simpl.
+        unfold Mlen. simpl. lia.
+    - symmetry in H5. eapply multiset_singleton_mult' in H5. simp.
+      assert ({[LockLabel (Owner, Opened) t]} ⋅ (ε ⋅ H2) ≡ {[LockLabel (Owner, Opened) t]} ⋅ H2 ⋅ ε) as ->.
+      {
+        rewrite left_id right_id comm //.
+      }
+      econstructor; first done; eauto.
+  }
+  {
+    simp. eapply mset_xsplit in lr_split. simp; setoid_subst.
+    eapply multiset_singleton_mult in H3 as []; simp; setoid_subst.
+    - rewrite left_id in H5. setoid_subst.
+      destruct lr_openedclosed; simp.
+      symmetry in H7.
+      eapply multiset_empty_mult in H7. simp.
+      setoid_subst. symmetry in H7.
+      eapply multiset_singleton_mult' in H7. simp.
+      rewrite right_id.
+      assert (
+        {[LockLabel (Client, Closed) t]} ⋅ ({[LockLabel (Owner, Closed) t]} ⋅ x_closed) ≡
+        {[LockLabel (Owner, Closed) t]} ⋅ ({[LockLabel (Client, Closed) t]} ⋅ x_closed) ⋅ ε
+      ) as ->.
+      {
+        rewrite assoc. rewrite right_id.
+        rewrite assoc.
+        rewrite Mpermute1 Mpermute1.
+        rewrite -!assoc. f_equiv.
+        rewrite comm //.
+      }
+      econstructor; first done; eauto.
+      + intros. eapply mset_xsplit in H. simp. setoid_subst.
+        eapply multiset_singleton_mult in H5 as []; simp; setoid_subst.
+        * rewrite left_id in H3. setoid_subst. eauto.
+        * symmetry in H3. eapply multiset_singleton_mult' in H3. simp.
+      + rewrite Mlen_mult !Mlen_singleton Mlen_unit. lia.
+    - rewrite left_id in H7. setoid_subst.
+      eapply mset_xsplit in H5. simp. setoid_subst.
+      eapply multiset_singleton_mult in H6 as []; simp; setoid_subst.
+      { assert (LockLabel (lo, Opened) t = LockLabel (Client, Closed) t) by eauto. simp. }
+      symmetry in H4.
+      eapply multiset_singleton_mult' in H4. simp.
+      destruct lr_openedclosed; simp.
+      rewrite Mlen_mult.
+      rewrite left_id.
+      rewrite assoc.
+      rewrite Mlen_unit. simpl.
+      econstructor; first done; eauto.
+  }
+Qed.
 
 Lemma lock_relM_only_owner v t x :
   lock_relM 0 (Some v) t ({[LockLabel (Owner, Closed) t]} ⋅ x) -> x = ε.
@@ -626,7 +829,7 @@ Proof.
     eapply holds_entails in Hinv; last apply rtyped_refs.
     eapply own_dom_same in Hinv. done.
   - eapply affinely_pure_holds in Hinv as [t1 H].
-    simp. Search (dom ∅). rewrite dom_empty_L //.
+    simp. rewrite dom_empty_L //.
   - eapply exists_holds in Hinv as [t H].
     eapply pure_sep_holds in H as [_ H].
     destruct o.
@@ -663,6 +866,20 @@ Lemma label_unique `{Countable K} {V : ofe} (Σ : gmap K V) j l1 :
   Σ !! j ≡ Some l1 ->
   holds (∃ l2, own_out j l2 ∗ ⌜ l1 ≢ l2 ⌝) Σ ->
   False.
+Proof.
+  intros H1 H2.
+  eapply exists_holds in H2 as [l2 H2].
+  eapply sep_holds in H2 as (Σ1 & Σ2 & HΣ & Hdisj & Q1 & Q2).
+  unfold own_out in Q1. eapply own_holds in Q1.
+  rewrite pure_holds in Q2.
+  eapply Q2. rewrite -Q1 in HΣ.
+  rewrite HΣ in H1. revert H1. smap. inv H1. done.
+Qed.
+
+Lemma label_unique' `{Countable K} {V : ofe} (Σ : gmap K V) j l1 (φ : Prop) :
+  Σ !! j ≡ Some l1 ->
+  holds (∃ l2, own_out j l2 ∗ ⌜ l1 ≡ l2 -> φ ⌝) Σ ->
+  φ.
 Proof.
   intros H1 H2.
   eapply exists_holds in H2 as [l2 H2].
@@ -889,20 +1106,95 @@ Proof.
     + assert (ρ = {[
         j := Thread (k (ForkLock (Val (LockV j0)) (Val v)));
         j0 := Lock refcnt o
-        ]} ∪ (delete j $ delete j0 ρ)).
+        ]} ∪ (delete j $ delete j0 ρ)) as Hcfg.
       { apply map_eq. intro. smap. }
-      rewrite H.
+      rewrite Hcfg.
       destruct (cfg_fresh1 ρ) as (i & Hi).
       assert (j ≠ i). { intro. smap. }
       assert (i ≠ j0). { intro. smap. }
       assert (j ≠ j0). { intro. smap. }
-      do 2 econstructor; last econstructor; last done; last exact H1; eauto;
+      do 2 econstructor; last econstructor; last done; last exact H0; eauto;
       intro; smap; destruct (ρ !! i0) eqn:EE; rewrite EE; eauto; smap.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-Admitted.
+    + assert (ls = Closed) as ->.
+      {
+        eapply label_unique'; first exact Hj.
+        eapply holds_entails; eauto.
+        iIntros "H".
+        iDestruct (replacement with "H") as (t') "[H1 H2]"; first done.
+        simpl. iDestr "H1". simp.
+        iExists _. iFrame. iPureIntro.
+        intros HQ. inv HQ. done.
+      }
+      destruct o; simp.
+      assert (ρ = {[
+        j := Thread (k (Acquire (Val (LockV j0))));
+        j0 := Lock refcnt (Some v)
+      ]} ∪ (delete j $ delete j0 ρ)) as Hcfg.
+      { apply map_eq. intro. smap. }
+      rewrite Hcfg.
+      do 2 econstructor; last econstructor; eauto; intro; smap;
+      destruct (ρ !! i) eqn:EE; rewrite EE; eauto.
+    + assert (ls = Opened) as ->.
+      {
+        eapply label_unique'; first exact Hj.
+        eapply holds_entails; eauto.
+        iIntros "H".
+        iDestruct (replacement with "H") as (t') "[H1 H2]"; first done.
+        simpl. iDestr "H1". simp.
+        iDestruct "H1" as "[Q1 Q2]". iDestr "Q1". simp.
+        iExists _. iFrame. iPureIntro.
+        intros HQ. inv HQ. done.
+      }
+      destruct o. { destruct refcnt; simp. }
+      assert (ρ = {[
+        j := Thread (k (Release (Val (LockV j0)) (Val v)));
+        j0 := Lock refcnt None
+      ]} ∪ (delete j $ delete j0 ρ)) as Hcfg.
+      { apply map_eq. intro. smap. }
+      rewrite Hcfg.
+      do 2 econstructor; last econstructor; eauto; intro; smap;
+      destruct (ρ !! i) eqn:EE; rewrite EE; eauto.
+    + assert (lo = Owner ∧ ls = Closed) as [-> ->].
+      {
+        eapply label_unique'; first exact Hj.
+        eapply holds_entails; eauto.
+        iIntros "H".
+        iDestruct (replacement with "H") as (t') "[H1 H2]"; first done.
+        simpl. iDestr "H1". simp.
+        iExists _. iFrame. iPureIntro.
+        intros HQ. inv HQ. done.
+      }
+      destruct o; simp.
+      destruct refcnt; simp.
+      assert (ρ = {[
+        j := Thread (k (Wait (Val (LockV j0))));
+        j0 := Lock 0 (Some v)
+      ]} ∪ (delete j $ delete j0 ρ)) as Hcfg.
+      { apply map_eq. intro. smap. }
+      rewrite Hcfg.
+      do 2 econstructor; last econstructor; eauto; intro; smap;
+      destruct (ρ !! i) eqn:EE; rewrite EE; eauto.
+    + assert (lo = Client ∧ ls = Closed) as [-> ->].
+      {
+        eapply label_unique'; first exact Hj.
+        eapply holds_entails; eauto.
+        iIntros "H".
+        iDestruct (replacement with "H") as (t') "[H1 H2]"; first done.
+        simpl. iDestr "H1". simp.
+        iExists _. iFrame. iPureIntro.
+        intros HQ. inv HQ. done.
+      }
+      destruct o; simp.
+      destruct refcnt; simp.
+      assert (ρ = {[
+        j := Thread (k (Drop (Val (LockV j0))));
+        j0 := Lock (S refcnt) (Some v)
+      ]} ∪ (delete j $ delete j0 ρ)) as Hcfg.
+      { apply map_eq. intro. smap. }
+      rewrite Hcfg.
+      do 2 econstructor; last econstructor; eauto; intro; smap;
+      destruct (ρ !! i) eqn:EE; rewrite EE; eauto.
+Qed.
 
 Lemma initialization e :
   typed ∅ e UnitT -> ginv {[ 0 := Thread e ]}.
