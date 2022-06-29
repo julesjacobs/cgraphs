@@ -1,7 +1,6 @@
 From stdpp Require Import gmap.
 From stdpp Require Export finite.
 From diris.cgraphs Require Export multiset.
-From Coq.Logic Require Import Classical.
 
 Lemma list_lookup_insert_spec {V} (xs : list V) i j v :
   (<[ i := v ]> xs) !! j = if (decide (i = j ∧ i < length xs)) then Some v else (xs !! j).
@@ -893,14 +892,4 @@ Lemma fin_union_S `{Countable A} n (f : fin (S n) -> gset A) :
 Proof.
   unfold fin_union.
   rewrite fin_gset_S big_union_union big_union_singleton //.
-Qed.
-
-Lemma subset_exists `{Countable A} (P : A -> Prop) (s : gset A) :
-  (∀ x, P x -> x ∈ s) -> ∃ s' : gset A, ∀ x, x ∈ s' <-> P x.
-Proof.
-  revert P; induction s using set_ind_L; intros P Q.
-  - exists ∅. set_solver.
-  - destruct (IHs (λ y, P y ∧ y ≠ x)); first set_solver.
-    destruct (classic (P x)); last set_solver.
-    exists (x0 ∪ {[ x ]}). set_solver.
 Qed.

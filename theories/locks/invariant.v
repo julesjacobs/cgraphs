@@ -1,30 +1,148 @@
 From diris.locks Require Export rtypesystem.
 From diris.locks Require Export definitions.
 
-Definition lock_rel (refcnt : nat) (o : option val) (ls : list lockcap) : Prop.
-Admitted.
+Definition Mlen (m : multiset labelO) : nat := length (multiset_car m).
 
-Definition lock_relM (refcnt : nat) (o : option val) (t : type) (in_l : multiset labelO) : Prop :=
-  ∃ lcs, in_l ≡ MultiSet (map (λ lc, LockLabel lc t) lcs) ∧ lock_rel refcnt o lcs.
+Global Instance Mlen_Proper : Proper ((≡) ==> (≡)) Mlen.
+Proof.
+  intros ???.
+  destruct x,y.
+  rewrite /Mlen /=. destruct H as [x [H1 H2]].
+  simpl in *.
+  rewrite -H2 H1 //.
+Qed.
+
+Lemma Mlen_mult x y : Mlen (x ⋅ y) = Mlen x + Mlen y.
+Proof.
+  unfold Mlen. destruct x,y; simpl.
+  rewrite app_length //.
+Qed.
+
+Lemma Mlen_unit : Mlen ε = 0.
+Proof. done. Qed.
+
+  Lemma Mpermute1 (a b c : multiset labelO) :
+  a ⋅ b ⋅ c ≡ c ⋅ a ⋅ b.
+Proof.
+  rewrite comm assoc //.
+Qed.
+
+Lemma Mpermute2 (a b c : multiset labelO) :
+  a ⋅ b ⋅ c ≡ b ⋅ a ⋅ c.
+Proof.
+  rewrite comm. symmetry.
+  rewrite comm. f_equiv. rewrite comm //.
+Qed.
+
+Lemma Mlen_zero_inv a :
+  Mlen a = 0 -> a = ε.
+Proof.
+  destruct a; rewrite /Mlen /=;
+  destruct multiset_car; rewrite //=.
+Qed.
+
+Lemma Mlen_nonzero_inv a :
+  Mlen a ≠ 0 -> ∃ l a', a ≡ {[ l ]} ⋅ a'.
+Proof.
+  destruct a; rewrite /Mlen /=;
+  destruct multiset_car; rewrite //=.
+  intros _. exists o.
+  exists (MultiSet multiset_car).
+  done.
+Qed.
+
+
+Record lock_relM (refcnt : nat) (o : option val) (t : type) (x : multiset labelO) : Prop := {
+  ls_owner : lockstate;
+  x_closed : multiset labelO;
+  x_opened : multiset labelO;
+  lr_split : x ≡ {[ LockLabel (Owner,ls_owner) t ]} ⋅ x_closed ⋅ x_opened;
+  lr_closed : ∀ l x_closed', x_closed ≡ {[ l ]} ⋅ x_closed' -> l = LockLabel (Client,Closed) t;
+  lr_openedclosed : match o with
+    | None => (ls_owner = Opened ∧ x_opened = ε) ∨
+              (ls_owner = Closed ∧ x_opened ≡ {[ LockLabel (Client,Opened) t]})
+    | Some _ => ls_owner = Closed ∧ x_opened = ε
+  end;
+  lr_refcount : Mlen x_closed + Mlen x_opened = refcnt;
+}.
 
 Global Instance lock_relM_Proper refcnt o t : Proper ((≡) ==> (≡)) (lock_relM refcnt o t).
 Proof.
-Admitted.
+  intros ???.
+  split; intros []; econstructor; eauto.
+  - rewrite -H //.
+  - rewrite H //.
+Qed.
 
 Lemma lock_relM_newlock v t :
   lock_relM 0 (Some v) t {[LockLabel (Owner, Closed) t]}.
 Proof.
-Admitted.
+  eexists Closed ε ε; eauto.
+  intros l x_closed' H.
+  symmetry in H.
+  eapply multiset_op_unit in H as [].
+  eapply multiset_singleton_not_unit in H as [].
+Qed.
+
+Lemma multiset_unit_empty_mult l (a : multiset labelO) :
+  ε ≡ {[ l ]} ⋅ a -> False.
+Proof.
+  intros H.
+  symmetry in H.
+  eapply multiset_empty_mult in H as []. subst.
+  eapply multiset_empty_neq_singleton in H as [].
+Qed.
 
 Lemma lock_relM_same_type refcnt o t t' l x :
   lock_relM refcnt o t ({[LockLabel l t']} ⋅ x) -> t' = t.
 Proof.
-Admitted.
+  intros [].
+  eapply mset_xsplit in lr_split. simp.
+  eapply multiset_singleton_mult in H3.
+  eapply mset_xsplit in H5. simp.
+  destruct H3; simp.
+  - eapply multiset_unit_equiv_eq in H13. subst.
+    symmetry in H12. eapply multiset_empty_mult in H12 as [].
+    subst. rewrite left_id in H10.
+    rewrite left_id in H11.
+    rewrite H15 in H7. rewrite <-H10 in H14.
+    destruct o.
+    { destruct lr_openedclosed. subst.
+      eapply multiset_unit_empty_mult in H7 as []. }
+    destruct lr_openedclosed; simp.
+    { eapply multiset_unit_empty_mult in H7 as []. }
+    rewrite H6 in H7.
+    symmetry in H7.
+    eapply multiset_singleton_mult' in H7 as [].
+    subst.
+    inv H. done.
+  - rewrite H15 left_id in H7.
+    rewrite -H7 in H4.
+    rewrite H13 in H12.
+    clear H15 H1.
+    clear H13 H.
+    rewrite H14 in H4.
+    clear H0 H14.
+    setoid_rewrite H11 in lr_closed.
+    clear H11 x_closed.
+    clear H2 H7.
+    clear H4 x.
+    clear lr_openedclosed x_opened.
+    eapply multiset_singleton_mult in H12 as []; simp.
+    + setoid_rewrite H1 in lr_closed.
+      assert (LockLabel l t' = LockLabel (Client, Closed) t).
+      { eapply lr_closed. done. }
+      simp.
+    + rewrite H0 in H10. symmetry in H10.
+      eapply multiset_singleton_mult' in H10. simp.
+Qed.
 
 Lemma lock_relM_drop refcnt o t x :
   lock_relM (S refcnt) o t ({[LockLabel (Client, Closed) t]} ⋅ x) ->
   lock_relM refcnt o t x.
-Proof. Admitted.
+Proof.
+  intros [].
+Admitted.
 
 Lemma lock_relM_split l l2 l3 refcnt o t x :
   lockcap_split l l2 l3 ->
@@ -40,7 +158,14 @@ Proof. Admitted.
 Lemma lock_relM_only_owner v t x :
   lock_relM 0 (Some v) t ({[LockLabel (Owner, Closed) t]} ⋅ x) -> x = ε.
 Proof.
-Admitted.
+  intros [].
+  destruct lr_openedclosed. subst.
+  rewrite Mlen_unit in lr_refcount.
+  assert (Mlen x_closed = 0) as ->%Mlen_zero_inv by lia.
+  rewrite !right_id in lr_split.
+  eapply multiset_singleton_mult' in lr_split as [].
+  done.
+Qed.
 
 Lemma lock_relM_progress refcnt o t x :
   lock_relM refcnt o t x -> ∃ l x',
@@ -54,7 +179,29 @@ Lemma lock_relM_progress refcnt o t x :
       end
     end.
 Proof.
-Admitted.
+  intros [].
+  destruct o.
+  - destruct lr_openedclosed. destruct refcnt; subst.
+    + eexists _,_; split; last done.
+      rewrite -assoc in lr_split. done.
+    + exists (Client,Closed).
+      rewrite Mlen_unit in lr_refcount.
+      assert (Mlen x_closed ≠ 0) as H by lia.
+      eapply Mlen_nonzero_inv in H.
+      destruct H as [l [x_closed' Hxcl]].
+      specialize (lr_closed _ _ Hxcl) as ->.
+      rewrite Hxcl in lr_split.
+      eexists ({[LockLabel (Owner, Closed) t]} ⋅ x_closed'). split; last done.
+      rewrite lr_split.
+      rewrite !assoc right_id Mpermute2 //.
+  - destruct lr_openedclosed as [[]|[]]; subst.
+    + exists (Owner,Opened), x_closed.
+      split; last done.
+      rewrite lr_split right_id //.
+    + exists (Client,Opened),({[LockLabel (Owner, Closed) t]} ⋅ x_closed).
+      split; last done.
+      rewrite assoc. rewrite -Mpermute1 lr_split H0 //.
+Qed.
 
 Definition linv (ρ : cfg) (v : nat) (in_l : multiset labelO) : rProp :=
   match ρ !! v with
@@ -454,13 +601,85 @@ Proof.
   eapply own_holds in H2. rewrite H2 //.
 Qed.
 
+Lemma own_dom_same A B :
+  holds (own_dom A) B -> A = dom B.
+Proof.
+  intros H.
+  unfold own_dom in *.
+  eapply exists_holds in H as [Σ H].
+  eapply pure_sep_holds in H as [-> H].
+  eapply own_holds in H.
+  rewrite H. done.
+Qed.
+
+Lemma obj_refs_linv ρ i x Δ Σ :
+  ρ !! i = Some x ->
+  holds (linv ρ i Δ) Σ -> obj_refs x = dom Σ.
+Proof.
+  intros Hi Hinv.
+  unfold obj_refs.
+  unfold linv in *.
+  rewrite Hi in Hinv. clear Hi.
+  destruct x.
+  - eapply pure_sep_holds in Hinv as [_ Hinv].
+    rewrite -rtyped_rtyped0 in Hinv.
+    eapply holds_entails in Hinv; last apply rtyped_refs.
+    eapply own_dom_same in Hinv. done.
+  - eapply affinely_pure_holds in Hinv as [t1 H].
+    simp. Search (dom ∅). rewrite dom_empty_L //.
+  - eapply exists_holds in Hinv as [t H].
+    eapply pure_sep_holds in H as [_ H].
+    destruct o.
+    + eapply holds_entails in H; last apply val_typed_refs.
+      eapply own_dom_same in H. done.
+    + eapply emp_holds in H. simp.
+      rewrite dom_empty_L //.
+Qed.
+
+Definition blocked (ρ : cfg) i j :=
+  ∃ e, ρ !! i = Some (Thread e) ∧ expr_waiting e j.
+
+Lemma out_edge_active Σ v v' a ρ x :
+  Σ !! v' ≡ Some a ->
+  holds (linv ρ v x) Σ ->
+  inactive ρ v -> False.
+Proof.
+  intros Hedge Hinv Hina.
+  unfold inactive in *.
+  unfold linv in *.
+  rewrite Hina in Hinv.
+  eapply affinely_pure_holds in Hinv as [].
+  rewrite H in Hedge. simp.
+Qed.
+
+Lemma rewrite_with_del `{Countable K} {V} (ρ : gmap K V) (i : K) (x : V) :
+  ρ !! i = Some x ->
+  ρ = {[ i := x ]} ∪ delete i ρ.
+Proof.
+  intros. apply map_eq. smap.
+Qed.
+
+Lemma label_unique `{Countable K} {V : ofe} (Σ : gmap K V) j l1 :
+  Σ !! j ≡ Some l1 ->
+  holds (∃ l2, own_out j l2 ∗ ⌜ l1 ≢ l2 ⌝) Σ ->
+  False.
+Proof.
+  intros H1 H2.
+  eapply exists_holds in H2 as [l2 H2].
+  eapply sep_holds in H2 as (Σ1 & Σ2 & HΣ & Hdisj & Q1 & Q2).
+  unfold own_out in Q1. eapply own_holds in Q1.
+  rewrite pure_holds in Q2.
+  eapply Q2. rewrite -Q1 in HΣ.
+  rewrite HΣ in H1. revert H1. smap. inv H1. done.
+Qed.
+
 Lemma full_reachability ρ :
   ginv ρ -> fully_reachable ρ.
 Proof.
-  unfold fully_reachable.
   intros Hinv.
   destruct Hinv as [g [Hwf Hinv]].
-  eapply (cgraph_ind' (λ a b l, waiting ρ a b)); eauto; first solve_proper.
+  unfold fully_reachable.
+  eapply (cgraph_ind' (λ a b l, blocked ρ a b)); eauto; first solve_proper.
   intros i IH1 IH2.
   classical_right.
   rewrite /inactive in H.
@@ -530,16 +749,20 @@ Proof.
              eapply multiset_empty_mult in HEF as [HEF HEF'].
              exfalso. eapply multiset_empty_neq_singleton. done.
            }
-           assert (waiting ρ i i0). {
-             unfold waiting. rewrite E F.
-             left. eexists. split; first done.
+           assert (blocked ρ i i0). {
+             unfold blocked. rewrite E.
+             eexists. split; first done.
              unfold expr_waiting; eauto.
            }
            assert (reachable ρ i0). {
              edestruct (IH1 i0); eauto.
              unfold inactive in *. simplify_eq.
            }
-           eauto using reachable.
+           eapply Waiting_reachable; last done.
+           unfold waiting.
+           left. rewrite E.
+           eexists. split; first done.
+           unfold expr_waiting. eauto.
   - clear IH1.
     eapply affinely_pure_holds in Q as [Q1 [t1 [t2 Q2]]].
     (* Need to check whether both threads are trying to sync. *)
@@ -550,118 +773,136 @@ Proof.
     edestruct (linv_out_Some i j1) as [e1 [He1 He1']]; eauto.
     edestruct (linv_out_Some i j2) as [e2 [He2 He2']]; eauto.
 
-    destruct (classic (waiting ρ j1 i)) as [W1|W1]; last first.
+    destruct (classic (blocked ρ j1 i)) as [HB1|HB1]; last first.
     {
-      edestruct IH2; [|done|..]; eauto.
-      - unfold inactive in H. simplify_eq.
+      destruct (IH2 _ _ Hj1 HB1) as [H|H].
+      - exfalso. eauto using out_edge_active.
       - eapply Waiting_reachable; last done.
-        unfold waiting. rewrite He1 E. right.
-        eexists. split; first done.
-        unfold waiting in W1.
-
-
-        (* assert (waiting ρ i j1); eauto using reachable.
-        unfold waiting in *.
-        rewrite He1 E in W1.
-        rewrite E He1.
-        destruct e1; simplify_eq.
-        + split; eauto.
-          erewrite expr_refs_linv; eauto.
-          apply elem_of_dom. rewrite Hj1. done.
-        + *)
-        admit.
-        (*
-        split; eauto.
-        erewrite expr_refs_linv; eauto.
-        apply elem_of_dom. rewrite Hj1. done.
-        *)
+        unfold waiting.
+        unfold blocked in HB1.
+        right. eexists. split; first done.
+        split.
+        + erewrite obj_refs_linv; last eauto; last eauto.
+          eapply elem_of_dom. inv Hj1; eauto.
+        + intros ???. eapply HB1. subst; eauto.
     }
-    destruct (classic (waiting ρ j2 i)) as [W2|W2]; last first.
+
+    destruct (classic (blocked ρ j2 i)) as [HB2|HB2]; last first.
     {
-      edestruct IH2; [|done|..]; eauto.
-      - unfold inactive in H. simplify_eq.
-      - assert (waiting ρ i j2); eauto using reachable.
-        unfold waiting in *.
-        rewrite He2 E in W2.
-        rewrite E He2.
-        admit.
-        (*
-        split; eauto.
-        erewrite expr_refs_linv; eauto.
-        apply elem_of_dom. rewrite Hj2. done.
-        *)
+      destruct (IH2 _ _ Hj2 HB2) as [H|H].
+      - exfalso. eauto using out_edge_active.
+      - eapply Waiting_reachable; last done.
+        unfold waiting.
+        unfold blocked in HB2.
+        right. eexists. split; first done.
+        split.
+        + erewrite obj_refs_linv; last eauto; last eauto.
+          eapply elem_of_dom. inv Hj1; eauto.
+        + intros ???. eapply HB2. subst; eauto.
     }
-    constructor.
-    unfold waiting in W1,W2.
-    rewrite He1 E in W1.
-    rewrite He2 E in W2.
-    destruct W1; last by simp.
-    destruct W2; last by simp.
-    simp.
-    clear He1' He2'.
-    (* Need to prove that threads must be doing a barrier operation here. *)
-    assert (∀ e Σ i t1 t2,
-      holds (rtyped0 e UnitT) Σ ->
-      expr_waiting e i ->
-      Σ !! i = Some (BarrierLabel false t1 t2) ->
-      ∃ k v, ctx k ∧ e = k (App (Val $ BarrierV i) (Val v))) as LEM by admit.
-    eapply LEM in H5; last apply Hj1; last first.
-    { eapply holds_entails; eauto. unfold linv. rewrite He1.
-      iIntros "[_ H]". iFrame. }
-    eapply LEM in H3; last apply Hj2; last first.
-    { eapply holds_entails; eauto. unfold linv. rewrite He2.
-      iIntros "[_ H]". iFrame. }
-    clear LEM. simp.
+
+    eapply Can_step_reachable.
+    destruct HB1 as (e1' & Hρ1 & Hw1).
+    destruct HB2 as (e2' & Hρ2 & Hw2).
+    clear He1 He1' He2 He2' e1 e2.
+    destruct Hw1 as (k1 & ee1' & Hk1 & -> & Hw1).
+    destruct Hw2 as (k2 & ee2' & Hk2 & -> & Hw2).
+
+    pose proof (Hinv j1) as Hinvj1.
+    unfold linv in Hinvj1.
+    rewrite Hρ1 in Hinvj1.
+    eapply pure_sep_holds in Hinvj1 as [_ Htyped1].
+
+    destruct Hw1; try solve [
+      exfalso;
+      eapply label_unique; first exact Hj1;
+      eapply holds_entails; eauto;
+      iIntros "H"; rewrite replacement; last done;
+      iDestr "H"; iDestruct "H" as "[H1 H2]";
+      simpl; iDestr "H1"; eauto with iFrame;
+      iDestruct "H1" as "[Q1 Q2]";
+      iDestr "Q1"; eauto with iFrame
+    ].
+    clear Htyped1.
+
+    pose proof (Hinv j2) as Hinvj2.
+    unfold linv in Hinvj2.
+    rewrite Hρ2 in Hinvj2.
+    eapply pure_sep_holds in Hinvj2 as [_ Htyped2].
+
+    destruct Hw2; try solve [
+      exfalso;
+      eapply label_unique; first exact Hj2;
+      eapply holds_entails; eauto;
+      iIntros "H"; rewrite replacement; last done;
+      iDestr "H"; iDestruct "H" as "[H1 H2]";
+      simpl; iDestr "H1"; eauto with iFrame;
+      iDestruct "H1" as "[Q1 Q2]";
+      iDestr "Q1"; eauto with iFrame
+    ].
+
     assert (ρ = {[
-      j1 := Thread (H4 (App (Val (BarrierV i)) (Val H5)));
-      j2 := Thread (H (App (Val (BarrierV i)) (Val H3)));
-      i := Barrier
-     ]} ∪ (delete j1 $ delete j2 $ delete i ρ)).
-    { apply map_eq. smap. }
-    rewrite H1.
-    do 2 econstructor; last first.
-    { econstructor; eauto; try intros ->; simp. }
-    + intro. smap. destruct (ρ!!i0) eqn:EE; rewrite EE; eauto.
-    + intro. smap. destruct (ρ!!i0) eqn:EE; rewrite EE; eauto.
+      j1 := Thread (k1 (App (Val (BarrierV j)) (Val v)));
+      j2 := Thread (k2 (App (Val (BarrierV j)) (Val v0)));
+      j := Barrier ]} ∪ (delete j1 $ delete j2 $ delete j ρ)).
+    { apply map_eq. intro. smap. }
+    rewrite H.
+    econstructor. econstructor; last econstructor; eauto;
+    try intros ->; smap; intro; smap; destruct (ρ !! i) eqn:EE; rewrite EE; smap.
   - eapply exists_holds in Q as [t Q].
     eapply pure_sep_holds in Q as [Hrel Q].
-    eapply lock_relM_progress in Hrel.
-    destruct Hrel as (l & x' & Hinl & Hrel).
-    eapply in_labels_out_edges in Hinl as [v1 Hv1].
-
-
-    simp.
-    solve_map_disjoint.
-    cut (∃ ρ1, ρ = ρ1 ∧ can_step ρ1 i); first admit.
-    eexists. split; last first.
-    { eexists. econstructor; last first.
-      { eapply Sync_step; admit. }
-      admit. admit.
+    eapply lock_relM_progress in Hrel as (lc & x' & Hinl & Hlc).
+    eapply in_labels_out_edges in Hinl as  [j Hj].
+    destruct (classic (blocked ρ j i)) as [HB|HB]; last first.
+    {
+      destruct (IH2 _ _ Hj HB) as [H|H].
+      - exfalso. eauto using out_edge_active.
+      - eapply Waiting_reachable; last done.
+        unfold waiting.
+        unfold blocked in HB.
+        right.
+        edestruct (linv_out_Some i j) as [e1 [He1 He1']]; eauto.
+        eexists. split; first done.
+        split.
+        + erewrite obj_refs_linv; last eauto; last eauto.
+          eapply elem_of_dom. inv Hj; eauto.
+        + intros ???. eapply HB. subst; eauto.
     }
-    eapply map_eq.
-    exists ({[ j1 := Thread (H0 $ Val H3);
-               j2 := Thread (H $ Val H5) ]} ∪
-               (delete j2 $ delete j1 $ delete i ρ)).
-    econstructor.
-    unfold can_step.
-    simp.
-    { simp. }
-    admit.
-    (*
-    assert (ρ = {[ j1 := Thread e1; j2 := Thread e2; i := Barrier ]} ∪ (delete j2 $ delete j1 $ delete i ρ)) as HH.
-    { apply map_eq. intro. smap. }
-    destruct W2 as (k2 & v2 & Hk2 & ->).
-    destruct W1 as (k1 & v1 & Hk1 & ->).
-    unfold can_step.
-    exists ({[ j1 := Thread (k1 $ Val v2); j2 := Thread (k2 $ Val v1) ]} ∪ (delete j2 $ delete j1 $ delete i ρ)).
-    rewrite {1}HH.
-    constructor.
-    { intro x. smap. destruct (_!!x); done. }
-    { intro x. smap. destruct (_!!x); done. }
-    constructor; eauto; intros ->; simplify_eq.
-    *)
-  - admit.
-Qed.
+    eapply Can_step_reachable.
+    destruct HB as (e & Hρ & Hw).
+    clear x'. destruct lc as [lo ls]. simpl in *.
+    destruct Hw as (k & e' & Hk & -> & Hw).
+
+    pose proof (Hinv j) as Hinvj.
+    unfold linv in Hinvj.
+    rewrite Hρ in Hinvj.
+    eapply pure_sep_holds in Hinvj as [_ Htyped].
+
+    destruct Hw.
+    + exfalso. eapply label_unique; first exact Hj.
+      eapply holds_entails; eauto.
+      iIntros "H". rewrite replacement; last done.
+      iDestr "H". iDestruct "H" as "[H1 H2]".
+      simpl. iDestr "H1".
+      iDestruct "H1" as "[Q1 Q2]".
+      iDestr "Q1"; eauto with iFrame.
+    + assert (ρ = {[
+        j := Thread (k (ForkLock (Val (LockV j0)) (Val v)));
+        j0 := Lock refcnt o
+        ]} ∪ (delete j $ delete j0 ρ)).
+      { apply map_eq. intro. smap. }
+      rewrite H.
+      destruct (cfg_fresh1 ρ) as (i & Hi).
+      assert (j ≠ i). { intro. smap. }
+      assert (i ≠ j0). { intro. smap. }
+      assert (j ≠ j0). { intro. smap. }
+      do 2 econstructor; last econstructor; last done; last exact H1; eauto;
+      intro; smap; destruct (ρ !! i0) eqn:EE; rewrite EE; eauto; smap.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+Admitted.
 
 Lemma initialization e :
   typed ∅ e UnitT -> ginv {[ 0 := Thread e ]}.

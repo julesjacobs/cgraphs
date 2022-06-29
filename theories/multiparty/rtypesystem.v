@@ -1,7 +1,6 @@
 From diris Require Export seplogic.
 From stdpp Require Export gmap.
 From diris.multiparty Require Export mutil langdef definitions.
-From Coq.Logic Require Export FunctionalExtensionality Classical.
 
 Definition clabel : Type := session * session_type.
 

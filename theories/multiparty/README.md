@@ -68,6 +68,50 @@ We then prove that this implies the consistency notion used in the paper (called
 This is stronger than what is in the paper, because we can potentially type check more programs using [consistent] than with [consistent_gt].
 The reviewers asked for this change, and in the final version of the paper we will also use these two notions of consistency, like we already do in Coq.
 
+### Axioms
+
+*Classical logic*
+
+We use classical logic.
+Strictly speaking, classical axioms should not be necessary.
+The reason is that the final theorems we are proving are all decidable.
+For instance, it should be decidable whether a given configuration can take a step or not.
+One could decide this by checking if any of the operational semantics rules apply to the configuration.
+If the conclusion of a theorem is decidable, then use of the excluded middle in the proof can be avoided.
+However, actually doing this in Coq would require making a lot of changes, so we use classical logic for convenience.
+
+*Functional extensionality*
+
+We use the axiom of functional extensionality.
+Coq's default notion of equality for functions is syntactic.
+For the proofs it is convenient to use mathematical equality of functions.
+
+*Coinductive extensionality*
+
+Coq's default notion of equality is not good enough for coinductive types:
+the default equality is syntactic equality and not extensional equality.
+We add an axiom to make equality extensional.
+See https://coq.inria.fr/refman/language/core/coinductive.html:
+"More generally, as in the case of positive coinductive types,
+it is consistent to further identify extensional equality of coinductive
+types with propositional equality"
+Such an axiom is similar to functional extensionality, but for coinductive types.
+
+These extensionality axioms could be avoided by working up to an appropriate equivalence relation.
+However, doing this in Coq is quite inconvenient, so we add them as an axiom.
+In future proof assistants, perhaps based on observational type theory or HoTT,
+one would not need these extensionality axioms if they are provable.
+
+
+### Dependencies
+
+We depend on stdpp and Iris. Stdpp offers a more comprehensive standard library for Coq. From Iris we mainly use the Iris proof mode.
+We also use a modified version of Iris' uPred -- whereas Iris' uPred is affine, our uPred is linear.
+
+We depend on the connectivity graph library of Jacobs et al. [https://doi.org/10.1145/3498662].
+This library provides tools to prove deadlock freedom for languages where this property follows from the acyclic reference structure of the configuration.
+In particular, the library provides tools for showing that the configuration maintains the acyclicity invariant under stepping in the operational semantics, and it provides an induction principle for acyclic graphs using which we prove full reachability.
+
 
 ## QEMU Instructions
 

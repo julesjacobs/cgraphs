@@ -1,6 +1,5 @@
 Require Export diris.cgraphs.cgraph.
 Require Export diris.cgraphs.seplogic.
-From Coq.Logic Require Import Classical.
 
 Section genericinv.
   Context {V : Type}.

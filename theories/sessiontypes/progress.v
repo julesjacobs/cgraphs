@@ -723,6 +723,16 @@ Proof.
     set_solver.
 Qed.
 
+Lemma subset_exists `{Countable A} (P : A -> Prop) (s : gset A) :
+  (∀ x, P x -> x ∈ s) -> ∃ s' : gset A, ∀ x, x ∈ s' <-> P x.
+Proof.
+  revert P; induction s using set_ind_L; intros P Q.
+  - exists ∅. set_solver.
+  - destruct (IHs (λ y, P y ∧ y ≠ x)); first set_solver.
+    destruct (classic (P x)); last set_solver.
+    exists (x0 ∪ {[ x ]}). set_solver.
+Qed.
+
 Lemma reachability_deadlock_freedom es h :
   (∀ s, ¬ deadlock es h s) <-> (∀ x, active x es h -> reachable es h x).
 Proof.

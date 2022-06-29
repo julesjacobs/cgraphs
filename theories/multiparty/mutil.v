@@ -1,6 +1,7 @@
 From stdpp Require Import countable fin_sets functions.
 From iris Require Import proofmode.proofmode proofmode.tactics.
 From diris Require Import util bi.
+From Coq.Logic Require Export FunctionalExtensionality Classical.
 
 
 Lemma big_sepS_pure_impl {PROP : bi} `{Countable A} (s : gset A) (P : A -> PROP) (Q : A -> Prop) :
@@ -39,4 +40,14 @@ Proof.
   - iApply (big_sepS_impl with "H"). iModIntro.
     iIntros (x Hx) "H".
     iApply ("Hr" with "[%] H"). set_solver.
+Qed.
+
+Lemma subset_exists `{Countable A} (P : A -> Prop) (s : gset A) :
+  (∀ x, P x -> x ∈ s) -> ∃ s' : gset A, ∀ x, x ∈ s' <-> P x.
+Proof.
+  revert P; induction s using set_ind_L; intros P Q.
+  - exists ∅. set_solver.
+  - destruct (IHs (λ y, P y ∧ y ≠ x)); first set_solver.
+    destruct (classic (P x)); last set_solver.
+    exists (x0 ∪ {[ x ]}). set_solver.
 Qed.
