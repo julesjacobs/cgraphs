@@ -12,4 +12,4 @@ cp theories/multiparty/README.md README.md
 zip -r mpgv.zip README.md README.md
 rm README.md
 mv README_tmp.md README.md
-scp -P 5555 mpgv.zip artifact@localhost:mpgv.zip
+# scp -P 5555 mpgv.zip artifact@localhost:mpgv.zip
