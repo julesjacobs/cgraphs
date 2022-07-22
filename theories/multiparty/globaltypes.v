@@ -1,4 +1,4 @@
-From diris.multiparty Require Export invariant.
+From cgraphs.multiparty Require Export invariant.
 
 (* Global types *)
 (* ============ *)

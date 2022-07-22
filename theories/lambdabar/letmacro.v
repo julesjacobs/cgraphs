@@ -1,4 +1,4 @@
-From diris.lambdabar Require Export langdef.
+From cgraphs.lambdabar Require Export langdef.
 
 (* In this file we demonstrate how typed macros work. *)
 (* We define a macro for let in terms of function application and lambda. *)

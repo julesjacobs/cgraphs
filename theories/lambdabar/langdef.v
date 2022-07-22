@@ -1,4 +1,4 @@
-From diris.lambdabar Require Export langtools.
+From cgraphs.lambdabar Require Export langtools.
 
 (* Expressions and values *)
 (* ---------------------- *)

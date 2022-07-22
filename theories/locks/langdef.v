@@ -1,4 +1,4 @@
-From diris.locks Require Export langtools.
+From cgraphs.locks Require Export langtools.
 
 (* Expressions and values *)
 (* ---------------------- *)

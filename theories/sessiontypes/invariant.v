@@ -1,6 +1,6 @@
-Require Export diris.cgraphs.genericinv.
-Require Export diris.sessiontypes.langdef.
-Require Export diris.sessiontypes.rtypesystem.
+Require Export cgraphs.cgraphs.genericinv.
+Require Export cgraphs.sessiontypes.langdef.
+Require Export cgraphs.sessiontypes.rtypesystem.
 
 Section bufs_typed.
   Fixpoint buf_typed (buf : list val) (ct : chan_type) (rest : chan_type) : rProp :=

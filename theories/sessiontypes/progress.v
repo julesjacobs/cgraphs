@@ -1,4 +1,4 @@
-From diris.sessiontypes Require Import invariant.
+From cgraphs.sessiontypes Require Import invariant.
 Require Import Coq.Logic.Classical.
 
 Lemma rtyped_inner e t :

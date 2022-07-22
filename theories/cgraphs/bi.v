@@ -1,5 +1,5 @@
 From iris.bi Require Export derived_connectives.
-From diris.cgraphs Require Export upred.
+From cgraphs.cgraphs Require Export upred.
 From iris.prelude Require Import options.
 From iris Require Import bi.extensions.
 Import uPred_primitive.

@@ -1,10 +1,10 @@
 From iris.proofmode Require Import tactics.
-Require Export diris.cgraphs.uforests.
-From diris.cgraphs Require Export util.
+Require Export cgraphs.cgraphs.uforests.
+From cgraphs.cgraphs Require Export util.
 From stdpp Require Export gmap.
-Require Export diris.cgraphs.multiset.
+Require Export cgraphs.cgraphs.multiset.
 From stdpp Require Import fin_maps.
-Require Import diris.cgraphs.mapexcl.
+Require Import cgraphs.cgraphs.mapexcl.
 
 
 Ltac sdec := repeat case_decide; simplify_eq.

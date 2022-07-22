@@ -1,4 +1,4 @@
-From diris.lambdabar Require Import invariant.
+From cgraphs.lambdabar Require Import invariant.
 
 
 (* The theorems are given in a slightly different order because some of the

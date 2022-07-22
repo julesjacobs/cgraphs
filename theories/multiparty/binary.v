@@ -1,6 +1,6 @@
-From diris.multiparty Require Import langdef.
-From diris.multiparty Require Import ycombinator.
-From diris.multiparty Require Import globaltypes.
+From cgraphs.multiparty Require Import langdef.
+From cgraphs.multiparty Require Import ycombinator.
+From cgraphs.multiparty Require Import globaltypes.
 
 (* Encoding binary session types in MPGV *)
 (* ===================================== *)

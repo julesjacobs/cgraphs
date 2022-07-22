@@ -1,6 +1,6 @@
 From stdpp Require Import gmap.
 From stdpp Require Export finite.
-From diris.cgraphs Require Export multiset.
+From cgraphs.cgraphs Require Export multiset.
 
 Lemma list_lookup_insert_spec {V} (xs : list V) i j v :
   (<[ i := v ]> xs) !! j = if (decide (i = j ∧ i < length xs)) then Some v else (xs !! j).

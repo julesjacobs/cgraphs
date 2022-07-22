@@ -1,0 +1,22 @@
+opam-version: "2.0"
+name: "cgraphs"
+version: "0.1"
+synopsis: "Deadlock freedom by type checking"
+description: """
+Coq mechanization of deadlock freedom proofs using connectivity graphs.
+Connectivity graphs are used to show that for various *concurrent* languages,
+well-typed programs don't get stuck (= don't deadlock).
+"""
+maintainer: "Jules Jacobs <julesjacobs@gmail.com>"
+authors: "Jules Jacobs <julesjacobs@gmail.com>, Robbert Krebbers <mail@robbertkrebbers.nl>"
+license: "BSD"
+homepage: "https://github.com/julesjacobs/cgraphs"
+dev-repo: "https://github.com/julesjacobs/cgraphs"
+depends: [ "coq-iris" {>= "3.4.0"} ]
+build: [
+  [make]
+]
+dev-repo: "git+https://github.com/julesjacobs/cgraphs.git"
+url {
+  src: "git+https://github.com/julesjacobs/cgraphs.git#master"
+}

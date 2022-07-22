@@ -1,5 +1,5 @@
-Require Export diris.cgraphs.cgraph.
-Require Export diris.cgraphs.seplogic.
+Require Export cgraphs.cgraphs.cgraph.
+Require Export cgraphs.cgraphs.seplogic.
 
 Section genericinv.
   Context {V : Type}.

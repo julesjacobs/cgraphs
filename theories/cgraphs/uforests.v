@@ -1,6 +1,6 @@
 From stdpp Require Import gmap.
 From iris.bi Require Import bi.
-From diris Require Import util.
+From cgraphs Require Import util.
 
 Ltac qed := done || eauto || naive_solver lia || set_solver.
 Definition uforest A `{Countable A} := gset (A * A).

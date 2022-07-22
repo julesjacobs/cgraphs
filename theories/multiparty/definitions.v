@@ -1,5 +1,5 @@
 From stdpp Require Export gmap.
-Require Export diris.multiparty.langdef.
+Require Export cgraphs.multiparty.langdef.
 
 
 (* This file contains the definitions of section 5 in the paper. *)

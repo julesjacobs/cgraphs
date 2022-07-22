@@ -1,4 +1,4 @@
-From diris.sessiontypes Require Import invariant progress.
+From cgraphs.sessiontypes Require Import invariant progress.
 
 Theorem safety (e : expr) (es : list expr) (h : heap) :
   typed ∅ e UnitT ->

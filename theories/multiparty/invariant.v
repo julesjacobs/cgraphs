@@ -1,7 +1,7 @@
-Require Export diris.cgraphs.genericinv.
-Require Export diris.multiparty.langdef.
-Require Export diris.multiparty.rtypesystem.
-Require Export diris.multiparty.mutil.
+Require Export cgraphs.cgraphs.genericinv.
+Require Export cgraphs.multiparty.langdef.
+Require Export cgraphs.multiparty.rtypesystem.
+Require Export cgraphs.multiparty.mutil.
 
 Ltac sdec := repeat case_decide; simplify_eq; simpl in *; eauto; try done.
 Ltac smap := repeat (rewrite lookup_alter_spec || rewrite lookup_insert_spec || rewrite lookup_delete_spec || sdec).

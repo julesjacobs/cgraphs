@@ -1,4 +1,4 @@
-From diris.locks Require Export langdef.
+From cgraphs.locks Require Export langdef.
 
 (* In this file we demonstrate how typed macros work. *)
 (* We define a macro for let in terms of function application and lambda. *)

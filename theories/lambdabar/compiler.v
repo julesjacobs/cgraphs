@@ -1,5 +1,5 @@
-From diris.lambdabar Require Export langtools.
-From diris.lambdabar Require Export langdef.
+From cgraphs.lambdabar Require Export langtools.
+From cgraphs.lambdabar Require Export langdef.
 
 Module GV.
 

@@ -1,5 +1,5 @@
 From iris.proofmode Require Import base tactics classes.
-From diris.multiparty Require Import langdef rtypesystem.
+From cgraphs.multiparty Require Import langdef rtypesystem.
 From stdpp Require Import gmap.
 
 Section ycombinator.

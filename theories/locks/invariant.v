@@ -1,5 +1,5 @@
-From diris.locks Require Export rtypesystem.
-From diris.locks Require Export definitions.
+From cgraphs.locks Require Export rtypesystem.
+From cgraphs.locks Require Export definitions.
 
 Definition Mlen (m : multiset labelO) : nat := length (multiset_car m).
 

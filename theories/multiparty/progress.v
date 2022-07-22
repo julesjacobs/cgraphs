@@ -1,4 +1,4 @@
-From diris.multiparty Require Import invariant langdef.
+From cgraphs.multiparty Require Import invariant langdef.
 Require Import Coq.Logic.Classical.
 
 

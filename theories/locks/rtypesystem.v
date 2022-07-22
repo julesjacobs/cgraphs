@@ -1,4 +1,4 @@
-From diris.locks Require Export langdef definitions.
+From cgraphs.locks Require Export langdef definitions.
 
 Notation vertex := nat.
 Inductive label : Type :=

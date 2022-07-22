@@ -1,4 +1,4 @@
-From diris.multiparty Require Import invariant langdef progress.
+From cgraphs.multiparty Require Import invariant langdef progress.
 Require Import Coq.Logic.Classical.
 
 (* This file contains the main theorems about MPGV. *)

@@ -1,6 +1,6 @@
-From diris Require Export seplogic.
+From cgraphs Require Export seplogic.
 From stdpp Require Export gmap.
-From diris.sessiontypes Require Export langdef.
+From cgraphs.sessiontypes Require Export langdef.
 
 Inductive object := Thread (_:nat) | Chan (_:chan).
 

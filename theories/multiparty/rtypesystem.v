@@ -1,6 +1,6 @@
-From diris Require Export seplogic.
+From cgraphs Require Export seplogic.
 From stdpp Require Export gmap.
-From diris.multiparty Require Export mutil langdef definitions.
+From cgraphs.multiparty Require Export mutil langdef definitions.
 
 Definition clabel : Type := session * session_type.
 

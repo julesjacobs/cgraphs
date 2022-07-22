@@ -1,5 +1,5 @@
-From diris.lambdabar Require Export rtypesystem.
-From diris.lambdabar Require Export definitions.
+From cgraphs.lambdabar Require Export rtypesystem.
+From cgraphs.lambdabar Require Export definitions.
 
 Definition linv (ρ : cfg) (v : nat) (in_l : multiset labelO) : rProp :=
   match ρ !! v with

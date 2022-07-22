@@ -1,5 +1,5 @@
-From diris.lambdabar Require Export langdef.
-From diris.lambdabar Require Export rtypesystem.
+From cgraphs.lambdabar Require Export langdef.
+From cgraphs.lambdabar Require Export rtypesystem.
 
 
 (* Session types *)

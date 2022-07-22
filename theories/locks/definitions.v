@@ -1,4 +1,4 @@
-From diris.locks Require Export langdef.
+From cgraphs.locks Require Export langdef.
 
 (* The definition of the set of barrier references in an expression. *)
 Fixpoint expr_refs e :=
@@ -63,7 +63,7 @@ Definition expr_waiting e j :=
 Definition waiting (ρ : cfg) (i j : nat) :=
   (∃ e, ρ !! i = Some (Thread e) ∧ expr_waiting e j) ∨
   (∃ y, ρ !! j = Some y ∧ i ∈ obj_refs y ∧ ∀ e, y = Thread e -> ¬ expr_waiting e i).
-  
+
 (* These definitions are not explicitly given in the paper, but we factor them out in Coq *)
 Definition can_step (ρ : cfg) (i : nat) := ∃ ρ', step i ρ ρ'.
 Definition inactive (ρ : cfg) (i : nat) := ρ !! i = None.

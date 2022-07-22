@@ -1,6 +1,6 @@
 From iris.proofmode Require Import base tactics classes.
-From diris.multiparty Require Export mutil.
-From diris.cgraphs Require Export util.
+From cgraphs.multiparty Require Export mutil.
+From cgraphs.cgraphs Require Export util.
 
 Definition session := nat.
 Definition participant := nat.
