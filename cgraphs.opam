@@ -10,7 +10,7 @@ well-typed programs don't get stuck (= don't deadlock).
 maintainer: "Jules Jacobs <julesjacobs@gmail.com>"
 authors: "Jules Jacobs <julesjacobs@gmail.com>, Robbert Krebbers <mail@robbertkrebbers.nl>"
 bug-reports: "https://github.com/julesjacobs/cgraphs"
-license: "BSD"
+license: "BSD-3-Clause"
 homepage: "https://github.com/julesjacobs/cgraphs"
 depends: [ "coq-iris" {>= "3.4.0"} ]
 build: [
