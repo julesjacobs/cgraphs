@@ -1,7 +1,9 @@
 # Connectivity Graphs Coq Development
 
 This is the repository for the Connectivity Graphs Coq development.
-The individual components are in the subfolders of the `theories` folder:
+The source repository can be found at https://github.com/julesjacobs/cgraphs
+
+The individual components of this repository are in the subfolders of the `theories` folder:
 * theories/cgraphs: the generic connectivity graphs library on which the other developments are based.
 * theories/sessiontypes: deadlock freedom for binary session types.
 * theories/multiparty: deadlock freedom for MPGV multiparty session types.

@@ -11,6 +11,7 @@ This development proves the main theorems that MPGV satisfies:
 - Full reachability (memory leak freedom)
 
 The files of interest are in `theories/multiparty/*.v`:
+- paper_annotated.pdf: a version of the paper annotated with references to the Coq sources for the definitions, lemmas, and theorems.
 - langdef.v: Definition of the MPGV language (syntax + operational semantics + type system).
 - globaltypes.v: The definition of global types, and proof that global type consistency implies coinductive consistency.
 - binary.v: Encoding binary session types in MPGV.
