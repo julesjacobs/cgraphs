@@ -5,9 +5,10 @@ The source repository can be found at https://github.com/julesjacobs/cgraphs
 
 The individual components of this repository are in the subfolders of the `theories` folder:
 * theories/cgraphs: the generic connectivity graphs library on which the other developments are based.
-* theories/sessiontypes: deadlock freedom for binary session types.
 * theories/multiparty: deadlock freedom for MPGV multiparty session types.
+* theories/sessiontypes: deadlock freedom for binary session types.
 * theories/lambdabar: deadlock freedom for a language with synchronous barriers.
+* theories/locks: deadlock freedom for a language with locks.
 
 The subfolders contain documentation for each of the individual developments.
 
