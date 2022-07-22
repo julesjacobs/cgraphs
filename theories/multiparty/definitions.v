@@ -9,7 +9,6 @@ Require Export cgraphs.multiparty.langdef.
 (* The auxiliary definitions of section 5 *)
 (* ====================================== *)
 (* These are not spelled out in detail in the paper, *)
-(* but they are listed in the paragraph after "We need the following notions:". *)
 
 (* The set of objects in the system (threads and channels), called V in the paper. *)
 Inductive object := Thread (_:nat) | Chan (_:session).

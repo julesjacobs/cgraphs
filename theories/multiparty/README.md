@@ -19,10 +19,10 @@ The files of interest are in `theories/multiparty/*.v`:
 
 The correspondence between these files and the paper is as follows:
 - langdef.v: Section 3
-- globaltypes.v: Section 3.2.
 - binary.v: Section 4
 - definitions.v: First half of section 5 (the definitions)
 - theorems.v: Second half of section 5 (the theorems)
+- globaltypes.v: Section 6.
 The files themselves contain further comments on the precise correspondence to the numbered definitions and theorems in the paper.
 
 The other files in the `theories/multiparty/*.v` folder contain internal details of the proofs.
@@ -38,14 +38,26 @@ These files are checked by Coq and hence need not be checked to verify the corre
 The VM already has the required dependencies installed, and you can simply run `make`.
 This will make Coq check all the theorems in the development.
 
-To build the development from source, install the following dependencies:
+To build the code, install the opam package manager, and then execute the following in the root folder:
 
-* Coq (we tested with Coq 8.15.1)
-* std++ (we tested with dev.2022-05-16.1.411eb445)
-* Iris (we tested with dev.2022-05-25.0.d46e4472)
+    opam repo add coq-released https://coq.inria.fr/opam/released
+    opam install .
+
+Alternatively, install the following dependencies:
+* Coq
+* std++
+* Iris
+(see cgraphs.opam for versions)
+
+These can be installed by running:
+
+    opam repo add coq-released https://coq.inria.fr/opam/released
+    opam install coq-iris
+
+You can then compile this project with `make`.
 
 We recommend installing the `opam` package manager and then installing the `coq-iris` package as follows.
-This was done as follows for the VM:
+For Linux distributions with `apt`, the following script performs all the steps:
 
     sudo apt-get install opam
     opam init
@@ -54,19 +66,9 @@ This was done as follows for the VM:
     opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
     sudo apt-get libgmp-dev
     opam install coq-iris
+    make
 
-This will install the required dependencies.
 Depending on your platform, you may need to install opam in a different way, see https://opam.ocaml.org/ for details.
-
-You can then compile this project with `make`.
-
-### Difference between the paper and Coq
-
-The Coq development is slightly more general than the paper.
-In Coq, we first define a coinductive consistency relation (called [consistent] in Coq).
-We then prove that this implies the consistency notion used in the paper (called [consistent_gt] in Coq), which uses global types.
-This is stronger than what is in the paper, because we can potentially type check more programs using [consistent] than with [consistent_gt].
-The reviewers asked for this change, and in the final version of the paper we will also use these two notions of consistency, like we already do in Coq.
 
 ### Axioms
 

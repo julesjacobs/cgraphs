@@ -3,6 +3,7 @@ From cgraphs.multiparty Require Export invariant.
 (* Global types *)
 (* ============ *)
 
+(* This is section 6 in the paper. *)
 (* This file contains definitions and theorems to show consistency of multiparty session types using global types. *)
 (* In particular, we define the notion of global type consistency (the consistent_gt predicate), *)
 (* and show that it implies the consistency notion used in the typing rules (the consistent predicate). *)

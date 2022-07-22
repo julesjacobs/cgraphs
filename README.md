@@ -9,18 +9,20 @@ The individual components are in the subfolders of the `theories` folder:
 
 The subfolders contain documentation for each of the individual developments.
 
+To build the code, install the opam package manager, and then execute the following in the root folder:
 
-To build the code, install the following dependencies:
+    opam repo add coq-released https://coq.inria.fr/opam/released
+    opam install .
 
-* Coq (we tested with Coq 8.15.1)
-* std++ (we tested with dev.2022-05-16.1.411eb445)
-* Iris (we tested with dev.2022-05-25.0.d46e4472)
+Alternatively, install the following dependencies:
+* Coq
+* std++
+* Iris
+(see cgraphs.opam for versions)
 
-We recommend installing the `opam` package manager, and then installing the `coq-iris` package as follows:
+These can be installed by running:
 
     opam repo add coq-released https://coq.inria.fr/opam/released
     opam install coq-iris
-
-This will install the required dependencies.
 
 You can then compile this project with `make`.

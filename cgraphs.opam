@@ -9,14 +9,14 @@ well-typed programs don't get stuck (= don't deadlock).
 """
 maintainer: "Jules Jacobs <julesjacobs@gmail.com>"
 authors: "Jules Jacobs <julesjacobs@gmail.com>, Robbert Krebbers <mail@robbertkrebbers.nl>"
+bug-reports: "https://github.com/julesjacobs/cgraphs"
 license: "BSD"
 homepage: "https://github.com/julesjacobs/cgraphs"
-dev-repo: "https://github.com/julesjacobs/cgraphs"
 depends: [ "coq-iris" {>= "3.4.0"} ]
 build: [
   [make]
 ]
 dev-repo: "git+https://github.com/julesjacobs/cgraphs.git"
 url {
-  src: "git+https://github.com/julesjacobs/cgraphs.git#master"
+  src: "git+https://github.com/julesjacobs/cgraphs.git#v0.1"
 }
