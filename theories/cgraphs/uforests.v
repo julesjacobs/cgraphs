@@ -369,7 +369,7 @@ Section uforest.
     intros Hpath j a b Ha Hb.
     rewrite lookup_drop in Ha.
     rewrite lookup_drop in Hb.
-    rewrite plus_assoc in Hb.
+    rewrite Nat.add_assoc in Hb.
     eapply Hpath; done.
   Qed.
 
@@ -494,7 +494,7 @@ Section uforest.
   Proof.
     intros [j [x HH]].
     rewrite !lookup_drop in HH.
-    rewrite plus_assoc in HH.
+    rewrite Nat.add_assoc in HH.
     unfold has_u_turn. eauto.
   Qed.
 
@@ -879,7 +879,7 @@ Section uforest.
     rewrite-> (lookup_drop xs) in Hb.
     eapply Hfpath.
     exact Ha.
-    rewrite <-plus_assoc. done.
+    rewrite <-Nat.add_assoc. done.
   Qed.
 
   Lemma fpath_take (g : G) (f : A -> option A) (xs : P) (k : nat) :
