@@ -1,4 +1,4 @@
-From cgraphs.locks Require Export langdef.
+From cgraphs.locks.lambdalockpp Require Export langdef.
 
 (* The definition of the set of barrier references in an expression. *)
 Fixpoint expr_refs e :=
@@ -13,12 +13,14 @@ Fixpoint expr_refs e :=
   | Sum i e => expr_refs e
   | MatchSum n e es => expr_refs e ∪ fin_union n (expr_refs ∘ es)
   | ForkBarrier e => expr_refs e
-  | NewLock e => expr_refs e
+  | NewLock i e => expr_refs e
+  | DropLock i e => expr_refs e
   | ForkLock e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | Acquire e => expr_refs e
-  | Release e1 e2 => expr_refs e1 ∪ expr_refs e2
-  | Wait e => expr_refs e
-  | Drop e => expr_refs e
+  | Acquire i e => expr_refs e
+  | Release i e1 e2 => expr_refs e1 ∪ expr_refs e2
+  | Wait i e => expr_refs e
+  | NewGroup => ∅
+  | DropGroup e => expr_refs e
   end
 with val_refs v :=
   match v with
@@ -27,34 +29,38 @@ with val_refs v :=
   | PairV v1 v2 => val_refs v1 ∪ val_refs v2
   | SumV i v => val_refs v
   | BarrierV i => {[ i ]}
-  | LockV i => {[ i ]}
+  | LockGV i ls => {[ i ]}
   end.
+
+Definition gmap_union `{Countable K} {V} `{Countable R} (f : V -> gset R) (xs : gmap K V) : gset R :=
+  map_fold (λ k a s, s ∪ f a) ∅ xs.
 
 Definition obj_refs x :=
   match x with
   | Thread e => expr_refs e
   | Barrier => ∅
-  | Lock refcnt o =>
-      match o with
-      | Some v => val_refs v
-      | None => ∅
-      end
+  | LockG refcnt xs => gmap_union (from_option val_refs ∅ ∘ snd) xs
   end.
 
 
 Inductive expr_head_waiting : expr -> nat -> Prop :=
   | Barrier_waiting j v :
     expr_head_waiting (App (Val $ BarrierV j) (Val v)) j
-  | ForkLock_waiting j v :
-    expr_head_waiting (ForkLock (Val $ LockV j) (Val v)) j
-  | Acquire_waiting j :
-    expr_head_waiting (Acquire (Val $ LockV j)) j
-  | Release_waiting j v :
-    expr_head_waiting (Release (Val $ LockV j) (Val v)) j
-  | Wait_waiting j :
-    expr_head_waiting (Wait (Val $ LockV j)) j
-  | Drop_waiting j :
-    expr_head_waiting (Drop (Val $ LockV j)) j.
+  | ForkLock_waiting j v ls :
+    expr_head_waiting (ForkLock (Val $ LockGV j ls) (Val v)) j
+  | Acquire_waiting j ls i :
+    expr_head_waiting (Acquire i (Val $ LockGV j ls)) j
+  | Release_waiting j v ls i :
+    expr_head_waiting (Release i (Val $ LockGV j ls) (Val v)) j
+  | Wait_waiting j ls i :
+    expr_head_waiting (Wait i (Val $ LockGV j ls)) j
+  | NewLock_waiting j ls i :
+    expr_head_waiting (NewLock i (Val $ LockGV j ls)) j
+  | DropLock_waiting j ls i :
+    expr_head_waiting (DropLock i (Val $ LockGV j ls)) j
+  | DropGroup_waiting j ls :
+    expr_head_waiting (DropGroup (Val $ LockGV j ls)) j.
+
 
 (* Paper definition 2 *)
 Definition expr_waiting e j :=

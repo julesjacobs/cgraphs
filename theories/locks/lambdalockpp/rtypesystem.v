@@ -1,9 +1,16 @@
-From cgraphs.locks Require Export langdef definitions.
+From cgraphs.locks.lambdalockpp Require Export langdef definitions.
 
 Notation vertex := nat.
 Inductive label : Type :=
   | BarrierLabel (b : bool) (t1 t2 : type)
-  | LockLabel (c : lockcap) (t : type).
+  | LockLabel (ls : list (nat * (lockcap * type))).
+
+(*
+runtime state          type of lock group reference
+<n|i1,i2,i3> : LockGT [(cap1,t1), (cap2,t2), (cap3,t3)]
+
+label: [(i1,cap1,t1), (i2,cap2,t2), (i3,cap3,t3)]
+*)
 
 Canonical Structure typeO := leibnizO type.
 Canonical Structure labelO := leibnizO label.
@@ -47,30 +54,40 @@ Fixpoint rtyped (Γ : env) e t : rProp :=
       ∃ ts,
       rtyped Γ1 e (SumT n ts) ∗
       if decide (n=0) then ⌜⌜ env_unr Γ2 ⌝⌝ else (∀ i, rtyped Γ2 (es i) (FunT Lin (ts i) t))
+  (* Barriers *)
   | ForkBarrier e =>
       ∃ t1 t2, ⌜⌜ t = FunT Lin t1 t2 ⌝⌝ ∗
       rtyped Γ e (FunT Lin (FunT Lin t2 t1) UnitT)
-  | NewLock e =>
-      ∃ t', ⌜⌜ t = LockT (Owner,Closed) t' ⌝⌝ ∗
-      rtyped Γ e t'
+  (* Locks *)
+  | NewGroup => ⌜⌜ t = LockGT [] ∧ env_unr Γ ⌝⌝
+  | DropGroup e =>
+      ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped Γ e (LockGT [])
+  | NewLock i e =>
+      ∃ t' (xs : list (lockcap * type)), ⌜⌜ t = LockGT (insert2 i ((Owner,Opened),t') xs) ⌝⌝ ∗
+      rtyped Γ e (LockGT xs)
+  | DropLock i e =>
+      ∃ t' (xs : list (lockcap * type)), ⌜⌜ t = (LockGT (delete i xs)) ∧ xs !! i = Some ((Client,Closed),t')⌝⌝ ∗
+      rtyped Γ e (LockGT xs)
+  | Wait i e =>
+      ∃ (t' : type) (xs : list (lockcap * type)), ⌜⌜ t = (PairT (LockGT (delete i xs)) t') ∧ xs !! i = Some ((Owner,Closed),t') ∧
+        (∀ j ownership state t', xs !! j = Some ((ownership,state),t') ->
+          (state = Closed) ∧ (j > i -> ownership = Owner)) ⌝⌝ ∗
+      rtyped Γ e (LockGT xs)
+  | Acquire i e =>
+      ∃ (t':type) (a:lockownership) (xs : list (lockcap * type)),
+      ⌜⌜ t = (PairT (LockGT (<[ i := ((a,Opened),t') ]> xs)) t') ∧ xs !! i = Some ((a,Closed),t') ∧
+        (∀ j ownership state t', j > i -> xs !! j = Some ((ownership,state),t') -> state = Closed) ⌝⌝ ∗
+      rtyped Γ e (LockGT xs)
+  | Release i e1 e2 =>
+      ∃ Γ1 Γ2, ⌜⌜ env_split Γ Γ1 Γ2 ⌝⌝ ∗
+      ∃ a t' (xs : list (lockcap * type)), ⌜⌜ t = (LockGT (<[ i := ((a,Closed),t') ]> xs)) ∧ xs !! i = Some ((a,Opened),t') ⌝⌝ ∗
+      rtyped Γ1 e1 (LockGT xs) ∗
+      rtyped Γ2 e2 t'
   | ForkLock e1 e2 =>
       ∃ Γ1 Γ2, ⌜⌜ env_split Γ Γ1 Γ2 ⌝⌝ ∗
-      ∃ t' l1 l2 l3, ⌜⌜ t = LockT l3 t' ∧ lockcap_split l1 l2 l3 ⌝⌝ ∗
-      rtyped Γ1 e1 (LockT l1 t') ∗
-      rtyped Γ2 e2 (FunT Lin (LockT l2 t') UnitT)
-  | Acquire e =>
-      ∃ lo t', ⌜⌜ t = PairT (LockT (lo,Opened) t') t' ⌝⌝ ∗
-      rtyped Γ e (LockT (lo,Closed) t')
-  | Release e1 e2 =>
-      ∃ Γ1 Γ2, ⌜⌜ env_split Γ Γ1 Γ2 ⌝⌝ ∗
-      ∃ lo t', ⌜⌜ t = LockT (lo,Closed) t' ⌝⌝ ∗
-      rtyped Γ1 e1 (LockT (lo,Opened) t') ∗
-      rtyped Γ2 e2 t'
-  | Wait e =>
-      rtyped Γ e (LockT (Owner,Closed) t)
-  | Drop e =>
-      ∃ t', ⌜⌜ t = UnitT ⌝⌝ ∗
-      rtyped Γ e (LockT (Client,Closed) t')
+      ∃ xs1 xs2 xs3 : list (lockcap * type), ⌜⌜ t = LockGT xs3 ∧ lockcaps_split xs1 xs2 xs3 ⌝⌝ ∗
+      rtyped Γ1 e1 (LockGT xs1) ∗
+      rtyped Γ2 e2 (FunT Lin (LockGT xs2) UnitT)
   end
 with vtyped v t :=
   match v with
@@ -86,9 +103,9 @@ with vtyped v t :=
   | BarrierV k =>
       ∃ t1 t2, ⌜⌜ t = FunT Lin t1 t2 ⌝⌝ ∗
       own_out k ((BarrierLabel false t1 t2) : labelO)
-  | LockV k =>
-      ∃ l t', ⌜⌜ t = LockT l t' ⌝⌝ ∗
-      own_out k ((LockLabel l t') : labelO)
+  | LockGV k ls =>
+      ∃ (xs : list (lockcap * type)), ⌜⌜ t = LockGT xs ∧ length xs = length ls ⌝⌝ ∗
+      own_out k ((LockLabel (zip ls xs)) : labelO)
   end.
 
 Lemma typed_rtyped Γ e t :
@@ -323,6 +340,9 @@ Proof.
       iApply "IH1". iFrame. }
     iSplitL "H R1"; iSpl; (iApply "IH" || iApply "IH1"); eauto with iFrame.
   - iSpl; eauto. (iApply "IH" || iApply "IH1"); eauto with iFrame.
+  - rewrite env_unr_substR //. iPureIntro. split; eauto using env_unr_delete.
+  - iSpl; eauto. iApply "IH". iFrame.
+  - iSpl; eauto. iApply "IH". iFrame.
   - iSpl; eauto. iApply "IH". iFrame.
   - iSpl; eauto using env_split_delete.
     iDestruct (env_split_substR with "R") as "[R1 R2]"; eauto.
@@ -331,7 +351,6 @@ Proof.
   - iSpl; eauto using env_split_delete.
     iDestruct (env_split_substR with "R") as "[R1 R2]"; eauto.
     iSplitL "H R1"; (iApply "IH" || iApply "IH1"); iFrame.
-  - iSpl; eauto. iApply "IH". iFrame.
   - iSpl; eauto. iApply "IH". iFrame.
 Qed.
 
@@ -367,25 +386,33 @@ Fixpoint rtyped0 e t : rProp :=
       ∃ t1 t2, ⌜⌜ t = FunT Lin t1 t2 ⌝⌝ ∗
       rtyped0 e (FunT Lin (FunT Lin t2 t1) UnitT)
   (* Locks *)
-  | NewLock e =>
-      ∃ t', ⌜⌜ t = LockT (Owner,Closed) t' ⌝⌝ ∗
-      rtyped0 e t'
-  | ForkLock e1 e2 =>
-      ∃ t' l1 l2 l3, ⌜⌜ t = LockT l3 t' ∧ lockcap_split l1 l2 l3 ⌝⌝ ∗
-      rtyped0 e1 (LockT l1 t') ∗
-      rtyped0 e2 (FunT Lin (LockT l2 t') UnitT)
-  | Acquire e =>
-      ∃ lo t', ⌜⌜ t = PairT (LockT (lo,Opened) t') t' ⌝⌝ ∗
-      rtyped0 e (LockT (lo,Closed) t')
-  | Release e1 e2 =>
-      ∃ lo t', ⌜⌜ t = LockT (lo,Closed) t' ⌝⌝ ∗
-      rtyped0 e1 (LockT (lo,Opened) t') ∗
+  | NewGroup => ⌜⌜ t = LockGT [] ⌝⌝
+  | DropGroup e =>
+      ⌜⌜ t = UnitT ⌝⌝ ∗ rtyped0 e (LockGT [])
+  | NewLock i e =>
+      ∃ t' (xs : list (lockcap * type)), ⌜⌜ t = LockGT (insert2 i ((Owner,Opened),t') xs) ⌝⌝ ∗
+      rtyped0 e (LockGT xs)
+  | DropLock i e =>
+      ∃ t' (xs : list (lockcap * type)), ⌜⌜ t = (LockGT (delete i xs)) ∧ xs !! i = Some ((Client,Closed),t')⌝⌝ ∗
+      rtyped0 e (LockGT xs)
+  | Wait i e =>
+      ∃ (t' : type) (xs : list (lockcap * type)), ⌜⌜ t = PairT (LockGT (delete i xs)) t' ∧ xs !! i = Some ((Owner,Closed),t') ∧
+        (∀ j ownership state t', xs !! j = Some ((ownership,state),t') ->
+          (state = Closed) ∧ (j > i -> ownership = Owner)) ⌝⌝ ∗
+      rtyped0 e (LockGT xs)
+  | Acquire i e =>
+      ∃ (t':type) (a:lockownership) (xs : list (lockcap * type)),
+      ⌜⌜ t = (PairT (LockGT (<[ i := ((a,Opened),t') ]> xs)) t') ∧ xs !! i = Some ((a,Closed),t') ∧
+        (∀ j ownership state t', j > i -> xs !! j = Some ((ownership,state),t') -> state = Closed) ⌝⌝ ∗
+      rtyped0 e (LockGT xs)
+  | Release i e1 e2 =>
+      ∃ a t' (xs : list (lockcap * type)), ⌜⌜ t = (LockGT (<[ i := ((a,Closed),t') ]> xs)) ∧ xs !! i = Some ((a,Opened),t') ⌝⌝ ∗
+      rtyped0 e1 (LockGT xs) ∗
       rtyped0 e2 t'
-  | Wait e =>
-      rtyped0 e (LockT (Owner,Closed) t)
-  | Drop e =>
-      ∃ t', ⌜⌜ t = UnitT ⌝⌝ ∗
-      rtyped0 e (LockT (Client,Closed) t')
+  | ForkLock e1 e2 =>
+      ∃ xs1 xs2 xs3 : list (lockcap * type), ⌜⌜ t = LockGT xs3 ∧ lockcaps_split xs1 xs2 xs3 ⌝⌝ ∗
+      rtyped0 e1 (LockGT xs1) ∗
+      rtyped0 e2 (FunT Lin (LockGT xs2) UnitT)
   end.
 
 
@@ -461,7 +488,7 @@ Ltac solve_pr := simp; solve [solve_ctx || solve_step].
 
 Inductive impure : expr -> Prop :=
   | imp_ForkBarrier v : impure (ForkBarrier (Val v))
-  | imp_NewLock v : impure (NewLock (Val v))
+  | imp_NewGroup : impure NewGroup
   | imp_Waiting e i : expr_head_waiting e i -> impure e.
 
 Definition step_or_impure e := ∃ k e0,
@@ -528,10 +555,12 @@ Proof.
   - iDestr "H".
     into_val "IH" "H". ppdone.
   (* Locks *)
-  - iDestr "H". into_val "IH" "H". ppdone.
-  - iDestr "H". iDestruct "H" as "[H H1]".
+  - iDestr "H". ppdone.
+  - iDestr "H". into_val "IH" "H". simpl.
+    destruct x; simpl; iDestr "H"; simp.
+    ppdone.
+  - iDestr "H".
     into_val "IH" "H".
-    into_val "IH1" "H1".
     destruct x; simpl; iDestr "H"; simp.
     ppdone.
   - iDestr "H".
@@ -545,6 +574,11 @@ Proof.
     ppdone.
   - iDestr "H".
     into_val "IH" "H".
+    destruct x; simpl; iDestr "H"; simp.
+    ppdone.
+  - iDestr "H". iDestruct "H" as "[H H1]".
+    into_val "IH" "H".
+    into_val "IH1" "H1".
     destruct x; simpl; iDestr "H"; simp.
     ppdone.
   - iDestr "H".

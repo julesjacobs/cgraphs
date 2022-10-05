@@ -1,5 +1,5 @@
-From cgraphs.locks Require Export rtypesystem.
-From cgraphs.locks Require Export definitions.
+From cgraphs.locks.lambdalock Require Export rtypesystem.
+From cgraphs.locks.lambdalock Require Export definitions.
 
 Definition Mlen (m : multiset labelO) : nat := length (multiset_car m).
 

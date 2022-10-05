@@ -165,16 +165,17 @@ Proof.
     rewrite lookup_take; done.
 Qed.
 
-Fixpoint insert {T} (i : nat) (x : T) (xs : list T) : list T :=
+
+Fixpoint insert2 {T} (i : nat) (x : T) (xs : list T) : list T :=
   match i,xs with
   | 0,xs => x :: xs
-  | S i',y :: xs => y :: insert i' x xs
-  | S i',[] => []
+  | S i',y :: xs => y :: insert2 i' x xs
+  | S i',[] => [x]
   end.
 
-Lemma lookup_insert' {A} i j (x : A) xs :
+Lemma lookup_insert2' {A} i j (x : A) xs :
   i ≤ length xs ->
-  insert i x xs !! j =
+  insert2 i x xs !! j =
     if decide (j < i) then xs !! j
     else if decide (j = i) then Some x
     else xs !! (j - 1).
@@ -187,50 +188,48 @@ Proof.
     destruct j; eauto with lia. simpl. f_equiv. lia.
 Qed.
 
-Lemma insert_length {T} (i : nat) (x : T) (xs : list T) :
-  i ≤ length xs -> length (insert i x xs) = length xs + 1.
+Lemma insert2_length {T} (i : nat) (x : T) (xs : list T) :
+  length (insert2 i x xs) = length xs + 1.
 Proof.
   revert i. induction xs; intros; destruct i; simpl in *; auto with lia.
 Qed.
 
-Lemma in_insert {T} (i : nat) (x a : T) (xs : list T) :
-  i ≤ length xs -> (a ∈ insert i x xs <-> a = x ∨ a ∈ xs).
+Lemma in_insert2 {T} (i : nat) (x a : T) (xs : list T) :
+  a ∈ insert2 i x xs <-> a = x ∨ a ∈ xs.
 Proof.
   revert i; induction xs; intros; destruct i; simpl in *; rewrite ->?elem_of_cons, ?IHxs;
   rewrite ?elem_of_cons; naive_solver lia.
 Qed.
 
-Lemma insert_NoDup {T} (i : nat) (x : T) (xs : list T) :
-  i ≤ length xs ->
-  (x ∉ xs ∧ NoDup xs <-> NoDup (insert i x xs)).
+Lemma insert2_NoDup {T} (i : nat) (x : T) (xs : list T) :
+  x ∉ xs ∧ NoDup xs <-> NoDup (insert2 i x xs).
 Proof.
   revert i; induction xs; destruct i; simpl; intros;
   rewrite ?list.NoDup_cons; eauto with lia.
-  rewrite <-IHxs, in_insert, not_elem_of_cons; naive_solver lia.
+  rewrite <-IHxs, in_insert2, not_elem_of_cons; naive_solver lia.
 Qed.
 
-Lemma insert_out_of_bounds {T} (i : nat) (x : T) (xs : list T) :
-  i > length xs -> insert i x xs = xs.
+Lemma insert2_out_of_bounds {T} (i : nat) (x : T) (xs : list T) :
+  i > length xs -> insert2 i x xs = xs ++ [x].
 Proof.
   revert i; induction xs; destruct i; simpl; intros; try f_equiv; eauto with lia.
 Qed.
 
-Lemma insert_NoDup_2 {T} (i : nat) (x : T) (xs : list T) :
-  x ∉ xs -> NoDup xs -> NoDup (insert i x xs).
+Lemma insert2_NoDup_2 {T} (i : nat) (x : T) (xs : list T) :
+  x ∉ xs -> NoDup xs -> NoDup (insert2 i x xs).
 Proof.
-  destruct (decide (i ≤ length xs)).
-  - rewrite <-insert_NoDup; eauto with lia.
-  - rewrite insert_out_of_bounds; eauto with lia.
+  rewrite <-insert2_NoDup. eauto.
 Qed.
 
-Lemma insert_delete {T} (i : nat) (x : T) (xs : list T) :
-  delete i (insert i x xs) = xs.
+Lemma insert2_delete {T} (i : nat) (x : T) (xs : list T) :
+  i ≤ length xs -> delete i (insert2 i x xs) = xs.
 Proof.
-  revert i; induction xs; destruct i; simpl; try f_equiv; eauto.
+  revert i; induction xs; destruct i; simpl; try f_equiv; eauto with lia.
+  intro. f_equiv. rewrite IHxs; eauto with lia.
 Qed.
 
-Lemma delete_insert' {T} (i : nat) (x : T) (xs : list T) :
-  xs !! i = Some x -> insert i x (delete i xs) = xs.
+Lemma delete_insert2' {T} (i : nat) (x : T) (xs : list T) :
+  xs !! i = Some x -> insert2 i x (delete i xs) = xs.
 Proof.
   revert i; induction xs; destruct i; simpl; intros; try f_equiv; naive_solver.
 Qed.
@@ -463,20 +462,6 @@ Section disjoint.
     repeat case_decide; simpl in *; unfold disjoint in *; eauto with lia.
   Qed.
 
-  Lemma disjoint_insert gs g i :
-    (∀ g', g' ∈ gs -> g ##ₘ g') -> disjoint gs -> disjoint (insert i g gs).
-  Proof.
-    destruct (decide (length gs < i)).
-    { rewrite insert_out_of_bounds; eauto with lia. }
-    intros HH Hdisj j1 j2 h1 h2 Hs1 Hs2 Hneq.
-    rewrite lookup_insert' in Hs1; last lia.
-    rewrite lookup_insert' in Hs2; last lia.
-    repeat case_decide; simpl in *; simplify_eq;
-    unfold disjoint in *;
-    eauto using elem_of_list_lookup_2 with lia; symmetry;
-    eauto using elem_of_list_lookup_2 with lia.
-  Qed.
-
   Lemma disjoint_update gs g i :
     (∀ j g', gs !! j = Some g' -> i ≠ j -> g ##ₘ g') ->
     disjoint gs -> disjoint (<[ i := g ]> gs).
@@ -554,6 +539,21 @@ Section disjoint.
       try apply lookup_singleton_Some in Hs2 as []; subst;
       eauto using elem_of_list_lookup_2 with lia; symmetry;
       eauto using elem_of_list_lookup_2 with lia.
+  Qed.
+
+  Lemma disjoint_insert gs g i :
+    (∀ g', g' ∈ gs -> g ##ₘ g') -> disjoint gs -> disjoint (insert2 i g gs).
+  Proof.
+    destruct (decide (length gs < i)).
+    { rewrite insert2_out_of_bounds; eauto with lia.
+      intros. apply disjoint_app_singleton; eauto. }
+    intros HH Hdisj j1 j2 h1 h2 Hs1 Hs2 Hneq.
+    rewrite lookup_insert2' in Hs1; last lia.
+    rewrite lookup_insert2' in Hs2; last lia.
+    repeat case_decide; simpl in *; simplify_eq;
+    unfold disjoint in *;
+    eauto using elem_of_list_lookup_2 with lia; symmetry;
+    eauto using elem_of_list_lookup_2 with lia.
   Qed.
 End disjoint.
 

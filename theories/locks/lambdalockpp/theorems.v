@@ -1,4 +1,4 @@
-From cgraphs.locks Require Import invariant.
+From cgraphs.locks.lambdalockpp Require Import invariant.
 
 
 (* The theorems are given in a slightly different order because some of the

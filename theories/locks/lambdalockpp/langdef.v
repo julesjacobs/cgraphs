@@ -1,4 +1,5 @@
-From cgraphs.locks Require Export langtools.
+From cgraphs.locks.lambdalockpp Require Export langtools.
+From cgraphs.cgraphs Require Import util.
 
 (* Expressions and values *)
 (* ---------------------- *)
@@ -16,19 +17,21 @@ Inductive expr :=
   (* Barriers *)
   | ForkBarrier : expr -> expr
   (* Locks *)
-  | NewLock : expr -> expr
+  | NewGroup : expr
+  | DropGroup : expr -> expr
+  | NewLock : nat -> expr -> expr
+  | DropLock : nat -> expr -> expr
   | ForkLock : expr -> expr -> expr
-  | Acquire : expr -> expr
-  | Release : expr -> expr -> expr
-  | Wait : expr -> expr
-  | Drop : expr -> expr
+  | Acquire : nat -> expr -> expr
+  | Release : nat -> expr -> expr -> expr
+  | Wait : nat -> expr -> expr
 with val :=
   | FunV : string -> expr -> val
   | UnitV : val
   | PairV : val -> val -> val
   | SumV : nat -> val -> val
   | BarrierV : nat -> val
-  | LockV : nat -> val.
+  | LockGV : nat -> list nat -> val.
 
 
 (* Type system *)
@@ -55,7 +58,10 @@ CoInductive type :=
   | UnitT : type
   | PairT : type -> type -> type
   | SumT n : (fin n -> type) -> type
-  | LockT : lockcap -> type -> type.
+  | LockGT : list (lockcap * type) -> type.
+
+Definition lockcaps_split (xs1 xs2 xs3 : list (lockcap * type)) : Prop :=
+  Forall3 (λ '(l1,t1) '(l2, t2) '(l3, t3), t1 = t2 ∧ t2 = t3 ∧ lockcap_split l1 l2 l3) xs1 xs2 xs3.
 
 CoInductive unr : type -> Prop :=
   | Fun_unr t1 t2 : unr (FunT Unr t1 t2)
@@ -83,6 +89,8 @@ Definition env_bind (Γ' : env) (x : string) (t : type) (Γ : env) :=
 Definition env_var (Γ : env) (x : string) (t : type) :=
   ∃ Γ', Γ = <[ x := t ]> Γ' ∧ env_unr Γ'.
 
+Definition finlist {T:Type} {n:nat} (f : fin n -> T) (xs : list T) :=
+  n = length xs ∧ ∀ i, Some (f i) = xs !! (i : nat).
 
 Inductive typed : env -> expr -> type -> Prop :=
   (* Base language *)
@@ -126,30 +134,44 @@ Inductive typed : env -> expr -> type -> Prop :=
     typed Γ e (FunT Lin (FunT Lin t2 t1) UnitT) ->
     typed Γ (ForkBarrier e) (FunT Lin t1 t2)
   (* Locks *)
-  | NewLock_typed Γ e t:
-    typed Γ e t ->
-    typed Γ (NewLock e) (LockT (Owner,Closed) t)
-  | ForkLock_typed Γ Γ1 Γ2 e1 e2 t l1 l2 l3 :
+  | NewGroup_typed Γ :
+    env_unr Γ ->
+    typed Γ NewGroup (LockGT [])
+  | DropGroup_typed Γ e :
+    typed Γ e (LockGT []) ->
+    typed Γ (DropGroup e) UnitT
+  | NewLock_typed Γ i e t xs :
+    typed Γ e (LockGT xs) ->
+    typed Γ (NewLock i e) (LockGT (insert2 i ((Owner,Opened),t) xs))
+  | DropLock_typed Γ i e xs t :
+    xs !! i = Some ((Client,Closed),t) ->
+    typed Γ e (LockGT xs) ->
+    typed Γ (DropLock i e) (LockGT (delete i xs))
+  | Wait_typed Γ i e xs t :
+    (* Needs precondition *)
+    xs !! i = Some ((Owner,Closed),t) ->
+    (∀ j ownership state t', xs !! j = Some ((ownership,state),t') ->
+        (state = Closed) ∧ (j < i -> ownership = Owner)) ->
+    typed Γ e (LockGT xs) ->
+    typed Γ (Wait i e) (PairT (LockGT (delete i xs)) t)
+  | Acquire_typed Γ i e xs t a :
+    (* Needs precondition *)
+    xs !! i = Some ((a,Closed),t) ->
+    (∀ j ownership state t', j < i -> xs !! j = Some ((ownership,state),t') -> state = Closed) ->
+    typed Γ e (LockGT xs) ->
+    typed Γ (Acquire i e) (PairT (LockGT (<[ i := ((a,Opened),t) ]> xs)) t)
+  | Release_typed Γ Γ1 Γ2 i e1 e2 xs t a :
+    xs !! i = Some ((a,Opened),t) ->
     env_split Γ Γ1 Γ2 ->
-    lockcap_split l1 l2 l3 ->
-    typed Γ1 e1 (LockT l1 t) ->
-    typed Γ2 e2 (FunT Lin (LockT l2 t) UnitT) ->
-    typed Γ (ForkLock e1 e2) (LockT l3 t)
-  | Acquire_typed Γ e t lo :
-    typed Γ e (LockT (lo,Closed) t) ->
-    typed Γ (Acquire e) (PairT (LockT (lo,Opened) t) t)
-  | Release_typed Γ Γ1 Γ2 e1 e2 t lo :
-    env_split Γ Γ1 Γ2 ->
-    typed Γ1 e1 (LockT (lo,Opened) t) ->
+    typed Γ1 e1 (LockGT xs) ->
     typed Γ2 e2 t ->
-    typed Γ (Release e1 e2) (LockT (lo,Closed) t)
-  | Wait_typed Γ e t :
-    typed Γ e (LockT (Owner,Closed) t) ->
-    typed Γ (Wait e) t
-  | Drop_typed Γ e t :
-    typed Γ e (LockT (Client,Closed) t) ->
-    typed Γ (Drop e) UnitT.
-
+    typed Γ (Release i e1 e2) (LockGT (<[ i := ((a,Closed),t) ]> xs))
+  | ForkLock_typed Γ Γ1 Γ2 e1 e2 xs1 xs2 xs3 :
+    env_split Γ Γ1 Γ2 ->
+    lockcaps_split xs1 xs2 xs3 ->
+    typed Γ1 e1 (LockGT xs1) ->
+    typed Γ2 e2 (FunT Lin (LockGT xs2) UnitT) ->
+    typed Γ (ForkLock e1 e2) (LockGT xs3).
 
 (* Operational semantics *)
 (* --------------------- *)
@@ -166,12 +188,14 @@ Definition subst (x:string) (a:val) := fix rec e :=
   | Sum n e => Sum n (rec e)
   | MatchSum n e1 e2 => MatchSum n (rec e1) (rec ∘ e2)
   | ForkBarrier e => ForkBarrier (rec e)
-  | NewLock e => NewLock (rec e)
+  | NewGroup => NewGroup
+  | DropGroup e => DropGroup (rec e)
+  | NewLock i e => NewLock i (rec e)
+  | DropLock i e => DropLock i (rec e)
+  | Acquire i e => Acquire i (rec e)
+  | Release i e1 e2 => Release i (rec e1) (rec e2)
+  | Wait i e => Wait i (rec e)
   | ForkLock e1 e2 => ForkLock (rec e1) (rec e2)
-  | Acquire e => Acquire (rec e)
-  | Release e1 e2 => Release (rec e1) (rec e2)
-  | Wait e => Wait (rec e)
-  | Drop e => Drop (rec e)
   end.
 
 Inductive pure_step : expr -> expr -> Prop :=
@@ -199,21 +223,38 @@ Inductive ctx1 : (expr -> expr) -> Prop :=
   | Ctx_Sum i : ctx1 (λ x, Sum i x)
   | Ctx_MatchSum n es : ctx1 (λ x, MatchSum n x es)
   | Ctx_ForkBarrier : ctx1 (λ x, ForkBarrier x)
-  | Ctx_NewLock : ctx1 (λ x, NewLock x)
+  | Ctx_DropGroup : ctx1 (λ x, DropGroup x)
+  | Ctx_NewLock i : ctx1 (λ x, NewLock i x)
+  | Ctx_DropLock i : ctx1 (λ x, DropLock i x)
   | Ctx_ForkLock_l e : ctx1 (λ x, ForkLock x e)
   | Ctx_ForkLock_r e : ctx1 (λ x, ForkLock e x)
-  | Ctx_Acquire : ctx1 (λ x, Acquire x)
-  | Ctx_Release_l e : ctx1 (λ x, Release x e)
-  | Ctx_Release_r e : ctx1 (λ x, Release e x)
-  | Ctx_Wait : ctx1 (λ x, Wait x)
-  | Ctx_Drop : ctx1 (λ x, Drop x).
+  | Ctx_Acquire i : ctx1 (λ x, Acquire i x)
+  | Ctx_Release_l i e : ctx1 (λ x, Release i x e)
+  | Ctx_Release_r i e : ctx1 (λ x, Release i e x)
+  | Ctx_Wait i : ctx1 (λ x, Wait i x).
 
 Inductive ctx : (expr -> expr) -> Prop :=
   | Ctx_id : ctx id
   | Ctx_comp k1 k2 : ctx1 k1 -> ctx k2 -> ctx (k1 ∘ k2).
 
-Inductive obj := Thread (e : expr) | Barrier | Lock (refcnt : nat) (o : option val).
+Definition locksbundle := gmap nat (nat * option val).
+Inductive obj := Thread (e : expr) | Barrier | LockG (refcnt : nat) (lcks : locksbundle).
 Definition cfg := gmap nat obj.
+
+(*
+xs = {#a ↦ lock1, #b ↦ lock2}
+ls = [#a, #b]
+
+xs = {#a ↦ lock1, #b ↦ lock2, #c ↦ (0,None), #d ↦ lock3}
+ls0 = [#d, #a]
+ls = [#a, #c, #b]
+ls' = [#a, #c, #b]
+
+Lock order: #d, #a, #c, #b
+*)
+
+Definition incr_all_refcounts (xs : locksbundle) (ls : list nat) : locksbundle :=
+  foldr (alter (λ '(refcnt,o), (refcnt+1,o))) xs ls.
 
 Inductive local_step : nat -> cfg -> cfg -> Prop :=
   (* Base language *)
@@ -237,41 +278,66 @@ Inductive local_step : nat -> cfg -> cfg -> Prop :=
                  {[ i := Thread (k1 $ Val v2);
                     j := Thread (k2 $ Val v1) ]}
   (* Locks *)
-  | NewLock_step v k n i:
+  | NewGroup_step k i n :
     i ≠ n -> ctx k ->
-    local_step i {[ i := Thread (k (NewLock (Val v))) ]}
-                 {[ i := Thread (k (Val $ LockV n));
-                    n := Lock 0 (Some v) ]}
-  | ForkLock_step v o k i j n refcnt :
-    i ≠ j -> i ≠ n -> j ≠ n -> ctx k ->
-    local_step n {[ i := Thread (k (ForkLock (Val $ LockV n) (Val v)));
-                    n := Lock refcnt o ]}
-                 {[ i := Thread (k (Val $ LockV n));
-                    j := Thread (App (Val v) (Val $ LockV n));
-                    n := Lock (S refcnt) o ]}
-  | Acquire_step v k i n refcnt :
+    local_step i {[ i := Thread (k NewGroup) ]}
+                 {[ i := Thread (k (Val $ LockGV n []));
+                    n := LockG 1 ∅ ]}
+  | DeleteGroup_step n :
+    local_step n {[ n := LockG 0 ∅ ]} ∅
+  | DropGroup_step k i n refcnt xs :
     i ≠ n -> ctx k ->
-    local_step n {[ i := Thread (k (Acquire (Val $ LockV n)));
-                    n := Lock refcnt (Some v) ]}
-                 {[ i := Thread (k (Val $ PairV (LockV n) v));
-                    n := Lock refcnt None ]}
-  | Release_step v k i n refcnt :
-    i ≠ n -> ctx k ->
-    local_step n {[ i := Thread (k (Release (Val $ LockV n) (Val v)));
-                    n := Lock refcnt None ]}
-                 {[ i := Thread (k (Val $ LockV n));
-                    n := Lock refcnt (Some v) ]}
-  | Wait_step v k i n :
-    i ≠ n -> ctx k ->
-    local_step n {[ i := Thread (k (Wait (Val $ LockV n)));
-                    n := Lock 0 (Some v) ]}
-                 {[ i := Thread (k (Val v)) ]}
-  | Drop_step o k i n refcnt :
-    i ≠ n -> ctx k ->
-    local_step n {[ i := Thread (k (Drop (Val $ LockV n)));
-                    n := Lock (S refcnt) o ]}
+    local_step i {[ i := Thread (k (DropGroup (Val $ LockGV n [])));
+                    n := LockG (S refcnt) xs ]}
                  {[ i := Thread (k (Val $ UnitV));
-                    n := Lock refcnt o ]}.
+                    n := LockG refcnt xs ]}
+  | NewLock_step k n i refcnt xs ls ii jj :
+    i ≠ n -> ctx k ->
+    xs !! jj = None ->
+    local_step i {[ i := Thread (k (NewLock ii (Val $ LockGV n ls)));
+                    n := LockG refcnt xs ]}
+                 {[ i := Thread (k (Val $ LockGV n (insert2 ii jj ls)));
+                    n := LockG refcnt (<[ jj := (0,None) ]> xs) ]}
+  | DropLock_step o k i n refcnt xs ls ii jj refcntii :
+    i ≠ n -> ctx k ->
+    ls !! ii = Some jj ->
+    xs !! jj = Some (S refcntii, o) ->
+    local_step n {[ i := Thread (k (DropLock ii (Val $ LockGV n ls)));
+                    n := LockG refcnt xs ]}
+                 {[ i := Thread (k (Val $ LockGV n (delete ii ls)));
+                    n := LockG refcnt (<[ jj := (refcntii,o) ]> xs) ]}
+  | Acquire_step v k i n refcnt ii jj refcntii xs ls :
+    i ≠ n -> ctx k ->
+    ls !! ii = Some jj ->
+    xs !! jj = Some (refcntii, Some v) ->
+    local_step n {[ i := Thread (k (Acquire ii (Val $ LockGV n ls)));
+                    n := LockG refcnt xs ]}
+                 {[ i := Thread (k (Val $ PairV (LockGV n ls) v));
+                    n := LockG refcnt (<[ jj := (refcntii, None) ]> xs) ]}
+  | Release_step v k i n refcnt ii jj refcntii xs ls :
+    i ≠ n -> ctx k ->
+    ls !! ii = Some jj ->
+    xs !! jj = Some (refcntii, None) ->
+    local_step n {[ i := Thread (k (Release ii (Val $ LockGV n ls) (Val v)));
+                    n := LockG refcnt xs ]}
+                 {[ i := Thread (k (Val $ LockGV n ls));
+                    n := LockG refcnt (<[ jj := (refcntii, Some v) ]> xs) ]}
+  | Wait_step v k i n ii jj refcnt xs ls :
+    i ≠ n -> ctx k ->
+    ls !! ii = Some jj ->
+    xs !! jj = Some (0, Some v) ->
+    local_step n {[ i := Thread (k (Wait ii (Val $ LockGV n ls)));
+                    n := LockG refcnt xs ]}
+                 {[ i := Thread (k (Val $ PairV (LockGV n (delete ii ls)) v));
+                    n := LockG refcnt (delete jj xs) ]}
+  | ForkLock_step v k i j n refcnt xs ls :
+      i ≠ j -> i ≠ n -> j ≠ n -> ctx k ->
+      local_step n {[ i := Thread (k (ForkLock (Val $ LockGV n ls) (Val v)));
+                      n := LockG refcnt xs ]}
+                   {[ i := Thread (k (Val $ LockGV n ls));
+                      j := Thread (App (Val v) (Val $ LockGV n ls));
+                      n := LockG (S refcnt) (incr_all_refcounts xs ls) ]}.
+
 
 Inductive step : nat -> cfg -> cfg -> Prop :=
   | Frame_step ρ ρ' ρf i :
