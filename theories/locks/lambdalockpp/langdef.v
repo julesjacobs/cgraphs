@@ -151,13 +151,13 @@ Inductive typed : env -> expr -> type -> Prop :=
     (* Needs precondition *)
     xs !! i = Some ((Owner,Closed),t) ->
     (∀ j ownership state t', xs !! j = Some ((ownership,state),t') ->
-        (state = Closed) ∧ (j < i -> ownership = Owner)) ->
+        (state = Closed) ∧ (j > i -> ownership = Owner)) ->
     typed Γ e (LockGT xs) ->
     typed Γ (Wait i e) (PairT (LockGT (delete i xs)) t)
   | Acquire_typed Γ i e xs t a :
     (* Needs precondition *)
     xs !! i = Some ((a,Closed),t) ->
-    (∀ j ownership state t', j < i -> xs !! j = Some ((ownership,state),t') -> state = Closed) ->
+    (∀ j ownership state t', j > i -> xs !! j = Some ((ownership,state),t') -> state = Closed) ->
     typed Γ e (LockGT xs) ->
     typed Γ (Acquire i e) (PairT (LockGT (<[ i := ((a,Opened),t) ]> xs)) t)
   | Release_typed Γ Γ1 Γ2 i e1 e2 xs t a :
@@ -294,7 +294,7 @@ Inductive local_step : nat -> cfg -> cfg -> Prop :=
   | NewLock_step k n i refcnt xs ls ii jj :
     i ≠ n -> ctx k ->
     xs !! jj = None ->
-    local_step i {[ i := Thread (k (NewLock ii (Val $ LockGV n ls)));
+    local_step n {[ i := Thread (k (NewLock ii (Val $ LockGV n ls)));
                     n := LockG refcnt xs ]}
                  {[ i := Thread (k (Val $ LockGV n (insert2 ii jj ls)));
                     n := LockG refcnt (<[ jj := (0,None) ]> xs) ]}

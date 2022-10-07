@@ -127,12 +127,31 @@ Proof.
   - rewrite H //.
 Qed.
 
-Definition extract (i : nat) (x : multiset labelO) : multiset labelO'. Admitted.
+Definition extract1 (jj : nat) (ls : list (nat * (lockcap * type))) : multiset labelO' :=
+  list_to_multiset ((filter (λ '(jj',c), jj = jj') ls).*2).
+
+Definition extract (i : nat) (x : multiset labelO) : multiset labelO' :=
+  list_to_multiset (flat_map (λ l,
+    match l with LockLabel xs => multiset_car (extract1 i xs) | _ => [] end) (multiset_car x)).
+
+Lemma flat_map_permute {A B} (f : A -> list B) xs ys :
+  xs ≡ₚ ys -> flat_map f xs ≡ₚ flat_map f ys.
+Proof.
+  induction 1; simpl; eauto.
+  - eapply Permutation_app; eauto.
+  - rewrite !assoc_L. f_equiv.
+    eapply Permutation_app_swap.
+  - etrans; eauto.
+Qed.
 
 Global Instance extract_Proper i :
   Proper ((≡) ==> (≡)) (extract i).
 Proof.
-Admitted.
+  intros ???. unfold extract. destruct x,y; simpl.
+  eapply list_to_multiset_proper.
+  eapply flat_map_permute.
+  inversion H. simpl in *. simp.
+Qed.
 
 Definition mset_in {A:ofe} (a : A) (x : multiset A) := ∃ x', x ≡ {[ a ]} ⋅ x'.
 
@@ -207,6 +226,16 @@ Lemma lock_relM_newlock v t :
   lock_relM 0 (Some v) t {[ (Owner, Closed, t) : labelO' ]}.
 Proof.
   eexists Closed ε ε; eauto.
+  intros l x_closed' H.
+  symmetry in H.
+  eapply multiset_op_unit in H as [].
+  eapply multiset_singleton_not_unit in H as [].
+Qed.
+
+Lemma lock_relM_newlock' t :
+  lock_relM 0 None t {[ (Owner, Opened, t) : labelO' ]}.
+Proof.
+  eexists Opened ε ε; eauto.
   intros l x_closed' H.
   symmetry in H.
   eapply multiset_op_unit in H as [].
@@ -579,9 +608,9 @@ Qed.
 Lemma extract_op jj x1 x2 :
   extract jj (x1 ⋅ x2) = extract jj x1 ⋅ extract jj x2.
 Proof.
-Admitted.
-
-Definition extract1 (jj : nat) (ls : list (nat * (lockcap * type))) : multiset labelO'. Admitted.
+  unfold extract. unfold op. simpl.
+  rewrite !flat_map_app; eauto.
+Qed.
 
 Lemma extract_singleton jj a :
   extract jj {[ a ]} = match a with
@@ -589,14 +618,49 @@ Lemma extract_singleton jj a :
     | _ => ε
     end.
 Proof.
-Admitted.
+  unfold extract. simpl. destruct a; simpl; try done.
+  rewrite right_id_L //.
+Qed.
+
+Lemma extract1_cons jj jj' p xs :
+  extract1 jj ((jj',p)::xs) =
+    if decide (jj = jj')
+    then {[ p:labelO' ]} ⋅ extract1 jj xs
+    else extract1 jj xs.
+Proof.
+  unfold extract1.
+  rewrite !filter_cons.
+  case_decide; simp; case_decide; simp.
+Qed.
+
+Lemma extract1_Some ii i l ls xs :
+  ls !! ii = Some i ->
+  xs !! ii = Some l ->
+  extract1 i (zip ls xs) ≡ {[ l:labelO' ]} ⋅ extract1 i (zip (delete ii ls) (delete ii xs)).
+Proof.
+  revert ii xs.
+  induction ls; simpl; first set_solver.
+  intros. destruct xs; simp.
+  destruct ii; simpl in *; simp.
+  - unfold extract1 at 1.
+    rewrite filter_cons. case_decide; simp.
+  - rewrite !extract1_cons.
+    case_decide; simp; eauto.
+    rewrite IHls; eauto.
+    rewrite comm.
+    rewrite (comm _ {[ p:labelO' ]}).
+    rewrite assoc //.
+Qed.
 
 Lemma extract_Some ii jj xs1 a b t2 ls :
   ls !! ii = Some jj ->
   xs1 !! ii = Some (a, b, t2) -> ∃ x',
   extract1 jj (zip ls xs1) ≡ {[ (a,b,t2):labelO' ]} ⋅ x'.
 Proof.
-Admitted.
+  intros H1 H2.
+  eexists.
+  rewrite extract1_Some; eauto.
+Qed.
 
 Lemma lock_relMG_types_same refcnt xs ts ls xs1 x ii jj a b t1 t2 :
   lock_relMG refcnt xs ts ({[LockLabel (zip ls xs1)]} ⋅ x) ->
@@ -617,19 +681,20 @@ Proof.
   subst. done.
 Qed.
 
-Lemma extract1_Some ii i l ls xs :
-  ls !! ii = Some i ->
-  xs !! ii = Some l ->
-  extract1 i (zip ls xs) = {[ l:labelO' ]} ⋅ extract1 i (zip (delete ii ls) (delete ii xs)).
-Proof.
-Admitted.
-
 Lemma extract1_ne_Some ii i ls xs :
   ls !! ii ≠ Some i ->
   extract1 i (zip ls xs) = extract1 i (zip (delete ii ls) (delete ii xs)).
 Proof.
-Admitted.
-
+  revert ii xs.
+  induction ls; simpl; first set_solver.
+  intros. destruct xs; simp.
+  destruct ii; simpl in *; simp.
+  - destruct ls; done.
+  - rewrite extract1_cons.
+    destruct ii; simp; case_decide; simp;
+    rewrite extract1_cons; case_decide; try done; eauto.
+    f_equal. eauto.
+Qed.
 
 Lemma list_delete_insert_delete {A} i (a:A) (xs:list A) :
   delete i (<[ i := a ]> xs) = delete i xs.
@@ -710,7 +775,6 @@ Proof.
       intros lr.
       erewrite extract1_Some; eauto; last first.
       { rewrite list_lookup_insert; first done. by eapply lookup_lt_Some. }
-      Search list delete insert.
       rewrite list_delete_insert_delete.
       rewrite -assoc. rewrite -assoc in lr.
       assert (t'=t) as -> by eauto using lock_relM_same_type.
@@ -724,6 +788,153 @@ Proof.
       erewrite extract1_ne_Some; last done. intros lr.
       erewrite extract1_ne_Some; last done.
       rewrite list_delete_insert_delete //.
+Qed.
+
+Lemma sublist_filter {A} (xs ys : list A) P `{∀ x, Decision (P x)} :
+  xs `sublist_of` ys ->
+  filter P xs `sublist_of` filter P ys.
+Proof.
+  induction 1.
+  - rewrite filter_nil. constructor.
+  - rewrite !filter_cons. case_decide.
+    + constructor. done.
+    + done.
+  - rewrite !filter_cons. case_decide.
+    + econstructor. done.
+    + done.
+Qed.
+
+Lemma delete_NoDup_filter (ls : list nat) ii jj :
+  NoDup ls ->
+  ls !! ii = Some jj ->
+  delete ii ls = filter (λ x0 : vertex, x0 ≠ jj) ls.
+Proof.
+  intros H1 H2.
+  revert ii H2.
+  induction ls; intros ii H2. { revert H2. smap. }
+  revert H2. destruct ii. smap.
+  + rewrite filter_cons. case_decide; try done.
+    apply NoDup_cons in H1 as [H1 H2].
+    symmetry. clear H2 IHls H.
+    induction ls; first done.
+    rewrite filter_cons.
+    apply not_elem_of_cons in H1 as [].
+    case_decide; try done.
+    f_equal. apply IHls. done.
+  + simpl. rewrite filter_cons. intros H.
+    case_decide.
+    * f_equal. eapply IHls; eauto.
+      eapply NoDup_cons; done.
+    * subst. exfalso.
+      eapply NoDup_cons in H1 as [HH ?].
+      eapply HH. eapply elem_of_list_lookup_2. done.
+Qed.
+
+Lemma NoDup_sublist {A} (xs ys : list A) :
+  NoDup xs ->
+  ys `sublist_of` xs ->
+  NoDup ys.
+Proof.
+  intros H1. induction 1.
+  - eapply NoDup_nil. done.
+  - eapply NoDup_cons. eapply NoDup_cons in H1 as [].
+    split; eauto.
+    intros HH. eapply H0. eapply sublist_elem_of; eauto.
+  - eapply NoDup_cons in H1 as []; eauto.
+Qed.
+
+Lemma order_delete order ls ii jj :
+  NoDup order ->
+  ls !! ii = Some jj ->
+  ls `sublist_of` order ->
+  delete ii ls `sublist_of` filter (λ x0 : vertex, x0 ≠ jj) order.
+Proof.
+  intros H1 H2 H3.
+  erewrite delete_NoDup_filter; eauto using NoDup_sublist.
+  eapply sublist_filter. done.
+Qed.
+
+Lemma flat_map_nil {A B} (f : A -> list B) xs :
+  flat_map f xs = nil -> ∀ x, x ∈ xs -> f x = nil.
+Proof.
+  induction xs; first set_solver.
+  simpl. rewrite app_nil. simp.
+  eapply elem_of_cons in H0 as []; simp.
+  eauto.
+Qed.
+
+Lemma extract_empty i x :
+  extract i x = ε ->
+  mset_forall (λ l, ∀ xs, l = LockLabel xs -> i ∉ xs.*1) x.
+Proof.
+  intros H?????. simp.
+  inv H0. simp.
+  unfold extract in H.
+  destruct x; simpl in *. inv H.
+  intro HH.
+  eapply elem_of_list_fmap in HH. simp.
+  eapply (flat_map_permute (λ l : label,
+  match l with
+  | BarrierLabel _ _ _ => []
+  | LockLabel xs => (filter (λ '(jj', _), H.1 = jj') xs).*2
+  end)) in H0.
+  rewrite H2 in H0. simpl in H0.
+  eapply Permutation_nil in H0.
+  eapply app_nil in H0. simp.
+  eapply fmap_nil_inv in H1. clear H3 H2.
+  assert (H ∉ xs); eauto.
+  eapply filter_nil_not_elem_of; eauto. simpl.
+  destruct H. done.
+Qed.
+
+Lemma mset_forall_impl {A:ofe} (P Q : A -> Prop) x :
+  mset_forall P x -> (∀ a, P a -> Q a) -> mset_forall Q x.
+Proof.
+  intros H1 H2 a x' Hx'.
+  eapply H2. eapply H1. done.
+Qed.
+
+Lemma mset_forall_and {A:ofe} (P Q : A -> Prop) x :
+  mset_forall P x -> mset_forall Q x ->
+  mset_forall (λ a, P a ∧ Q a) x.
+Proof.
+  intros H1 H2 a x' Hx'.
+  split; [eapply H1|eapply H2]; eauto.
+Qed.
+
+Lemma filter_id {A} (xs : list A) (P : A -> Prop) `{∀ x, Decision (P x)} :
+  (∀ x, x ∈ xs -> P x) ->
+  filter P xs = xs.
+Proof.
+  induction xs; eauto. intro.
+  rewrite filter_cons.
+  case_decide; rewrite IHxs; eauto; intros.
+  - eapply H0, elem_of_cons; eauto.
+  - exfalso. eapply H1, H0, elem_of_cons; eauto.
+  - eapply H0, elem_of_cons; eauto.
+Qed.
+
+Lemma filter_sublist {A} (xs ys : list A) (P : A -> Prop) `{∀ x, Decision (P x)} :
+  xs `sublist_of` ys ->
+  (∀ x, x ∈ xs -> P x) ->
+  xs `sublist_of` filter P ys.
+Proof.
+  induction 1; intros HH; eauto using sublist;
+  rewrite filter_cons; case_decide; eauto using sublist.
+  - econstructor. eapply IHsublist.
+    intros. eapply HH, elem_of_cons; eauto.
+  - exfalso. eapply H1, HH, elem_of_cons; eauto.
+  - econstructor. eapply IHsublist. eauto.
+Qed.
+
+Lemma extract1_delete ls ii jj i xs1 :
+  ls !! ii = Some jj ->
+  jj ≠ i ->
+  extract1 i (zip (delete ii ls) (delete ii xs1)) = extract1 i (zip ls xs1).
+Proof.
+  intros.
+  symmetry. eapply extract1_ne_Some.
+  intro. smap.
 Qed.
 
 Lemma lock_relMG_Wait ls ii jj xs v xs1 t' ts x refcnt :
@@ -748,23 +959,37 @@ Proof.
     rewrite fst_zip in H7; last lia.
     split.
     + eexists. split; eauto.
-      rewrite fst_zip; last admit.
-      admit.
+      rewrite fst_zip. { eapply order_delete; eauto. }
+      rewrite !length_delete; eauto.
+      lia.
     + pose proof (lr_lock_relM0 jj) as Q.
-      rewrite H0 H2 in Q.
-      admit.
+      rewrite H0 H2 extract_op extract_singleton in Q.
+      erewrite extract1_Some in Q; eauto.
+      rewrite -assoc in Q.
+      eapply lock_relM_only_owner in Q.
+      assert (extract1 jj (zip (delete ii ls) (delete ii xs1)) ⋅ extract jj x ≡ ε) as Q'.
+      { rewrite Q //. }
+      eapply multiset_empty_mult in Q' as [].
+      epose proof (extract_empty jj x H5).
+      eapply mset_forall_impl.
+      { eapply mset_forall_and. eapply H4. eapply H6. }
+      intros ?[]. simp.
+      eexists. split; eauto.
+      eapply filter_sublist; eauto.
+      intros ???. subst. eapply H9; eauto.
   - intros i. specialize (lr_lock_relM0 i).
     smap. destruct (xs !! i) eqn:E; rewrite E; eauto.
     destruct p. destruct (ts !! i); eauto.
     revert lr_lock_relM0. rewrite !extract_op !extract_singleton.
     intros lr.
-    admit.
+    erewrite extract1_delete; eauto.
   - revert lr_refcount0. rewrite !Mlen_mult !Mlen_singleton. lia.
-Admitted.
+Qed.
 
 Lemma extract1_empty i : extract1 i [] = ε.
 Proof.
-Admitted.
+  done.
+Qed.
 
 Lemma lock_relMG_DropGroup refcnt xs ts x :
   lock_relMG (S refcnt) xs ts ({[LockLabel []]} ⋅ x) ->
@@ -772,12 +997,7 @@ Lemma lock_relMG_DropGroup refcnt xs ts x :
 Proof.
   intros [].
   exists order; eauto.
-  - apply mset_forall_op in order_subsequences as []. done.
-  - intros i. specialize (lr_lock_relM0 i).
-    destruct (xs !! i); eauto. destruct p.
-    destruct (ts !! i); eauto.
-    rewrite extract_op extract_singleton extract1_empty left_id in lr_lock_relM0.
-    done.
+  apply mset_forall_op in order_subsequences as []. done.
 Qed.
 
 Lemma lock_relMG_NewGroup : lock_relMG 1 ∅ ∅ {[LockLabel []]}.
@@ -802,39 +1022,295 @@ Proof.
   rewrite IHxs. set_solver.
 Qed.
 
+Lemma insert2_nil {A} ii jj :
+  insert2 ii jj [] = [jj:A].
+Proof.
+  destruct ii; simpl; done.
+Qed.
+
+Lemma extract1_insert2_ne i ls xs1 ii jj c :
+  length ls = length xs1 ->
+  jj ≠ i ->
+  extract1 i (zip ls xs1) ≡ extract1 i (zip (insert2 ii jj ls) (insert2 ii c xs1)).
+Proof.
+  intros H1 H2.
+  unfold extract1.
+  f_equiv. f_equal.
+  revert jj i xs1 ii H1 H2. induction ls; intros; simpl in *.
+  - destruct xs1; simp. rewrite filter_nil !insert2_nil.
+    rewrite filter_cons filter_nil.
+    case_decide; try done.
+  - destruct xs1; simp.
+    destruct ii; simpl.
+    + rewrite !filter_cons.
+      repeat case_decide; simp.
+    + rewrite !filter_cons; repeat case_decide; simp.
+      * f_equal. eauto.
+      * eauto.
+Qed.
+
+Lemma extract_empty_inv i order x :
+  i ∉ order ->
+  mset_forall
+        (λ l : labelO,
+            ∃ xs : list (vertex * (lockcap * type)),
+              l = LockLabel xs ∧ xs.*1 `sublist_of` order) x ->
+  extract i x = ε.
+Proof.
+  unfold extract.
+  destruct ((flat_map
+  (λ l : label,
+     match l with
+     | BarrierLabel _ _ _ => []
+     | LockLabel xs => multiset_car (extract1 i xs)
+     end) (multiset_car x))) eqn:E; eauto.
+  intros. exfalso.
+  assert (In o (o :: l)); eauto using in_eq.
+  rewrite -E in_flat_map in H1. simp.
+  destruct H2. { inv H4. }
+  eapply elem_of_list_In in H4.
+  eapply elem_of_list_fmap in H4.
+  simp.
+  eapply elem_of_list_filter in H5. simp.
+  destruct H2. simp.
+  eapply elem_of_list_In in H1.
+  assert (∃ x', x ≡ {[ LockLabel ls : labelO ]} ⋅ x').
+  { eapply elem_of_list_lookup in H1. simp.
+    exists (list_to_multiset (delete H2 (multiset_car x))).
+    eapply delete_Permutation in H3.
+    econstructor. split; first exact H3.
+    done. }
+  simp. rewrite H5 in H0.
+  rewrite mset_forall_op mset_forall_singleton in H0. simp.
+  eapply H, sublist_elem_of; eauto.
+  eapply elem_of_list_fmap. eexists. split; eauto. simpl. done.
+Qed.
+
+Lemma extract1_insert2 i ii ls t' xs1 :
+  length ls = length xs1 ->
+  extract1 i (zip (insert2 ii i ls) (insert2 ii (Owner, Opened, t') xs1))
+  ≡ {[ (Owner, Opened, t'):labelO' ]} ⋅ extract1 i (zip ls xs1).
+Proof.
+  revert xs1 ls. induction ii; simpl; intros.
+  - rewrite extract1_cons. case_decide; simp.
+  - destruct ls,xs1; simp; rewrite ?extract1_cons; case_decide; simp;
+    rewrite IHii // !assoc.
+    f_equiv. apply comm, _.
+Qed.
+
+Lemma extract1_empty' i ls xs1 :
+  i ∉ ls ->
+  extract1 i (zip ls xs1) = ε.
+Proof.
+  unfold extract1.
+  revert xs1. induction ls; simpl; eauto; intros.
+  eapply not_elem_of_cons in H as [].
+  destruct xs1; eauto.
+  rewrite filter_cons. case_decide; eauto. done.
+Qed.
+
+Fixpoint find_index (a : nat) (xs : list nat) :=
+  match xs with
+  | [] => None
+  | a' :: xs' => if decide(a = a') then Some 0 else S <$> find_index a xs'
+  end.
+
+Lemma find_index_Some a xs i :
+  find_index a xs = Some i -> xs !! i = Some a.
+Proof.
+  revert i; induction xs; simpl; simp.
+  case_decide; destruct i; simp; eauto.
+  - destruct find_index; try discriminate.
+  - rewrite IHxs; eauto.
+    destruct find_index; try discriminate. inv H. done.
+Qed.
+
+Lemma find_index_None a xs :
+  find_index a xs = None -> a ∉ xs.
+Proof.
+  induction xs; simpl; try set_solver.
+  case_decide; simp.
+  eapply not_elem_of_cons. split; eauto.
+  destruct find_index; try discriminate. eauto.
+Qed.
+
+Definition insert_at (ii jj:nat) (ls order:list nat) : list nat :=
+  match ls !! ii with
+  | Some a =>
+    match find_index a order with
+    | Some i => insert2 i jj order
+    | None => order ++ [jj]
+    end
+  | None => order ++ [jj]
+  end.
+
+Lemma insert2_lookup_None {A} (ls : list A) ii jj :
+  ls !! ii = None ->
+  insert2 ii jj ls = ls ++ [jj].
+Proof.
+  revert ii ls. induction ii; simpl.
+  - intros. destruct ls; simp.
+  - intros. destruct ls; simp. f_equal. eauto.
+Qed.
+
+Lemma sublist_insert2_corr {A} (ls : list A) ii ii' jj order n :
+  NoDup order ->
+  ls !! ii = Some n ->
+  order !! ii' = Some n ->
+  ls `sublist_of` order ->
+  insert2 ii jj ls `sublist_of` insert2 ii' jj order.
+Proof.
+  intros HND H1 H2 HH. revert H1 H2. revert ii ii'.
+  induction HH; simp.
+  - destruct ii; simp.
+    + destruct ii'; simp.
+      * do 2 econstructor. done.
+      * eapply NoDup_cons in HND. simp.
+        eapply elem_of_list_lookup_2 in H2. exfalso.
+        eapply H. eauto.
+    + destruct ii'; simpl in *; simp.
+      * eapply NoDup_cons in HND. simp.
+        eapply elem_of_list_lookup_2 in H1. exfalso.
+        eapply H. eapply sublist_elem_of; eauto.
+      * econstructor. eapply IHHH; eauto.
+        eapply NoDup_cons; eauto.
+  - destruct ii'; simp.
+    * eapply NoDup_cons in HND. simp.
+      eapply elem_of_list_lookup_2 in H1. exfalso.
+      eapply H. eapply sublist_elem_of; eauto.
+    * econstructor. eapply IHHH; eauto. eapply NoDup_cons. eauto.
+Qed.
+
+Lemma insert_at_sublist ls order ii jj :
+  NoDup order ->
+  ls `sublist_of` order ->
+  insert2 ii jj ls `sublist_of` insert_at ii jj ls order.
+Proof.
+  unfold insert_at.
+  destruct (ls!!ii) eqn:E.
+  - destruct (find_index n order) eqn:F.
+    + eapply find_index_Some in F.
+      intros HH. eapply sublist_insert2_corr; eauto.
+    + eapply find_index_None in F. intros. exfalso.
+      eapply F, sublist_elem_of; eauto.
+      eapply elem_of_list_lookup. eauto.
+  - intros.
+    rewrite insert2_lookup_None //.
+    eapply sublist_app; eauto.
+Qed.
+
+Lemma insert_at_NoDup ii jj ls order :
+  NoDup order ->
+  jj ∉ order ->
+  NoDup (insert_at ii jj ls order).
+Proof.
+  intros.
+  unfold insert_at.
+  destruct (ls!!ii).
+  - destruct find_index.
+    + eauto using insert2_NoDup_2.
+    + eapply NoDup_app; split; eauto.
+      split. set_solver. apply NoDup_singleton.
+  - eapply NoDup_app; split; eauto.
+    split. set_solver. apply NoDup_singleton.
+Qed.
+
+Lemma list_to_set_insert_at ii jj ls order:
+  (list_to_set (insert_at ii jj ls order) : gset nat) = {[ jj ]} ∪ list_to_set order.
+Proof.
+  unfold insert_at.
+  destruct lookup.
+  - destruct find_index.
+    + rewrite list_to_set_insert2 //.
+    + set_solver.
+  - set_solver.
+Qed.
+
+Lemma insert2_sublist_mono {A} (ls : list A) order ii jj :
+  ls `sublist_of` order ->
+  ls `sublist_of` insert2 ii jj order.
+Proof.
+  intros H.
+  revert ii. induction H; destruct ii; simpl;
+  try econstructor; try econstructor; eauto.
+Qed.
+
+Lemma insert_at_sublist_mono ii jj ls ls' order :
+  ls' `sublist_of` order ->
+  ls' `sublist_of` insert_at ii jj ls order.
+Proof.
+  unfold insert_at; intros.
+  destruct lookup.
+  - destruct find_index.
+    + eapply insert2_sublist_mono. done.
+    + eapply sublist_inserts_r. done.
+  - eapply sublist_inserts_r. done.
+Qed.
+
 Lemma lock_relMG_NewLock refcnt xs ts ls xs1 x t' ii jj :
   length ls = length xs1 ->
   xs !! jj = None ->
   lock_relMG refcnt xs ts ({[LockLabel (zip ls xs1)]} ⋅ x) ->
   lock_relMG refcnt (<[jj:=(0, None)]> xs) (<[jj:=t']> ts)
-    ({[LockLabel (zip (insert2 ii jj ls) (insert2 ii (Owner, Closed, t') xs1))]} ⋅ x).
+    ({[LockLabel (zip (insert2 ii jj ls) (insert2 ii (Owner, Opened, t') xs1))]} ⋅ x).
 Proof.
   intros HH H [].
-  exists (insert2 ii jj order).
-  - eapply insert2_NoDup_2; eauto.
+  exists (insert_at ii jj ls order).
+  - eapply insert_at_NoDup; eauto.
     assert (jj ∉ dom xs) as Q. { eapply not_elem_of_dom. done. }
     rewrite -order_dom in Q.
     eapply not_elem_of_list_to_set in Q.
     done.
-  - rewrite dom_insert_L -order_dom list_to_set_insert2 //.
+  - rewrite dom_insert_L -order_dom list_to_set_insert_at //.
   - revert order_subsequences. rewrite !mset_forall_op !mset_forall_singleton.
     intros os. simp.
-    rewrite fst_zip in H4; last admit.
+    rewrite fst_zip in H4; last lia.
     split.
     + eexists. split; first done.
       rewrite fst_zip. 2: { rewrite !insert2_length. lia. }
-      admit.
-    + admit.
+      eapply insert_at_sublist; done.
+    + eapply mset_forall_impl; eauto. simpl. intros. simp.
+      eexists. split; eauto.
+      eapply insert_at_sublist_mono; done.
   - intros i. specialize (lr_lock_relM0 i).
     smap.
-    + admit.
+    + rewrite extract_op extract_singleton.
+      rewrite H in lr_lock_relM0.
+      destruct (ts !! i) eqn:E; try done.
+      assert ((extract1 i (zip (insert2 ii i ls) (insert2 ii (Owner, Opened, t') xs1))
+        ⋅ extract i x) ≡ {[ (Owner, Opened, t'):labelO' ]}) as ->; eauto using lock_relM_newlock'.
+      rewrite mset_forall_op mset_forall_singleton in order_subsequences. simp.
+      rewrite fst_zip in H4; try lia.
+      assert (extract i x = ε) as ->.
+      {
+        assert (i ∉ order).
+        {
+           intros QQ.
+           assert (i ∈ dom xs).
+           {
+            rewrite -order_dom. eapply elem_of_list_to_set. done.
+           }
+           eapply elem_of_dom in H0 as []. rewrite H in H0. congruence.
+        }
+        eapply extract_empty_inv; eauto.
+      }
+      rewrite right_id extract1_insert2 // extract1_empty'; first apply right_id, _.
+      intros QQ.
+      eapply sublist_elem_of in QQ; eauto.
+      assert (i ∈ dom xs).
+      {
+        rewrite -order_dom. eapply elem_of_list_to_set. done.
+      }
+      eapply elem_of_dom in H0 as []. rewrite H in H0. done.
     + destruct (xs !! i) eqn:E; rewrite E; eauto.
       destruct p. destruct (ts !! i); eauto.
       revert lr_lock_relM0. rewrite !extract_op !extract_singleton.
       intros lr.
-      admit.
+      assert ((extract1 i (zip ls xs1) ⋅ extract i x) ≡
+        (extract1 i (zip (insert2 ii jj ls) (insert2 ii (Owner, Opened, t') xs1))⋅ extract i x)) as <-; eauto.
+      f_equiv. eapply extract1_insert2_ne; eauto.
   - revert lr_refcount0. rewrite !Mlen_mult !Mlen_singleton. lia.
-Admitted.
+Qed.
 
 Lemma lock_relMG_same_dom_empty refcnt xs ts x i :
   lock_relMG refcnt xs ts x ->
@@ -885,31 +1361,163 @@ Proof.
       erewrite extract1_ne_Some; last done. done.
 Qed.
 
+Lemma extract1_notin xs {ls i} :
+  i ∉ ls ->
+  extract1 i (zip ls xs) = ε.
+Proof.
+  revert ls. induction xs; intros []; [simpl..|];
+  rewrite ?extract1_empty; eauto.
+  intros H.
+  eapply not_elem_of_cons in H as [].
+  erewrite <-(extract1_delete _ 0); eauto.
+Qed.
+
+Lemma NoDup_delete_notin {A} (ls : list A) ii i :
+  NoDup ls ->
+  ls !! ii = Some i ->
+  i ∉ delete ii ls.
+Proof.
+  intros ???.
+  eapply elem_of_list_lookup_1 in H1 as [? ?].
+  rewrite lookup_delete_lr in H1.
+  case_decide.
+  - assert (x = ii); last lia.
+    eapply NoDup_lookup; eauto.
+  - assert (S x = ii); last lia.
+    eapply NoDup_lookup; eauto.
+Qed.
+
+Lemma extract1_Some_NoDup ii i l ls xs :
+  NoDup ls ->
+  ls !! ii = Some i ->
+  xs !! ii = Some l ->
+  extract1 i (zip ls xs) ≡ {[ l:labelO' ]}.
+Proof.
+  intros. erewrite extract1_Some; eauto.
+  rewrite extract1_notin. { rewrite right_id //. }
+  eapply NoDup_delete_notin; eauto.
+Qed.
+
+Lemma incr_all_refcounts_lookup xs ls i :
+  NoDup ls ->
+  incr_all_refcounts xs ls !! i =
+  match xs !! i with
+  | None => None
+  | Some (refcnt,o) =>
+      Some (if decide (i ∈ ls) then S refcnt else refcnt, o)
+  end.
+Proof.
+  intros Hls.
+  unfold incr_all_refcounts.
+  revert xs i. induction ls; intros; simpl.
+  { destruct (xs!!i); eauto. destruct p; eauto. }
+  smap.
+  - eapply NoDup_cons in Hls as [].
+    rewrite IHls //.
+    destruct (xs !! i); eauto.
+    destruct p. simpl. case_decide; do 2 f_equal; (done||lia).
+  - set_solver.
+  - eapply NoDup_cons in Hls as [].
+    rewrite IHls //.
+    destruct (xs !! i); eauto. smap.
+    eapply elem_of_cons in H0 as []; smap.
+  - eapply NoDup_cons in Hls as [].
+    rewrite IHls //.
+    destruct (xs !! i); eauto. smap.
+    set_solver.
+Qed.
+
+Lemma incr_all_refcounts_dom xs ls :
+  dom (incr_all_refcounts xs ls) = dom xs.
+Proof.
+  unfold incr_all_refcounts.
+  revert xs. induction ls; simpl; eauto.
+  intros. rewrite dom_alter_L IHls //.
+Qed.
+
 Lemma lock_relMG_ForkLock xs1 xs2 xs3 ls x refcnt xs ts :
   length ls = length xs1 ->
   lockcaps_split xs1 xs2 xs3 ->
   lock_relMG refcnt xs ts ({[LockLabel (zip ls xs1)]} ⋅ x) ->
-  lock_relMG (S refcnt) xs ts
+  lock_relMG (S refcnt) (incr_all_refcounts xs ls) ts
     ({[LockLabel (zip ls xs3)]} ⋅ {[LockLabel (zip ls xs2)]} ⋅ x).
 Proof.
   intros HH H [].
   exists order; eauto.
   - revert order_subsequences. rewrite !mset_forall_op !mset_forall_singleton.
-    intros []. simp. rewrite fst_zip in H4; last admit. repeat split; eauto.
-    + eexists. split; first done.
-      rewrite fst_zip; last admit. done.
-    + eexists. split; first done.
-      rewrite fst_zip; last admit. done.
+    intros []. simp.
+    rewrite fst_zip in H4; last lia.
+    eapply lockcaps_split_length in H.
+    rewrite incr_all_refcounts_dom //.
+  - revert order_subsequences.
+    rewrite !mset_forall_op !mset_forall_singleton.
+    simp.
+    rewrite fst_zip in H4; last lia.
+    split; eauto.
+    eapply lockcaps_split_length in H as [].
+    split; eexists; split; eauto; rewrite fst_zip; eauto; lia.
   - intros i. specialize (lr_lock_relM0 i).
+    rewrite mset_forall_op mset_forall_singleton in order_subsequences.
+    simp. rewrite fst_zip in H4; last lia.
+    rewrite incr_all_refcounts_lookup; eauto using NoDup_sublist.
     destruct (xs !! i); eauto. destruct p.
     destruct (ts !! i); eauto.
     revert lr_lock_relM0.
     rewrite !extract_op !extract_singleton. intro.
+    assert (NoDup ls); eauto using NoDup_sublist.
+    case_decide; last first.
+    {
+      revert lr_lock_relM0.
+      do 3 (erewrite extract1_notin; eauto).
+    }
+    eapply elem_of_list_lookup_1 in H2 as [ii Hii].
+    assert (ii < length ls); eauto using lookup_lt_is_Some_1.
+    destruct (lockcaps_split_length _ _ _ H).
+    assert (is_Some (xs1 !! ii)) as []; eauto using lookup_lt_is_Some_2 with lia.
+    assert (is_Some (xs2 !! ii)) as []; eauto using lookup_lt_is_Some_2 with lia.
+    assert (is_Some (xs3 !! ii)) as []; eauto using lookup_lt_is_Some_2 with lia.
+    rewrite extract1_Some_NoDup; eauto.
+    rewrite extract1_Some_NoDup; eauto.
+    rewrite extract1_Some_NoDup in lr_lock_relM0; eauto.
+    destruct x0, x1, x2.
     unfold lockcaps_split in *.
-    Search lock_relM.
-    admit.
+    eapply Forall3_lookup_lmr in H; eauto. simpl in *. simp.
+    assert (t2 = t) as ->.
+    { eapply lock_relM_same_type; eauto. }
+    eapply lock_relM_split; eauto.
   - revert lr_refcount0. rewrite !Mlen_mult !Mlen_singleton. intro. lia.
-Admitted.
+Qed.
+
+Lemma big_sepM_dom' `{Countable K} {V} (m : gmap K V) (P : K -> V -> rProp) :
+  ([∗ map] k↦v ∈ m, P k v)%I ⊣⊢ [∗ set] k∈dom m, from_option (P k) True (m!!k).
+Proof.
+  induction m using map_ind.
+  - rewrite dom_empty_L big_sepM_empty big_sepS_empty //.
+  - rewrite big_sepM_insert; eauto.
+    rewrite dom_insert_L.
+    rewrite big_sepS_union; last first.
+    {
+      intros ???. assert (x0 = i) as -> by set_solver.
+      apply elem_of_dom in H2 as []. congruence.
+    }
+    rewrite IHm.
+    rewrite big_sepS_singleton. smap.
+    iSplit; iIntros "[? H]"; iFrame; iApply (big_sepS_impl with "H");
+    iModIntro; iIntros (? ?); smap; eapply elem_of_dom in H1 as []; congruence.
+Qed.
+
+Lemma incr_all_refcounts_proj xs x x0 x2 ls :
+  xs !! x = Some x0 ->
+  incr_all_refcounts xs ls !! x = Some x2 ->
+  x0.2 = x2.2.
+Proof.
+  destruct x0, x2.
+  revert xs x n o n0 o0; induction ls; intros; simpl in *; try congruence.
+  rewrite lookup_alter_spec in H0. smap.
+  destruct (incr_all_refcounts xs ls !! x) as [[]|] eqn:E.
+  - rewrite E in H0. smap.
+  - rewrite E in H0. smap.
+Qed.
 
 Lemma preservation i ρ ρ' :
   step i ρ ρ' -> ginv ρ -> ginv ρ'.
@@ -1063,6 +1671,7 @@ Proof.
         * iExists (<[ jj := t' ]> ts).
           iSplit.
           ** iPureIntro.
+              About lock_relMG_NewLock.
              eapply lock_relMG_NewLock; eauto.
           ** rewrite big_sepM2_insert; simpl; eauto.
              eapply lock_relMG_same_dom_empty; eauto.
@@ -1181,7 +1790,30 @@ Proof.
         iExists _. iFrame. iPureIntro. split; first done. lia.
       }
       iSplitL "H".
-      * iExists ts. iFrame. iPureIntro. eapply lock_relMG_ForkLock; eauto.
+      * iExists ts. iSplit.
+        { iPureIntro. eapply lock_relMG_ForkLock; eauto. } clear.
+        rewrite !big_sepM2_alt.
+        iDestruct "H" as "[% H2]".
+        iSplit. { iPureIntro. intro. specialize (H k). revert H.
+                  rewrite -!elem_of_dom incr_all_refcounts_dom //. }
+        rewrite !big_sepM_dom'.
+        rewrite !dom_map_zip_with_L incr_all_refcounts_dom.
+        iApply (big_sepS_impl with "H2").
+        iModIntro. iIntros (x HH) "H".
+        eapply elem_of_intersection in HH as [].
+        eapply elem_of_dom in H0 as [].
+        eapply elem_of_dom in H1 as [].
+        assert (map_zip xs ts !! x = Some (x0,x1)) as ->.
+        { eapply map_lookup_zip_Some. eauto. }
+        simpl.
+        assert (is_Some (incr_all_refcounts xs ls !! x)) as [].
+        {
+          apply elem_of_dom. rewrite incr_all_refcounts_dom.
+          apply elem_of_dom. eauto.
+        }
+        assert (map_zip (incr_all_refcounts xs ls) ts !! x = Some (x2,x1)) as ->.
+        { eapply map_lookup_zip_Some. eauto. }
+        simpl. eapply incr_all_refcounts_proj in H2 as ->; eauto.
       * iIntros "H". iSplit; first done.
         iExists _,_. iFrame.
         iExists _. iFrame.
@@ -1189,6 +1821,14 @@ Proof.
 Qed.
 
 Lemma cfg_fresh1 (ρ : cfg) :
+  ∃ j, ρ !! j = None.
+Proof.
+  exists (fresh (dom ρ)).
+  apply not_elem_of_dom.
+  apply is_fresh.
+Qed.
+
+Lemma map_fresh1 {V} (ρ : gmap nat V) :
   ∃ j, ρ !! j = None.
 Proof.
   exists (fresh (dom ρ)).
@@ -1466,6 +2106,27 @@ Proof.
   rewrite HΣ in H1. revert H1. smap. inv H1. done.
 Qed.
 
+Fixpoint acquire_progress (lcks : locksbundle) (ls : list (vertex * (lockcap * type))) :=
+  match ls with
+  | (i,(lo,Closed,t))::ls' =>
+      acquire_progress lcks ls' ∧
+      ∃ refcnt v, lcks !! i = Some(refcnt, Some v)
+  | _ => True
+  end.
+
+Record can_progress (refcnt : nat) (lcks : locksbundle)
+                    (ls : list (vertex * (lockcap * type))) : Prop := {
+  cp_acquire : acquire_progress lcks ls;
+  cp_wait :
+}.
+
+Lemma lock_relMG_progress refcnt lcks t x :
+  lock_relMG refcnt lcks t x ->
+  (refcnt=0 ∧ lcks=∅) ∨ ∃ ls x',
+    x ≡ {[ LockLabel ls ]} ⋅ x' ∧ can_progress refcnt lcks ls.
+Proof.
+Admitted.
+
 Lemma full_reachability ρ :
   ginv ρ -> fully_reachable ρ.
 Proof.
@@ -1646,6 +2307,82 @@ Proof.
   - (* Lock group *)
     eapply exists_holds in Q as [t Q].
     eapply pure_sep_holds in Q as [Hrel Q].
+    assert (HH := Hrel).
+    eapply lock_relMG_progress in HH.
+    destruct HH as [HH|HH].
+    {
+      (* Delete the group *)
+      simp. eapply Can_step_reachable.
+      assert (ρ = {[
+        i := LockG 0 ∅
+      ]} ∪ delete i ρ) as ->.
+      { eapply map_eq. smap. }
+      eexists. econstructor; last econstructor.
+      - intro. smap. destruct (_!!i0); try done.
+      - solve_map_disjoint.
+    }
+    destruct HH as (ls&x'&Hinl&Hprog).
+    eapply in_labels_out_edges in Hinl as  [j Hj].
+    destruct (classic (blocked ρ j i)) as [HB|HB]; last first.
+    {
+      (* Not blocked, so use IH to go there *)
+      destruct (IH2 _ _ Hj HB) as [H|H].
+      - exfalso. eauto using out_edge_active.
+      - eapply Waiting_reachable; last done.
+        unfold waiting.
+        unfold blocked in HB.
+        right.
+        edestruct (linv_out_Some i j) as [e1 [He1 He1']]; eauto.
+        eexists. split; first done.
+        split.
+        + erewrite obj_refs_linv; last eauto; last eauto.
+          eapply elem_of_dom. inv Hj; eauto.
+        + intros ???. eapply HB. subst; eauto.
+    }
+    eapply Can_step_reachable.
+    destruct HB as (e & Hρ & Hw).
+    clear x'.
+    destruct Hw as (k & e' & Hk & -> & Hw).
+    pose proof (Hinv j) as Hinvj.
+    unfold linv in Hinvj.
+    rewrite Hρ in Hinvj.
+    eapply pure_sep_holds in Hinvj as [_ Htyped].
+    destruct Hw.
+    + exfalso. eapply label_unique; first exact Hj.
+      eapply holds_entails; eauto.
+      iIntros "H". rewrite replacement; last done.
+      iDestr "H". iDestruct "H" as "[H1 H2]".
+      simpl. iDestr "H1".
+      iDestruct "H1" as "[Q1 Q2]".
+      iDestr "Q1"; simp; eauto with iFrame.
+    + assert (ρ = {[
+        j := Thread (k (ForkLock (Val (LockGV j0 ls0)) (Val v)));
+        j0 := LockG refcnt lcks
+        ]} ∪ (delete j $ delete j0 ρ)) as ->.
+      { apply map_eq. intro. smap. }
+      destruct (cfg_fresh1 ρ) as (i & Hi).
+      assert (j ≠ i). { intro. smap. }
+      assert (i ≠ j0). { intro. smap. }
+      do 2 econstructor; last econstructor; last done; last exact H0; eauto;
+      intro; smap; destruct (ρ !! i0) eqn:EE; rewrite EE; eauto; smap.
+    + admit.
+    + admit.
+    + admit.
+    + assert (ρ = {[
+        j := Thread (k (NewLock i (Val (LockGV j0 ls0))));
+        j0 := LockG refcnt lcks
+        ]} ∪ (delete j $ delete j0 ρ)) as ->.
+      { apply map_eq. intro. smap. }
+      destruct (map_fresh1 lcks) as (ii & Hii).
+      do 2 econstructor; last econstructor; last done; eauto.
+      * intro. smap. destruct (ρ!!i0) eqn:EE; rewrite EE; done.
+      * intro. smap. destruct (ρ!!i0) eqn:EE; rewrite EE; done.
+      * intro. smap.
+    + admit.
+    + admit.
+
+
+
 Admitted.
     (*
     Progress lemma:
