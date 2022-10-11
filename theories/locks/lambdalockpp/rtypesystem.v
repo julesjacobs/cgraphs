@@ -71,12 +71,12 @@ Fixpoint rtyped (Γ : env) e t : rProp :=
   | Wait i e =>
       ∃ (t' : type) (xs : list (lockcap * type)), ⌜⌜ t = (PairT (LockGT (delete i xs)) t') ∧ xs !! i = Some ((Owner,Closed),t') ∧
         (∀ j ownership state t', xs !! j = Some ((ownership,state),t') ->
-          (state = Closed) ∧ (j > i -> ownership = Owner)) ⌝⌝ ∗
+          (state = Closed) ∧ (j < i -> ownership = Owner)) ⌝⌝ ∗
       rtyped Γ e (LockGT xs)
   | Acquire i e =>
       ∃ (t':type) (a:lockownership) (xs : list (lockcap * type)),
       ⌜⌜ t = (PairT (LockGT (<[ i := ((a,Opened),t') ]> xs)) t') ∧ xs !! i = Some ((a,Closed),t') ∧
-        (∀ j ownership state t', j > i -> xs !! j = Some ((ownership,state),t') -> state = Closed) ⌝⌝ ∗
+        (∀ j ownership state t', j < i -> xs !! j = Some ((ownership,state),t') -> state = Closed) ⌝⌝ ∗
       rtyped Γ e (LockGT xs)
   | Release i e1 e2 =>
       ∃ Γ1 Γ2, ⌜⌜ env_split Γ Γ1 Γ2 ⌝⌝ ∗
@@ -398,12 +398,12 @@ Fixpoint rtyped0 e t : rProp :=
   | Wait i e =>
       ∃ (t' : type) (xs : list (lockcap * type)), ⌜⌜ t = PairT (LockGT (delete i xs)) t' ∧ xs !! i = Some ((Owner,Closed),t') ∧
         (∀ j ownership state t', xs !! j = Some ((ownership,state),t') ->
-          (state = Closed) ∧ (j > i -> ownership = Owner)) ⌝⌝ ∗
+          (state = Closed) ∧ (j < i -> ownership = Owner)) ⌝⌝ ∗
       rtyped0 e (LockGT xs)
   | Acquire i e =>
       ∃ (t':type) (a:lockownership) (xs : list (lockcap * type)),
       ⌜⌜ t = (PairT (LockGT (<[ i := ((a,Opened),t') ]> xs)) t') ∧ xs !! i = Some ((a,Closed),t') ∧
-        (∀ j ownership state t', j > i -> xs !! j = Some ((ownership,state),t') -> state = Closed) ⌝⌝ ∗
+        (∀ j ownership state t', j < i -> xs !! j = Some ((ownership,state),t') -> state = Closed) ⌝⌝ ∗
       rtyped0 e (LockGT xs)
   | Release i e1 e2 =>
       ∃ a t' (xs : list (lockcap * type)), ⌜⌜ t = (LockGT (<[ i := ((a,Closed),t') ]> xs)) ∧ xs !! i = Some ((a,Opened),t') ⌝⌝ ∗
