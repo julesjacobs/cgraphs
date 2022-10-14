@@ -2386,7 +2386,7 @@ Admitted.
 Lemma lockrelG_refcount refcnt lcks t l x :
   lockrelG refcnt lcks t ({[ l ]} ⋅ x) -> refcnt > 0.
 Proof.
-  intros [].
+  intros [order []].
   rewrite Mlen_mult Mlen_singleton in lr_refcount0. lia.
 Qed.
 
@@ -2420,13 +2420,13 @@ Lemma lockrelG_refcounti ls i n refcnt lcks t xs x' t' :
   lockrelG refcnt lcks t ({[LockLabel (zip ls xs)]} ⋅ x') ->
   ∃ refcnt' o, lcks !! n = Some (S refcnt',o).
 Proof.
-  intros Hlen Hxs HH [].
-  rewrite mset_forall_op mset_forall_singleton in order_subsequences.
+  intros Hlen Hxs HH [order []].
+  rewrite mset_forall_op mset_forall_singleton in order_subsequences0.
   simp.
   rewrite fst_zip in H3; last lia.
   assert (n ∈ dom lcks).
   {
-    rewrite -order_dom.
+    rewrite -order_dom0.
     eapply elem_of_list_to_set.
     eapply sublist_elem_of; eauto.
     eapply elem_of_list_lookup. eauto.
@@ -2467,13 +2467,13 @@ Lemma lockrelG_refcounti_Opened ls i n refcnt a lcks t t' xs x' :
   lockrelG refcnt lcks t ({[LockLabel (zip ls xs)]} ⋅ x') ->
   ∃ refcnt', lcks !! n = Some (refcnt',None).
 Proof.
-  intros Hlen Hxs HH [].
-  rewrite mset_forall_op mset_forall_singleton in order_subsequences.
+  intros Hlen Hxs HH [order []].
+  rewrite mset_forall_op mset_forall_singleton in order_subsequences0.
   simp.
   rewrite fst_zip in H3; last lia.
   assert (n ∈ dom lcks).
   {
-    rewrite -order_dom.
+    rewrite -order_dom0.
     eapply elem_of_list_to_set.
     eapply sublist_elem_of; eauto.
     eapply elem_of_list_lookup. eauto.
