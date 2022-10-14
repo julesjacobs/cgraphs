@@ -2252,84 +2252,79 @@ Proof.
   apply dom_empty_iff_L in order_dom0. simp.
 Qed.
 
-Lemma lock_relG'_del a order refcnt lcks t x :
-  lockrelG' (a :: order) refcnt lcks t x ->
-  lockrelG' order refcnt (delete a lcks) (delete a t) (delcol a x).
+Lemma melem_of_list_to_multiset {A:ofe} a (xs : list A) :
+  melem_of a (list_to_multiset xs) -> ∃ a', a ≡ a' ∧ a' ∈ xs.
 Proof.
-Admitted.
+  intros [].
+  revert x H. induction xs; simp.
+  - symmetry in H. eapply multiset_empty_mult in H. simp.
+  - rewrite list_to_multiset_cons in H.
+    eapply mset_xsplit in H. simp.
+    setoid_subst.
+    eapply multiset_singleton_mult in H5 as []; simp; setoid_subst.
+    + rewrite left_id in H3. setoid_subst. eapply IHxs in H4.
+      simp. eexists. split; eauto. apply elem_of_cons. eauto.
+    + symmetry in H3. eapply multiset_singleton_mult' in H3. simp.
+      eexists a0. split; first apply H0.
+      eapply elem_of_cons. eauto.
+Qed.
 
-Lemma all_closed_del x a :
-  all_closed x -> all_closed (delcol a x).
+Lemma melem_of_list_to_multiset' {A:ofe} a (xs : list A) :
+  a ∈ xs ->
+  melem_of a (list_to_multiset xs).
 Proof.
-Admitted.
+  intros H.
+  apply elem_of_list_lookup in H as [].
+  exists (list_to_multiset (delete x xs)).
+  revert x H. induction xs; simp.
+  destruct x; simp.
+  apply IHxs in H. rewrite !list_to_multiset_cons H.
+  rewrite comm -assoc. f_equiv. rewrite comm //.
+Qed.
 
-
-
-
-Lemma lockrelG_open_progress order refcnt lcks t x :
-  lockrelG' order refcnt lcks t x ->
-  ¬ all_closed x ->
-  refcnt = 0 ∧ lcks = ∅
-  ∨ (∃ ls : list (vertex * (lockcap * type)),
-      melem_of (LockLabel ls) x ∧
-      can_progress refcnt lcks ls ∧
-      ∃ l, l ∈ ls ∧ l.2.1.2 = Opened).
+Lemma elem_of_flat_map {A B} (f : A -> list B) l y :
+  y ∈ flat_map f l ↔ ∃ x : A, x ∈ l ∧ y ∈ f x.
 Proof.
-  intros.
-  cut (refcnt = 0 ∧ lcks = ∅
-      ∨ (∃ ls : list (vertex * (lockcap * type)),
-          melem_of (LockLabel ls) x ∧
-          acquire_progress lcks ls ∧
-          ∃ l, l ∈ ls ∧ l.2.1.2 = Opened)).
-  {
-    intros []. simp; eauto.
-    simp. right. eexists.
-    split_and!; eauto.
-    split; eauto.
-    intro. specialize (H6 H4). simp.
-    congruence.
-  }
-  revert refcnt lcks t x H H0. induction order; intros.
-  {
-    left. split; eauto using lockrelG'_empty.
-    destruct refcnt; eauto. exfalso.
-    eapply H0. clear H0.
-    destruct H. unfold all_closed.
-    eapply mset_forall_impl; eauto.
-    simp. eexists; split; eauto. simp.
-    destruct x0. assert (n ∈ H0.*1). { eapply elem_of_fmap. eexists; split; eauto. done. }
-    eapply sublist_elem_of in H1; eauto.
-    set_solver.
-  }
-      (* First, check if there is an opened in the first column, if so, we are done. *)
-      (* Now the first column has only closed. *)
-      (* Then there must be an opened in the remainder of the matrix, so IH applies. *)
-      (* So IH gives us a row with acquire_progress and wait_progress and an opened in the row. *)
-      (* Done. *)
-Admitted.
+  setoid_rewrite elem_of_list_In.
+  apply in_flat_map.
+Qed.
 
-Print extract1.
+Lemma elem_of_multiset_car {A:ofe} (a:A) x :
+  a ∈ multiset_car x -> melem_of a x.
+Proof.
+  intros H.
+  apply melem_of_list_to_multiset'. simp.
+Qed.
 
 Lemma melem_of_extract (a:labelO') l x :
   melem_of a (extract l x) -> ∃ aa, melem_of (LockLabel aa) x ∧ melem_of a (extract1 l aa).
 Proof.
-Admitted.
-
-Lemma melem_of_list_to_multiset {A:ofe} a (xs : list A) :
-  melem_of a (list_to_multiset xs) -> a ∈ xs.
-Proof.
-Admitted.
+  intros H. unfold extract in H.
+  apply melem_of_list_to_multiset in H. simp.
+  eapply elem_of_flat_map in H2. simp. destruct H; simp.
+  { apply elem_of_nil in H3. done. }
+  eapply elem_of_list_fmap in H3. simp.
+  eapply elem_of_list_filter in H4. simp. destruct H; simp.
+  apply elem_of_multiset_car in H2.
+  eexists; split; eauto.
+  unfold extract1.
+  apply melem_of_list_to_multiset'.
+  simpl. apply elem_of_list_fmap. eexists.
+  split; last first.
+  { apply elem_of_list_filter. split; eauto. simp. }
+  simp.
+Qed.
 
 Lemma melem_of_extract1 xs a l :
   melem_of a (extract1 l xs) -> (l,a) ∈ xs.
 Proof.
   intros H.
-  apply melem_of_list_to_multiset in H.
+  apply melem_of_list_to_multiset in H. simp.
   unfold extract1 in *.
   simpl in *.
-  eapply elem_of_list_fmap in H. simp.
-  eapply elem_of_list_filter in H2. simp.
-  destruct H0. simp.
+  eapply elem_of_list_fmap in H2. simp.
+  eapply elem_of_list_filter in H3. simp.
+  destruct H. simp.
 Qed.
 
 Lemma all_closed_extract x l :
@@ -2441,6 +2436,60 @@ Proof.
   eapply melem_of_forall in H1; eauto. simp.
   inv H2.
 Qed.
+
+Lemma lock_relG'_del a order refcnt lcks t x :
+  lockrelG' (a :: order) refcnt lcks t x ->
+  lockrelG' order refcnt (delete a lcks) (delete a t) (delcol a x).
+Proof.
+Admitted.
+
+Lemma all_closed_del x a :
+  all_closed x -> all_closed (delcol a x).
+Proof.
+Admitted.
+
+
+Lemma lockrelG_open_progress order refcnt lcks t x :
+  lockrelG' order refcnt lcks t x ->
+  ¬ all_closed x ->
+  refcnt = 0 ∧ lcks = ∅
+  ∨ (∃ ls : list (vertex * (lockcap * type)),
+      melem_of (LockLabel ls) x ∧
+      can_progress refcnt lcks ls ∧
+      ∃ l, l ∈ ls ∧ l.2.1.2 = Opened).
+Proof.
+  intros.
+  cut (refcnt = 0 ∧ lcks = ∅
+      ∨ (∃ ls : list (vertex * (lockcap * type)),
+          melem_of (LockLabel ls) x ∧
+          acquire_progress lcks ls ∧
+          ∃ l, l ∈ ls ∧ l.2.1.2 = Opened)).
+  {
+    intros []. simp; eauto.
+    simp. right. eexists.
+    split_and!; eauto.
+    split; eauto.
+    intro. specialize (H6 H4). simp.
+    congruence.
+  }
+  revert refcnt lcks t x H H0. induction order; intros.
+  {
+    left. split; eauto using lockrelG'_empty.
+    destruct refcnt; eauto. exfalso.
+    eapply H0. clear H0.
+    destruct H. unfold all_closed.
+    eapply mset_forall_impl; eauto.
+    simp. eexists; split; eauto. simp.
+    destruct x0. assert (n ∈ H0.*1). { eapply elem_of_fmap. eexists; split; eauto. done. }
+    eapply sublist_elem_of in H1; eauto.
+    set_solver.
+  }
+      (* First, check if there is an opened in the first column, if so, we are done. *)
+      (* Now the first column has only closed. *)
+      (* Then there must be an opened in the remainder of the matrix, so IH applies. *)
+      (* So IH gives us a row with acquire_progress and wait_progress and an opened in the row. *)
+      (* Done. *)
+Admitted.
 
 Lemma lockrelG_progress refcnt lcks t x :
   lockrelG refcnt lcks t x ->
