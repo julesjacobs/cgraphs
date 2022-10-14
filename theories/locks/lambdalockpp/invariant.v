@@ -2564,6 +2564,64 @@ Proof.
   inv H2.
 Qed.
 
+Lemma mset_forall_fmap {A B:ofe} (f : A -> B) P x :
+  Proper (equiv ==> equiv) f ->
+  Proper (equiv ==> equiv) P ->
+  mset_forall (P ∘ f) x <-> mset_forall P (mset_fmap f x).
+Proof.
+  intros HH1 HH2.
+  split;
+  intros ???.
+  - unfold mset_forall in *.
+    apply melem_of_fmap in H0; eauto. simp.
+    setoid_subst. eapply H. done.
+  - eapply H. apply melem_of_fmap; eauto.
+Qed.
+
+Lemma extract_delcol_ne i a x :
+  i ≠ a ->
+  extract i (delcol a x) = extract i x.
+Proof.
+  intros Hneq.
+  unfold extract. f_equal.
+  unfold delcol. simpl.
+  induction (multiset_car x); simpl; eauto.
+  rewrite IHl.
+  destruct a0; simpl; eauto. clear IHl.
+  f_equal. f_equal.
+  induction ls; eauto.
+  rewrite filter_cons. destruct a0.
+  case_decide; simp; rewrite !filter_cons;
+  repeat case_decide; simp. f_equal. done.
+Qed.
+
+Lemma Mlen_fmap {A B:ofe} (f : A -> B) x :
+  Mlen (mset_fmap f x) = Mlen x.
+Proof.
+  unfold mset_fmap.
+  unfold Mlen. simpl.
+  rewrite fmap_length //.
+Qed.
+
+Lemma filter_proj {A B} (xs : list (A*B)) P `{∀ x, Decision (P x)}:
+  (filter (λ '(a,b), P a) xs).*1 = filter P (xs.*1).
+Proof.
+  induction xs; simpl; eauto.
+  rewrite !filter_cons.
+  destruct a. repeat case_decide; simp;
+  rewrite ?IHxs; eauto; done.
+Qed.
+
+Lemma filter_sublist_mono {A} (xs ys : list A) P `{∀ x, Decision (P x)} :
+  xs `sublist_of` ys ->
+  filter P xs `sublist_of` ys.
+Proof.
+  induction 1; simpl; eauto.
+  - rewrite filter_cons. case_decide; simp;
+    constructor; eauto.
+  - constructor; eauto.
+Qed.
+
 Lemma lock_relG'_del a order refcnt lcks t x :
   lockrelG' (a :: order) refcnt lcks t x ->
   lockrelG' order refcnt (delete a lcks) (delete a t) (delcol a x).
@@ -2573,20 +2631,29 @@ Proof.
   apply NoDup_cons in order_NoDup0. simp.
   split; eauto.
   - rewrite dom_delete_L. set_solver.
-  - admit.
+  - unfold delcol. rewrite -mset_forall_fmap. simpl.
+    eapply mset_forall_impl; eauto. simp.
+    eexists. split; eauto.
+    inv H4.
+    + destruct H2; simp.
+      rewrite filter_proj.
+      rewrite fmap_cons filter_cons.
+      case_decide; simp.
+      apply filter_sublist_mono; eauto.
+    + rewrite filter_proj. apply filter_sublist_mono; eauto.
   - intros. smap. specialize (lr_lockrel0 i).
     destruct (lcks !! i) eqn:EE; rewrite EE; simp.
     destruct p. destruct (t !! i) eqn:FF; simp.
-    admit.
-  - admit.
-Admitted.
+    rewrite extract_delcol_ne; eauto.
+  - apply fmap_length.
+Qed.
 
 Lemma all_closed_del x a :
   all_closed x -> all_closed (delcol a x).
 Proof.
   intros H l H1.
   unfold all_closed in *.
-  eapply melem_of_fmap in H1. simp.
+  eapply melem_of_fmap in H1; last apply _. simp.
   eapply H in H3. simp. eexists; split; eauto.
   intros.
   eapply elem_of_list_filter in H0. destruct x0; simp.
@@ -2662,6 +2729,12 @@ Proof.
         { simp. apply lockrelG'_refcnt_0 in H. simp. }
         (* Then if IH returns same row as owner, prepend the first column. *)
         simp.
+        apply melem_of_fmap in H1; last apply _.
+        simp. destruct H3; simp.
+        
+        eapply Hx in H6. simp.
+
+        destruct b; simp.
         admit.
   }
   {
