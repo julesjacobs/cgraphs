@@ -2222,8 +2222,136 @@ Definition all_closed x := mset_forall (λ lab,
 
 Definition all_closed1 (x : multiset labelO') := mset_forall (λ l:labelO', l.1.2 = Closed) x.
 
-Definition delcol (i : nat) (x : multiset labelO) : multiset labelO. Admitted.
+Definition mset_fmap {A B : ofe} (f : A -> B) (x : multiset A) : multiset B :=
+  list_to_multiset (f <$> multiset_car x).
 
+Global Instance : Params (@mset_fmap) 2 := {}.
+
+Global Instance mset_fmap_Proper {A B : ofe} : Proper (((≡) ==> (≡)) ==> (≡) ==> (≡)) (@mset_fmap A B).
+Proof.
+  intros ??????.
+  unfold mset_fmap.
+  inv H0. simp.
+  eexists; simpl.
+  split.
+  - eapply fmap_Permutation; eauto.
+  - f_equiv; eauto.
+Qed.
+
+Lemma list_to_multiset_app {A:ofe} (x1 x2 : list A) :
+  list_to_multiset (x1 ++ x2) ≡ list_to_multiset x1 ⋅ list_to_multiset x2.
+Proof.
+  done.
+Qed.
+
+Lemma mset_fmap_op {A B:ofe} (f:A->B) x1 x2 :
+  mset_fmap f (x1 ⋅ x2) ≡ mset_fmap f x1 ⋅ mset_fmap f x2.
+Proof.
+  unfold mset_fmap.
+  rewrite fmap_app list_to_multiset_app //.
+Qed.
+
+Lemma mset_fmap_singleton {A B:ofe} (f:A->B) a :
+  mset_fmap f {[ a ]} ≡ {[ f a ]}.
+Proof.
+  done.
+Qed.
+
+Lemma fmap_Permutation_inv {A B} (f : A -> B) (xs : list A) (ys : list B) :
+  f <$> xs ≡ₚ ys ->
+  ∃ xs', xs ≡ₚ xs' ∧ f <$> xs' = ys.
+Proof.
+  cut (∀ zs, f <$> xs = zs -> zs ≡ₚ ys -> ∃ xs', xs ≡ₚ xs' ∧ f <$> xs' = ys).
+  { simp. eauto. }
+  intros. revert xs H. induction H0; simp.
+  - destruct xs; simp. eauto.
+  - destruct xs; simp.
+    edestruct IHPermutation; simp.
+    eexists (a :: x). split; constructor; done.
+  - destruct xs; simp. destruct xs; simp.
+    eexists (a0 :: a :: xs). split; eauto.
+    constructor.
+  - edestruct IHPermutation1; simp.
+    edestruct IHPermutation2; simp.
+    exists x0. split; eauto. etrans; first apply H0. done.
+Qed.
+
+Lemma fmap_app_inv' {A B : ofe} (f : A → B) (l : list A) (k1 k2 : list B) :
+	f <$> l ≡ k1 ++ k2
+    → ∃ l1 l2 : list A, k1 ≡ f <$> l1 ∧ k2 ≡ f <$> l2 ∧ l = l1 ++ l2.
+Proof.
+  revert k1 k2. induction l; simp.
+  - destruct k1,k2; simp; eauto.
+    + exists [],[]; simp; eauto.
+    + inv H.
+    + inv H.
+    + inv H.
+  - destruct k1; simpl in *.
+    + destruct k2; inv H.
+      exists []. exists (a :: l).
+      simpl. split_and!; eauto.
+      constructor; eauto.
+    + inv H. eapply IHl in H5. simp.
+      exists (a :: H). exists H1. split_and!; eauto.
+      constructor; eauto.
+Qed.
+
+Lemma mset_fmap_op_inv {A B:ofe} (f : A -> B) y1 y2 x :
+  mset_fmap f x ≡ y1 ⋅ y2 ->
+  ∃ x1 x2, x ≡ x1 ⋅ x2 ∧ y1 ≡ mset_fmap f x1 ∧ y2 ≡ mset_fmap f x2.
+Proof.
+  unfold mset_fmap.
+  intros H. inv H. simp.
+  eapply fmap_Permutation_inv in H. simp.
+  eapply fmap_app_inv' in H1. simp.
+  exists (list_to_multiset H2).
+  exists (list_to_multiset H1).
+  split_and!; simpl; eauto.
+  - eexists. split; eauto.
+  - eexists; simpl. split; eauto.
+  - eexists; simpl. split; eauto.
+Qed.
+
+Lemma mset_fmap_singleton_inv {A B:ofe} (f : A -> B) a x :
+  mset_fmap f x ≡ {[ a ]} ->
+  ∃ b, x ≡ {[ b ]} ∧ a ≡ f b.
+Proof.
+  unfold mset_fmap. intros H. inv H. simp.
+  inv H1. simp. inv H5.
+  eapply Permutation_singleton_r in H.
+  destruct x. simpl in *.
+  destruct multiset_car; simp.
+  destruct multiset_car; simp.
+  eexists. symmetry in H4. split; eauto.
+  done.
+Qed.
+
+Lemma melem_of_fmap {A B : ofe} (f : A -> B) a x :
+  Proper ((≡) ==> (≡)) f ->
+  melem_of a (mset_fmap f x) <-> (∃ b, a ≡ f b ∧ melem_of b x).
+Proof.
+  intros HH.
+  split.
+  - simp. destruct H.
+    eapply mset_fmap_op_inv in H. simp.
+    symmetry in H2.
+    eapply mset_fmap_singleton_inv in H2. simp.
+    setoid_subst.
+    eexists. split; first done.
+    eapply melem_of_op_singleton.
+  - simp. destruct H2. eexists (mset_fmap f x0).
+    setoid_subst.
+    rewrite mset_fmap_op mset_fmap_singleton //.
+Qed.
+
+Definition delcol (i : nat) (x : multiset labelO) : multiset labelO :=
+  mset_fmap (λ l, match l with
+    | LockLabel ls => LockLabel (filter (λ '(jj,_), jj ≠ i) ls)
+    | a => a
+    end) x.
+
+Global Instance delcol_Proper i : Proper ((≡) ==> (≡)) (delcol i).
+Proof. solve_proper. Qed.
 
 Lemma mset_empty_or_not {A:ofe} (x:multiset A) :
   x = ε ∨ ∃ a, melem_of a x.
@@ -2357,7 +2485,6 @@ Proof.
     eapply melem_of_forall in H; eauto. simp.
 Qed.
 
-
 Lemma all_closed_acquire_progress order refcnt lcks t x ls :
   all_closed x ->
   lockrelG' order refcnt lcks t x ->
@@ -2441,13 +2568,30 @@ Lemma lock_relG'_del a order refcnt lcks t x :
   lockrelG' (a :: order) refcnt lcks t x ->
   lockrelG' order refcnt (delete a lcks) (delete a t) (delcol a x).
 Proof.
+  intros [].
+  rewrite list_to_set_cons in order_dom0.
+  apply NoDup_cons in order_NoDup0. simp.
+  split; eauto.
+  - rewrite dom_delete_L. set_solver.
+  - admit.
+  - intros. smap. specialize (lr_lockrel0 i).
+    destruct (lcks !! i) eqn:EE; rewrite EE; simp.
+    destruct p. destruct (t !! i) eqn:FF; simp.
+    admit.
+  - admit.
 Admitted.
 
 Lemma all_closed_del x a :
   all_closed x -> all_closed (delcol a x).
 Proof.
-Admitted.
-
+  intros H l H1.
+  unfold all_closed in *.
+  eapply melem_of_fmap in H1. simp.
+  eapply H in H3. simp. eexists; split; eauto.
+  intros.
+  eapply elem_of_list_filter in H0. destruct x0; simp.
+  eapply H4 in H3. simp.
+Qed.
 
 Lemma lockrelG_open_progress order refcnt lcks t x :
   lockrelG' order refcnt lcks t x ->
