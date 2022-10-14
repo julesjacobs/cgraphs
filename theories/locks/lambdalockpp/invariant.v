@@ -104,31 +104,67 @@ Proof.
   inversion H. simpl in *. simp.
 Qed.
 
-Definition mset_in {A:ofe} (a : A) (x : multiset A) := ∃ x', x ≡ {[ a ]} ⋅ x'.
+Definition melem_of {A:ofe} (a:A) (x:multiset A) := ∃ x', x ≡ {[ a ]} ⋅ x'.
+
+Global Instance melem_of_Proper {A:ofe} : Proper ((≡) ==> (≡) ==> (≡)) (@melem_of A).
+Proof.
+  intros ??????.
+  split; intros []; eexists; setoid_subst; eauto.
+Qed.
+
+Lemma melem_of_singleton {A:ofe} (a:A) :
+  melem_of a {[ a ]}.
+Proof.
+  exists ε. rewrite right_id //.
+Qed.
+
+Lemma melem_of_singleton_inv {A:ofe} (a b:A) :
+  melem_of a {[ b ]} -> a ≡ b.
+Proof.
+  intros [].
+  symmetry in H.
+  eapply multiset_singleton_mult' in H. simp.
+Qed.
+
+Lemma melem_of_op_singleton {A:ofe} (a:A) (x:multiset A) :
+  melem_of a ({[ a ]} ⋅ x).
+Proof.
+  exists x. done.
+Qed.
+
+Lemma melem_of_op {A:ofe} (a : A) x1 x2 :
+  melem_of a (x1 ⋅ x2) <-> melem_of a x1 ∨ melem_of a x2.
+Proof.
+  split.
+  - intros []. eapply mset_xsplit in H. simp.
+    eapply multiset_singleton_mult in H5 as []; simp; setoid_subst.
+    + right. apply melem_of_op_singleton.
+    + left. apply melem_of_op_singleton.
+  - intros [[]|[]].
+    + setoid_subst. rewrite -assoc. apply melem_of_op_singleton.
+    + setoid_subst. rewrite comm -assoc. apply melem_of_op_singleton.
+Qed.
 
 Definition mset_forall {A:ofe} (P : A -> Prop) (x : multiset A) :=
-  ∀ a x', x ≡ {[ a ]} ⋅ x' -> P a.
+  ∀ a, melem_of a x -> P a.
 
 Lemma mset_forall_op {A:ofe} (P : A -> Prop) (x1 x2 : multiset A) :
   mset_forall P (x1 ⋅ x2) <-> mset_forall P x1 ∧ mset_forall P x2.
 Proof.
   split; intros H.
   - split.
-    + intros ???. eapply H. rewrite H0. rewrite -assoc. done.
-    + intros ???. eapply H. rewrite comm. rewrite H0. rewrite -assoc. done.
-  - intros ???.
-    eapply mset_xsplit in H0. simp.
-    eapply multiset_singleton_mult in H7 as []; simp.
-    + eapply H2. rewrite H6 H10 //.
-    + eapply H1. rewrite H5 H8 //.
+    + intros ??. eapply H. apply melem_of_op; eauto.
+    + intros ??. eapply H. apply melem_of_op; eauto.
+  - intros ??. simp.
+    eapply melem_of_op in H0 as []; eauto.
 Qed.
 
 Lemma mset_forall_singleton {A:ofe} `{@LeibnizEquiv A (ofe_equiv A)} (P : A -> Prop) (a : A) :
   mset_forall P {[ a ]} <-> P a.
 Proof.
   split; intros H'.
-  - eapply (H' a ε). rewrite right_id //.
-  - intros ???. symmetry in H0. eapply multiset_singleton_mult' in H0 as []; simp.
+  - eapply H'. eapply melem_of_singleton.
+  - intros ??. eapply melem_of_singleton_inv in H0. simp.
 Qed.
 
 Record lockrelG' (order : list nat) (refcnt : nat) (xs : locksbundle) (ts : gmap nat type) (x : multiset labelO) : Prop := {
@@ -149,8 +185,8 @@ Global Instance mset_forall_Proper {A:ofe} : Proper (((≡) ==> iff) ==> (≡) =
 Proof.
   intros ??????.
   split.
-  { intros ????. eapply H; eauto. eapply H1. rewrite H0. done. }
-  { intros ????. eapply H; eauto. eapply H1. rewrite -H0. done. }
+  { intros ???. setoid_subst. eapply H; eauto. }
+  { intros ???. setoid_subst. eapply H; eauto. }
 Qed.
 
 Global Instance lockrelG_Proper refcnt xs :
@@ -819,18 +855,17 @@ Lemma extract_empty i x :
   extract i x = ε ->
   mset_forall (λ l, ∀ xs, l = LockLabel xs -> i ∉ xs.*1) x.
 Proof.
-  intros H?????. simp.
+  intros H?????. simp. destruct H0.
   inv H0. simp.
   unfold extract in H.
   destruct x; simpl in *. inv H.
-  intro HH.
-  eapply elem_of_list_fmap in HH. simp.
+  eapply elem_of_list_fmap in H2. simp.
   eapply (flat_map_permute (λ l : label,
   match l with
   | BarrierLabel _ _ _ => []
   | LockLabel xs => (filter (λ '(jj', _), H.1 = jj') xs).*2
   end)) in H0.
-  rewrite H2 in H0. simpl in H0.
+  rewrite H3 in H0. simpl in H0.
   eapply Permutation_nil in H0.
   eapply app_nil in H0. simp.
   eapply fmap_nil_inv in H1. clear H3 H2.
@@ -842,7 +877,7 @@ Qed.
 Lemma mset_forall_impl {A:ofe} (P Q : A -> Prop) x :
   mset_forall P x -> (∀ a, P a -> Q a) -> mset_forall Q x.
 Proof.
-  intros H1 H2 a x' Hx'.
+  intros H1 H2 ??.
   eapply H2. eapply H1. done.
 Qed.
 
@@ -850,7 +885,7 @@ Lemma mset_forall_and {A:ofe} (P Q : A -> Prop) x :
   mset_forall P x -> mset_forall Q x ->
   mset_forall (λ a, P a ∧ Q a) x.
 Proof.
-  intros H1 H2 a x' Hx'.
+  intros H1 H2 ??.
   split; [eapply H1|eapply H2]; eauto.
 Qed.
 
@@ -2185,9 +2220,10 @@ Done.
 Definition all_closed x := mset_forall (λ lab,
   ∃ ls, lab = LockLabel ls ∧ ∀ x, x ∈ ls -> x.2.1.2 = Closed) x.
 
+Definition all_closed1 (x : multiset labelO') := mset_forall (λ l:labelO', l.1.2 = Closed) x.
+
 Definition delcol (i : nat) (x : multiset labelO) : multiset labelO. Admitted.
 
-Definition melem_of {A:ofe} (a:A) (x:multiset A) := ∃ x', x ≡ {[ a ]} ⋅ x'.
 
 Lemma mset_empty_or_not {A:ofe} (x:multiset A) :
   x = ε ∨ ∃ a, melem_of a x.
@@ -2204,11 +2240,7 @@ Definition mset_exists {A:ofe} (P : A -> Prop) (x : multiset A) :=
 Lemma melem_of_forall {A:ofe} P (x:multiset A) a :
   mset_forall P x -> melem_of a x -> P a.
 Proof.
-  intros H1 H2.
-  unfold mset_forall in *.
-  destruct H2.
-  specialize (H1 _ _ H).
-  done.
+  eauto.
 Qed.
 
 Lemma lockrelG'_empty refcnt lcks t x :
@@ -2258,15 +2290,77 @@ Proof.
     congruence.
   }
   revert refcnt lcks t x H H0. induction order; intros.
-  - left. split; eauto using lockrelG'_empty.
-    admit.
-  -
+  {
+    left. split; eauto using lockrelG'_empty.
+    destruct refcnt; eauto. exfalso.
+    eapply H0. clear H0.
+    destruct H. unfold all_closed.
+    eapply mset_forall_impl; eauto.
+    simp. eexists; split; eauto. simp.
+    destruct x0. assert (n ∈ H0.*1). { eapply elem_of_fmap. eexists; split; eauto. done. }
+    eapply sublist_elem_of in H1; eauto.
+    set_solver.
+  }
       (* First, check if there is an opened in the first column, if so, we are done. *)
       (* Now the first column has only closed. *)
       (* Then there must be an opened in the remainder of the matrix, so IH applies. *)
       (* So IH gives us a row with acquire_progress and wait_progress and an opened in the row. *)
       (* Done. *)
 Admitted.
+
+Print extract1.
+
+Lemma melem_of_extract (a:labelO') l x :
+  melem_of a (extract l x) -> ∃ aa, melem_of (LockLabel aa) x ∧ melem_of a (extract1 l aa).
+Proof.
+Admitted.
+
+Lemma melem_of_list_to_multiset {A:ofe} a (xs : list A) :
+  melem_of a (list_to_multiset xs) -> a ∈ xs.
+Proof.
+Admitted.
+
+Lemma melem_of_extract1 xs a l :
+  melem_of a (extract1 l xs) -> (l,a) ∈ xs.
+Proof.
+  intros H.
+  apply melem_of_list_to_multiset in H.
+  unfold extract1 in *.
+  simpl in *.
+  eapply elem_of_list_fmap in H. simp.
+  eapply elem_of_list_filter in H2. simp.
+  destruct H0. simp.
+Qed.
+
+Lemma all_closed_extract x l :
+  all_closed x -> all_closed1 (extract l x).
+Proof.
+  unfold all_closed, all_closed1.
+  intros H a HH.
+  eapply melem_of_extract in HH. simp.
+  eapply melem_of_forall in H2; eauto. simp.
+  eapply melem_of_extract1 in H3; eauto.
+  specialize (H5 _ H3). simp.
+Qed.
+
+Lemma lockrel_all_closed1 x n o t :
+  all_closed1 x ->
+  lockrel n o t x ->
+  is_Some o.
+Proof.
+  intros H1 []. destruct o; eauto.
+  exfalso.
+  destruct lr_openedclosed; simp.
+  - unfold all_closed1 in *.
+    assert (melem_of ((Owner, Opened, t):labelO') x).
+    { eexists. rewrite -assoc in lr_split. eauto. }
+    eapply melem_of_forall in H; eauto. simp.
+  - setoid_subst.
+    rewrite comm in lr_split.
+    assert (melem_of ((Client, Opened, t):labelO') x).
+    { eexists. eauto. }
+    eapply melem_of_forall in H; eauto. simp.
+Qed.
 
 
 Lemma all_closed_acquire_progress order refcnt lcks t x ls :
@@ -2285,21 +2379,21 @@ Proof.
       eapply melem_of_forall in H3; eauto. simp.
       destruct l; simp.
       assert (n ∈ H0.*1).
-      { eapply elem_of_fmap. eexists. split; eauto. simp. }
+      { eapply elem_of_list_fmap. eexists. split; eauto. simp. }
       eapply sublist_elem_of in H4; eauto.
-      eapply elem_of_list_to_set in H4.
+      assert (n ∈ (list_to_set order : gset nat)).
+      { eapply elem_of_list_to_set. done. }
       assert (n ∈ dom lcks); eauto.
       { rewrite -order_dom0. done. }
-      eapply elem_of_dom in H3. done.
+      eapply elem_of_dom in H5. done.
     }
     specialize (lr_lockrel0 l.1).
     rewrite H0 in lr_lockrel0. destruct x0.
     destruct (t !! l.1); simp.
     destruct o; eauto.
     exfalso.
-    destruct lr_lockrel0.
-
-    admit.
+    eapply lockrel_all_closed1 in lr_lockrel0 as []; eauto using all_closed_extract.
+    done.
   }
   clear H3 H2 H1.
   induction ls; simpl; eauto.
@@ -2308,7 +2402,7 @@ Proof.
   - eapply IHls. intros. eapply H. eapply elem_of_cons. eauto.
   - edestruct H. { eapply elem_of_cons. left. done. }
     simp. eauto.
-Admitted.
+Qed.
 
 Lemma lockrel_nonempty n o t :
   ¬ lockrel n o t ε.
