@@ -55,7 +55,7 @@ Proof.
 Qed.
 
 
-Record lock_relM (refcnt : nat) (o : option val) (t : type) (x : multiset labelO) : Prop := {
+Record lockrel (refcnt : nat) (o : option val) (t : type) (x : multiset labelO) : Prop := {
   ls_owner : lockstate;
   x_closed : multiset labelO;
   x_opened : multiset labelO;
@@ -69,7 +69,7 @@ Record lock_relM (refcnt : nat) (o : option val) (t : type) (x : multiset labelO
   lr_refcount : Mlen x_closed + Mlen x_opened = refcnt;
 }.
 
-Global Instance lock_relM_Proper refcnt o t : Proper ((≡) ==> (≡)) (lock_relM refcnt o t).
+Global Instance lockrel_Proper refcnt o t : Proper ((≡) ==> (≡)) (lockrel refcnt o t).
 Proof.
   intros ???.
   split; intros []; econstructor; eauto.
@@ -77,8 +77,8 @@ Proof.
   - rewrite H //.
 Qed.
 
-Lemma lock_relM_newlock v t :
-  lock_relM 0 (Some v) t {[LockLabel (Owner, Closed) t]}.
+Lemma lockrel_newlock v t :
+  lockrel 0 (Some v) t {[LockLabel (Owner, Closed) t]}.
 Proof.
   eexists Closed ε ε; eauto.
   intros l x_closed' H.
@@ -96,8 +96,8 @@ Proof.
   eapply multiset_empty_neq_singleton in H as [].
 Qed.
 
-Lemma lock_relM_same_type refcnt o t t' l x :
-  lock_relM refcnt o t ({[LockLabel l t']} ⋅ x) -> t' = t.
+Lemma lockrel_same_type refcnt o t t' l x :
+  lockrel refcnt o t ({[LockLabel l t']} ⋅ x) -> t' = t.
 Proof.
   intros [].
   eapply mset_xsplit in lr_split. simp.
@@ -140,9 +140,9 @@ Proof.
       eapply multiset_singleton_mult' in H10. simp.
 Qed.
 
-Lemma lock_relM_drop refcnt o t x :
-  lock_relM (S refcnt) o t ({[LockLabel (Client, Closed) t]} ⋅ x) ->
-  lock_relM refcnt o t x.
+Lemma lockrel_drop refcnt o t x :
+  lockrel (S refcnt) o t ({[LockLabel (Client, Closed) t]} ⋅ x) ->
+  lockrel refcnt o t x.
 Proof.
   intros [].
   eapply mset_xsplit in lr_split. simp.
@@ -165,12 +165,12 @@ Proof.
 Qed.
 
 (* Version that assumes wlog that l2 <= l3 for some order. *)
-Lemma lock_relM_split' l l2 l3 refcnt o t x :
+Lemma lockrel_split' l l2 l3 refcnt o t x :
   ((l2.1 = Owner -> l3.1 = Owner) ∧
   (l2.1 = l3.1 -> l2.2 = Closed -> l3.2 = Closed)) ->
   lockcap_split l l2 l3 ->
-  lock_relM refcnt o t ({[LockLabel l t]} ⋅ x) ->
-  lock_relM (S refcnt) o t ({[LockLabel l3 t]} ⋅ {[LockLabel l2 t]} ⋅ x).
+  lockrel refcnt o t ({[LockLabel l t]} ⋅ x) ->
+  lockrel (S refcnt) o t ({[LockLabel l3 t]} ⋅ {[LockLabel l2 t]} ⋅ x).
 Proof.
   intros [HQ1 HQ2] Hsplit [].
   eapply mset_xsplit in lr_split; simp. setoid_subst.
@@ -266,27 +266,27 @@ Proof.
       }
 Qed.
 
-Lemma lock_relM_split l l2 l3 refcnt o t x :
+Lemma lockrel_split l l2 l3 refcnt o t x :
   lockcap_split l l2 l3 ->
-  lock_relM refcnt o t ({[LockLabel l t]} ⋅ x) ->
-  lock_relM (S refcnt) o t ({[LockLabel l3 t]} ⋅ {[LockLabel l2 t]} ⋅ x).
+  lockrel refcnt o t ({[LockLabel l t]} ⋅ x) ->
+  lockrel (S refcnt) o t ({[LockLabel l3 t]} ⋅ {[LockLabel l2 t]} ⋅ x).
 Proof.
   intros [H1 H2] H.
   destruct l,l2,l3. simpl in *.
   inv H1; inv H2;
   try solve [
-    eapply lock_relM_split'; last done; simpl;
+    eapply lockrel_split'; last done; simpl;
     [naive_solver | split; simpl; eauto using lockownership_split, lockstate_split]
   ]; rewrite Mpermute2;
   try solve [
-    eapply lock_relM_split'; last done; simpl;
+    eapply lockrel_split'; last done; simpl;
     [naive_solver | split; simpl; eauto using lockownership_split, lockstate_split]
   ].
 Qed.
 
-Lemma lock_relM_open_close refcnt v t lo x :
-  lock_relM refcnt (Some v) t ({[LockLabel (lo, Closed) t]} ⋅ x) <->
-  lock_relM refcnt None t ({[LockLabel (lo, Opened) t]} ⋅ x).
+Lemma lockrel_open_close refcnt v t lo x :
+  lockrel refcnt (Some v) t ({[LockLabel (lo, Closed) t]} ⋅ x) <->
+  lockrel refcnt None t ({[LockLabel (lo, Opened) t]} ⋅ x).
 Proof.
   split; intros [].
   {
@@ -358,8 +358,8 @@ Proof.
   }
 Qed.
 
-Lemma lock_relM_only_owner v t x :
-  lock_relM 0 (Some v) t ({[LockLabel (Owner, Closed) t]} ⋅ x) -> x = ε.
+Lemma lockrel_only_owner v t x :
+  lockrel 0 (Some v) t ({[LockLabel (Owner, Closed) t]} ⋅ x) -> x = ε.
 Proof.
   intros [].
   destruct lr_openedclosed. subst.
@@ -370,8 +370,8 @@ Proof.
   done.
 Qed.
 
-Lemma lock_relM_progress refcnt o t x :
-  lock_relM refcnt o t x -> ∃ l x',
+Lemma lockrel_progress refcnt o t x :
+  lockrel refcnt o t x -> ∃ l x',
     x ≡ {[ LockLabel l t ]} ⋅ x' ∧
     l = match o with
     | None => (l.1,Opened)
@@ -413,7 +413,7 @@ Definition linv (ρ : cfg) (v : nat) (in_l : multiset labelO) : rProp :=
       in_l ≡ {[ BarrierLabel false t1 t2 ]} ⋅
              {[ BarrierLabel false t2 t1 ]} ⌝⌝
   | Some (Lock refcnt o) => ∃ t,
-      ⌜⌜ lock_relM refcnt o t in_l ⌝⌝ ∗
+      ⌜⌜ lockrel refcnt o t in_l ⌝⌝ ∗
       match o with
       | Some v => vtyped v t
       | None => emp
@@ -558,7 +558,7 @@ Proof.
       iSplitL "Q".
       * iIntros "H". iSplit; first done.
         iApply "Q". simpl. eauto.
-      * iExists t'. iFrame. iPureIntro. eapply lock_relM_newlock.
+      * iExists t'. iFrame. iPureIntro. eapply lockrel_newlock.
   - eapply (inv_exchange_alloc i0 n j); last done; first apply _; first apply _.
     + done.
     + iIntros (? ? ?) "H". unfold linv. smap.
@@ -569,7 +569,7 @@ Proof.
       iDestr "H". simp. iDestruct "H" as "[H1 H2]". iDestr "H1". simp.
       iExists _. iFrame.
       iIntros (?) "H". iDestr "H".
-      assert (t'0 = t) as -> by eauto using lock_relM_same_type.
+      assert (t'0 = t) as -> by eauto using lockrel_same_type.
       iExists (LockLabel l3 t),(LockLabel l2 t).
       iSplitL "Q".
       {
@@ -578,7 +578,7 @@ Proof.
       }
       iSplitL "H".
       * iExists _. iFrame. iPureIntro.
-        by eapply lock_relM_split.
+        by eapply lockrel_split.
       * iIntros "H". eauto 10 with iFrame.
   - eapply (inv_exchange i0 n);
     last done; first apply _; first apply _.
@@ -587,14 +587,14 @@ Proof.
       iDestruct (replacement with "H") as (t) "[H Q]"; first done. simpl.
       iDestr "H". simp.
       iExists _. iFrame. iIntros (x) "H". iDestr "H".
-      assert (t'0 = t) as -> by eauto using lock_relM_same_type.
+      assert (t'0 = t) as -> by eauto using lockrel_same_type.
       iExists (LockLabel _ _).
       iSplitL "Q H".
       * iIntros "H'". iSplit; first done.
         iApply "Q". simpl. iExists _,_.
         iSplit; first done. iFrame. iExists _,_. eauto.
       * iExists t. iPureIntro. split; last done.
-        by eapply lock_relM_open_close.
+        by eapply lockrel_open_close.
   - eapply (inv_exchange i0 n);
     last done; first apply _; first apply _.
     + iIntros (? ? ?) "H". unfold linv. smap.
@@ -603,14 +603,14 @@ Proof.
       iDestr "H". simp. iDestruct "H" as "[H1 H2]".
       iDestr "H1". simp.
       iExists _. iFrame. iIntros (x) "H". iDestr "H".
-      assert (t'0 = t) as -> by eauto using lock_relM_same_type.
+      assert (t'0 = t) as -> by eauto using lockrel_same_type.
       iExists (LockLabel _ _).
       iSplitL "Q H".
       * iIntros "H'". iSplit; first done.
         iApply "Q". simpl. iExists _,_.
         iSplit; first done. iFrame.
       * iExists t. iFrame. iPureIntro.
-        by eapply lock_relM_open_close.
+        by eapply lockrel_open_close.
   - eapply (inv_dealloc i0 n);
     last done; first apply _; first apply _.
     + iIntros (? ? ?) "H". unfold linv. smap.
@@ -618,12 +618,12 @@ Proof.
       iDestruct (replacement with "H") as (t) "[H Q]"; first done. simpl.
       iDestr "H". simp.
       iExists _. iFrame. iIntros (x) "H". iDestr "H".
-      assert (t' = t) as -> by eauto using lock_relM_same_type.
+      assert (t' = t) as -> by eauto using lockrel_same_type.
       assert (ρf !! n = None) as -> by solve_map_disjoint.
       iSplit; first iSplit; first done.
       * iApply "Q". done.
       * iPureIntro. eapply multiset_unit_equiv_eq.
-        by eapply lock_relM_only_owner.
+        by eapply lockrel_only_owner.
   - eapply (inv_dealloc i0 n);
     last done; first apply _; first apply _.
     + iIntros (? ? ?) "H". unfold linv. smap.
@@ -631,11 +631,11 @@ Proof.
       iDestruct (replacement with "H") as (t) "[H Q]"; first done. simpl.
       iDestr "H". simp.
       iExists _. iFrame. iIntros (x) "H". iDestr "H".
-      assert (t'0 = t) as -> by eauto using lock_relM_same_type.
+      assert (t'0 = t) as -> by eauto using lockrel_same_type.
       iSplitL "Q".
       * iSplit; first done. iApply "Q". done.
       * iExists _. iSplit; last done.
-        iPureIntro. by eapply lock_relM_drop.
+        iPureIntro. by eapply lockrel_drop.
 Qed.
 
 
@@ -1068,7 +1068,7 @@ Proof.
     try intros ->; smap; intro; smap; destruct (ρ !! i) eqn:EE; rewrite EE; smap.
   - eapply exists_holds in Q as [t Q].
     eapply pure_sep_holds in Q as [Hrel Q].
-    eapply lock_relM_progress in Hrel as (lc & x' & Hinl & Hlc).
+    eapply lockrel_progress in Hrel as (lc & x' & Hinl & Hlc).
     eapply in_labels_out_edges in Hinl as  [j Hj].
     destruct (classic (blocked ρ j i)) as [HB|HB]; last first.
     {
