@@ -2212,10 +2212,6 @@ So IH gives us a row with acquire_progress and wait_progress and an opened in th
 Done.
 
 *)
-(*
-1. Keep track of index i into lock order, and do some kind of induction on that
-2. Do induction on lock order list directly
-*)
 
 Definition all_closed x := mset_forall (λ lab,
   ∃ ls, lab = LockLabel ls ∧ ∀ x, x ∈ ls -> x.2.1.2 = Closed) x.
@@ -2344,11 +2340,13 @@ Proof.
     rewrite mset_fmap_op mset_fmap_singleton //.
 Qed.
 
+Definition delcol1 i l :=  match l with
+  | LockLabel ls => LockLabel (filter (λ '(jj,_), jj ≠ i) ls)
+  | a => a
+  end.
+
 Definition delcol (i : nat) (x : multiset labelO) : multiset labelO :=
-  mset_fmap (λ l, match l with
-    | LockLabel ls => LockLabel (filter (λ '(jj,_), jj ≠ i) ls)
-    | a => a
-    end) x.
+  mset_fmap (delcol1 i) x.
 
 Global Instance delcol_Proper i : Proper ((≡) ==> (≡)) (delcol i).
 Proof. solve_proper. Qed.
@@ -2422,6 +2420,14 @@ Lemma elem_of_multiset_car {A:ofe} (a:A) x :
 Proof.
   intros H.
   apply melem_of_list_to_multiset'. simp.
+Qed.
+
+Lemma melem_of_delcol (a:labelO) l x :
+  melem_of a (delcol l x) -> ∃ aa, a = delcol1 l aa ∧ melem_of aa x.
+Proof.
+  intros H.
+  eapply melem_of_fmap in H; last apply _.
+  simp.
 Qed.
 
 Lemma melem_of_extract (a:labelO') l x :
@@ -2660,6 +2666,108 @@ Proof.
   eapply H4 in H3. simp.
 Qed.
 
+Definition has_open (x : multiset labelO') : Prop :=
+  ∃ lo t, melem_of (((lo, Opened),t):labelO') x.
+
+Lemma acquire_progress_extend a lcks ls rc v :
+  acquire_progress (delete a lcks) (filter (λ '(jj, _), jj ≠ a) ls) ->
+  lcks !! a = Some (rc, Some v) ->
+  acquire_progress lcks ls.
+Proof.
+  induction ls; simp.
+  destruct a0. destruct p. destruct l. destruct l0; simp.
+  rewrite filter_cons in H. case_decide; simp.
+  - split; eauto. revert H5. smap.
+  - split; eauto.
+Qed.
+
+Lemma lookup_zip {A B} (xs:list A) (ys:list B) i :
+  zip xs ys !! i = match xs !! i, ys !! i with
+                   | Some a, Some b => Some (a,b)
+                   | _,_ => None
+                   end.
+Proof.
+  revert xs ys. induction i; intros [] []; simpl; eauto.
+  destruct (l!!i); done.
+Qed.
+
+Ltac existss := eexists; split; eauto.
+
+Lemma not_has_open_mset_forall a x :
+  ¬ has_open (extract a x) ->
+  mset_forall (λ l, ∀ ls, l = LockLabel ls -> ∀ aa, aa ∈ ls -> aa.1 = a -> aa.2.1.2 = Closed) x.
+Proof.
+  intros ??[]. intros. simp.
+  destruct aa. destruct p. destruct p. simp. destruct l0; simp.
+  exfalso. eapply H. unfold has_open.
+  exists l, t. unfold melem_of.
+  eapply elem_of_list_lookup in H2. simp.
+  exists (extract n x0 ⋅ extract1 n (delete H1 ls)).
+  rewrite H0. rewrite extract_op extract_singleton //.
+  revert H3.
+  assert (ls = zip (ls.*1) (ls.*2)) as ->.
+  {
+    clear H x0 H0 H1 l t n x.
+    induction ls; simp. destruct a; simp. f_equal. eauto.
+  }
+  intros.
+  rewrite lookup_zip in H3.
+  destruct (ls.*1 !! H1) eqn:EE; simp.
+  destruct (ls.*2 !! H1) eqn:FF; simp; last first.
+  { rewrite FF in H3. simp. }
+  rewrite FF in H3. simp.
+  rewrite extract1_Some //. rewrite -!assoc. f_equiv.
+  rewrite comm. f_equiv.
+  Search zip delete.
+  f_equiv. clear EE FF H0 H x0.
+  revert H1. induction ls; intros []; simp.
+  f_equal. rewrite IHls. done.
+Qed.
+
+Lemma all_closed_has_open x a :
+  ¬ all_closed x ->
+  ¬ has_open (extract a x) ->
+  ¬ all_closed (delcol a x).
+Proof.
+  intros ???.
+  eapply H. unfold all_closed.
+  unfold all_closed in H1.
+  unfold delcol in H1.
+  eapply mset_forall_fmap in H1; last apply _; last apply _.
+  eapply not_has_open_mset_forall in H0.
+  eapply mset_forall_and in H0; eauto. clear H1.
+  eapply mset_forall_impl; eauto.
+  simp. destruct a0; simp.
+  existss. simp. destruct x0. destruct p. simp. destruct p; simp.
+  destruct (decide (n = a)); simp.
+  - edestruct H3; eauto.
+  - apply (H5 (n, (l, l0, t))).
+    eapply elem_of_list_filter. split; eauto.
+Qed.
+
+Lemma not_has_open_lockrelG' a order refcnt t x lcks :
+  lockrelG' (a :: order) refcnt lcks t x ->
+  ¬ has_open (extract a x) ->
+  ∃ (rc : vertex) (v : val), lcks !! a = Some (rc, Some v).
+Proof.
+  intros.
+  (* eapply not_has_open_mset_forall in H0. *)
+  destruct H.
+  rewrite list_to_set_cons in order_dom0.
+  assert (a ∈ dom lcks) by set_solver.
+  eapply elem_of_dom in H as [].
+  specialize (lr_lockrel0 a).
+  rewrite H in lr_lockrel0. destruct x0.
+  destruct (t !! a); simp.
+  destruct o; eauto.
+  destruct lr_lockrel0.
+  exfalso. eapply H0. unfold has_open.
+  destruct lr_openedclosed; simp.
+  - do 3 eexists. rewrite -assoc in lr_split. eauto.
+  - setoid_subst. rewrite comm in lr_split.
+    do 3 eexists. eauto.
+Qed.
+
 Lemma lockrelG_open_progress order refcnt lcks t x :
   lockrelG' order refcnt lcks t x ->
   ¬ all_closed x ->
@@ -2691,16 +2799,52 @@ Proof.
     destruct H. unfold all_closed.
     eapply mset_forall_impl; eauto.
     simp. eexists; split; eauto. simp.
-    destruct x0. assert (n ∈ H0.*1). { eapply elem_of_fmap. eexists; split; eauto. done. }
+    destruct x0. assert (n ∈ H0.*1). { eapply elem_of_list_fmap. eexists; split; eauto. done. }
     eapply sublist_elem_of in H1; eauto.
     set_solver.
   }
-      (* First, check if there is an opened in the first column, if so, we are done. *)
-      (* Now the first column has only closed. *)
-      (* Then there must be an opened in the remainder of the matrix, so IH applies. *)
-      (* So IH gives us a row with acquire_progress and wait_progress and an opened in the row. *)
-      (* Done. *)
-Admitted.
+  destruct (classic (has_open (extract a x))) as [HO|HNO].
+  - destruct HO. simp.
+    apply melem_of_extract in H3. simp.
+    assert (∃ H1', H1 = (a, ((x0, Opened), H2))::H1').
+    {
+      apply melem_of_extract1 in H5.
+      destruct H.
+      eapply order_subsequences0 in H3. simp.
+      destruct H; simp; first set_solver.
+      eapply elem_of_cons in H5 as []; simp; eauto.
+      assert (a ∈ H.*1).
+      { apply elem_of_list_fmap; eauto.
+        eexists; split; eauto. simp. }
+      eapply NoDup_cons in order_NoDup0. simp.
+      assert(H.*1 `sublist_of` order).
+      {
+        inv H6; eauto.
+        eapply sublist_cons_l in H9. simp.
+        eapply sublist_inserts_l.
+        econstructor. done.
+      }
+      eapply sublist_elem_of in H7; eauto. set_solver.
+    }
+    simp. right.
+    eexists. split; first done.
+    split; first done.
+    eexists. rewrite elem_of_cons. eauto.
+  - assert (¬ all_closed (delcol a x)); eauto using all_closed_has_open.
+    eapply IHorder in H1; eauto using lock_relG'_del.
+    destruct H1; simp.
+    { apply lockrelG'_refcnt_0 in H. simp. }
+    eapply melem_of_delcol in H1. simp.
+    right. destruct H6; simp. eexists. split; eauto.
+    destruct H4. simp. destruct p. simp. destruct p. simp.
+    eapply elem_of_list_filter in H5. simp.
+    split; eauto.
+    assert (∃ rc v, lcks !! a = Some(rc, Some v)); simp.
+    {
+      eauto using not_has_open_lockrelG'.
+    }
+    eapply acquire_progress_extend; eauto.
+Qed.
 
 Lemma lockrelG_progress refcnt lcks t x :
   lockrelG refcnt lcks t x ->
@@ -2731,7 +2875,7 @@ Proof.
         simp.
         apply melem_of_fmap in H1; last apply _.
         simp. destruct H3; simp.
-        
+
         eapply Hx in H6. simp.
 
         destruct b; simp.
@@ -2847,16 +2991,6 @@ Proof.
   rewrite -assoc in lr_lockrel0.
   eapply lockrel_Opened in lr_lockrel0. simp.
   eauto.
-Qed.
-
-Lemma lookup_zip {A B} (xs:list A) (ys:list B) i :
-  zip xs ys !! i = match xs !! i, ys !! i with
-                   | Some a, Some b => Some (a,b)
-                   | _,_ => None
-                   end.
-Proof.
-  revert xs ys. induction i; intros [] []; simpl; eauto.
-  destruct (l!!i); done.
 Qed.
 
 Lemma full_reachability ρ :
