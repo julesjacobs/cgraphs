@@ -1658,7 +1658,6 @@ Proof.
         * iExists (<[ jj := t' ]> ts).
           iSplit.
           ** iPureIntro.
-              About lockrelG_NewLock.
              eapply lockrelG_NewLock; eauto.
           ** rewrite big_sepM2_insert; simpl; eauto.
              eapply lockrelG_same_dom_empty; eauto.
@@ -2034,7 +2033,6 @@ Proof.
     eapply holds_entails; first done.
     iIntros "H".
     iApply big_sepM2_own_dom.
-    Search big_sepM2.
     iApply (big_sepM2_impl with "H").
     iModIntro. iIntros (?????) "H".
     destruct x1. simpl. destruct o; simpl.
@@ -2718,7 +2716,6 @@ Proof.
   rewrite FF in H3. simp.
   rewrite extract1_Some //. rewrite -!assoc. f_equiv.
   rewrite comm. f_equiv.
-  Search zip delete.
   f_equiv. clear EE FF H0 H x0.
   revert H1. induction ls; intros []; simp.
   f_equal. rewrite IHls. done.
@@ -2846,6 +2843,155 @@ Proof.
     eapply acquire_progress_extend; eauto.
 Qed.
 
+Lemma not_mset_exists_forall {A:ofe} (P : A -> Prop) x :
+  (¬ mset_exists P x) -> mset_forall (not ∘ P) x.
+Proof.
+  intros ????. eapply H. eexists. split; eauto.
+Qed.
+
+Lemma wait_progress_someval a lcks ls v :
+  wait_progress0 (delete a lcks) (filter (λ '(jj, _), jj ≠ a) ls) ->
+  lcks !! a = Some (0, Some v) ->
+  wait_progress0 lcks ls.
+Proof.
+  induction ls; simp. destruct a0. destruct p. destruct l.
+  destruct l; simp. destruct l0; simp.
+  destruct (decide (a = n)); simp; eauto.
+  - split; eauto. eapply IHls; eauto.
+    rewrite filter_cons in H. smap.
+  - rewrite filter_cons in H. smap. revert H4. smap.
+Qed.
+
+Lemma sublist_cons' {A} (a : A) xs b ys :
+  a :: xs `sublist_of` b :: ys -> xs `sublist_of` ys.
+Proof.
+  intros H. inv H; eauto.
+  eapply sublist_cons_l in H2. simp.
+  eapply sublist_inserts_l, sublist_cons. done.
+Qed.
+
+Lemma melem_of_extract' a (l : labelO') ls x :
+  melem_of (LockLabel ((a,l)::ls)) x ->
+  melem_of l (extract a x).
+Proof.
+  intros []. rewrite H. rewrite extract_op extract_singleton.
+  rewrite extract1_cons. smap. rewrite -assoc.
+  eapply melem_of_op_singleton.
+Qed.
+
+Lemma wait_progress_extend a order refcnt t lcks x ls :
+  lockrelG' (a :: order) refcnt lcks t x ->
+  can_progress refcnt (delete a lcks) (filter (λ '(jj, _), jj ≠ a) ls) ->
+  ¬ mset_exists
+         (λ l : labelO,
+            ∃ (ls : list (vertex * (lockcap * type))) (y : lockcap * type),
+              l = LockLabel ((a, y) :: ls) ∧ y.1.1 = Client) x ->
+  melem_of (LockLabel ls) x ->
+  wait_progress lcks ls.
+Proof.
+  intros. destruct H0. clear cp_acquire0. intros HW.
+  destruct ls; simp.
+  destruct p. destruct p. destruct l.
+  destruct l; simp. destruct l0; simp.
+  destruct H. rewrite list_to_set_cons in order_dom0.
+  assert (a ∈ dom lcks) by set_solver.
+  apply elem_of_dom in H as []. destruct x0.
+  specialize (lr_lockrel0 a).
+  rewrite H in lr_lockrel0. destruct (t!!a); simp.
+  unfold wait_progress in *.
+  assert (wait_progress0 (delete a lcks)
+    (filter (λ '(jj, _), jj ≠ a) ((n, (Owner, Closed, t0)) :: ls))).
+  {
+    eapply cp_wait0. intros.
+    eapply elem_of_list_filter in H0. destruct x0; simp.
+    eapply elem_of_cons in H4 as []; simp.
+    specialize (HW (n1,p)).
+    simp. destruct p. destruct p; simp.
+    destruct l0; simp.
+    eapply HW. eapply elem_of_cons; eauto.
+  }
+  clear cp_wait0.
+  rewrite filter_cons in H0. case_decide; simp.
+  - (* First one is not that one *)
+    revert H6; smap.
+    eapply order_subsequences0 in H2. simp. split; eauto.
+    inv H9.
+    assert (a ∉ ls.*1). {
+      eapply NoDup_cons in order_NoDup0. simp.
+      apply sublist_cons_l in H8. simp.
+      intro.
+      eapply sublist_elem_of in H12; eauto. apply H2.
+      set_solver.
+    }
+    revert H2 H4. clear. intros.
+    induction ls; simp. destruct a0,p,l,l; simp.
+    destruct l0; simp.
+    eapply not_elem_of_cons in H2; simp.
+    rewrite filter_cons in H4. smap.
+    revert H5. smap.
+  - (* First one is that one *)
+    assert (n0 = 0 ∧ is_Some o) as [-> [? ->]].
+    {
+      destruct lr_lockrel0.
+      eapply not_mset_exists_forall in H1.
+      eapply mset_forall_and in H1; last exact order_subsequences0. clear order_subsequences0.
+      destruct o.
+      - destruct n0; eauto. exfalso.
+        simp. rewrite right_id in lr_split.
+        destruct (mset_empty_or_not x_closed); simp.
+        destruct H5. setoid_subst.
+        assert (H4 = (Client, Closed, t1)); eauto. simp.
+        rewrite comm -assoc in lr_split.
+        edestruct melem_of_extract.
+        { eexists. eauto. }
+        simp.
+        eapply melem_of_extract1 in H5.
+        eapply H1 in H4. simp.
+        eapply H6.
+        eapply elem_of_list_lookup in H5. simp.
+        destruct H4; simp.
+        destruct H3; simp; eauto.
+        eapply NoDup_cons in order_NoDup0. simp.
+        exfalso. eapply H5.
+        eapply sublist_cons' in H8.
+        eapply sublist_elem_of; first done.
+        eapply elem_of_list_fmap.
+        eapply elem_of_list_lookup_2 in H7.
+        eexists; split; last done. done.
+      - exfalso.
+        destruct lr_openedclosed; simp.
+        + (* Now we have both a closed and opened owner. *)
+          rewrite right_id in lr_split.
+          eapply melem_of_extract' in H2 as [].
+          rewrite lr_split in H2.
+          eapply mset_xsplit in H2. simp.
+          setoid_subst.
+          eapply multiset_singleton_mult in H8 as []; simp; setoid_subst.
+          * rewrite left_id in H6. setoid_subst.
+            assert ((Owner, Closed, t0) = (Client, Closed, t1)); simp; eauto.
+          * symmetry in H6. eapply multiset_singleton_mult' in H6. simp.
+        + setoid_subst. rewrite comm in lr_split.
+          edestruct melem_of_extract.
+          { eexists. eauto. }
+          simp.
+          eapply melem_of_extract1 in H5.
+          eapply H1 in H4. simp.
+          eapply H6.
+          eapply elem_of_list_lookup in H5. simp.
+          destruct H4; simp.
+          destruct H3; simp; eauto.
+          eapply NoDup_cons in order_NoDup0. simp.
+          exfalso. eapply H5.
+          eapply sublist_cons' in H8.
+          eapply sublist_elem_of; first done.
+          eapply elem_of_list_fmap.
+          eapply elem_of_list_lookup_2 in H7.
+          eexists; split; last done. done.
+    }
+    split; eauto.
+    eauto using wait_progress_someval.
+Qed.
+
 Lemma lockrelG_progress refcnt lcks t x :
   lockrelG refcnt lcks t x ->
   (refcnt=0 ∧ lcks=∅) ∨ ∃ ls,
@@ -2875,17 +3021,14 @@ Proof.
         simp.
         apply melem_of_fmap in H1; last apply _.
         simp. destruct H3; simp.
-
-        eapply Hx in H6. simp.
-
-        destruct b; simp.
-        admit.
+        eexists. split; first done.
+        split; eauto using all_closed_acquire_progress, wait_progress_extend.
   }
   {
     eapply lockrelG_open_progress in H; eauto.
     naive_solver.
   }
-Admitted.
+Qed.
 
 Lemma lockrelG_refcount refcnt lcks t l x :
   lockrelG refcnt lcks t ({[ l ]} ⋅ x) -> refcnt > 0.
@@ -3187,7 +3330,7 @@ Proof.
       - intro. smap. destruct (_!!i0); try done.
       - solve_map_disjoint.
     }
-    destruct HH as (ls&x'&Hinl&Hprog).
+    destruct HH as (ls&[x' Hinl]&Hprog).
     assert (Hinl' := Hinl).
     eapply in_labels_out_edges in Hinl' as  [j Hj].
     destruct (classic (blocked ρ j i)) as [HB|HB]; last first.
