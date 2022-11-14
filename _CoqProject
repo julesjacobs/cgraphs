@@ -51,18 +51,18 @@ theories/cgraphs/genericinv.v
 # theories/lambdabar/letmacro.v
 # theories/lambdabar/compiler.v
 
-theories/locks/lambdalock/langtools.v
-theories/locks/lambdalock/langdef.v
-theories/locks/lambdalock/definitions.v
-theories/locks/lambdalock/rtypesystem.v
-theories/locks/lambdalock/invariant.v
-theories/locks/lambdalock/theorems.v
-theories/locks/lambdalock/letmacro.v
-
-theories/locks/lambdalockpp/langtools.v
-theories/locks/lambdalockpp/langdef.v
-theories/locks/lambdalockpp/definitions.v
-theories/locks/lambdalockpp/rtypesystem.v
-theories/locks/lambdalockpp/invariant.v
-theories/locks/lambdalockpp/theorems.v
-theories/locks/lambdalockpp/letmacro.v
+# theories/locks/lambdalock/langtools.v
+# theories/locks/lambdalock/langdef.v
+# theories/locks/lambdalock/definitions.v
+# theories/locks/lambdalock/rtypesystem.v
+# theories/locks/lambdalock/invariant.v
+# theories/locks/lambdalock/theorems.v
+# theories/locks/lambdalock/letmacro.v
+#
+# theories/locks/lambdalockpp/langtools.v
+# theories/locks/lambdalockpp/langdef.v
+# theories/locks/lambdalockpp/definitions.v
+# theories/locks/lambdalockpp/rtypesystem.v
+# theories/locks/lambdalockpp/invariant.v
+# theories/locks/lambdalockpp/theorems.v
+# theories/locks/lambdalockpp/letmacro.v
