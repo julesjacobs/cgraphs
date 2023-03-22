@@ -1,7 +1,6 @@
 From iris.algebra Require Export cmra.
 From iris.bi Require Import notation.
 
-
 Record uPred (M : ucmra) : Type := UPred {
   uPred_holds :> M → Prop;
   uPred_proper : Proper ((≡) ==> iff) uPred_holds
